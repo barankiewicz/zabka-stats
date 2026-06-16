@@ -93,19 +93,22 @@ def init_db():
             )
         """)
 
-        # History table (immutable audit log)
+        # History table (born/dying log). Zasilane diffem store_id miedzy snapshotami.
+        # Bez FK na location_id/snapshot_id: retencja kasuje stare snapshoty/lokalizacje,
+        # a wymuszony FK by sie na tym wywalal. source_date + store_id zdenormalizowane,
+        # zeby trendy (created/deleted per miesiac) liczyly sie bez JOIN-ow.
         client.execute("""
             CREATE TABLE histories (
                 id INTEGER PRIMARY KEY DEFAULT nextval('seq_histories'),
-                location_id INTEGER NOT NULL,
+                location_id INTEGER,
                 snapshot_id INTEGER,
+                source_date DATE,
+                store_id VARCHAR,
                 change_type VARCHAR NOT NULL,
                 field_changed VARCHAR,
                 old_value VARCHAR,
                 new_value VARCHAR,
-                recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (location_id) REFERENCES locations(id),
-                FOREIGN KEY (snapshot_id) REFERENCES snapshots(id)
+                recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
 
@@ -118,6 +121,8 @@ def init_db():
         client.execute("CREATE INDEX idx_locations_store_id ON locations(store_id)")
         client.execute("CREATE INDEX idx_histories_location_id ON histories(location_id)")
         client.execute("CREATE INDEX idx_histories_snapshot_id ON histories(snapshot_id)")
+        client.execute("CREATE INDEX idx_histories_source_date ON histories(source_date)")
+        client.execute("CREATE INDEX idx_histories_change_type ON histories(change_type)")
         client.execute("CREATE INDEX idx_snapshots_source_date ON snapshots(source_date)")
 
         print(" DuckDB schema created!")
@@ -141,6 +146,7 @@ def ensure_extra_tables(con):
     con.execute("""
         CREATE TABLE IF NOT EXISTS parcel_lockers (
             id INTEGER PRIMARY KEY,
+            snapshot_id INTEGER,
             source_date DATE,
             operator VARCHAR,
             external_id VARCHAR,

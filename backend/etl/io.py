@@ -296,8 +296,10 @@ def load_to_duckdb(con, rows: list, meta: dict):
     visible = sum(1 for r in rows if r.get("is_visible"))
     towns = len({r.get("city") for r in rows if r.get("city")})
 
+    # idempotentny re-run dla tej samej daty: czyscimy snapshot, jego lokalizacje i historie
     con.execute("DELETE FROM locations WHERE snapshot_id IN "
                 "(SELECT id FROM snapshots WHERE source_date = ?)", [src_date])
+    con.execute("DELETE FROM histories WHERE source_date = ?", [src_date])
     con.execute("DELETE FROM snapshots WHERE source_date = ?", [src_date])
     sid = con.execute("SELECT COALESCE(MAX(id),0)+1 FROM snapshots").fetchone()[0]
     con.execute("""INSERT INTO snapshots
@@ -334,8 +336,47 @@ def load_to_duckdb(con, rows: list, meta: dict):
          amphibian_occurrences_5km, nearest_amphibian_km,
          voivodeship_id, powiat_id)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", payload)
+    record_history(con, sid, src_date)
     print(f"[load] snapshot {sid} ({src_date}): {total:,} sklepow zapisanych")
     return sid
+
+
+def record_history(con, sid: int, src_date: str):
+    """Zapisz narodziny/zgony Żabek: diff store_id miedzy biezacym snapshotem a
+    poprzednim. created = store_id w nowym, nie ma w poprzednim; deleted = odwrotnie.
+    Dodatkowo znacznik deleted_at na wierszu znikajacego sklepu w poprzednim snapshocie.
+    Pierwszy snapshot (brak poprzedniego) nie generuje historii - to baza, nie zmiana."""
+    prev = con.execute("SELECT id FROM snapshots WHERE source_date < ? "
+                       "ORDER BY source_date DESC LIMIT 1", [src_date]).fetchone()
+    if not prev:
+        print("[history] pierwszy snapshot - brak diffu (baza)")
+        return
+    prev_sid = prev[0]
+    # narodziny: sklepy obecne dzis, nieobecne w poprzednim
+    con.execute("""
+        INSERT INTO histories (location_id, snapshot_id, source_date, store_id, change_type, recorded_at)
+        SELECT l.id, ?, ?, l.store_id, 'created', now()
+        FROM locations l
+        WHERE l.snapshot_id = ?
+          AND l.store_id NOT IN (SELECT store_id FROM locations WHERE snapshot_id = ?)
+    """, [sid, src_date, sid, prev_sid])
+    # zgony: sklepy z poprzedniego, nieobecne dzis (location_id wskazuje wiersz z prev)
+    con.execute("""
+        INSERT INTO histories (location_id, snapshot_id, source_date, store_id, change_type, recorded_at)
+        SELECT lp.id, ?, ?, lp.store_id, 'deleted', now()
+        FROM locations lp
+        WHERE lp.snapshot_id = ?
+          AND lp.store_id NOT IN (SELECT store_id FROM locations WHERE snapshot_id = ?)
+    """, [sid, src_date, prev_sid, sid])
+    # soft-delete: oznacz znikajace sklepy w poprzednim snapshocie data biezaca
+    con.execute("""
+        UPDATE locations SET deleted_at = now()
+        WHERE snapshot_id = ?
+          AND store_id NOT IN (SELECT store_id FROM locations WHERE snapshot_id = ?)
+    """, [prev_sid, sid])
+    born = con.execute("SELECT count(*) FROM histories WHERE snapshot_id=? AND change_type='created'", [sid]).fetchone()[0]
+    died = con.execute("SELECT count(*) FROM histories WHERE snapshot_id=? AND change_type='deleted'", [sid]).fetchone()[0]
+    print(f"[history] narodziny: {born}, zgony: {died} (vs snapshot {prev_sid})")
 
 
 # ---------------------------------------------------------------------------
@@ -372,24 +413,44 @@ def reload_cache():
 # ---------------------------------------------------------------------------
 # LOAD: paczkomaty (osobna encja) + wymiary geograficzne
 # ---------------------------------------------------------------------------
-def load_parcel_lockers(con, lockers: list, src_date: str):
-    """Zapisz paczkomaty jako stan najnowszy (replace calej tabeli)."""
+def load_parcel_lockers(con, lockers: list, sid: int, src_date: str):
+    """Zapisz paczkomaty otagowane snapshot_id (jak Żabki) - per dzien, do trendow.
+    Idempotentnie czysci paczkomaty tej daty przed wstawieniem."""
     from backend.database_ch import ensure_extra_tables
     ensure_extra_tables(con)
-    con.execute("DELETE FROM parcel_lockers")
+    con.execute("DELETE FROM parcel_lockers WHERE source_date = ?", [src_date])
     if not lockers:
-        print("[paczkomaty] brak danych - tabela pusta")
+        print("[paczkomaty] brak danych")
         return
-    payload = [(i + 1, src_date, L.get("operator"), L.get("external_id"),
+    base = con.execute("SELECT COALESCE(MAX(id),0) FROM parcel_lockers").fetchone()[0]
+    payload = [(base + i + 1, sid, src_date, L.get("operator"), L.get("external_id"),
                 L.get("type"), L.get("city"), L.get("voivodeship"), L.get("powiat"),
                 L.get("voivodeship_id"), L.get("powiat_id"),
                 L.get("latitude"), L.get("longitude"), L.get("status"))
                for i, L in enumerate(lockers)]
     con.executemany("""INSERT INTO parcel_lockers
-        (id, source_date, operator, external_id, type, city, voivodeship, powiat,
+        (id, snapshot_id, source_date, operator, external_id, type, city, voivodeship, powiat,
          voivodeship_id, powiat_id, latitude, longitude, status)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""", payload)
-    print(f"[paczkomaty] zapisano {len(payload):,} punktow")
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", payload)
+    print(f"[paczkomaty] zapisano {len(payload):,} punktow (snapshot {sid})")
+
+
+def enforce_retention(con, src_date: str, months: int = 6):
+    """Rolling window: trzymaj tylko ostatnie `months` miesiecy. Usun ogon -
+    snapshoty (i ich lokalizacje, historie, paczkomaty) starsze niz prog."""
+    from dateutil.relativedelta import relativedelta
+    cutoff = (date.fromisoformat(str(src_date)) - relativedelta(months=months)).isoformat()
+    old = con.execute("SELECT id FROM snapshots WHERE source_date < ?", [cutoff]).fetchall()
+    if not old:
+        print(f"[retencja] okno {months} mies. (prog {cutoff}) - nic do usuniecia")
+        return
+    ids = [o[0] for o in old]
+    ph = ",".join("?" * len(ids))
+    con.execute(f"DELETE FROM locations WHERE snapshot_id IN ({ph})", ids)
+    con.execute(f"DELETE FROM parcel_lockers WHERE snapshot_id IN ({ph})", ids)
+    con.execute("DELETE FROM histories WHERE source_date < ?", [cutoff])
+    con.execute("DELETE FROM snapshots WHERE source_date < ?", [cutoff])
+    print(f"[retencja] usunieto {len(ids)} snapshotow starszych niz {cutoff} (okno {months} mies.)")
 
 
 def load_dimensions(con, dim_powiat: list, dim_voivodeship: list):

@@ -256,7 +256,7 @@ DuckDB `data/zabka.duckdb` contains:
 
 - **snapshots** - snapshots with metadata (total, visible, towns, etc.)
 - **locations** - locations (name, city, voivodeship, street, lat, lon, flags)
-- **histories** - full change history (created/deleted/updated/restored)
+- **histories** - store births and deaths (created/deleted per snapshot)
 
 Locations support soft delete via the `deleted_at` timestamp.
 
@@ -477,11 +477,18 @@ The flow (`python -m backend.daily_etl`, orchestrated in
    Poland farthest from any Żabka, the loner (most isolated Żabka), and the most
    froggy Żabka.
 7. **Load** - write the snapshot + locations + parcel lockers + dimensions +
-   fun_facts to DuckDB (column migration `ADD COLUMN IF NOT EXISTS`).
-8. **Cache** - clear Redis; the backend rebuilds on the next query.
+   fun_facts to DuckDB (column migration `ADD COLUMN IF NOT EXISTS`). Loading the
+   stores also diffs against the previous snapshot to record births/deaths in
+   `histories` and stamp `deleted_at` on closed stores.
+8. **Retention** - rolling 6-month window: snapshots older than 6 months (and their
+   locations, parcel lockers, histories) are dropped. Daily this means head in,
+   tail out.
+9. **Cache** - clear Redis; the backend rebuilds on the next query.
 
-Soft delete (`deleted_at`) preserves history between snapshots; queries filter
-`deleted_at IS NULL` by default.
+The database keeps the last 6 months of daily snapshots. Birth/death trends come
+from `histories` (created/deleted per month); totals and regional trends from the
+per-snapshot `locations` and `parcel_lockers`. Soft delete (`deleted_at`) marks the
+date a store was last seen; queries filter `deleted_at IS NULL` by default.
 
 CLI flags: `--no-geocode`, `--limit N`, `--skip-gios`, `--skip-parks`,
 `--skip-gus`, `--skip-amphibians`, `--skip-paczkomaty`, `--elevation` (opt-in,
@@ -577,30 +584,43 @@ the stable geographic link and the live endpoint fetches fresh readings.
 | towns | INTEGER | ETL | distinct `city` count |
 | created_at | TIMESTAMP | ETL | snapshot creation time |
 
-### Table `histories` (per-store change audit)
+### Table `histories` (store births and deaths)
+
+Change log driven by diffing `store_id` sets between consecutive snapshots: on each
+run, store_ids present today but not in the previous snapshot are recorded as
+`created` (a store opened), store_ids gone from the previous snapshot as `deleted`
+(a store closed). `source_date` and `store_id` are denormalized so birth/death
+trends (created/deleted per month) need no joins. No foreign keys here: retention
+deletes old snapshots and their locations, and an enforced FK would block that.
+The first snapshot writes no history (it is the baseline, not a change).
 
 | Column | Type | Origin | Rule |
 |---|---|---|---|
-| id | INTEGER | ETL | primary key |
-| location_id | INTEGER | ETL | FK -> `locations.id` |
-| snapshot_id | INTEGER | ETL | FK -> `snapshots.id` |
-| change_type | VARCHAR | ETL | created / deleted / updated / restored |
-| field_changed | VARCHAR | ETL | name of the changed field (for updates) |
-| old_value | VARCHAR | ETL | previous value |
-| new_value | VARCHAR | ETL | new value |
+| id | INTEGER (PK) | ETL | primary key |
+| location_id | INTEGER | ETL | the store's row id (in the new snapshot for `created`, the previous one for `deleted`) |
+| snapshot_id | INTEGER | ETL | snapshot where the change was detected |
+| source_date | DATE | ETL | date of that snapshot (denormalized for grouping) |
+| store_id | VARCHAR | ETL | which store opened/closed |
+| change_type | VARCHAR | ETL | `created` (born) / `deleted` (died) |
+| field_changed / old_value / new_value | VARCHAR | ETL | reserved for future `updated` events (attribute changes) |
 | recorded_at | TIMESTAMP | ETL | when the change was recorded |
 
-### Table `parcel_lockers` (InPost parcel lockers - separate fact entity, latest state)
+`deleted_at` on `locations`: when a store disappears, its row in the previous
+snapshot is stamped with `deleted_at` (its death date).
+
+### Table `parcel_lockers` (InPost parcel lockers - separate fact entity)
 
 A second fact table parallel to `locations`. Enriched geographically only
 (voivodeship/powiat by the same point-in-polygon as the stores; city from the
-InPost address). Latest state - the whole table is replaced on each ETL run.
-Source: InPost ShipX API. Joins to dimensions by numeric key (`voivodeship_id`,
-`powiat_id`).
+InPost address). Snapshotted per day like `locations` (tagged with `snapshot_id`),
+so locker counts also have month-to-month trends, and the same 6-month retention
+applies. Source: InPost ShipX API. Joins to dimensions by numeric key
+(`voivodeship_id`, `powiat_id`).
 
 | Column | Type | Origin | Rule |
 |---|---|---|---|
-| id | INTEGER (PK) | ETL | primary key (renumbered on replace) |
+| id | INTEGER (PK) | ETL | primary key |
+| snapshot_id | INTEGER | ETL | FK -> `snapshots.id` (same daily snapshot as the stores) |
 | source_date | DATE | ETL | dump date |
 | operator | VARCHAR | SOURCE | network (`InPost`) |
 | external_id | VARCHAR | SOURCE | point code (`name` from ShipX) |

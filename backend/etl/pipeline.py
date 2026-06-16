@@ -17,7 +17,7 @@ from backend.etl.io import (
     DB_PATH, fetch_zabka_json, to_tabular, resolve_poland_boundaries,
     farthest_point_from_any_zabka, load_to_duckdb, reload_cache,
     load_parcel_lockers, load_dimensions, load_fun_facts,
-    load_dim_gios_station, load_dim_park,
+    load_dim_gios_station, load_dim_park, enforce_retention,
 )
 from backend.etl.sources.regions import RegionsEnricher
 from backend.etl.sources.gios import GiosEnricher, fetch_gios_stations
@@ -162,12 +162,13 @@ def run(no_geocode=False, limit=None, skip_gios=False, fallback=None,
             "most_froggy_zabka": froggy,
         }
 
-        load_to_duckdb(con, rows, meta)
-        load_parcel_lockers(con, lockers, src_date)
+        sid = load_to_duckdb(con, rows, meta)
+        load_parcel_lockers(con, lockers, sid, src_date)
         load_dimensions(con, dim_powiat, dim_voiv)
         load_dim_gios_station(con, gios_stations)
         load_dim_park(con, parks_enricher.parks())
         load_fun_facts(con, fun)
+        enforce_retention(con, src_date, months=6)
     finally:
         con.close()
 
