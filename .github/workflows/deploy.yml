@@ -1,0 +1,49 @@
+name: CI/CD Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+jobs:
+  ci-test:
+    name: Code Quality & Syntax Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Python syntax check
+        run: |
+          python -c "import ast, glob; [ast.parse(open(f).read()) for f in glob.glob('backend/**/*.py', recursive=True)]; print('Syntax OK')"
+
+  deploy:
+    name: Deploy to Server (SFTP)
+    needs: ci-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deployment dependencies
+        run: |
+          pip install paramiko
+
+      - name: Deploy files via SFTP
+        env:
+          SFTP_HOST: ${{ secrets.SSH_HOST }}
+          SFTP_USER: ${{ secrets.SSH_USER }}
+          SFTP_PASS: ${{ secrets.SSH_PASSWORD }}
+        run: |
+          python .github/scripts/deploy.py

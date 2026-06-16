@@ -188,12 +188,22 @@ export API_TOKEN="your-super-secret-token-2024"
 python backend/main.py
 ```
 
-### Option C: Cron (for daily refresh)
+### Option C: Cron (for daily refresh on LH.pl)
 
-```bash
-# crontab -e
-0 3 * * * cd /home/alice/zabka-dashboard && python -m backend.daily_etl >> /tmp/zabka.log 2>&1
-```
+Recommended secure setup on LH.pl (outside public_html):
+- Interpreter: Shell/Bash
+- Script path: /home/serwer441858/zabka-stats/cron_run.sh
+
+### Option D: Automatic Deployment (CI/CD via GitHub Actions)
+
+Every push to the `main` branch triggers the `.github/workflows/deploy.yml` workflow, which:
+1. Runs a syntax check and compile test on all Python files.
+2. If tests pass, deploys all updated files to the LH.pl server via SFTP (safely excluding the `data/` directory to protect the live database).
+
+Requires the following GitHub repository secrets:
+- `SSH_HOST`: serwer441858.lh.pl
+- `SSH_USER`: serwer441858
+- `SSH_PASSWORD`: your-sftp-password
 
 ## Data format (JSON)
 
