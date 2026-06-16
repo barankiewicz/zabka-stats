@@ -5,18 +5,20 @@ import numpy as np
 
 from backend.etl.base import Enricher
 from backend.etl.geo import EARTH_KM
-from backend.etl.io import USER_AGENT
+from backend.etl.io import USER_AGENT, HTTP_TIMEOUT, with_retries
 
 
 def fetch_gios_stations() -> list:
-    """Pobierz wszystkie stacje GIOŚ (API v1, paginowane). Zwraca [] przy bledzie."""
+    """Pobierz wszystkie stacje GIOŚ (API v1, paginowane), z ponawianiem.
+    Zwraca [] gdy po wszystkich probach sie nie uda (best-effort)."""
     base = "https://api.gios.gov.pl/pjp-api/v1/rest/station/findAll"
-    out = []
-    try:
+
+    def _fetch():
+        out = []
         page, total = 0, 1
         while page < total:
             r = requests.get(base, params={"page": page, "size": 500},
-                             headers={"User-Agent": USER_AGENT}, timeout=30)
+                             headers={"User-Agent": USER_AGENT}, timeout=HTTP_TIMEOUT)
             r.raise_for_status()
             j = r.json()
             total = j.get("totalPages", 1)
@@ -30,12 +32,11 @@ def fetch_gios_stations() -> list:
                     })
                 except (KeyError, TypeError, ValueError):
                     continue
-            page += 1
-        print(f"[gios] {len(out)} stacji (API v1)")
         return out
-    except Exception as e:
-        print(f"[gios] niedostepne: {e}")
-        return out
+
+    out = with_retries(_fetch, "gios") or []
+    print(f"[gios] {len(out)} stacji (API v1)")
+    return out
 
 
 class GiosEnricher(Enricher):

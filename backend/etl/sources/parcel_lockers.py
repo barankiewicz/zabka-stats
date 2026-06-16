@@ -15,6 +15,7 @@ import requests
 from backend.etl.geo import build_polygon_index, assign_region, nearest_region
 from backend.etl.io import (
     USER_AGENT, GEO_DIR, load_geojson, GEOJSON_WOJ, GEOJSON_POW,
+    HTTP_TIMEOUT, with_retries,
 )
 
 INPOST_POINTS_URL = "https://api-shipx-pl.easypack24.net/v1/points"
@@ -39,12 +40,12 @@ def _parse_point(p: dict) -> dict:
 
 
 def _fetch_page(page: int) -> list:
-    """Jedna strona punktow InPost z retry. Pusta lista przy bledzie."""
+    """Jedna strona punktow InPost z krotkim retry. Pusta lista przy bledzie."""
     for attempt in range(3):
         try:
             r = requests.get(INPOST_POINTS_URL,
                              params={"type": INPOST_TYPE, "per_page": INPOST_PER_PAGE, "page": page},
-                             headers={"User-Agent": USER_AGENT}, timeout=40)
+                             headers={"User-Agent": USER_AGENT}, timeout=max(HTTP_TIMEOUT, 40))
             r.raise_for_status()
             items = r.json().get("items", [])
             return [_parse_point(p) for p in items
@@ -55,23 +56,33 @@ def _fetch_page(page: int) -> list:
 
 
 def _load_inpost_points() -> list:
-    """Punkty InPost (PL) z cache lub z API (strony rownolegle - sekwencyjnie ShipX dlawi)."""
+    """Punkty InPost (PL) z cache lub z API (strony rownolegle - sekwencyjnie ShipX dlawi).
+    Pobranie ze zrodla ponawiane wg polityki with_retries; [] gdy sie nie uda (best-effort)."""
     if os.path.exists(PACZKOMAT_CACHE):
         try:
             with open(PACZKOMAT_CACHE, encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
             pass
-    head = requests.get(INPOST_POINTS_URL,
-                        params={"type": INPOST_TYPE, "per_page": 1, "page": 1},
-                        headers={"User-Agent": USER_AGENT}, timeout=40)
-    head.raise_for_status()
-    count = int(head.json().get("count", 0))
-    pages = (count + INPOST_PER_PAGE - 1) // INPOST_PER_PAGE
-    pts = []
-    with ThreadPoolExecutor(max_workers=INPOST_WORKERS) as ex:
-        for chunk in ex.map(_fetch_page, range(1, pages + 1)):
-            pts.extend(chunk)
+
+    def _fetch():
+        head = requests.get(INPOST_POINTS_URL,
+                            params={"type": INPOST_TYPE, "per_page": 1, "page": 1},
+                            headers={"User-Agent": USER_AGENT}, timeout=max(HTTP_TIMEOUT, 40))
+        head.raise_for_status()
+        count = int(head.json().get("count", 0))
+        pages = (count + INPOST_PER_PAGE - 1) // INPOST_PER_PAGE
+        pts = []
+        with ThreadPoolExecutor(max_workers=INPOST_WORKERS) as ex:
+            for chunk in ex.map(_fetch_page, range(1, pages + 1)):
+                pts.extend(chunk)
+        if not pts:
+            raise RuntimeError("ShipX zwrocil 0 punktow")
+        return pts
+
+    pts = with_retries(_fetch, "paczkomaty")
+    if not pts:
+        return []
     os.makedirs(os.path.dirname(PACZKOMAT_CACHE) or ".", exist_ok=True)
     with open(PACZKOMAT_CACHE, "w", encoding="utf-8") as f:
         json.dump(pts, f, ensure_ascii=False)

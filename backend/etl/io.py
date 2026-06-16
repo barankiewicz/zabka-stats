@@ -10,6 +10,7 @@ tutaj; wzbogacenia (etl/sources) operuja juz tylko na liscie wierszy.
 import os
 import re
 import json
+import time
 from collections import defaultdict
 from datetime import date
 
@@ -27,6 +28,34 @@ ZABKA_SOURCE_URL = os.getenv(
 )
 USER_AGENT = "zabka-dashboard-etl/1.0"
 
+# --- Polityka ponawiania dla krokow sieciowych ---
+# API zrodlowe bywaja kapryśne. Kazdy fetch ze zrodla ponawiamy do RETRY_ATTEMPTS
+# razy, czekajac RETRY_DELAY sekund miedzy probami (domyslnie 5 prob co 5 minut -
+# damy szanse na przelotne problemy). Pojedyncze zapytanie ma timeout HTTP_TIMEOUT.
+# Po wyczerpaniu prob caller leci dalej bez zrodla (best-effort / lazy, kolumna pusta).
+RETRY_ATTEMPTS = int(os.getenv("ETL_RETRY_ATTEMPTS", "5"))
+RETRY_DELAY = float(os.getenv("ETL_RETRY_DELAY", "300"))
+HTTP_TIMEOUT = float(os.getenv("ETL_HTTP_TIMEOUT", "30"))
+
+
+def with_retries(fn, label, attempts=None, delay=None):
+    """Wolaj fn() ponawiajac przy wyjatku: do `attempts` prob, `delay` s przerwy.
+    Maksymalny czas oczekiwania to ~attempts*delay. fn musi rzucic wyjatek przy
+    niepowodzeniu. Po wyczerpaniu prob zwraca None - caller robi best-effort
+    (lazy loading bez zrodla). Sukces zwraca natychmiast."""
+    attempts = attempts or RETRY_ATTEMPTS
+    delay = RETRY_DELAY if delay is None else delay
+    for i in range(1, attempts + 1):
+        try:
+            return fn()
+        except Exception as e:
+            if i < attempts:
+                print(f"[{label}] proba {i}/{attempts} nieudana ({e}); ponawiam za {delay:.0f}s")
+                time.sleep(delay)
+            else:
+                print(f"[{label}] {attempts} prob nieudanych ({e}) - lece dalej bez zrodla (lazy)")
+    return None
+
 # Granice administracyjne Polski (ppatrzyk/polska-geojson). Pobierane raz, cache lokalny.
 GEOJSON_WOJ = "https://raw.githubusercontent.com/ppatrzyk/polska-geojson/master/wojewodztwa/wojewodztwa-min.geojson"
 GEOJSON_POW = "https://raw.githubusercontent.com/ppatrzyk/polska-geojson/master/powiaty/powiaty-min.geojson"
@@ -43,21 +72,24 @@ _JUNK_FIELDS = {"active", "salesZoneId", "locationId", "townId",
 # 1. FETCH
 # ---------------------------------------------------------------------------
 def fetch_zabka_json(url: str = ZABKA_SOURCE_URL, fallback: str = None) -> dict:
-    """Pobierz surowy JSON ze sklepami. Gdy sie nie uda - uzyj pliku lokalnego."""
-    try:
+    """Pobierz surowy JSON ze sklepami (z ponawianiem). Gdy sie nie uda mimo prob -
+    uzyj pliku lokalnego, a gdy i tego brak - rzuc (bez sklepow nie ma ETL)."""
+    def _download():
         print(f"[fetch] pobieram {url}")
-        r = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=30)
+        r = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=HTTP_TIMEOUT)
         r.raise_for_status()
         data = r.json()
         print(f"[fetch] OK, {len(json.dumps(data)):,} bajtow")
         return data
-    except Exception as e:
-        print(f"[fetch] blad pobierania: {e}")
-        if fallback and os.path.exists(fallback):
-            print(f"[fetch] uzywam pliku lokalnego: {fallback}")
-            with open(fallback, encoding="utf-8") as f:
-                return json.load(f)
-        raise
+
+    data = with_retries(_download, "fetch")
+    if data is not None:
+        return data
+    if fallback and os.path.exists(fallback):
+        print(f"[fetch] uzywam pliku lokalnego: {fallback}")
+        with open(fallback, encoding="utf-8") as f:
+            return json.load(f)
+    raise RuntimeError("nie udalo sie pobrac zrodla Zabki i brak pliku fallback")
 
 
 # ---------------------------------------------------------------------------
@@ -164,42 +196,51 @@ def to_tabular(raw) -> list:
 # GEOJSON LOADERS
 # ---------------------------------------------------------------------------
 def load_geojson(url: str, cache_name: str) -> dict:
-    """Pobierz GeoJSON (cache lokalny w data/geo). Granice sie nie zmieniaja."""
+    """Pobierz GeoJSON (cache lokalny w data/geo, z ponawianiem). Granice sie nie zmieniaja."""
     os.makedirs(GEO_DIR, exist_ok=True)
     path = os.path.join(GEO_DIR, cache_name)
     if os.path.exists(path):
         with open(path, encoding="utf-8") as f:
             return json.load(f)
-    r = requests.get(url, timeout=60)
-    r.raise_for_status()
-    gj = r.json()
+
+    def _download():
+        r = requests.get(url, timeout=max(HTTP_TIMEOUT, 60))
+        r.raise_for_status()
+        return r.json()
+
+    gj = with_retries(_download, f"geojson:{cache_name}")
+    if gj is None:
+        raise RuntimeError(f"nie udalo sie pobrac granic {cache_name}")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(gj, f, ensure_ascii=False)
     return gj
 
 
 def load_static_geojson(local_path: str, url: str, label: str) -> dict:
-    """GeoJSON dla danych statycznych: najpierw plik lokalny, potem opcjonalny URL.
-    Zwraca None gdy ani pliku, ani dzialajacego URL (krok zostanie pominiety)."""
+    """GeoJSON dla danych statycznych: najpierw plik lokalny, potem opcjonalny URL
+    (z ponawianiem). Zwraca None gdy ani pliku, ani dzialajacego URL - krok pominiety."""
     if local_path and os.path.exists(local_path):
         try:
             with open(local_path, encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
             print(f"[{label}] plik lokalny nieczytelny ({e})")
-    if url:
-        try:
-            print(f"[{label}] pobieram {url}")
-            r = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=120)
-            r.raise_for_status()
-            gj = r.json()
-            os.makedirs(os.path.dirname(local_path) or ".", exist_ok=True)
-            with open(local_path, "w", encoding="utf-8") as f:
-                json.dump(gj, f, ensure_ascii=False)
-            return gj
-        except Exception as e:
-            print(f"[{label}] pobieranie nieudane: {e}")
-    return None
+    if not url:
+        return None
+
+    def _download():
+        print(f"[{label}] pobieram {url}")
+        r = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=max(HTTP_TIMEOUT, 120))
+        r.raise_for_status()
+        return r.json()
+
+    gj = with_retries(_download, label)
+    if gj is None:
+        return None
+    os.makedirs(os.path.dirname(local_path) or ".", exist_ok=True)
+    with open(local_path, "w", encoding="utf-8") as f:
+        json.dump(gj, f, ensure_ascii=False)
+    return gj
 
 
 def resolve_poland_boundaries(raw) -> dict:

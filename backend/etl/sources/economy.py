@@ -9,7 +9,7 @@ import re
 
 import requests
 
-from backend.etl.io import USER_AGENT
+from backend.etl.io import USER_AGENT, HTTP_TIMEOUT, with_retries
 
 # --- dane ekonomiczne powiatow (GUS BDL) ---
 GUS_BDL_BASE = "https://bdl.stat.gov.pl/api/v1/data/by-variable"
@@ -53,14 +53,15 @@ def _fetch_gus_variable(var_id: str) -> dict:
     headers = {"User-Agent": USER_AGENT}
     if GUS_BDL_KEY:
         headers["X-ClientId"] = GUS_BDL_KEY
-    best = {}   # name -> (year, val)
-    try:
+
+    def _fetch():
+        best = {}   # name -> (year, val)
         page = 0
         while page < 60:
             r = requests.get(f"{GUS_BDL_BASE}/{var_id}",
                              params={"unit-level": 5, "format": "json",
                                      "page-size": 100, "page": page},
-                             headers=headers, timeout=30)
+                             headers=headers, timeout=HTTP_TIMEOUT)
             r.raise_for_status()
             j = r.json()
             for unit in j.get("results", []):
@@ -77,9 +78,8 @@ def _fetch_gus_variable(var_id: str) -> dict:
                 break
             page += 1
         return {n: val for n, (yr, val) in best.items()}
-    except Exception as e:
-        print(f"[gus] zmienna {var_id} nieudana: {e}")
-        return {}
+
+    return with_retries(_fetch, f"gus:{var_id}") or {}
 
 
 def fetch_gus_economics():

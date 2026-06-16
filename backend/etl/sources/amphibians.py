@@ -10,7 +10,7 @@ import numpy as np
 
 from backend.etl.base import Enricher
 from backend.etl.geo import EARTH_KM
-from backend.etl.io import USER_AGENT
+from backend.etl.io import USER_AGENT, HTTP_TIMEOUT, with_retries
 
 # Obserwacje plazow (Amphibia) w Polsce z GBIF. Per sklep: ile obserwacji w
 # promieniu oraz dystans do najblizszej. Tematyczny uklon do nazwy sieci.
@@ -33,7 +33,7 @@ def _fetch_page(offset: int) -> list:
     for attempt in range(3):
         try:
             r = requests.get(GBIF_OCCURRENCE_URL, params=_gbif_params(offset, GBIF_PAGE),
-                             headers={"User-Agent": USER_AGENT}, timeout=30)
+                             headers={"User-Agent": USER_AGENT}, timeout=HTTP_TIMEOUT)
             r.raise_for_status()
             out = []
             for rec in r.json().get("results", []):
@@ -48,23 +48,33 @@ def _fetch_page(offset: int) -> list:
 
 def _load_amphibian_points() -> list:
     """Punkty [lat, lon] obserwacji plazow w PL z GBIF. Cache lokalny.
-    Strony pobierane wspolbieznie (GBIF mocno dlawi pojedyncze sekwencyjne zapytania)."""
+    Strony rownolegle (GBIF dlawi sekwencyjne); pobranie ponawiane wg with_retries,
+    [] gdy sie nie uda (best-effort)."""
     if os.path.exists(AMPHIBIAN_CACHE):
         try:
             with open(AMPHIBIAN_CACHE, encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
             pass
-    # najpierw licznik, potem rownolegle strony po znanych offsetach
-    head = requests.get(GBIF_OCCURRENCE_URL, params=_gbif_params(0, 0),
-                        headers={"User-Agent": USER_AGENT}, timeout=30)
-    head.raise_for_status()
-    count = min(int(head.json().get("count", 0)), GBIF_OFFSET_CAP)
-    offsets = list(range(0, count, GBIF_PAGE))
-    pts = []
-    with ThreadPoolExecutor(max_workers=GBIF_WORKERS) as ex:
-        for chunk in ex.map(_fetch_page, offsets):
-            pts.extend(chunk)
+
+    def _fetch():
+        # najpierw licznik, potem rownolegle strony po znanych offsetach
+        head = requests.get(GBIF_OCCURRENCE_URL, params=_gbif_params(0, 0),
+                            headers={"User-Agent": USER_AGENT}, timeout=HTTP_TIMEOUT)
+        head.raise_for_status()
+        count = min(int(head.json().get("count", 0)), GBIF_OFFSET_CAP)
+        offsets = list(range(0, count, GBIF_PAGE))
+        pts = []
+        with ThreadPoolExecutor(max_workers=GBIF_WORKERS) as ex:
+            for chunk in ex.map(_fetch_page, offsets):
+                pts.extend(chunk)
+        if not pts:
+            raise RuntimeError("GBIF zwrocil 0 obserwacji")
+        return pts
+
+    pts = with_retries(_fetch, "amphibians")
+    if not pts:
+        return []
     os.makedirs(os.path.dirname(AMPHIBIAN_CACHE) or ".", exist_ok=True)
     with open(AMPHIBIAN_CACHE, "w", encoding="utf-8") as f:
         json.dump(pts, f)

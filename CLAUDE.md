@@ -85,6 +85,12 @@ Revert frontend implementation
 - **ETL pipeline:** each enrichment source is its own `Enricher` class in
   `backend/etl/sources/`; network steps are best-effort (a missing source does
   not abort the ETL, the column just stays empty).
+- **Retries:** every source fetch goes through `with_retries` - up to
+  `ETL_RETRY_ATTEMPTS` tries (default 5), `ETL_RETRY_DELAY` seconds apart (default
+  300, so 5x5 min), each request capped at `ETL_HTTP_TIMEOUT` (default 30s). This
+  rides out transient API hiccups; only after all retries fail does the source
+  fall back to lazy/empty. The core Żabka fetch falls back to a local file before
+  giving up. Per-point elevation keeps its own short retry, not the 5x5 policy.
 
 ## TODO (next up)
 
