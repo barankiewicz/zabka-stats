@@ -1,0 +1,154 @@
+"""Locations API endpoints (DuckDB)."""
+
+from fastapi import APIRouter, HTTPException
+from typing import Optional
+from backend.database_ch import client
+from backend.cache import cached
+
+router = APIRouter()
+
+
+@router.get("/locations")
+@cached(ttl=3600)
+async def get_locations(
+    month: Optional[str] = None,
+    voivodeship: Optional[str] = None,
+    city: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0,
+):
+    """
+    Get locations with optional filters.
+
+    Args:
+        month: YYYY-MM format to filter by snapshot date
+        voivodeship: Filter by voivodeship name
+        city: Filter by city name
+        limit: Pagination limit
+        offset: Pagination offset
+    """
+    where_clauses = ["deleted_at IS NULL"]
+
+    if month:
+        where_clauses.append(
+            f"snapshot_id IN (SELECT id FROM snapshots WHERE strftime(source_date, '%Y-%m') = '{month}')")
+
+    if voivodeship:
+        where_clauses.append(f"voivodeship = '{voivodeship}'")
+
+    if city:
+        where_clauses.append(f"city = '{city}'")
+
+    where = " AND ".join(where_clauses)
+
+    total = client.execute(f"SELECT COUNT(*) FROM locations WHERE {where}").fetchone()[0]
+
+    results = client.execute(f"""
+        SELECT id, store_id, city, voivodeship, street, latitude, longitude,
+               has_merrychef, open_sunday, h24
+        FROM locations
+        WHERE {where}
+        LIMIT {limit} OFFSET {offset}
+    """).fetchall()
+
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "data": [
+            {
+                "id": r[0],
+                "name": "Żabka",
+                "store_id": r[1],
+                "city": r[2],
+                "voivodeship": r[3],
+                "street": r[4],
+                "latitude": r[5],
+                "longitude": r[6],
+                "has_merrychef": bool(r[7]),
+                "open_sunday": bool(r[8]),
+                "h24": bool(r[9]),
+            }
+            for r in results
+        ]
+    }
+
+
+@router.get("/locations/map")
+@cached(ttl=3600)
+async def get_locations_for_map_geojson(
+    month: Optional[str] = None,
+):
+    """
+    Get locations for map visualization (GeoJSON).
+    """
+    where = "deleted_at IS NULL"
+
+    if month:
+        where += (f" AND snapshot_id IN (SELECT id FROM snapshots "
+                  f"WHERE strftime(source_date, '%Y-%m') = '{month}')")
+
+    results = client.execute(f"""
+        SELECT id, store_id, city, voivodeship, street, latitude, longitude,
+               has_merrychef, open_sunday, h24
+        FROM locations
+        WHERE {where}
+    """).fetchall()
+
+    features = []
+    for r in results:
+        if r[5] and r[6]:  # latitude and longitude
+            features.append({
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [r[6], r[5]]  # [lon, lat]
+                },
+                "properties": {
+                    "id": r[0],
+                    "name": "Żabka",
+                    "store_id": r[1],
+                    "city": r[2],
+                    "voivodeship": r[3],
+                    "street": r[4],
+                    "has_merrychef": bool(r[7]),
+                    "open_sunday": bool(r[8]),
+                    "h24": bool(r[9]),
+                }
+            })
+
+    return {
+        "type": "FeatureCollection",
+        "features": features
+    }
+
+
+@router.get("/locations/{location_id}")
+@cached(ttl=3600)
+async def get_location(location_id: int):
+    """Get a specific location by ID."""
+    result = client.execute(f"""
+        SELECT id, name, city, voivodeship, street, latitude, longitude,
+               has_merrychef, open_sunday, h24, created_at, deleted_at, powiat
+        FROM locations
+        WHERE id = {location_id} AND deleted_at IS NULL
+    """).fetchone()
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Location not found")
+
+    return {
+        "id": result[0],
+        "name": result[1],
+        "city": result[2],
+        "voivodeship": result[3],
+        "powiat": result[12],
+        "street": result[4],
+        "latitude": result[5],
+        "longitude": result[6],
+        "has_merrychef": bool(result[7]),
+        "open_sunday": bool(result[8]),
+        "h24": bool(result[9]),
+        "created_at": result[10],
+        "deleted_at": result[11],
+    }

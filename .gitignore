@@ -1,0 +1,60 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment & Credentials
+.env
+.env.local
+.env.*.local
+.env.production
+credentials.json
+*.pem
+*.key
+secrets/
+.ssh/
+
+# Data
+data/input/
+data/*.json
+data/*.duckdb
+data/*.db
+
+# Logs
+logs/
+*.log
+
+# Sensitive
+backup/
+archive/

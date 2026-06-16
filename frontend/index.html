@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Żabka w Polsce - Atlas sklepów i liczby</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap&subset=latin,latin-ext" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{
+  --bg:#0a120a; --panel:#0f1b0e; --panel2:#15271300; --line:rgba(140,200,80,.14);
+  --frog:#84c341; --frog-bright:#a6e84a; --lime:#d7f25a; --amber:#f2a359; --coral:#e8693d; --teal:#4dd0b1;
+  --ink:#eef3e6; --muted:#93a487; --muted2:#5d6c52;
+  --r:16px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:16px;line-height:1.55;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(900px 600px at 78% -8%,rgba(132,195,65,.10),transparent 60%),
+             radial-gradient(700px 500px at 8% 18%,rgba(77,208,177,.06),transparent 55%)}
+.wrap{position:relative;z-index:1;max-width:1280px;margin:0 auto;padding:0 22px}
+
+nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(10px);
+  background:linear-gradient(180deg,rgba(10,18,10,.92),rgba(10,18,10,.6));
+  border-bottom:1px solid var(--line)}
+.nav-in{max-width:1280px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:18px}
+.brand{display:flex;align-items:center;gap:9px;font-family:"Bricolage Grotesque";font-weight:800;font-size:17px;letter-spacing:-.02em}
+.dot{width:12px;height:12px;border-radius:50%;background:var(--frog);box-shadow:0 0 14px var(--frog)}
+
+h1,h2,h3{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.02em;margin:0;line-height:.98}
+.mono{font-family:"JetBrains Mono",monospace}
+
+header{padding:60px 0 40px}
+.eyebrow{font-family:"JetBrains Mono";font-size:12.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--frog);margin-bottom:12px}
+.hero-num{font-family:"Bricolage Grotesque";font-weight:800;font-size:clamp(64px,15vw,140px);line-height:.82;
+  background:linear-gradient(180deg,#d8f49a,#84c341 62%,#5a9b22);-webkit-background-clip:text;background-clip:text;color:transparent;
+  letter-spacing:-.04em}
+.hero h1{font-size:clamp(24px,3.5vw,40px);margin:6px 0 12px;max-width:18ch}
+.hero p{color:var(--muted);font-size:clamp(15px,1.8vw,18px);max-width:60ch;margin:0}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:36px 0 0}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:24px 18px}
+.kpi .v{font-family:"Bricolage Grotesque";font-weight:800;font-size:42px;color:var(--frog-bright);line-height:1}
+.kpi .l{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.4}
+.kpi .caption{font-size:12px;color:var(--muted2);margin-top:8px}
+
+section{padding:48px 0;border-top:1px solid var(--line);margin-top:8px}
+.sec-head{margin-bottom:20px;max-width:70ch}
+.sec-head .tag{font-family:"JetBrains Mono";font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted2)}
+.sec-head h2{font-size:clamp(22px,2.8vw,32px);margin:6px 0 8px}
+.sec-head p{color:var(--muted);margin:0;font-size:14.5px}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+.grid-map{display:grid;grid-template-columns:1.6fr 1fr;gap:16px}
+
+.chart-box{position:relative;width:100%;min-height:300px;display:flex;align-items:center;justify-content:center}
+.h-tall{min-height:500px}
+.h-mid{min-height:380px}
+.h-sm{min-height:280px}
+
+#map{border-radius:12px;background:#08110a;border:1px solid var(--line);width:100%;height:500px}
+.leaflet-container{background:#08110a;font-family:"IBM Plex Sans"}
+
+.insight-box{background:linear-gradient(135deg,rgba(132,195,65,.08),rgba(77,208,177,.04));
+  border:1px solid var(--line);border-radius:var(--r);padding:20px;margin:16px 0}
+.insight-label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px}
+.insight-value{font-family:"Bricolage Grotesque";font-weight:800;font-size:36px;color:var(--lime);line-height:1.1}
+.insight-caption{font-size:14px;color:var(--muted);margin-top:8px}
+
+.badge{display:inline-block;background:rgba(132,195,65,.15);border:1px solid rgba(132,195,65,.3);
+  border-radius:99px;padding:8px 14px;font-size:13px;color:var(--ink);margin-right:8px;margin-bottom:8px}
+
+.gauge{position:relative;width:100%;height:200px;display:flex;align-items:center;justify-content:center}
+.gauge-text{font-family:"Bricolage Grotesque";font-weight:800;font-size:52px;color:var(--frog-bright)}
+.gauge-sub{font-size:13px;color:var(--muted);margin-top:4px;text-align:center}
+
+.comparison{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.comp-box{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px;text-align:center}
+.comp-num{font-family:"Bricolage Grotesque";font-weight:800;font-size:48px;color:var(--frog-bright)}
+.comp-label{font-size:13px;color:var(--muted);margin-top:8px}
+
+.ranking-item{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(140,200,80,.08)}
+.ranking-item:last-child{border-bottom:none}
+.ranking-name{flex:1;font-size:14px}
+.ranking-value{font-family:"JetBrains Mono";font-weight:600;color:var(--frog-bright)}
+.ranking-bar{position:absolute;height:2px;background:var(--frog);opacity:.3;right:0;width:var(--pct)}
+
+footer{padding:40px 0;border-top:1px solid var(--line);margin-top:40px;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+
+<nav>
+<div class="nav-in">
+  <div class="brand"><div class="dot"></div>Żabka Atlas</div>
+  <div style="margin-left:auto;font-size:13px;color:var(--muted)">Mapa i statystyka sklepów w Polsce</div>
+</div>
+</nav>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Żabka w liczbach</div>
+  <div class="hero">
+    <div class="hero-num" id="heroNum">13,168</div>
+    <h1>Sklep, który jest zawsze blisko</h1>
+    <p>13 tysięcy sklepów rozrzuconych po 2203 miastach i miasteczkach. W medianie? 297 metrów do następnego.</p>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="v" id="kpi-czypiec">97%</div>
+      <div class="l">Czy ma piec</div>
+      <div class="caption">Kafeteria ze spreparowanymi posiłkami w prawie każdym sklepie</div>
+    </div>
+    <div class="kpi">
+      <div class="v" id="kpi-sunday">95%</div>
+      <div class="l">Otwarte w niedziele</div>
+      <div class="caption">Przeszkód nie ma na zakupy w weekend</div>
+    </div>
+    <div class="kpi">
+      <div class="v" id="kpi-24h">35</div>
+      <div class="l">Otwarte 24/7</div>
+      <div class="caption">Zaledwie 35 lokacji pracuje całą dobę. To pół procenta sieci.</div>
+    </div>
+    <div class="kpi">
+      <div class="v" id="kpi-towns">2,203</div>
+      <div class="l">Miasta i miasteczka</div>
+      <div class="caption">Od największych do najmniejszych</div>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="sec-head">
+    <div class="tag">Rozkład przestrzenny</div>
+    <h2>Gdzie skupia się sieć</h2>
+    <p>Mapa pokazuje gdzie jest więcej sklepów (ciemniejsze obszary) i gdzie ich brakuje (jaśniejsze).</p>
+  </div>
+  <div class="grid-map">
+    <div id="map"></div>
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px">
+      <h4 style="font-family:'Bricolage Grotesque';font-weight:800;margin:0 0 12px;font-size:15px">Statystyka województw</h4>
+      <div id="voivodeship-stats" style="font-size:13px;color:var(--muted);line-height:1.8">
+        Wczytywanie danych...
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <div class="tag">Rankingi</div>
+    <h2>30 miast z największą liczbą Żabek</h2>
+    <p>Warszawa daleko z przodu. Ale Wrocław, Kraków i Poznań też mają ich spora ilość.</p>
+  </div>
+  <div class="card">
+    <div class="chart-box h-tall" id="citiesChart"></div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <div class="tag">Województwa</div>
+    <h2>Rozkład po Polsce</h2>
+  </div>
+  <div class="grid3">
+    <div class="card">
+      <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px">Liczba sklepów</div>
+      <div class="chart-box h-mid" id="voivodeshipCountChart"></div>
+    </div>
+    <div class="card">
+      <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px">Gęstość na km2</div>
+      <div class="chart-box h-mid" id="voivodeshipDensityChart"></div>
+    </div>
+    <div class="card">
+      <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px">Czy ma piec (%)</div>
+      <div class="chart-box h-mid" id="voivodeshipFeatureChart"></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <div class="tag">Dostępność</div>
+    <h2>Kiedy otwarte, co mają</h2>
+    <p>Piekarnik to standard. Niedziele otwarte? Prawie wszędzie. 24/7? Rzadkość.</p>
+  </div>
+  <div class="grid3">
+    <div class="card">
+      <div style="text-align:center;padding:20px 0">
+        <div style="font-family:'JetBrains Mono';font-size:11px;text-transform:uppercase;letter-spacing:.15em;color:var(--muted2);margin-bottom:12px">Czy ma piec</div>
+        <div class="gauge-text">97%</div>
+        <div class="gauge-sub">Kafeteria z gorącym jedzeniem</div>
+      </div>
+    </div>
+    <div class="card">
+      <div style="text-align:center;padding:20px 0">
+        <div style="font-family:'JetBrains Mono';font-size:11px;text-transform:uppercase;letter-spacing:.15em;color:var(--muted2);margin-bottom:12px">Niedziele otwarte</div>
+        <div class="gauge-text">95%</div>
+        <div class="gauge-sub">W niedzielę kupisz</div>
+      </div>
+    </div>
+    <div class="card">
+      <div style="text-align:center;padding:20px 0">
+        <div style="font-family:'JetBrains Mono';font-size:11px;text-transform:uppercase;letter-spacing:.15em;color:var(--muted2);margin-bottom:12px">24/7 Dostępne</div>
+        <div class="gauge-text" style="font-size:64px">35</div>
+        <div class="gauge-sub">Lokacji nocnych (0,27% sieci)</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <div class="tag">Bliskość</div>
+    <h2>Jak daleko do następnego?</h2>
+    <p>297 metrów to mediana. W Warszawie? 187 metrów. Zawsze coś blisko.</p>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="chart-box h-mid" id="distanceChart"></div>
+    </div>
+    <div class="card">
+      <div style="padding:12px 0">
+        <div class="insight-box">
+          <div class="insight-label">Mediana odległości</div>
+          <div class="insight-value">297m</div>
+          <div class="insight-caption">Średnio do następnego sklepu</div>
+        </div>
+        <div class="insight-box">
+          <div class="insight-label">Najwięcej zagęszczenia</div>
+          <div class="insight-value">Warszawa</div>
+          <div class="insight-caption">187 metrów do sąsiedniego sklepu</div>
+        </div>
+        <div class="insight-box">
+          <div class="insight-label">Ekstremalnie blisko</div>
+          <div class="insight-value">0m</div>
+          <div class="insight-caption">Dwa sklepy w tym samym kompleksie</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <div class="tag">Nazwy ulic</div>
+    <h2>Nazwy które się powtarzają</h2>
+    <p>Kościuszki pojawia się 124 razy. Rynek 108 razy. Tych samych nazw w każdym mieście.</p>
+  </div>
+  <div class="card">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;padding:12px 0" id="streetsTable">
+      Wczytywanie danych...
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <div class="tag">Ciekawostki</div>
+    <h2>Ciekawostki</h2>
+  </div>
+  <div class="grid3">
+    <div class="insight-box">
+      <div class="insight-label">Dominacja Warszawy</div>
+      <div class="insight-value">1,143</div>
+      <div class="insight-caption">Sklepy w stolicy. To więcej niż w 11 województwach razem.</div>
+    </div>
+    <div class="insight-box">
+      <div class="insight-label">Rzadkość nocna</div>
+      <div class="insight-value">0,27%</div>
+      <div class="insight-caption">Procent sieci otwartej 24/7. Zaledwie 35 lokacji.</div>
+    </div>
+    <div class="insight-box">
+      <div class="insight-label">Rozwój geograficzny</div>
+      <div class="insight-value">2,203</div>
+      <div class="insight-caption">Miast i miasteczek z reprezentacją Żabki.</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap" style="padding:20px 0">
+    <p>Atlas Żabki w Polsce. Dane na dzień 15 czerwca 2026. Interaktywna mapa pokazuje rzeczywisty rozkład sieci handlowej.</p>
+  </div>
+</footer>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<script>
+const C = {bg:'#0a120a',panel:'#0f1b0e',frog:'#84c341',fbright:'#a6e84a',
+  lime:'#d7f25a',muted:'#93a487',muted2:'#5d6c52',ink:'#eef3e6'};
+
+let DATA = null;
+
+async function loadDashboard() {
+  try {
+    const response = await fetch('/api/dashboard-data');
+    DATA = await response.json();
+    initDashboard();
+  } catch (e) {
+    console.error('Failed to load:', e);
+  }
+}
+
+function initDashboard() {
+  if (!DATA) return;
+
+  // KPI updates
+  document.getElementById('kpi-czypiec').textContent = Math.round(DATA.meta.czy_ma_piec / DATA.meta.total * 100) + '%';
+  document.getElementById('kpi-sunday').textContent = Math.round(DATA.meta.open_sunday / DATA.meta.total * 100) + '%';
+
+  // Map
+  const map = L.map('map').setView([51.9, 19.145], 6);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: 'CartoDB',
+    subdomains: 'abcd',
+    maxZoom: 19
+  }).addTo(map);
+
+  if (DATA.points && DATA.points.length > 0) {
+    const heatLayer = L.heatLayer(DATA.points, {
+      radius: 12, blur: 13, maxZoom: 11, minOpacity: 0.35,
+      gradient: {0.2:'#1f3d12', 0.4:'#52901c', 0.6:'#74bd2a', 0.8:'#a6e84a', 1:'#e8ff8a'}
+    }).addTo(map);
+  }
+
+  // Voivodeship stats
+  if (DATA.voivodeships && DATA.voivodeships.length > 0) {
+    const top3 = DATA.voivodeships.sort((a,b) => b.count - a.count).slice(0, 3);
+    document.getElementById('voivodeship-stats').innerHTML = top3
+      .map(v => `<div style="margin-bottom:12px">
+        <strong>${v.name.charAt(0).toUpperCase() + v.name.slice(1)}</strong>: ${v.count} sklepów<br>
+        <span style="font-size:12px;color:var(--muted2)">Gęstość: ${v.per_km2.toFixed(3)}/km2</span>
+      </div>`).join('');
+  }
+
+  // Charts
+  createCharts();
+}
+
+function createCharts() {
+  const ctx = (id) => document.getElementById(id)?.getContext?.('2d');
+
+  // Cities chart
+  if (ctx('citiesChart') && DATA.cities) {
+    const top30 = DATA.cities.slice(0, 30);
+    new Chart(ctx('citiesChart'), {
+      type: 'bar',
+      data: {
+        labels: top30.map(c => c.name),
+        datasets: [{
+          data: top30.map(c => c.count),
+          backgroundColor: C.frog,
+          borderRadius: 6,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {display: false}
+        },
+        scales: {
+          x: {
+            grid: {color: 'rgba(140,200,80,.08)', drawBorder: false},
+            ticks: {color: C.muted}
+          },
+          y: {
+            grid: {display: false},
+            ticks: {color: C.muted, font: {size: 12}}
+          }
+        }
+      }
+    });
+  }
+
+  // Voivodeship count chart
+  if (ctx('voivodeshipCountChart') && DATA.voivodeships) {
+    const vois = DATA.voivodeships.sort((a,b) => b.count - a.count);
+    new Chart(ctx('voivodeshipCountChart'), {
+      type: 'bar',
+      data: {
+        labels: vois.map(v => v.name.charAt(0).toUpperCase() + v.name.slice(1)),
+        datasets: [{
+          data: vois.map(v => v.count),
+          backgroundColor: C.fbright,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        indexAxis: 'x',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {legend: {display: false}},
+        scales: {
+          x: {grid: {color: 'rgba(140,200,80,.08)'}, ticks: {color: C.muted, font: {size: 11}}},
+          y: {grid: {display: false}, ticks: {color: C.muted}}
+        }
+      }
+    });
+  }
+
+  // Streets table
+  if (DATA.streets && DATA.streets.length > 0) {
+    const top = DATA.streets.slice(0, 15);
+    document.getElementById('streetsTable').innerHTML = top
+      .map(s => `<div style="background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px">
+        <div style="font-weight:600;font-size:13px">${s.street}</div>
+        <div style="font-size:12px;color:var(--muted)">w ${s.town}</div>
+        <div style="font-family:'JetBrains Mono';color:var(--frog-bright);margin-top:4px;font-size:14px;font-weight:600">${s.count}</div>
+      </div>`).join('');
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', loadDashboard);
+} else {
+  loadDashboard();
+}
+</script>
+</body>
+</html>

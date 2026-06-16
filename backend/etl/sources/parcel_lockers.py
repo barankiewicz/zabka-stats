@@ -1,0 +1,115 @@
+"""Paczkomaty (InPost) jako osobna encja faktow - rownolegla do Żabek.
+
+Pobiera punkty z publicznego API InPost ShipX (bez tokena), przypisuje
+wojewodztwo i powiat tym samym point-in-polygon co Żabki, miasto bierze z adresu.
+Bez ciezkich wzbogacen - to czysta encja do zestawien przez wspolne wymiary.
+"""
+
+import os
+import json
+import time
+from concurrent.futures import ThreadPoolExecutor
+
+import requests
+
+from backend.etl.geo import build_polygon_index, assign_region, nearest_region
+from backend.etl.io import (
+    USER_AGENT, GEO_DIR, load_geojson, GEOJSON_WOJ, GEOJSON_POW,
+)
+
+INPOST_POINTS_URL = "https://api-shipx-pl.easypack24.net/v1/points"
+INPOST_TYPE = os.getenv("INPOST_TYPE", "parcel_locker")   # parcel_locker | pop
+PACZKOMAT_CACHE = os.getenv("PACZKOMAT_CACHE", "data/geo/paczkomaty_pl.json")
+INPOST_PER_PAGE = 500
+INPOST_WORKERS = int(os.getenv("INPOST_WORKERS", "8"))
+
+
+def _parse_point(p: dict) -> dict:
+    """Wyciagnij interesujace pola z punktu ShipX."""
+    loc = p.get("location") or {}
+    addr = p.get("address_details") or {}
+    return {
+        "external_id": p.get("name"),
+        "type": p.get("type"),
+        "status": p.get("status"),
+        "city": addr.get("city"),
+        "latitude": loc.get("latitude"),
+        "longitude": loc.get("longitude"),
+    }
+
+
+def _fetch_page(page: int) -> list:
+    """Jedna strona punktow InPost z retry. Pusta lista przy bledzie."""
+    for attempt in range(3):
+        try:
+            r = requests.get(INPOST_POINTS_URL,
+                             params={"type": INPOST_TYPE, "per_page": INPOST_PER_PAGE, "page": page},
+                             headers={"User-Agent": USER_AGENT}, timeout=40)
+            r.raise_for_status()
+            items = r.json().get("items", [])
+            return [_parse_point(p) for p in items
+                    if (p.get("location") or {}).get("latitude") is not None]
+        except Exception:
+            time.sleep(0.5 * (attempt + 1))
+    return []
+
+
+def _load_inpost_points() -> list:
+    """Punkty InPost (PL) z cache lub z API (strony rownolegle - sekwencyjnie ShipX dlawi)."""
+    if os.path.exists(PACZKOMAT_CACHE):
+        try:
+            with open(PACZKOMAT_CACHE, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    head = requests.get(INPOST_POINTS_URL,
+                        params={"type": INPOST_TYPE, "per_page": 1, "page": 1},
+                        headers={"User-Agent": USER_AGENT}, timeout=40)
+    head.raise_for_status()
+    count = int(head.json().get("count", 0))
+    pages = (count + INPOST_PER_PAGE - 1) // INPOST_PER_PAGE
+    pts = []
+    with ThreadPoolExecutor(max_workers=INPOST_WORKERS) as ex:
+        for chunk in ex.map(_fetch_page, range(1, pages + 1)):
+            pts.extend(chunk)
+    os.makedirs(os.path.dirname(PACZKOMAT_CACHE) or ".", exist_ok=True)
+    with open(PACZKOMAT_CACHE, "w", encoding="utf-8") as f:
+        json.dump(pts, f, ensure_ascii=False)
+    return pts
+
+
+def fetch_parcel_lockers() -> list:
+    """Lista paczkomatow gotowa do zapisu: operator + geografia (woj/powiat przez
+    point-in-polygon, ten sam co Żabki). Best-effort: [] gdy zrodlo niedostepne."""
+    try:
+        pts = _load_inpost_points()
+    except Exception as e:
+        print(f"[paczkomaty] InPost niedostepne: {e} - pomijam")
+        return []
+    if not pts:
+        print("[paczkomaty] brak punktow - pomijam")
+        return []
+    woj_idx = build_polygon_index(load_geojson(GEOJSON_WOJ, "wojewodztwa.geojson"))
+    pow_idx = build_polygon_index(load_geojson(GEOJSON_POW, "powiaty.geojson"))
+    out = []
+    fb = 0
+    for p in pts:
+        lon, lat = p["longitude"], p["latitude"]
+        w = assign_region(lon, lat, woj_idx) or nearest_region(lon, lat, woj_idx)
+        pw = assign_region(lon, lat, pow_idx) or nearest_region(lon, lat, pow_idx)
+        if not assign_region(lon, lat, woj_idx):
+            fb += 1
+        out.append({
+            "operator": "InPost",
+            "external_id": p.get("external_id"),
+            "type": p.get("type"),
+            "city": p.get("city"),
+            "voivodeship": w,
+            "powiat": pw,
+            "latitude": lat,
+            "longitude": lon,
+            "status": p.get("status"),
+        })
+    print(f"[paczkomaty] {len(out):,} punktow InPost (typ {INPOST_TYPE}); "
+          f"przypisano woj/powiat (fallback granicy: {fb})")
+    return out
