@@ -1,0 +1,29 @@
+name: Server ETL Logging
+
+on:
+  repository_dispatch:
+    types: [server_etl_report]
+
+jobs:
+  log-report:
+    name: Log ETL Status
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Job Summary
+        run: |
+          echo "### ETL Execution Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Execution Date:** ${{ github.event.client_payload.date }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** ${{ github.event.client_payload.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Duration:** ${{ github.event.client_payload.duration }} seconds" >> $GITHUB_STEP_SUMMARY
+          echo "- **Summary:** ${{ github.event.client_payload.summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### Execution Log Tail" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${{ github.event.client_payload.log }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Fail workflow if ETL failed
+        if: github.event.client_payload.status == 'failure'
+        run: |
+          echo "The server reported an ETL execution failure." >&2
+          exit 1
