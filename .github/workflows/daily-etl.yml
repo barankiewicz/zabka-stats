@@ -54,15 +54,31 @@ jobs:
           MAIL_FROM: ${{ secrets.MAIL_FROM }}
         run: |
           STATUS="${{ steps.etl.outcome }}"   # success | failure
-          SUBJECT="Zabka ETL: $STATUS ($(date -u +%F))"
-          BODY="$(tail -c 6000 etl.log 2>/dev/null || echo 'brak logu')"
+          SUBJECT="Zabka ETL: $STATUS ($(date -u +'%Y-%m-%d %H:%M UTC'))"
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          LOG="$(tail -c 6000 etl.log 2>/dev/null || echo 'brak logu')"
+          # jeden, kompletny mail: wszystko co dalby GitHub + ogon logu ETL.
+          # Tresc budowana w jq, zeby uniknac wieloliniowych stringow w YAML.
           jq -n \
             --arg from "${MAIL_FROM:-onboarding@resend.dev}" \
             --arg to "$MAIL_TO" \
             --arg subject "$SUBJECT" \
-            --arg body "Run: $RUN_URL"$'\n\n'"--- log (ogon) ---"$'\n'"$BODY" \
-            '{from:$from, to:[$to], subject:$subject, text:$body}' \
+            --arg status "$STATUS" \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --arg branch "$GITHUB_REF_NAME" \
+            --arg commit "$GITHUB_SHA" \
+            --arg trigger "$GITHUB_EVENT_NAME" \
+            --arg attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg run "$RUN_URL" \
+            --arg log "$LOG" \
+            '{from:$from, to:[$to], subject:$subject,
+              text: ("Status:  " + $status
+                + "\nRepo:    " + $repo
+                + "\nBranch:  " + $branch
+                + "\nCommit:  " + $commit
+                + "\nTrigger: " + $trigger + " (proba " + $attempt + ")"
+                + "\nRun:     " + $run
+                + "\n\n--- log ETL (ogon) ---\n" + $log)}' \
           | curl -sS -X POST https://api.resend.com/emails \
               -H "Authorization: Bearer $RESEND_API_KEY" \
               -H "Content-Type: application/json" \
