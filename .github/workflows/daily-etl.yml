@@ -83,3 +83,9 @@ jobs:
               -H "Authorization: Bearer $RESEND_API_KEY" \
               -H "Content-Type: application/json" \
               --data @-
+
+      - name: Reflect ETL status in the run (red on failure)
+        if: steps.etl.outcome == 'failure'
+        run: |
+          echo "ETL na serwerze zwrocil blad - patrz mail / log runu." >&2
+          exit 1
