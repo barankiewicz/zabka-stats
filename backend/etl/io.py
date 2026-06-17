@@ -512,15 +512,21 @@ def load_dimensions(con, dim_powiat: list, dim_voivodeship: list):
 
 
 def load_dim_gios_station(con, stations: list):
-    """Zapisz wymiar stacji GIOŚ (replace). stations: [{id, name, lat, lon}]."""
+    """Zapisz wymiar stacji GIOŚ (replace). stations: [{id, name, lat, lon}].
+    Best-effort: gdy GIOŚ nie odpowiedzialo (pusta lista), NIE kasujemy istniejacego
+    wymiaru - przelotny flap nie powinien niszczyc poprawnych danych z poprzedniego
+    przebiegu (spojne z 'brak zrodla => kolumna zostaje, nie znika')."""
     from backend.database_ch import ensure_extra_tables
     ensure_extra_tables(con)
+    if not stations:
+        print("[dims] dim_gios_station: brak nowych stacji (GIOŚ niedostepne) - "
+              "zostawiam istniejacy wymiar")
+        return
     con.execute("DELETE FROM dim_gios_station")
-    if stations:
-        con.executemany("INSERT INTO dim_gios_station (id, name, latitude, longitude) "
-                        "VALUES (?,?,?,?)",
-                        [(s["id"], s.get("name"), s.get("lat"), s.get("lon")) for s in stations])
-    print(f"[dims] dim_gios_station: {len(stations or [])}")
+    con.executemany("INSERT INTO dim_gios_station (id, name, latitude, longitude) "
+                    "VALUES (?,?,?,?)",
+                    [(s["id"], s.get("name"), s.get("lat"), s.get("lon")) for s in stations])
+    print(f"[dims] dim_gios_station: {len(stations)}")
 
 
 def load_dim_park(con, parks: list):
