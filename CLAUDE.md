@@ -84,7 +84,10 @@ Revert frontend implementation
   clustering above 50k.
 - **ETL pipeline:** each enrichment source is its own `Enricher` class in
   `backend/etl/sources/`; network steps are best-effort (a missing source does
-  not abort the ETL, the column just stays empty).
+  not abort the ETL, the column just stays empty). Shared dimensions are not
+  wiped on a transient failure: `load_dim_gios_station` skips the `DELETE` when
+  the GIOŚ fetch comes back empty, so an unlucky run keeps the previous day's
+  stations instead of zeroing `dim_gios_station`.
 - **Retries:** every source fetch goes through `with_retries` - up to
   `ETL_RETRY_ATTEMPTS` tries (default 5), `ETL_RETRY_DELAY` seconds apart (default
   300, so 5x5 min), each request capped at `ETL_HTTP_TIMEOUT` (default 30s). This
@@ -201,8 +204,13 @@ under a non-root `zabka` user.
 **HTTPS via nginx.** nginx reverse-proxies `https://zabka-stats.rejewska.pl/` to
 `127.0.0.1:8000`, with a Let's Encrypt cert (certbot `--nginx`, auto-renew via the
 `certbot.timer`) and a 80->443 redirect. Port 8000 is not exposed - the firewall
-(ufw) allows only 22, 80, and 443; the backend is reachable only over loopback
+(ufw) allows only SSH, 80, and 443; the backend is reachable only over loopback
 behind nginx.
+
+**SSH hardening.** Key-only auth (`PasswordAuthentication no`), root login
+disabled (`PermitRootLogin no`), and sshd moved off the default port to **420**
+(set in `/etc/ssh/sshd_config.d/port.conf`; ufw allows 420, fail2ban's `sshd` jail
+is pinned to it). Log in with `ssh -p 420 <user>@<vps-ip>`.
 
 **Daily ETL via cron.** `crontab` runs `/home/zabka/cron_etl.sh` at 03:00
 Europe/Warsaw. The script: `git pull --ff-only` (code arrives via a read-only
@@ -377,8 +385,11 @@ anyway). Table schema with types: chapter 3.
 **Where:** `/api/stats/*`, `/api/changes/*`, `/api/trends/*` (TTL 3600 s).
 **Where NOT:** `/api/live/*` - always fresh, no cache.
 The ETL clears the cache after loading data; the backend rebuilds it on the next
-query. Config: `REDIS_SOCKET`. No Redis on localhost is fine - the app works
-without a cache.
+query. Config: `REDIS_SOCKET` (path to the UNIX socket). On the production VPS
+this is `/run/redis/redis-server.sock` (Debian `redis-server`, the `zabka` user is
+in the `redis` group; the systemd unit passes `REDIS_SOCKET` and waits on
+`redis-server.service`). Redis is optional: if the socket is missing (for example
+a bare local checkout), `cache.py` logs it and the app runs without a cache.
 
 ## 4. API
 
@@ -854,17 +865,19 @@ respond instantly.
 
 ### 5. Cache invalidation (Redis)
 
-After a successful pipeline run, `backend/daily_etl.py` clears Redis over the
-local UNIX socket:
+After a successful pipeline run, the pipeline clears Redis over the local UNIX
+socket (`reload_cache()` uses the same `cache.py` connection as the backend,
+driven by the `REDIS_SOCKET` env var):
 
 ```python
-import redis
-r = redis.Redis(unix_socket_path="/usr/local/redis/sockets/server441858.sock")
+import os, redis
+r = redis.Redis(unix_socket_path=os.getenv("REDIS_SOCKET", "/run/redis/redis-server.sock"))
 r.flushdb()
 ```
 
 This way the freshly recomputed extremes reach the FastAPI endpoints immediately
-and render correctly in the Chart.js + Leaflet frontend.
+and render correctly in the Chart.js + Leaflet frontend. If Redis is unreachable
+the step is a no-op (best-effort, like the rest of the pipeline).
 
 ---
 
