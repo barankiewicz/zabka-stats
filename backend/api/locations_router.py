@@ -128,7 +128,7 @@ async def get_locations_for_map_geojson(
 async def get_location(location_id: int):
     """Get a specific location by ID."""
     result = client.execute(f"""
-        SELECT id, name, city, voivodeship, street, latitude, longitude,
+        SELECT id, 'Żabka' AS name, city, voivodeship, street, latitude, longitude,
                has_merrychef, open_sunday, h24, created_at, deleted_at, powiat
         FROM locations
         WHERE id = {location_id} AND deleted_at IS NULL

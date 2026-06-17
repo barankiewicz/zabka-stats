@@ -19,9 +19,9 @@ async def get_dashboard_data():
 
     # Top 30 cities
     cities = client.execute("""
-        SELECT name as city, voivodeship, COUNT(*) as count
+        SELECT city, voivodeship, COUNT(*) as count
         FROM locations WHERE deleted_at IS NULL
-        GROUP BY name, voivodeship ORDER BY count DESC LIMIT 30
+        GROUP BY city, voivodeship ORDER BY count DESC LIMIT 30
     """).fetchall()
 
     # Voivodeships with stats

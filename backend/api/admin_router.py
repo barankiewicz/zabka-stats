@@ -154,7 +154,7 @@ async def get_location_context(lat: float, lon: float):
     # Find nearest location to get context
     nearest = client.execute(f"""
         SELECT
-            name,
+            'Żabka' AS name,
             street,
             city,
             powiat,
@@ -167,12 +167,12 @@ async def get_location_context(lat: float, lon: float):
         ORDER BY
             sqrt(pow(latitude - {lat}, 2) + pow(longitude - {lon}, 2))
         LIMIT 1
-    """)
+    """).fetchone()
 
     if not nearest:
         return {"error": "No locations found"}
 
-    row = nearest[0]
+    row = nearest
     return {
         "nearest_location": row[0],
         "street": row[1],
@@ -192,36 +192,36 @@ async def get_extremes():
     """Get extreme points - najfajniejsze Żabki!"""
 
     northernmost = client.execute("""
-        SELECT id, name, city, powiat, voivodeship, latitude, longitude
+        SELECT id, 'Żabka' AS name, city, powiat, voivodeship, latitude, longitude
         FROM locations
         WHERE deleted_at IS NULL
         ORDER BY latitude DESC
         LIMIT 1
-    """).fetchone().fetchone()[0]
+    """).fetchone()
 
     southernmost = client.execute("""
-        SELECT id, name, city, powiat, voivodeship, latitude, longitude
+        SELECT id, 'Żabka' AS name, city, powiat, voivodeship, latitude, longitude
         FROM locations
         WHERE deleted_at IS NULL
         ORDER BY latitude ASC
         LIMIT 1
-    """).fetchone()[0]
+    """).fetchone()
 
     easternmost = client.execute("""
-        SELECT id, name, city, powiat, voivodeship, latitude, longitude
+        SELECT id, 'Żabka' AS name, city, powiat, voivodeship, latitude, longitude
         FROM locations
         WHERE deleted_at IS NULL
         ORDER BY longitude DESC
         LIMIT 1
-    """).fetchone()[0]
+    """).fetchone()
 
     westernmost = client.execute("""
-        SELECT id, name, city, powiat, voivodeship, latitude, longitude
+        SELECT id, 'Żabka' AS name, city, powiat, voivodeship, latitude, longitude
         FROM locations
         WHERE deleted_at IS NULL
         ORDER BY longitude ASC
         LIMIT 1
-    """).fetchone()[0]
+    """).fetchone()
 
     def format_location(row):
         return {
@@ -259,17 +259,17 @@ async def get_administrative_summary():
             SELECT COUNT(DISTINCT powiat)
             FROM locations
             WHERE deleted_at IS NULL
-        """)[0][0],
+        """).fetchone()[0],
         "total_cities": client.execute("""
             SELECT COUNT(DISTINCT city)
             FROM locations
             WHERE deleted_at IS NULL
-        """)[0][0],
+        """).fetchone()[0],
         "total_locations": client.execute("""
             SELECT COUNT(*)
             FROM locations
             WHERE deleted_at IS NULL
-        """)[0][0],
+        """).fetchone()[0],
     }
 
 @router.get("/live/best-worst-weather")
@@ -279,12 +279,14 @@ async def get_best_worst_weather():
     Za każdym razem świeże dane z Open-Meteo.
     """
 
-    # Get all active locations for weather scoring
+    # Sample active locations for weather scoring (live calls hit an external API
+    # per point, so we sample instead of scoring all ~13k stores)
     locations = client.execute("""
-        SELECT id, name, city, powiat, voivodeship, latitude, longitude
+        SELECT DISTINCT id, 'Żabka' AS name, city, powiat, voivodeship, latitude, longitude
         FROM locations
         WHERE deleted_at IS NULL
-        ORDER BY latitude, longitude
+        ORDER BY RANDOM()
+        LIMIT 25
     """).fetchall()
 
     if not locations:
@@ -363,7 +365,7 @@ async def get_air_quality_extremes():
 
     # Get strategic locations for AQ monitoring
     locations = client.execute("""
-        SELECT DISTINCT id, name, city, powiat, voivodeship, latitude, longitude
+        SELECT DISTINCT id, 'Żabka' AS name, city, powiat, voivodeship, latitude, longitude
         FROM locations
         WHERE deleted_at IS NULL
         ORDER BY RANDOM()
@@ -458,7 +460,7 @@ async def get_darkest_sky_for_stargazing():
 
     # Get strategic locations (sample for performance)
     locations = client.execute("""
-        SELECT DISTINCT id, name, city, powiat, voivodeship, latitude, longitude
+        SELECT DISTINCT id, 'Żabka' AS name, city, powiat, voivodeship, latitude, longitude
         FROM locations
         WHERE deleted_at IS NULL
         ORDER BY RANDOM()
@@ -540,7 +542,7 @@ async def get_lightning_danger():
 
     # Get strategic locations
     locations = client.execute("""
-        SELECT DISTINCT id, name, city, powiat, voivodeship, latitude, longitude
+        SELECT DISTINCT id, 'Żabka' AS name, city, powiat, voivodeship, latitude, longitude
         FROM locations
         WHERE deleted_at IS NULL
         ORDER BY RANDOM()

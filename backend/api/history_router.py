@@ -15,7 +15,7 @@ async def get_location_history(
     limit: int = 100,
 ):
     """Get full change history for a specific location."""
-    location = client.execute(f"SELECT name FROM locations WHERE id = {location_id}").fetchone()
+    location = client.execute(f"SELECT 'Żabka' FROM locations WHERE id = {location_id}").fetchone()
     if not location:
         raise HTTPException(status_code=404, detail="Location not found")
 
@@ -54,13 +54,13 @@ async def get_monthly_changes(
     """Get monthly change statistics."""
     where = ""
     if year:
-        where = f"WHERE strftime(source_date, '%Y') = '{year}'"
+        where = f"WHERE strftime(histories.source_date, '%Y') = '{year}'"
     if voivodeship:
         where += f" {'AND' if where else 'WHERE'} voivodeship = '{voivodeship}'"
 
     results = client.execute(f"""
         SELECT
-            strftime(source_date, '%Y-%m') as month,
+            strftime(histories.source_date, '%Y-%m') as month,
             change_type,
             COUNT(*) as count
         FROM histories
@@ -138,13 +138,13 @@ async def get_deletion_timeline(
     """Get timeline of deletions over the last N months."""
     results = client.execute(f"""
         SELECT
-            source_date,
+            histories.source_date,
             COUNT(*) as count
         FROM histories
         JOIN snapshots ON histories.snapshot_id = snapshots.id
         WHERE change_type = 'deleted'
-        GROUP BY source_date
-        ORDER BY source_date DESC
+        GROUP BY histories.source_date
+        ORDER BY histories.source_date DESC
         LIMIT {limit_months}
     """).fetchall()
 
