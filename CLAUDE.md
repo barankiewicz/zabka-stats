@@ -196,8 +196,13 @@ numpy, scikit-learn) cannot load their `.so` files there.
 
 **Backend as a service.** A systemd unit `zabka-backend` runs
 `venv/bin/python -m backend.main` (uvicorn on `0.0.0.0:8000`), `Restart=on-failure`,
-under a non-root `zabka` user. The dashboard is reachable at `http://<vps-ip>:8000/`
-(put nginx + TLS in front for a real hostname). The firewall (ufw) allows 22 and 8000.
+under a non-root `zabka` user.
+
+**HTTPS via nginx.** nginx reverse-proxies `https://zabka-stats.rejewska.pl/` to
+`127.0.0.1:8000`, with a Let's Encrypt cert (certbot `--nginx`, auto-renew via the
+`certbot.timer`) and a 80->443 redirect. Port 8000 is not exposed - the firewall
+(ufw) allows only 22, 80, and 443; the backend is reachable only over loopback
+behind nginx.
 
 **Daily ETL via cron.** `crontab` runs `/home/zabka/cron_etl.sh` at 03:00
 Europe/Warsaw. The script: `git pull --ff-only` (code arrives via a read-only
