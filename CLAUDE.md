@@ -188,22 +188,28 @@ export API_TOKEN="your-super-secret-token-2024"
 python backend/main.py
 ```
 
-### Option C: Cron (for daily refresh on LH.pl)
+### Option C: Production - OVH VPS (systemd + daily cron)
 
-Recommended secure setup on LH.pl (outside public_html):
-- Interpreter: Shell/Bash
-- Script path: /home/serwer441858/zabka-stats/cron_run.sh
+The live deployment runs on an OVH VPS (Debian, Warsaw). Shared hosting (lh.pl)
+was abandoned: `/home` is mounted `noexec`, so the native extensions (duckdb,
+numpy, scikit-learn) cannot load their `.so` files there.
 
-### Option D: Automatic Deployment (CI/CD via GitHub Actions)
+**Backend as a service.** A systemd unit `zabka-backend` runs
+`venv/bin/python -m backend.main` (uvicorn on `0.0.0.0:8000`), `Restart=on-failure`,
+under a non-root `zabka` user. The dashboard is reachable at `http://<vps-ip>:8000/`
+(put nginx + TLS in front for a real hostname). The firewall (ufw) allows 22 and 8000.
 
-Every push to the `main` branch triggers the `.github/workflows/deploy.yml` workflow, which:
-1. Runs a syntax check and compile test on all Python files.
-2. If tests pass, deploys all updated files to the LH.pl server via SFTP (safely excluding the `data/` directory to protect the live database).
+**Daily ETL via cron.** `crontab` runs `/home/zabka/cron_etl.sh` at 03:00
+Europe/Warsaw. The script: `git pull --ff-only` (code arrives via a read-only
+deploy key, not a push-deploy), `pip install -r requirements.txt`, **stops the
+backend** (DuckDB is single-writer, so the service must release the lock before
+the ETL opens it read-write), runs `python -m backend.daily_etl`, **restarts the
+backend**, then emails a run status (success/failure + log tail) directly through
+the Resend API. Secrets (`RESEND_API_KEY`, `MAIL_TO`) live in `/home/zabka/.cron_env`
+(chmod 600), outside the repo.
 
-Requires the following GitHub repository secrets:
-- `SSH_HOST`: serwer441858.lh.pl
-- `SSH_USER`: serwer441858
-- `SSH_PASSWORD`: your-sftp-password
+The status email is the only run-status channel - there is no GitHub Actions step
+in the daily loop. Code reaches the VPS by `git pull`, not by CI deploy.
 
 ## Data format (JSON)
 
