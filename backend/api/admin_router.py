@@ -84,7 +84,7 @@ async def get_by_city(powiat: str = None, voivodeship: str = None):
         {where}
         GROUP BY city, voivodeship, powiat
         ORDER BY total DESC
-    """)
+    """).fetchall()
 
     return {
         "data": [
@@ -111,7 +111,7 @@ async def get_voivodeships():
         FROM locations
         WHERE deleted_at IS NULL
         ORDER BY voivodeship
-    """)
+    """).fetchall()
 
     result = {}
     for (voiv,) in voivodeships:
@@ -122,7 +122,7 @@ async def get_voivodeships():
             WHERE voivodeship = '{voiv}' AND deleted_at IS NULL
             GROUP BY powiat
             ORDER BY count DESC
-        """)
+        """).fetchall()
 
         powiats = {}
         for powiat, count in powiats_data:
@@ -370,7 +370,7 @@ async def get_air_quality_extremes():
         WHERE deleted_at IS NULL
         ORDER BY RANDOM()
         LIMIT 20
-    """)
+    """).fetchall()
 
     if not locations:
         return {"error": "No locations found"}
@@ -465,7 +465,7 @@ async def get_darkest_sky_for_stargazing():
         WHERE deleted_at IS NULL
         ORDER BY RANDOM()
         LIMIT 15
-    """)
+    """).fetchall()
 
     if not locations:
         return {"error": "No locations found"}
@@ -547,7 +547,7 @@ async def get_lightning_danger():
         WHERE deleted_at IS NULL
         ORDER BY RANDOM()
         LIMIT 12
-    """)
+    """).fetchall()
 
     if not locations:
         return {"error": "No locations found"}
