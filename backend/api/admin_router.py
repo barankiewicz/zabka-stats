@@ -1,7 +1,6 @@
 """
 Administrative context API - voivodeship, powiat, city, country.
 Hierarchical aggregations for Polish administrative divisions.
-Live weather and air quality (NO caching - always fresh!)
 """
 
 from fastapi import APIRouter
@@ -11,7 +10,7 @@ from backend.live_data import (
     get_weather_for_location,
     get_air_quality_for_location,
     get_light_pollution,
-    get_nearby_lightning
+    get_nearby_lightning,
 )
 
 router = APIRouter()
@@ -272,281 +271,267 @@ async def get_administrative_summary():
         """).fetchone()[0],
     }
 
+
 @router.get("/live/best-worst-weather")
 async def get_best_worst_weather():
     """
-    LIVE - najlepszy i najgorszy weather teraz!
-    Za każdym razem świeże dane z Open-Meteo.
+    LIVE - najbardziej sloneczna i najmokrzejsza Zabka teraz.
+    Swieze dane z Open-Meteo dla wszystkich 16 wojewodztw.
     """
-
-    # Sample active locations for weather scoring (live calls hit an external API
-    # per point, so we sample instead of scoring all ~13k stores)
     locations = client.execute("""
-        SELECT DISTINCT id, 'Żabka' AS name, city, powiat, voivodeship, latitude, longitude
-        FROM locations
-        WHERE deleted_at IS NULL
-        ORDER BY RANDOM()
-        LIMIT 25
+        SELECT id, city, powiat, voivodeship, latitude, longitude
+        FROM (
+            SELECT id, city, powiat, voivodeship, latitude, longitude,
+                   ROW_NUMBER() OVER (PARTITION BY voivodeship ORDER BY id) as rn
+            FROM locations
+            WHERE deleted_at IS NULL
+        )
+        WHERE rn = 1
     """).fetchall()
 
     if not locations:
         return {"error": "No locations found"}
 
-    # Prepare location data
     loc_list = [
         {
             "id": row[0],
-            "name": row[1],
-            "city": row[2],
-            "powiat": row[3],
-            "voivodeship": row[4],
-            "latitude": row[5],
-            "longitude": row[6],
+            "city": row[1],
+            "powiat": row[2],
+            "voivodeship": row[3],
+            "latitude": row[4],
+            "longitude": row[5],
         }
         for row in locations
     ]
 
-    # Score weather for each location
-    scores = []
+    RAIN_CODES = {51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99}
+
+    results = []
     for loc in loc_list:
-        weather = get_weather_for_location(loc["latitude"], loc["longitude"])
+        weather = get_weather_for_location(loc["latitude"], loc["longitude"], loc["voivodeship"])
         if weather:
-            # Higher temp + lower wind = better
-            score = weather["temperature"] - (weather["wind_speed"] / 10)
-            scores.append({
+            wcode = weather.get("weather_code", 3)
+            precip = weather.get("precipitation", 0.0) or 0.0
+            sunny_score = (max(0, 2 - wcode) * 10) + weather["apparent_temperature"] - precip * 5
+            wet_score = precip * 10 + (50 if wcode in RAIN_CODES else 0) + weather["humidity"] / 10
+            results.append({
                 **loc,
                 "weather": weather,
-                "score": score
+                "sunny_score": sunny_score,
+                "wet_score": wet_score,
             })
 
-    if not scores:
+    if not results:
         return {"error": "Could not fetch weather data"}
 
-    best = max(scores, key=lambda x: x["score"])
-    worst = min(scores, key=lambda x: x["score"])
+    sunniest = max(results, key=lambda x: x["sunny_score"])
+    wettest = max(results, key=lambda x: x["wet_score"])
+
+    def _loc(r):
+        return {
+            "id": r["id"],
+            "city": r["city"],
+            "powiat": r["powiat"],
+            "voivodeship": r["voivodeship"],
+            "lat": r["latitude"],
+            "lon": r["longitude"],
+        }
 
     return {
-        "best_weather_now": {
-            "location": {
-                "id": best["id"],
-                "name": best["name"],
-                "city": best["city"],
-                "powiat": best["powiat"],
-                "voivodeship": best["voivodeship"],
-                "lat": best["latitude"],
-                "lon": best["longitude"],
-            },
-            "weather": best["weather"],
-            "score": round(best["score"], 1),
-            "message": f" Najlepsza pogoda: {best['name']} ({best['city']}) - {best['weather']['temperature']}°C, {best['weather']['weather_description']}"
+        "sunniest_now": {
+            "location": _loc(sunniest),
+            "weather": sunniest["weather"],
+            "message": f"Najbardziej sloneczna: {sunniest['city']} ({sunniest['voivodeship']}) - {sunniest['weather']['temperature']}C, {sunniest['weather']['weather_description']}",
         },
-        "worst_weather_now": {
-            "location": {
-                "id": worst["id"],
-                "name": worst["name"],
-                "city": worst["city"],
-                "powiat": worst["powiat"],
-                "voivodeship": worst["voivodeship"],
-                "lat": worst["latitude"],
-                "lon": worst["longitude"],
-            },
-            "weather": worst["weather"],
-            "score": round(worst["score"], 1),
-            "message": f" Najgorsza pogoda: {worst['name']} ({worst['city']}) - {worst['weather']['temperature']}°C, {worst['weather']['weather_description']}"
-        }
+        "wettest_now": {
+            "location": _loc(wettest),
+            "weather": wettest["weather"],
+            "message": f"Najmokrzejsza: {wettest['city']} ({wettest['voivodeship']}) - {wettest['weather']['precipitation']} mm, {wettest['weather']['weather_description']}",
+        },
     }
+
 
 @router.get("/live/air-quality-extremes")
 async def get_air_quality_extremes():
     """
-    LIVE - najlepsze i najgorsze powietrze teraz!
-    Za każdym razem świeże dane z GIOŚ.
+    LIVE - najczystsze i najbardziej zanieczyszczone powietrze teraz.
+    Swieze dane z GIOS dla wszystkich stacji pomiarowych.
     """
+    from backend.live_data import get_all_stations_aq_cached
+    all_aq = get_all_stations_aq_cached()
 
-    # Get strategic locations for AQ monitoring
-    locations = client.execute("""
-        SELECT DISTINCT id, 'Żabka' AS name, city, powiat, voivodeship, latitude, longitude
-        FROM locations
-        WHERE deleted_at IS NULL
-        ORDER BY RANDOM()
-        LIMIT 20
-    """).fetchall()
-
-    if not locations:
-        return {"error": "No locations found"}
-
-    loc_list = [
-        {
-            "id": row[0],
-            "name": row[1],
-            "city": row[2],
-            "powiat": row[3],
-            "voivodeship": row[4],
-            "latitude": row[5],
-            "longitude": row[6],
-        }
-        for row in locations
-    ]
-
-    # Get AQ for each location
-    scores = []
-    for loc in loc_list:
-        aq = get_air_quality_for_location(loc["latitude"], loc["longitude"])
-        if aq:
-            # Lower pollutants = better
-            score = -(
-                (aq.get("pm25") or 999) +
-                (aq.get("pm10") or 999) +
-                (aq.get("no2") or 999)
-            )
-            scores.append({
-                **loc,
-                "air_quality": aq,
-                "score": score
-            })
-
-    if not scores:
+    if not all_aq:
         return {"error": "Could not fetch air quality data"}
 
-    best = max(scores, key=lambda x: x["score"])
-    worst = min(scores, key=lambda x: x["score"])
+    scores = []
+    for sid_str, aq in all_aq.items():
+        score = -(
+            (aq.get("pm25") or 999) +
+            (aq.get("pm10") or 999) +
+            (aq.get("no2") or 999)
+        )
+        scores.append({"station_id": int(sid_str), "score": score, "air_quality": aq})
 
-    aqi_emoji = {
-        "GOOD": "",
-        "FAIR": "",
-        "MODERATE": "",
-        "POOR": "",
-        "VERY_POOR": "",
-        "EXTREMELY_POOR": ""
-    }
+    if not scores:
+        return {"error": "No station metrics found"}
+
+    best_station = max(scores, key=lambda x: x["score"])
+    worst_station = min(scores, key=lambda x: x["score"])
+
+    best_loc_row = client.execute("""
+        SELECT id, city, powiat, voivodeship, latitude, longitude
+        FROM locations
+        WHERE gios_station_id = ? AND deleted_at IS NULL
+        LIMIT 1
+    """, [best_station["station_id"]]).fetchone()
+
+    if not best_loc_row:
+        best_loc_row = client.execute("""
+            SELECT id, city, powiat, voivodeship, latitude, longitude
+            FROM locations
+            WHERE deleted_at IS NULL
+            LIMIT 1
+        """).fetchone()
+
+    worst_loc_row = client.execute("""
+        SELECT id, city, powiat, voivodeship, latitude, longitude
+        FROM locations
+        WHERE gios_station_id = ? AND deleted_at IS NULL
+        LIMIT 1
+    """, [worst_station["station_id"]]).fetchone()
+
+    if not worst_loc_row:
+        worst_loc_row = client.execute("""
+            SELECT id, city, powiat, voivodeship, latitude, longitude
+            FROM locations
+            WHERE deleted_at IS NULL
+            ORDER BY id DESC
+            LIMIT 1
+        """).fetchone()
+
+    def _loc(row):
+        return {
+            "id": row[0],
+            "city": row[1],
+            "powiat": row[2],
+            "voivodeship": row[3],
+            "lat": row[4],
+            "lon": row[5],
+        }
+
+    best_aq_loc = get_air_quality_for_location(best_loc_row[4], best_loc_row[5])
+    worst_aq_loc = get_air_quality_for_location(worst_loc_row[4], worst_loc_row[5])
 
     return {
         "best_air_quality_now": {
-            "location": {
-                "id": best["id"],
-                "name": best["name"],
-                "city": best["city"],
-                "powiat": best["powiat"],
-                "voivodeship": best["voivodeship"],
-                "lat": best["latitude"],
-                "lon": best["longitude"],
-            },
-            "air_quality": best["air_quality"],
-            "score": round(best["score"], 1),
-            "message": f"{aqi_emoji.get(best['air_quality'].get('aqi_category'), '')} Najczystsze powietrze: {best['name']} ({best['city']}) - {best['air_quality'].get('aqi_category')}"
+            "location": _loc(best_loc_row),
+            "air_quality": best_aq_loc,
+            "score": round(best_station["score"], 1),
+            "message": f"Najczystsze powietrze: {best_loc_row[1]} ({best_loc_row[3]}) - {best_aq_loc.get('aqi_category')}",
         },
         "worst_air_quality_now": {
-            "location": {
-                "id": worst["id"],
-                "name": worst["name"],
-                "city": worst["city"],
-                "powiat": worst["powiat"],
-                "voivodeship": worst["voivodeship"],
-                "lat": worst["latitude"],
-                "lon": worst["longitude"],
-            },
-            "air_quality": worst["air_quality"],
-            "score": round(worst["score"], 1),
-            "message": f"{aqi_emoji.get(worst['air_quality'].get('aqi_category'), '')} Najgorsze powietrze: {worst['name']} ({worst['city']}) - {worst['air_quality'].get('aqi_category')}"
-        }
+            "location": _loc(worst_loc_row),
+            "air_quality": worst_aq_loc,
+            "score": round(worst_station["score"], 1),
+            "message": f"Najgorsze powietrze: {worst_loc_row[1]} ({worst_loc_row[3]}) - {worst_aq_loc.get('aqi_category')}",
+        },
     }
+
 
 @router.get("/live/darkest-sky-stargazing")
 async def get_darkest_sky_for_stargazing():
     """
-    LIVE -  Najciemniejsza Żabka do obserwacji gwiazd!
-    Za każdym razem świeże dane z OpenLightMap.
+    LIVE - najciemniejsza i najjaśniejsza Żabka w Polsce.
+    Zmaterializowane dane o zanieczyszczeniu swiatlem (Bortle) z DuckDB.
     """
-
-    # Get strategic locations (sample for performance)
-    locations = client.execute("""
-        SELECT DISTINCT id, 'Żabka' AS name, city, powiat, voivodeship, latitude, longitude
+    darkest_row = client.execute("""
+        SELECT id, city, powiat, voivodeship, latitude, longitude,
+               light_pollution_brightness, bortle_scale
         FROM locations
-        WHERE deleted_at IS NULL
-        ORDER BY RANDOM()
-        LIMIT 15
-    """).fetchall()
+        WHERE deleted_at IS NULL AND bortle_scale IS NOT NULL
+        ORDER BY light_pollution_brightness ASC
+        LIMIT 1
+    """).fetchone()
 
-    if not locations:
-        return {"error": "No locations found"}
+    brightest_row = client.execute("""
+        SELECT id, city, powiat, voivodeship, latitude, longitude,
+               light_pollution_brightness, bortle_scale
+        FROM locations
+        WHERE deleted_at IS NULL AND bortle_scale IS NOT NULL
+        ORDER BY light_pollution_brightness DESC
+        LIMIT 1
+    """).fetchone()
 
-    loc_list = [
-        {
-            "id": row[0],
-            "name": row[1],
-            "city": row[2],
-            "powiat": row[3],
-            "voivodeship": row[4],
-            "latitude": row[5],
-            "longitude": row[6],
+    if not darkest_row or not brightest_row:
+        darkest_row = client.execute("""
+            SELECT id, city, powiat, voivodeship, latitude, longitude, 120.0, 5
+            FROM locations WHERE deleted_at IS NULL LIMIT 1
+        """).fetchone()
+        brightest_row = darkest_row
+
+    bortle_descriptions = {
+        1: "Pristine Dark Sky",
+        2: "Excellent Dark Sky",
+        3: "Very Good Dark Sky",
+        4: "Rural Sky",
+        5: "Suburban Sky",
+        6: "Bright Suburban Sky",
+        7: "Urban Transition Sky",
+        8: "City Sky",
+        9: "Inner-City Sky"
+    }
+
+    def _loc_lp(row):
+        brightness = row[6] or 120.0
+        bortle = int(row[7]) if row[7] is not None else 5
+        desc = bortle_descriptions.get(bortle, "Moderate Light Pollution")
+        return {
+            "location": {
+                "id": row[0],
+                "city": row[1],
+                "powiat": row[2],
+                "voivodeship": row[3],
+                "lat": row[4],
+                "lon": row[5],
+            },
+            "light_pollution": {
+                "brightness_level": brightness,
+                "bortle_scale": bortle,
+                "description": desc,
+                "suitable_for_stargazing": bortle <= 5,
+                "milky_way_visible": bortle <= 4,
+                "planets_visible": bortle <= 7,
+            },
+            "milky_way_visible": bortle <= 4,
         }
-        for row in locations
-    ]
 
-    # Get light pollution for each location
-    scores = []
-    for loc in loc_list:
-        lp = get_light_pollution(loc["latitude"], loc["longitude"])
-        if lp and lp.get("brightness_level") is not None:
-            # Lower brightness = better for stargazing (inverse scoring)
-            score = -(lp["brightness_level"])  # Negative = lower is better
-            scores.append({
-                **loc,
-                "light_pollution": lp,
-                "score": score
-            })
+    darkest_data = _loc_lp(darkest_row)
+    brightest_data = _loc_lp(brightest_row)
 
-    if not scores:
-        return {"error": "Could not fetch light pollution data"}
-
-    best = max(scores, key=lambda x: x["score"])  # Darkest = best for stargazing
-    worst = min(scores, key=lambda x: x["score"])  # Brightest = worst
+    darkest_data["message"] = f"Najciemniejsza: {darkest_row[1]} ({darkest_row[3]}) - {darkest_data['light_pollution']['description']} (Bortle {darkest_data['light_pollution']['bortle_scale']})"
+    brightest_data["message"] = f"Najjasniejsza: {brightest_row[1]} ({brightest_row[3]}) - {brightest_data['light_pollution']['description']} (Bortle {brightest_data['light_pollution']['bortle_scale']})"
 
     return {
-        "best_stargazing_spot_now": {
-            "location": {
-                "id": best["id"],
-                "name": best["name"],
-                "city": best["city"],
-                "powiat": best["powiat"],
-                "voivodeship": best["voivodeship"],
-                "lat": best["latitude"],
-                "lon": best["longitude"],
-            },
-            "light_pollution": best["light_pollution"],
-            "milky_way_visible": best["light_pollution"]["milky_way_visible"],
-            "message": f" Najciemniejsza Żabka: {best['name']} ({best['city']}) - {best['light_pollution']['description']} (Bortle {best['light_pollution']['bortle_scale']})"
-        },
-        "worst_stargazing_spot_now": {
-            "location": {
-                "id": worst["id"],
-                "name": worst["name"],
-                "city": worst["city"],
-                "powiat": worst["powiat"],
-                "voivodeship": worst["voivodeship"],
-                "lat": worst["latitude"],
-                "lon": worst["longitude"],
-            },
-            "light_pollution": worst["light_pollution"],
-            "milky_way_visible": worst["light_pollution"]["milky_way_visible"],
-            "message": f" Najjaśniejsza Żabka: {worst['name']} ({worst['city']}) - {worst['light_pollution']['description']} (Bortle {worst['light_pollution']['bortle_scale']})"
-        }
+        "darkest_now": darkest_data,
+        "brightest_now": brightest_data,
     }
+
 
 @router.get("/live/lightning-danger")
 async def get_lightning_danger():
     """
-    LIVE -  Świetlne zjawiska teraz!
-    Gdzie są pioruny, gdzie jest niebezpiecznie.
+    LIVE - zagrozenie piorunami teraz.
+    Oceniane w oparciu o 16 wojewodzkich stref pogodowych.
     """
-
-    # Get strategic locations
     locations = client.execute("""
-        SELECT DISTINCT id, 'Żabka' AS name, city, powiat, voivodeship, latitude, longitude
-        FROM locations
-        WHERE deleted_at IS NULL
-        ORDER BY RANDOM()
-        LIMIT 12
+        SELECT id, city, powiat, voivodeship, latitude, longitude
+        FROM (
+            SELECT id, city, powiat, voivodeship, latitude, longitude,
+                   ROW_NUMBER() OVER (PARTITION BY voivodeship ORDER BY id) as rn
+            FROM locations
+            WHERE deleted_at IS NULL
+        )
+        WHERE rn = 1
     """).fetchall()
 
     if not locations:
@@ -555,83 +540,54 @@ async def get_lightning_danger():
     loc_list = [
         {
             "id": row[0],
-            "name": row[1],
-            "city": row[2],
-            "powiat": row[3],
-            "voivodeship": row[4],
-            "latitude": row[5],
-            "longitude": row[6],
+            "city": row[1],
+            "powiat": row[2],
+            "voivodeship": row[3],
+            "latitude": row[4],
+            "longitude": row[5],
         }
         for row in locations
     ]
 
-    # Get lightning data for each location
     danger_scores = []
     for loc in loc_list:
         lightning = get_nearby_lightning(loc["latitude"], loc["longitude"])
         if lightning:
-            # Score: DANGER=3, WARNING=2, SAFE=1
             danger_map = {"DANGER": 3, "WARNING": 2, "SAFE": 1}
             score = danger_map.get(lightning["danger_level"], 0)
-            danger_scores.append({
-                **loc,
-                "lightning": lightning,
-                "danger_score": score
-            })
+            danger_scores.append({**loc, "lightning": lightning, "danger_score": score})
 
     if not danger_scores:
         return {"error": "Could not fetch lightning data"}
 
     most_dangerous = max(danger_scores, key=lambda x: x["danger_score"])
     safest = min(danger_scores, key=lambda x: x["danger_score"])
+    most_active = max(danger_scores, key=lambda x: x["lightning"].get("strikes_last_hour") or 0)
 
-    # Find most active (most strikes)
-    most_active = max(danger_scores, key=lambda x: x["lightning"]["strikes_last_hour"] or 0)
-
-    danger_emoji = {
-        "DANGER": "",
-        "WARNING": "",
-        "SAFE": ""
-    }
+    def _loc(r):
+        return {
+            "id": r["id"],
+            "city": r["city"],
+            "powiat": r["powiat"],
+            "voivodeship": r["voivodeship"],
+            "lat": r["latitude"],
+            "lon": r["longitude"],
+        }
 
     return {
         "most_dangerous_now": {
-            "location": {
-                "id": most_dangerous["id"],
-                "name": most_dangerous["name"],
-                "city": most_dangerous["city"],
-                "powiat": most_dangerous["powiat"],
-                "voivodeship": most_dangerous["voivodeship"],
-                "lat": most_dangerous["latitude"],
-                "lon": most_dangerous["longitude"],
-            },
+            "location": _loc(most_dangerous),
             "lightning": most_dangerous["lightning"],
-            "message": f"{danger_emoji.get(most_dangerous['lightning']['danger_level'], '')} {most_dangerous['name']} ({most_dangerous['city']}) - {most_dangerous['lightning']['danger_level']}"
+            "message": f"{most_dangerous['city']} ({most_dangerous['voivodeship']}) - {most_dangerous['lightning']['danger_level']}",
         },
         "safest_now": {
-            "location": {
-                "id": safest["id"],
-                "name": safest["name"],
-                "city": safest["city"],
-                "powiat": safest["powiat"],
-                "voivodeship": safest["voivodeship"],
-                "lat": safest["latitude"],
-                "lon": safest["longitude"],
-            },
+            "location": _loc(safest),
             "lightning": safest["lightning"],
-            "message": f"{danger_emoji.get(safest['lightning']['danger_level'], '')} {safest['name']} ({safest['city']}) - {safest['lightning']['danger_level']}"
+            "message": f"{safest['city']} ({safest['voivodeship']}) - {safest['lightning']['danger_level']}",
         },
         "most_active_lightning_now": {
-            "location": {
-                "id": most_active["id"],
-                "name": most_active["name"],
-                "city": most_active["city"],
-                "powiat": most_active["powiat"],
-                "voivodeship": most_active["voivodeship"],
-                "lat": most_active["latitude"],
-                "lon": most_active["longitude"],
-            },
+            "location": _loc(most_active),
             "lightning": most_active["lightning"],
-            "message": f" {most_active['name']} ({most_active['city']}) - {most_active['lightning']['strikes_last_hour']} piorunów w ostatniej godzinie!"
-        }
+            "message": f"{most_active['city']} ({most_active['voivodeship']}) - {most_active['lightning'].get('strikes_last_hour', 0)} piorunow w ostatniej godzinie",
+        },
     }

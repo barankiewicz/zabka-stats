@@ -26,6 +26,7 @@ from backend.etl.sources.amphibians import AmphibiansEnricher
 from backend.etl.sources.parks import ParksEnricher
 from backend.etl.sources.economy import fetch_gus_economics, _norm_powiat
 from backend.etl.sources.elevation import ElevationEnricher
+from backend.etl.sources.light_pollution import LightPollutionEnricher
 from backend.etl.sources.parcel_lockers import fetch_parcel_lockers
 
 
@@ -81,6 +82,9 @@ def run(no_geocode=False, limit=None, skip_gios=False, fallback=None,
     meta = raw.get("meta", {}) if isinstance(raw, dict) else {}
     rows = to_tabular(raw)
 
+    from backend.database_ch import init_db
+    init_db()
+
     con = duckdb.connect(DB_PATH)
     try:
         # wojewodztwo + powiat: point-in-polygon, offline (bez tysiecy zapytan API)
@@ -134,6 +138,9 @@ def run(no_geocode=False, limit=None, skip_gios=False, fallback=None,
             _skip(rows, ElevationEnricher.columns,
                   {"elevation_meters": None},
                   "[elevation] pominiete (wlacz --elevation)")
+
+        # Zanieczyszczenie swiatlem (Bortle / OpenLightMap) - cache + deterministic fallback
+        LightPollutionEnricher().enrich(rows)
 
         # --- Paczkomaty: osobna encja faktow (stan najnowszy), geografia jak Żabki ---
         src_date = meta.get("source_date") or date.today().isoformat()

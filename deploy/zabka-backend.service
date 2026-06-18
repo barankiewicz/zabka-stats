@@ -1,0 +1,46 @@
+# systemd unit for the zabka-dashboard backend
+# Place at: /etc/systemd/system/zabka-backend.service
+# After editing: sudo systemctl daemon-reload && sudo systemctl restart zabka-backend
+#
+# Changes vs the original single-worker unit:
+#   - uvicorn called directly (not via python -m backend.main) so --workers works
+#   - 4 workers (adjust to 2*nproc if you scale the VPS)
+#   - access log off in production (reduces disk I/O under load)
+#   - LimitNOFILE raised to match /etc/security/limits.conf
+
+[Unit]
+Description=Zabka Dashboard Backend
+After=network.target redis-server.service
+Requires=redis-server.service
+
+[Service]
+Type=exec
+User=zabka
+Group=zabka
+WorkingDirectory=/home/zabka/zabka-dashboard
+
+# Environment - secrets live in /home/zabka/.env (chmod 600, not in repo)
+EnvironmentFile=-/home/zabka/.env
+
+# Core settings
+Environment=ZABKA_DB=/home/zabka/zabka-dashboard/data/zabka.duckdb
+Environment=REDIS_SOCKET=/run/redis/redis-server.sock
+
+# Run uvicorn directly so --workers is honoured.
+# 4 workers for a 2-4 vCPU VPS. Each worker is a separate process,
+# each opens its own read-only DuckDB connection (safe because the ETL
+# stops this service before writing to the database).
+ExecStart=/home/zabka/venv/bin/uvicorn backend.main:app \
+    --host 127.0.0.1 \
+    --port 8000 \
+    --workers 4 \
+    --no-access-log
+
+Restart=on-failure
+RestartSec=5s
+
+# Match the system-wide ulimit set by harden_vps.sh
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

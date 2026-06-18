@@ -502,7 +502,7 @@ The flow (`python -m backend.daily_etl`, orchestrated in
 1. **Fetch** - download the raw JSON of stores from the Żabka source (or
    `--fallback <file>`).
 2. **Tabularize** - flatten to rows: dedup by `storeId`, drop PII and junk
-   fields, clean streets (remove `<br>`, extract the postcode), normalize city
+   fields, clean streets (remove `<br>` and any embedded postcode from the display string), normalize city
    names, derive flags (h24, Sunday, merrychef).
 3. **Enrich Żabki** - each source enriches the stores independently (best-effort:
    a missing source does not abort the ETL, the column just stays empty). Order:
@@ -574,12 +574,11 @@ Origin legend:
 | snapshot_id | INTEGER | ETL | FK to `snapshots.id` |
 | store_id | VARCHAR | SOURCE | `storeId` |
 | city | VARCHAR | DERIVED | `town`, case-normalized (LEGNICA -> Legnica) |
-| street | VARCHAR | DERIVED | `street` with `<br>` and the inlined postcode removed; empty -> "nieokreślona" |
+| street | VARCHAR | DERIVED | `street` with `<br>` and any embedded postcode removed from display; empty -> "nieokreślona" |
 | voivodeship | VARCHAR | GEO | voivodeship name (point-in-polygon, 16); display attribute |
 | powiat | VARCHAR | GEO | powiat name (point-in-polygon, 380); display attribute |
 | voivodeship_id | INTEGER | GEO | FK -> `dim_voivodeship.id` (joins are by numeric key) |
 | powiat_id | INTEGER | GEO | FK -> `dim_powiat.id` |
-| postcode | VARCHAR | DERIVED | `NN-NNN` code extracted from the street string when present |
 | latitude | DOUBLE | SOURCE | `lat` |
 | longitude | DOUBLE | SOURCE | `lon` |
 | has_merrychef | BOOLEAN | SOURCE | `locatorMerrychef` (oven for hot meals) |
@@ -751,7 +750,7 @@ section 7.
 
 - Dedup by `storeId` (the source has ~32 duplicates: the same store once clean,
   once with a hash prefix and `<br>` in the street) - keep the cleaner record.
-- Streets: remove `<br>`, extract the postcode into its own column (~57 cases).
+- Streets: remove `<br>` and any embedded NN-NNN postcode from the display string (~57 cases); the postcode is not stored.
 - Cities: case normalization merges duplicates like LEGNICA/Legnica (2203 -> ~2201).
 - Economy attached to the powiat dimension: powiat-name normalization strips the
   `powiat`/`m.`/`st.` prefix and the GUS temporal suffix (`Powiat m. Wałbrzych od
@@ -1004,3 +1003,13 @@ Rendered containers (ids in `index.html`):
 <!-- TODO: palette (Żabka green + dark), typography and its roles, spacing/grid
      (auto-fit minmax 320px), radii/shadows/glow, animations, iconography,
      accessibility/contrast rules. Token set from :root in index.html. -->
+
+## 6. Loading states
+
+Per-chart skeleton loaders are mandatory, not optional polish. When filters are
+applied (or on initial load), all ~18 API requests fire in parallel - responses
+arrive at different times. Without loading states, charts pop in at random
+intervals which looks broken regardless of actual speed. Each chart container
+must show a skeleton (or spinner) immediately on request start, then swap to
+the rendered chart when its own data arrives. Do not wait for all requests to
+complete before showing anything.

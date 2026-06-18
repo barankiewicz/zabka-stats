@@ -25,7 +25,6 @@ def reverse_geocode(lat: float, lon: float) -> Dict:
             'powiat': 'Powiat warszawski',
             'voivodeship': 'Mazowieckie',
             'country': 'Polska',
-            'postcode': '00-XXX'
         }
     """
 
@@ -52,10 +51,9 @@ def reverse_geocode(lat: float, lon: float) -> Dict:
 
         result = {
             'city': address.get('city') or address.get('town') or address.get('village'),
-            'powiat': address.get('county'),  # Polish: powiat
-            'voivodeship': address.get('state'),  # Polish: województwo
+            'powiat': address.get('county'),
+            'voivodeship': address.get('state'),
             'country': address.get('country'),
-            'postcode': address.get('postcode'),
         }
 
         geocode_cache[cache_key] = result
@@ -72,7 +70,6 @@ def reverse_geocode(lat: float, lon: float) -> Dict:
             'powiat': None,
             'voivodeship': None,
             'country': None,
-            'postcode': None,
         }
 
 def enrich_locations_with_powiat():
@@ -90,8 +87,7 @@ def enrich_locations_with_powiat():
     if 'powiat' not in columns:
         print("Adding powiat column to locations...")
         conn.execute("ALTER TABLE locations ADD COLUMN powiat VARCHAR")
-        conn.execute("ALTER TABLE locations ADD COLUMN postcode VARCHAR")
-        print(" Columns added")
+        print(" Column added")
 
     # Get locations without powiat
     empty_locations = conn.execute("""
@@ -112,9 +108,9 @@ def enrich_locations_with_powiat():
         # Update location
         conn.execute("""
             UPDATE locations
-            SET powiat = ?, postcode = ?
+            SET powiat = ?
             WHERE id = ?
-        """, (context['powiat'], context['postcode'], loc_id))
+        """, (context['powiat'], loc_id))
 
     conn.commit()
     print(f" Enrichment complete! {len(empty_locations)} locations updated")
@@ -140,7 +136,6 @@ def get_administrative_hierarchy(lat: float, lon: float) -> Dict:
         'voivodeship': 'Mazowieckie',
         'powiat': 'Powiat warszawski',
         'city': 'Warszawa',
-        'postcode': '00-001'
     }
     """
     return reverse_geocode(lat, lon)

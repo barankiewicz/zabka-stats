@@ -151,4 +151,14 @@ except Exception as e:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    import multiprocessing
+
+    workers = int(os.getenv("UVICORN_WORKERS", max(2, multiprocessing.cpu_count())))
+    uvicorn.run(
+        "backend.main:app",
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", 8000)),
+        workers=workers,
+        # access_log controlled by env; off in production to reduce I/O
+        access_log=os.getenv("UVICORN_ACCESS_LOG", "false").lower() == "true",
+    )

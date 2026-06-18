@@ -112,17 +112,16 @@ def _normalize_city(town: str) -> str:
     return re.sub(r"\s+", " ", town.strip()).title()
 
 
-def _clean_street(street: str):
-    """Usun <br>, wyciagnij kod pocztowy. Zwraca (czysta_ulica, kod|None)."""
+def _clean_street(street: str) -> str:
+    """Usun <br> i wklejony kod pocztowy z wyswietlanej nazwy ulicy."""
     if not street:
-        return "nieokreślona", None
+        return "nieokreślona"
     s = street.replace("<br>", " ").replace("<br/>", " ")
     m = re.search(r"\b(\d{2}-\d{3})\b", s)
-    postcode = m.group(1) if m else None
-    if postcode:
-        s = s.replace(postcode, " ")
+    if m:
+        s = s.replace(m.group(1), " ")
     s = re.sub(r"\s+", " ", s).strip(" ,;")
-    return (s or "nieokreślona"), postcode
+    return s or "nieokreślona"
 
 
 def _dedupe(records: list) -> list:
@@ -148,10 +147,10 @@ def to_tabular(raw) -> list:
         records = raw
     elif isinstance(raw, dict) and isinstance(raw.get("locations"), list):
         records = raw["locations"]
-    elif isinstance(raw, dict) and isinstance(raw.get("points"), list):
+    elif isinstance(raw, dict) and isinstance(raw.get("points") , list):
         for i, p in enumerate(raw["points"]):
             rows.append({"store_id": f"zabka_{i:05d}", "city": None, "street": None,
-                         "postcode": None, "latitude": float(p[0]), "longitude": float(p[1]),
+                         "latitude": float(p[0]), "longitude": float(p[1]),
                          "has_merrychef": None, "open_sunday": None, "h24": None,
                          "opening_hours_monsat": None, "opening_hours_sun": None,
                          "first_opening_date": None, "is_visible": None, "is_new_month": None, "is_new_two_weeks": None})
@@ -166,14 +165,14 @@ def to_tabular(raw) -> list:
     cleaned_streets = 0
     for loc in records:
         hours = loc.get("openingHours") or {}
-        street, postcode = _clean_street(loc.get("street"))
-        if loc.get("street") and ("<br>" in loc["street"] or postcode):
+        raw_street = loc.get("street") or ""
+        street = _clean_street(raw_street)
+        if raw_street and ("<br>" in raw_street or re.search(r"\b\d{2}-\d{3}\b", raw_street)):
             cleaned_streets += 1
         rows.append({
             "store_id": loc.get("storeId") or loc.get("locationId"),
             "city": _normalize_city(loc.get("town") or loc.get("city")),
             "street": street,
-            "postcode": postcode,
             "latitude": float(loc.get("lat", loc.get("latitude"))),
             "longitude": float(loc.get("lon", loc.get("longitude"))),
             "has_merrychef": bool(loc.get("locatorMerrychef")),
@@ -270,7 +269,7 @@ def resolve_poland_boundaries(raw) -> dict:
 # NAJDALSZY PUNKT POLSKI OD JAKIEJKOLWIEK ŻABKI  (najwieksze puste kolo)
 # ---------------------------------------------------------------------------
 def farthest_point_from_any_zabka(lats, lons, woj_geo: dict,
-                                  coarse_deg=0.05, fine_deg=0.005) -> dict:
+                                  coarse_deg=0.15, fine_deg=0.01) -> dict:
     """
     Znajdz punkt w granicach Polski najdalszy od najblizszej Żabki
     (problem najwiekszego pustego kola). Zwraca {lat, lon, dist_km}.
@@ -354,29 +353,31 @@ def load_to_duckdb(con, rows: list, meta: dict):
         fod = r.get("first_opening_date") or None
         payload.append((base + j + 1, sid, r.get("store_id"),
                         r.get("city"), r.get("street"), r.get("voivodeship"),
-                        r.get("powiat"), r.get("postcode"),
+                        r.get("powiat"),
                         r["latitude"], r["longitude"],
                         r.get("has_merrychef"), r.get("open_sunday"), r.get("h24"),
                         r.get("opening_hours_monsat"), r.get("opening_hours_sun"),
                         fod, r.get("is_visible"),
-                        r.get("is_new_month"), r.get("is_new_two_weeks"),
-                        r.get("gios_station_id"), r.get("gios_distance_km"),
-                        r.get("elevation_meters"),
-                        r.get("is_in_nature_park"), r.get("nature_park_id"),
-                        r.get("nearest_neighbor_distance_meters"),
-                        r.get("amphibian_occurrences_5km"), r.get("nearest_amphibian_km"),
-                        r.get("voivodeship_id"), r.get("powiat_id")))
+                         r.get("is_new_month"), r.get("is_new_two_weeks"),
+                         r.get("gios_station_id"), r.get("gios_distance_km"),
+                         r.get("elevation_meters"),
+                         r.get("light_pollution_brightness"), r.get("bortle_scale"),
+                         r.get("is_in_nature_park"), r.get("nature_park_id"),
+                         r.get("nearest_neighbor_distance_meters"),
+                         r.get("amphibian_occurrences_5km"), r.get("nearest_amphibian_km"),
+                         r.get("voivodeship_id"), r.get("powiat_id")))
     con.executemany("""INSERT INTO locations
-        (id, snapshot_id, store_id, city, street, voivodeship, powiat, postcode,
+        (id, snapshot_id, store_id, city, street, voivodeship, powiat,
          latitude, longitude, has_merrychef, open_sunday, h24,
          opening_hours_monsat, opening_hours_sun, first_opening_date,
          is_visible, is_new_month, is_new_two_weeks,
          gios_station_id, gios_distance_km,
-         elevation_meters, is_in_nature_park, nature_park_id,
+         elevation_meters, light_pollution_brightness, bortle_scale,
+         is_in_nature_park, nature_park_id,
          nearest_neighbor_distance_meters,
          amphibian_occurrences_5km, nearest_amphibian_km,
          voivodeship_id, powiat_id)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", payload)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", payload)
     record_history(con, sid, src_date)
     print(f"[load] snapshot {sid} ({src_date}): {total:,} sklepow zapisanych")
     return sid

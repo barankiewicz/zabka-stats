@@ -10,35 +10,26 @@ from pathlib import Path
 DB_PATH = Path(__file__).parent.parent / "data" / "zabka.duckdb"
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-# Global connection (DuckDB is thread-safe)
-client = duckdb.connect(str(DB_PATH))
+def _run_all_ddl(con):
+    """All DDL: schema creation + migrations. Requires a read-write connection.
 
-def init_db():
-    """Initialize DuckDB schema if needed."""
-
-    # Check if tables exist
-    tables = client.execute("SELECT table_name FROM information_schema.tables").fetchall()
+    Idempotent — safe to call on every startup. ETL also calls this directly
+    before loading data, so the backend never needs to create tables itself
+    in production. The function is here as a fallback for local dev.
+    """
+    tables = con.execute("SELECT table_name FROM information_schema.tables").fetchall()
     table_names = [t[0] for t in tables]
 
     if 'snapshots' not in table_names:
-        print(" Creating DuckDB schema...")
+        print("Creating DuckDB schema...")
 
-        # Create sequences first
-        try:
-            client.execute("CREATE SEQUENCE seq_snapshots START 1")
-        except:
-            pass
-        try:
-            client.execute("CREATE SEQUENCE seq_locations START 1")
-        except:
-            pass
-        try:
-            client.execute("CREATE SEQUENCE seq_histories START 1")
-        except:
-            pass
+        for seq in ("seq_snapshots", "seq_locations", "seq_histories"):
+            try:
+                con.execute(f"CREATE SEQUENCE {seq} START 1")
+            except Exception:
+                pass
 
-        # Snapshots table
-        client.execute("""
+        con.execute("""
             CREATE TABLE snapshots (
                 id INTEGER PRIMARY KEY DEFAULT nextval('seq_snapshots'),
                 source_date DATE UNIQUE NOT NULL,
@@ -52,11 +43,8 @@ def init_db():
             )
         """)
 
-        # Locations table - czysty model analityczny.
-        # Wyrzucone smieci ze zrodla: name/country (stale), active (stala),
-        # salesZone* (PII), locationId/townId/salesZoneId (wewnetrzne id),
-        # storeUrl/relativeStoreUrl (marketing). Zachowane tylko pola do analizy.
-        client.execute("""
+        # Czysty model analityczny — PII, stale pola i wewnetrzne id wyrzucone.
+        con.execute("""
             CREATE TABLE locations (
                 id INTEGER PRIMARY KEY DEFAULT nextval('seq_locations'),
                 snapshot_id INTEGER NOT NULL,
@@ -67,7 +55,6 @@ def init_db():
                 powiat VARCHAR,
                 voivodeship_id INTEGER,
                 powiat_id INTEGER,
-                postcode VARCHAR,
                 latitude DOUBLE NOT NULL,
                 longitude DOUBLE NOT NULL,
                 has_merrychef BOOLEAN,
@@ -82,6 +69,8 @@ def init_db():
                 gios_station_id INTEGER,
                 gios_distance_km DOUBLE,
                 elevation_meters DOUBLE,
+                light_pollution_brightness DOUBLE,
+                bortle_scale INTEGER,
                 is_in_nature_park BOOLEAN DEFAULT FALSE,
                 nature_park_id INTEGER,
                 nearest_neighbor_distance_meters INTEGER,
@@ -93,11 +82,9 @@ def init_db():
             )
         """)
 
-        # History table (born/dying log). Zasilane diffem store_id miedzy snapshotami.
-        # Bez FK na location_id/snapshot_id: retencja kasuje stare snapshoty/lokalizacje,
-        # a wymuszony FK by sie na tym wywalal. source_date + store_id zdenormalizowane,
-        # zeby trendy (created/deleted per miesiac) liczyly sie bez JOIN-ow.
-        client.execute("""
+        # Bez FK — retencja kasuje stare snapshoty/lokalizacje, a wymuszony FK
+        # by sie na tym wywalal. source_date + store_id zdenormalizowane.
+        con.execute("""
             CREATE TABLE histories (
                 id INTEGER PRIMARY KEY DEFAULT nextval('seq_histories'),
                 location_id INTEGER,
@@ -112,26 +99,52 @@ def init_db():
             )
         """)
 
-        # Create indexes for performance
-        client.execute("CREATE INDEX idx_locations_snapshot_id ON locations(snapshot_id)")
-        client.execute("CREATE INDEX idx_locations_city ON locations(city)")
-        client.execute("CREATE INDEX idx_locations_voivodeship ON locations(voivodeship)")
-        client.execute("CREATE INDEX idx_locations_powiat ON locations(powiat)")
-        client.execute("CREATE INDEX idx_locations_deleted_at ON locations(deleted_at)")
-        client.execute("CREATE INDEX idx_locations_store_id ON locations(store_id)")
-        client.execute("CREATE INDEX idx_histories_location_id ON histories(location_id)")
-        client.execute("CREATE INDEX idx_histories_snapshot_id ON histories(snapshot_id)")
-        client.execute("CREATE INDEX idx_histories_source_date ON histories(source_date)")
-        client.execute("CREATE INDEX idx_histories_change_type ON histories(change_type)")
-        client.execute("CREATE INDEX idx_snapshots_source_date ON snapshots(source_date)")
+        for stmt in (
+            "CREATE INDEX idx_locations_snapshot_id ON locations(snapshot_id)",
+            "CREATE INDEX idx_locations_city ON locations(city)",
+            "CREATE INDEX idx_locations_voivodeship ON locations(voivodeship)",
+            "CREATE INDEX idx_locations_powiat ON locations(powiat)",
+            "CREATE INDEX idx_locations_deleted_at ON locations(deleted_at)",
+            "CREATE INDEX idx_locations_store_id ON locations(store_id)",
+            "CREATE INDEX idx_histories_location_id ON histories(location_id)",
+            "CREATE INDEX idx_histories_snapshot_id ON histories(snapshot_id)",
+            "CREATE INDEX idx_histories_source_date ON histories(source_date)",
+            "CREATE INDEX idx_histories_change_type ON histories(change_type)",
+            "CREATE INDEX idx_snapshots_source_date ON snapshots(source_date)",
+        ):
+            con.execute(stmt)
 
-        print(" DuckDB schema created!")
+        print("DuckDB schema created.")
 
-    # Migracja kolumn wzbogacenia geograficznego (ENRICHMENT.md) dla istniejacych baz.
-    # ADD COLUMN IF NOT EXISTS jest idempotentne, wiec mozna wolac przy kazdym starcie.
-    ensure_enrichment_columns(client)
-    # Tabela faktow paczkomatow + wymiary geograficzne (model gwiazdy do zestawien).
-    ensure_extra_tables(client)
+    # Idempotentne migracje — bezpieczne przy kazdym wywolaniu.
+    ensure_enrichment_columns(con)
+    ensure_extra_tables(con)
+
+
+def _ensure_schema():
+    """Run all DDL via a temporary read-write connection, then close it."""
+    rw = duckdb.connect(str(DB_PATH))
+    try:
+        _run_all_ddl(rw)
+    finally:
+        rw.close()
+
+
+# Read-only connection shared across all API request handlers.
+# DuckDB allows multiple concurrent read-only connections to the same file.
+# The ETL cron stops the backend service before opening its own read-write
+# connection, so there is no write/read conflict in production.
+client = duckdb.connect(str(DB_PATH), read_only=True)
+
+
+def init_db():
+    """Initialize schema (if needed) and return the read-only client."""
+    _ensure_schema()
+
+    # Reconnect read-only so the connection sees any newly created tables.
+    global client
+    client.close()
+    client = duckdb.connect(str(DB_PATH), read_only=True)
 
     return client
 
@@ -216,6 +229,8 @@ def ensure_extra_tables(con):
 # (binding domyslnej wartosci przy odtwarzaniu). ETL i tak ustawia kazda wartosc jawnie.
 ENRICHMENT_COLUMNS = [
     ("elevation_meters", "DOUBLE"),
+    ("light_pollution_brightness", "DOUBLE"),
+    ("bortle_scale", "INTEGER"),
     ("is_in_nature_park", "BOOLEAN"),
     ("nature_park_id", "INTEGER"),
     ("voivodeship_id", "INTEGER"),

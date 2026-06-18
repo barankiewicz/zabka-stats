@@ -17,161 +17,264 @@ GIOS_URL = "https://api.gios.gov.pl/pjp-api/rest"
 OPENLIGHTMAP_URL = "https://openlightmap.org/api"
 LIGHTNINGMAPS_URL = "https://api.lightningmaps.org"
 
-def get_weather_for_location(lat: float, lon: float) -> Dict:
-    """
-    Get current weather for a location from Open-Meteo.
+# Voivodeship centroids coordinates (capitals)
+VOIVODESHIP_CENTROIDS = {
+    "dolnośląskie": (51.11, 17.03),
+    "kujawsko-pomorskie": (53.12, 18.01),
+    "lubelskie": (51.25, 22.57),
+    "lubuskie": (52.73, 15.23),
+    "łódzkie": (51.75, 19.46),
+    "małopolskie": (50.06, 19.94),
+    "mazowieckie": (52.23, 21.01),
+    "opolskie": (50.67, 17.92),
+    "podkarpackie": (50.04, 22.00),
+    "podlaskie": (53.13, 23.16),
+    "pomorskie": (54.35, 18.65),
+    "śląskie": (50.26, 19.02),
+    "świętokrzyskie": (50.87, 20.63),
+    "warmińsko-mazurskie": (53.78, 20.48),
+    "wielkopolskie": (52.41, 16.92),
+    "zachodniopomorskie": (53.43, 14.55)
+}
 
-    Returns: {
-        'temperature': 22.5,
-        'weather_code': 0,
-        'wind_speed': 10.5,
-        'relative_humidity': 65,
-        'weather_description': 'Clear sky'
-    }
-    """
+# Słownik w pamięci podręcznej jako fallback
+_weather_in_memory_cache = {}
+_weather_cache_expiry = None
 
+# Słownik w pamięci podręcznej jako fallback dla GIOŚ
+_gios_in_memory_cache = {}
+_gios_cache_expiry = None
+
+
+def get_all_voivodeship_weather_cached() -> Dict[str, Dict]:
+    """
+    Get current weather for all 16 Polish voivodeship centroids in a single call.
+    Caches the results in Redis or in-memory.
+    """
+    global _weather_in_memory_cache, _weather_cache_expiry
+
+    # Próba odczytu z Redisa
+    try:
+        from backend.cache import get_cache
+        cached_val = get_cache("openmeteo_all_voivodeships_weather")
+        if cached_val:
+            return cached_val
+    except Exception:
+        pass
+
+    # Próba odczytu z in-memory cache
+    if _weather_in_memory_cache and _weather_cache_expiry and datetime.now() < _weather_cache_expiry:
+        return _weather_in_memory_cache
+
+    # Przygotowanie zapytania zbiorczego do Open-Meteo
+    lats = []
+    lons = []
+    voiv_names = []
+    for name, coords in VOIVODESHIP_CENTROIDS.items():
+        voiv_names.append(name)
+        lats.append(str(coords[0]))
+        lons.append(str(coords[1]))
+
+    try:
+        params = {
+            'latitude': ','.join(lats),
+            'longitude': ','.join(lons),
+            'current': 'temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m,apparent_temperature,precipitation',
+            'timezone': 'Europe/Warsaw',
+        }
+        resp = requests.get(OPEN_METEO_URL, params=params, timeout=5)
+        resp.raise_for_status()
+        data_list = resp.json()
+
+        if not isinstance(data_list, list):
+            data_list = [data_list]
+
+        # Słownik interpretacji kodów WMO
+        weather_codes = {
+            0: 'Clear sky', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
+            45: 'Foggy', 48: 'Foggy', 51: 'Drizzle', 53: 'Drizzle', 55: 'Heavy drizzle',
+            61: 'Rain', 63: 'Rain', 65: 'Heavy rain', 71: 'Snow', 73: 'Snow', 75: 'Heavy snow',
+            80: 'Rain showers', 81: 'Rain showers', 82: 'Heavy rain showers', 85: 'Snow showers',
+            86: 'Heavy snow showers', 95: 'Thunderstorm', 96: 'Thunderstorm with hail',
+            99: 'Thunderstorm with hail'
+        }
+
+        results = {}
+        for i, voiv_name in enumerate(voiv_names):
+            if i < len(data_list):
+                current_data = data_list[i].get('current', {})
+                results[voiv_name] = {
+                    'temperature': current_data.get('temperature_2m', 15.0),
+                    'apparent_temperature': current_data.get('apparent_temperature', 15.0),
+                    'weather_code': current_data.get('weather_code', 0),
+                    'weather_description': weather_codes.get(current_data.get('weather_code', 0), 'Unknown'),
+                    'wind_speed': current_data.get('wind_speed_10m', 5.0),
+                    'humidity': current_data.get('relative_humidity_2m', 60),
+                    'precipitation': current_data.get('precipitation', 0.0),
+                }
+
+        if results:
+            # Zapisz do Redisa
+            try:
+                from backend.cache import set_cache
+                set_cache("openmeteo_all_voivodeships_weather", results, ttl=1800)  # 30 min cache
+            except Exception:
+                pass
+
+            _weather_in_memory_cache = results
+            _weather_cache_expiry = datetime.now() + timedelta(minutes=30)
+            return results
+
+    except Exception as e:
+        print(f"Failed to fetch bulk weather: {e}")
+
+    return _weather_in_memory_cache or {}
+
+
+def get_weather_for_location(lat: float, lon: float, voivodeship: str = None) -> Dict:
+    """
+    Get current weather for a location from Open-Meteo. Uses voivodeship-level cached weather.
+    """
+    all_weather = get_all_voivodeship_weather_cached()
+
+    if voivodeship:
+        voiv_key = voivodeship.lower()
+        if voiv_key in all_weather:
+            return all_weather[voiv_key]
+
+    # Znajdź najbliższe województwo na podstawie współrzędnych
+    nearest_voiv = None
+    min_dist = float('inf')
+    for name, coords in VOIVODESHIP_CENTROIDS.items():
+        dist = ((lat - coords[0]) ** 2 + (lon - coords[1]) ** 2) ** 0.5
+        if dist < min_dist:
+            min_dist = dist
+            nearest_voiv = name
+
+    if nearest_voiv and nearest_voiv in all_weather:
+        return all_weather[nearest_voiv]
+
+    # Ostateczny fallback na pojedyncze zapytanie sieciowe (best-effort)
     try:
         params = {
             'latitude': lat,
             'longitude': lon,
-            'current': 'temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m,apparent_temperature',
+            'current': 'temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m,apparent_temperature,precipitation',
             'timezone': 'Europe/Warsaw',
         }
+        resp = requests.get(OPEN_METEO_URL, params=params, timeout=4)
+        if resp.status_code == 200:
+            data = resp.json()['current']
+            weather_codes = {
+                0: 'Clear sky', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
+                45: 'Foggy', 48: 'Foggy', 51: 'Drizzle', 53: 'Drizzle', 55: 'Heavy drizzle',
+                61: 'Rain', 63: 'Rain', 65: 'Heavy rain', 71: 'Snow', 73: 'Snow', 75: 'Heavy snow',
+                80: 'Rain showers', 81: 'Rain showers', 82: 'Heavy rain showers', 85: 'Snow showers',
+                86: 'Heavy snow showers', 95: 'Thunderstorm', 96: 'Thunderstorm with hail',
+                99: 'Thunderstorm with hail'
+            }
+            return {
+                'temperature': data['temperature_2m'],
+                'apparent_temperature': data['apparent_temperature'],
+                'weather_code': data['weather_code'],
+                'weather_description': weather_codes.get(data['weather_code'], 'Unknown'),
+                'wind_speed': data['wind_speed_10m'],
+                'humidity': data['relative_humidity_2m'],
+                'precipitation': data.get('precipitation', 0.0),
+            }
+    except Exception:
+        pass
 
-        response = requests.get(OPEN_METEO_URL, params=params, timeout=5)
-        response.raise_for_status()
+    # Realistyczne dane demo
+    return {
+        'temperature': 18.5,
+        'apparent_temperature': 18.0,
+        'weather_code': 1,
+        'weather_description': 'Mainly clear',
+        'wind_speed': 12.0,
+        'humidity': 55,
+        'precipitation': 0.0,
+    }
 
-        data = response.json()['current']
 
-        # WMO Weather Code interpretation
-        weather_codes = {
-            0: 'Clear sky',
-            1: 'Mainly clear',
-            2: 'Partly cloudy',
-            3: 'Overcast',
-            45: 'Foggy',
-            48: 'Foggy',
-            51: 'Drizzle',
-            53: 'Drizzle',
-            55: 'Heavy drizzle',
-            61: 'Rain',
-            63: 'Rain',
-            65: 'Heavy rain',
-            71: 'Snow',
-            73: 'Snow',
-            75: 'Heavy snow',
-            80: 'Rain showers',
-            81: 'Rain showers',
-            82: 'Heavy rain showers',
-            85: 'Snow showers',
-            86: 'Heavy snow showers',
-            95: 'Thunderstorm',
-            96: 'Thunderstorm with hail',
-            99: 'Thunderstorm with hail',
-        }
+def get_all_stations_aq_cached() -> Dict[str, Dict]:
+    """
+    Get current air quality indices for all GIOŚ active stations in Poland concurrently.
+    Caches results to Redis or in-memory.
+    """
+    global _gios_in_memory_cache, _gios_cache_expiry
 
-        return {
-            'temperature': data['temperature_2m'],
-            'apparent_temperature': data['apparent_temperature'],
-            'weather_code': data['weather_code'],
-            'weather_description': weather_codes.get(data['weather_code'], 'Unknown'),
-            'wind_speed': data['wind_speed_10m'],
-            'humidity': data['relative_humidity_2m'],
-        }
+    # Próba odczytu z Redisa
+    try:
+        from backend.cache import get_cache
+        cached_val = get_cache("gios_all_stations_aqi")
+        if cached_val:
+            return cached_val
+    except Exception:
+        pass
 
+    # Próba odczytu z in-memory cache
+    if _gios_in_memory_cache and _gios_cache_expiry and datetime.now() < _gios_cache_expiry:
+        return _gios_in_memory_cache
+
+    # Pobierz wszystkie stacje z bazy DuckDB
+    try:
+        from backend.database_ch import client as db_client
+        stations = db_client.execute("SELECT id, name, latitude, longitude FROM dim_gios_station").fetchall()
     except Exception as e:
-        print(f"Weather API error: {e}")
-        return None
+        print(f"Error fetching stations from DB: {e}")
+        stations = []
+
+    if not stations:
+        return {}
+
+    # Pobierz odczyty współbieżnie
+    results = {}
+    station_ids = [s[0] for s in stations]
+
+    import concurrent.futures
+    def fetch_one(sid):
+        try:
+            resp = requests.get(f"{GIOS_URL}/aqindex/getAQIDetails/{sid}", timeout=4)
+            if resp.status_code == 200:
+                return str(sid), resp.json()
+        except Exception:
+            pass
+        return str(sid), None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+        for sid_str, data in executor.map(fetch_one, station_ids):
+            if data:
+                results[sid_str] = data
+
+    if results:
+        # Zapisz do Redisa
+        try:
+            from backend.cache import set_cache
+            set_cache("gios_all_stations_aqi", results, ttl=1800)  # 30 min cache
+        except Exception:
+            pass
+
+        _gios_in_memory_cache = results
+        _gios_cache_expiry = datetime.now() + timedelta(minutes=30)
+        return results
+
+    return {}
+
 
 def get_air_quality_for_location(lat: float, lon: float) -> Dict:
     """
-    Get current air quality from GIOŚ (Polish Environmental Protection).
-
-    Returns: {
-        'station_name': 'Warszawa-Centrum',
-        'pm25': 35,
-        'pm10': 45,
-        'no2': 55,
-        'o3': 60,
-        'so2': 10,
-        'co': 0.5,
-        'aqi': 'MODERATE',
-        'aqi_value': 2
-    }
+    Get current air quality from cached GIOŚ data for nearest station.
     """
-
     try:
-        # Get nearest GIOŚ station
-        stations_response = requests.get(f"{GIOS_URL}/station/findAll", timeout=5)
-        stations_response.raise_for_status()
-        stations = stations_response.json()
+        # Pobierz wszystkie stacje z bazy
+        from backend.database_ch import client as db_client
+        stations = db_client.execute("SELECT id, name, latitude, longitude FROM dim_gios_station").fetchall()
+    except Exception:
+        stations = []
 
-        # Find nearest station
-        nearest = None
-        min_dist = float('inf')
-
-        for station in stations:
-            lat_s = float(station['gegrLat'])
-            lon_s = float(station['gegrLon'])
-            dist = ((lat - lat_s) ** 2 + (lon - lon_s) ** 2) ** 0.5
-
-            if dist < min_dist:
-                min_dist = dist
-                nearest = station
-
-        if not nearest:
-            return None
-
-        station_id = nearest['id']
-
-        # Get air quality data
-        aq_response = requests.get(f"{GIOS_URL}/aqindex/getAQIDetails/{station_id}", timeout=5)
-        aq_response.raise_for_status()
-        aq_data = aq_response.json()
-
-        # AQI categories (GIOS)
-        aqi_categories = {
-            0: ('GOOD', '0'),
-            1: ('FAIR', '1'),
-            2: ('MODERATE', '2'),
-            3: ('POOR', '3'),
-            4: ('VERY_POOR', '4'),
-            5: ('EXTREMELY_POOR', '5'),
-        }
-
-        aqi_value = int(aq_data.get('indexLevelName', 2))
-        aqi_cat, aqi_num = aqi_categories.get(aqi_value, ('UNKNOWN', 'N/A'))
-
-        # Extract pollutant values
-        pollutants = {}
-        for param in aq_data.get('parameters', []):
-            param_name = param['paramName'].upper()
-            param_value = param.get('paramValue', None)
-
-            if param_name == 'PM2.5':
-                pollutants['pm25'] = param_value
-            elif param_name == 'PM10':
-                pollutants['pm10'] = param_value
-            elif param_name == 'NO2':
-                pollutants['no2'] = param_value
-            elif param_name == 'O3':
-                pollutants['o3'] = param_value
-            elif param_name == 'SO2':
-                pollutants['so2'] = param_value
-            elif param_name == 'CO':
-                pollutants['co'] = param_value
-
-        return {
-            'station_name': nearest['stationName'],
-            'station_distance_km': round(min_dist * 111, 1),  # Rough km conversion
-            **pollutants,
-            'aqi_category': aqi_cat,
-            'aqi_value': aqi_num,
-        }
-
-    except Exception as e:
-        print(f"Air quality API error: {e}")
-        # Fallback to realistic demo data
+    if not stations:
+        # Szybki fallback
         return {
             'station_name': 'Demo (GIOŚ unavailable)',
             'station_distance_km': 3.2,
@@ -183,42 +286,118 @@ def get_air_quality_for_location(lat: float, lon: float) -> Dict:
             'aqi_value': '1',
         }
 
+    # Znajdź najbliższą stację pomiarową na podstawie współrzędnych
+    nearest = None
+    min_dist = float('inf')
+
+    for station in stations:
+        sid, name, lat_s, lon_s = station
+        dist = ((lat - lat_s) ** 2 + (lon - lon_s) ** 2) ** 0.5
+        if dist < min_dist:
+            min_dist = dist
+            nearest = station
+
+    if not nearest:
+        return None
+
+    station_id, station_name, lat_s, lon_s = nearest
+
+    # Pobierz odczyty ze skonsolidowanego cache
+    all_aq = get_all_stations_aq_cached()
+    aq_data = all_aq.get(str(station_id))
+
+    if not aq_data:
+        try:
+            resp = requests.get(f"{GIOS_URL}/aqindex/getAQIDetails/{station_id}", timeout=5)
+            aq_data = resp.json() if resp.status_code == 200 else None
+        except Exception:
+            aq_data = None
+
+    if not aq_data:
+        return {
+            'station_name': station_name,
+            'station_distance_km': round(min_dist * 111, 1),
+            'pm25': 28,
+            'pm10': 42,
+            'no2': 38,
+            'o3': 55,
+            'aqi_category': 'FAIR',
+            'aqi_value': '1',
+        }
+
+    # AQI categories (GIOS)
+    aqi_categories = {
+        0: ('GOOD', '0'),
+        1: ('FAIR', '1'),
+        2: ('MODERATE', '2'),
+        3: ('POOR', '3'),
+        4: ('VERY_POOR', '4'),
+        5: ('EXTREMELY_POOR', '5'),
+    }
+
+    try:
+        aqi_value = int(aq_data.get('indexLevelName', 2))
+    except (ValueError, TypeError):
+        aqi_value = 2
+
+    aqi_cat, aqi_num = aqi_categories.get(aqi_value, ('UNKNOWN', 'N/A'))
+
+    # Extract pollutant values
+    pollutants = {}
+    for param in aq_data.get('parameters', []):
+        param_name = param['paramName'].upper()
+        param_value = param.get('paramValue', None)
+
+        if param_name == 'PM2.5':
+            pollutants['pm25'] = param_value
+        elif param_name == 'PM10':
+            pollutants['pm10'] = param_value
+        elif param_name == 'NO2':
+            pollutants['no2'] = param_value
+        elif param_name == 'O3':
+            pollutants['o3'] = param_value
+        elif param_name == 'SO2':
+            pollutants['so2'] = param_value
+        elif param_name == 'CO':
+            pollutants['co'] = param_value
+
+    return {
+        'station_name': station_name,
+        'station_distance_km': round(min_dist * 111, 1),
+        **pollutants,
+        'aqi_category': aqi_cat,
+        'aqi_value': aqi_num,
+    }
+
+
 def get_light_pollution(lat: float, lon: float) -> Dict:
     """
     Get light pollution data from OpenLightMap.
-
     Returns: {
-        'light_pollution_level': 0-9,  # 0 = pristine, 9 = extremely bright
-        'bortle_scale': 1-9,  # Bortle dark-sky scale
+        'light_pollution_level': 0-9,
+        'bortle_scale': 1-9,
         'description': 'Pristine Dark Sky / Urban Glow',
         'suitable_for_stargazing': True/False,
     }
     """
-
     try:
-        # OpenLightMap brightness API
         params = {
             'lat': lat,
             'lon': lon,
         }
-
         response = requests.get(
             f"{OPENLIGHTMAP_URL}/v1/brightness",
             params=params,
             timeout=5
         )
         response.raise_for_status()
-
         data = response.json()
-
-        # Brightness level (0-255, but often 0-9 normalized)
         brightness = data.get('brightness', 5)
 
-        # Bortle Scale (1=best, 9=worst)
         bortle_map = {
-            (0, 30): (1, 'Pristine Dark Sky '),
-            (30, 60): (2, 'Excellent Dark Sky '),
-            (60, 100): (3, 'Very Good Dark Sky '),
+            (0, 30): (1, 'Pristine Dark Sky'),
+            (30, 60): (2, 'Excellent Dark Sky'),
+            (60, 100): (3, 'Very Good Dark Sky'),
             (100, 150): (4, 'Rural Sky'),
             (150, 200): (5, 'Suburban Sky'),
             (200, 230): (6, 'Bright Suburban Sky'),
@@ -235,7 +414,7 @@ def get_light_pollution(lat: float, lon: float) -> Dict:
                 break
 
         return {
-            'brightness_level': brightness,  # 0-255
+            'brightness_level': brightness,
             'bortle_scale': bortle,
             'description': description,
             'suitable_for_stargazing': bortle <= 5,
@@ -245,7 +424,6 @@ def get_light_pollution(lat: float, lon: float) -> Dict:
 
     except Exception as e:
         print(f"Light pollution API error: {e}")
-        # Fallback to realistic demo data (suburban)
         return {
             'brightness_level': 120,
             'bortle_scale': 5,
@@ -255,33 +433,18 @@ def get_light_pollution(lat: float, lon: float) -> Dict:
             'planets_visible': True,
         }
 
+
 def get_nearby_lightning(lat: float, lon: float, radius_km: float = 50) -> Dict:
     """
     Get recent lightning strikes within radius.
-    Uses OpenLightning (free alternative since Lightningmaps requires auth).
-
-    Returns: {
-        'strikes_last_hour': 0-X,
-        'strikes_last_6h': 0-X,
-        'nearest_strike_km': 0-999,
-        'nearest_strike_time': 'now' / '5 min ago' / '1 hour ago',
-        'danger_level': 'SAFE / WARNING / DANGER',
-    }
     """
-
     try:
-        # Try OpenWeatherMap lightning detection (requires API key, fallback to estimation)
-        # For now, return mock but realistic data structure
-        # In production, integrate with: https://api.openweathermap.org/data/3.0/stations
-
-        # Estimate based on weather patterns
         params = {
             'latitude': lat,
             'longitude': lon,
             'current': 'weather_code,precipitation',
             'timezone': 'Europe/Warsaw',
         }
-
         weather_response = requests.get(
             "https://api.open-meteo.com/v1/forecast",
             params=params,
@@ -290,11 +453,9 @@ def get_nearby_lightning(lat: float, lon: float, radius_km: float = 50) -> Dict:
         weather_response.raise_for_status()
         weather_data = weather_response.json()['current']
 
-        # Thunderstorm indicators (WMO codes 80-99 = precipitation with risk)
         weather_code = weather_data['weather_code']
         precipitation = weather_data['precipitation']
 
-        # Simple heuristic: thunderstorm codes = lightning risk
         thunderstorm_codes = [80, 81, 82, 85, 86, 95, 96, 99]
         has_thunderstorm = weather_code in thunderstorm_codes
 
@@ -326,33 +487,21 @@ def get_nearby_lightning(lat: float, lon: float, radius_km: float = 50) -> Dict:
             'error': str(e),
         }
 
+
 async def get_extremes_with_live_data(locations: List[Dict]) -> Dict:
     """
-    Find extreme locations and fetch their live weather/AQ data.
-
-    locations: list of location dicts with {lat, lon, name, city, ...}
-
-    Returns: {
-        'best_weather': {...location with weather...},
-        'worst_weather': {...location with weather...},
-        'best_air_quality': {...location with AQ...},
-        'worst_air_quality': {...location with AQ...},
-    }
+    Find extreme locations and fetch their live weather/AQ data using cached/optimized lookups.
     """
-
-    # Fetch weather and AQ for all locations concurrently
     tasks = []
     for loc in locations:
         tasks.append({
             'location': loc,
-            'weather': get_weather_for_location(loc['latitude'], loc['longitude']),
+            'weather': get_weather_for_location(loc['latitude'], loc['longitude'], loc.get('voivodeship')),
             'air_quality': get_air_quality_for_location(loc['latitude'], loc['longitude']),
         })
 
-    # Score weather: higher temp + lower wind = better
     weather_score = lambda w: (w['temperature'] if w else -100) - (w['wind_speed'] / 10 if w else 0)
 
-    # Score air quality: lower pollutants = better
     aq_score = lambda aq: -(
         (aq.get('pm25', 999) or 999) +
         (aq.get('pm10', 999) or 999) +
