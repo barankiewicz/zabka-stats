@@ -66,11 +66,12 @@ fi
 
 # --- 4. pull on the VPS -----------------------------------------------------
 say "Pulling on $SSH_HOST"
+# NB: send git's chatter to stderr so stdout carries ONLY the yes/no signal.
 REQ_CHANGED=$(ssh "$SSH_HOST" "
   set -e
   cd '$REMOTE_DIR'
   OLD=\$(git rev-parse HEAD)
-  git pull --ff-only
+  git pull --ff-only 1>&2
   NEW=\$(git rev-parse HEAD)
   if git diff --name-only \"\$OLD\" \"\$NEW\" | grep -q '^requirements.txt$'; then echo yes; else echo no; fi
 ")
