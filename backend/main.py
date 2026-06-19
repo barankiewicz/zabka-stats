@@ -145,13 +145,13 @@ app.include_router(aggregates_router, prefix="/api", tags=["Aggregates"])
 app.include_router(admin_router, prefix="/api", tags=["Administrative & Live Data"])
 app.include_router(dashboard_router, prefix="/api", tags=["Dashboard"])
 
-# Serve frontend
-frontend_dir = pathlib.Path(__file__).parent.parent / "frontend"
+# Serve frontend — prefer the Vite build output (frontend/dist/), fall back to raw source
+_frontend_root = pathlib.Path(__file__).parent.parent / "frontend"
+frontend_dir = _frontend_root / "dist" if (_frontend_root / "dist").exists() else _frontend_root
 try:
     app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
-except Exception as e:
+except Exception:
     print(f"Note: Frontend directory not found at {frontend_dir}")
-    # Frontend not yet built, that's ok
 
 
 if __name__ == "__main__":

@@ -58,3 +58,7 @@ logs/
 # Sensitive
 backup/
 archive/
+
+# Frontend build
+node_modules/
+frontend/dist/
