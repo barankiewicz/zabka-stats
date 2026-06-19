@@ -83,7 +83,7 @@ def run(no_geocode=False, limit=None, skip_gios=False, fallback=None,
     rows = to_tabular(raw)
 
     from backend.database_ch import init_db
-    init_db()
+    init_db(keep_open=False)  # release read-only before opening read-write below
 
     con = duckdb.connect(DB_PATH)
     try:

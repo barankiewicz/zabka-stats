@@ -137,16 +137,22 @@ def _ensure_schema():
 client = duckdb.connect(str(DB_PATH), read_only=True)
 
 
-def init_db():
-    """Initialize schema (if needed) and return the read-only client."""
-    _ensure_schema()
+def init_db(keep_open: bool = True):
+    """Initialize schema and optionally reopen the read-only client.
 
-    # Reconnect read-only so the connection sees any newly created tables.
+    The backend calls init_db() on startup with keep_open=True (default) so
+    the shared client is ready for query handlers immediately.
+
+    The ETL calls init_db(keep_open=False) so the file is released for the
+    read-write connection it opens right after — DuckDB does not allow
+    concurrent read-only and read-write connections to the same file.
+    """
     global client
     client.close()
-    client = duckdb.connect(str(DB_PATH), read_only=True)
-
-    return client
+    _ensure_schema()
+    if keep_open:
+        client = duckdb.connect(str(DB_PATH), read_only=True)
+    return client if keep_open else None
 
 
 def ensure_extra_tables(con):
