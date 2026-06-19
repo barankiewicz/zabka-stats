@@ -310,14 +310,6 @@ GET /api/stats/amphibians              -> {gbif_total, median_occurrences, most_
 GET /api/stats/sunday-closed-stores?voivodeship=X  -> drilldown, not cached
 ```
 
-**Live (no cache, external APIs):**
-```
-GET /api/live/best-worst-weather
-GET /api/live/air-quality-extremes
-GET /api/live/darkest-sky-stargazing
-GET /api/live/lightning-danger
-```
-
 ### Protected (token required)
 
 ```
@@ -437,10 +429,6 @@ a bare local checkout), `cache.py` logs it and the app runs without a cache.
 
 **Protected (requires `token`):**
 - `POST /api/snapshot` - upload a snapshot JSON.
-
-**Live (no cache):**
-- `GET /api/live/best-worst-weather`, `/api/live/air-quality-extremes`,
-  `/api/live/darkest-sky-stargazing`, `/api/live/lightning-danger`.
 
 **Aggregates / geography / history (1h cache):**
 - `GET /api/stats/summary | /voivodeship | /top-cities | /top-streets | /by-powiat | /per-capita`
@@ -1134,9 +1122,6 @@ All cards and the map ignore the voivodeship cross-filter — always national ex
 | E3 the void | Canvas 2D | `/api/stats/section3-rare` | "46.5 km" red-orange 56px. Mini Poland canvas, red void circle in Bieszczady. Hover drives the map. |
 | F1 Żabka na Żabiej | — | `/api/stats/section3-rare` | 24 stores on frog/water streets. Crown jewel: ul. Zielonej Żabki 7, Żabia Wola. Hover drives the map. |
 | G1+G2 civic map | Chart.js | `/api/stats/section3-rare` | 370 powiats, zero without Żabka. Range 1-521. Top civic streets horizontal bar. |
-| H1-H2 live sky | — | `/api/live/darkest-sky-stargazing` | Live. Bortle scale darkest/brightest (15-store sample). Bortle gauge strip. |
-| I1-I2 live weather | — | `/api/live/best-worst-weather` | Live. Sunniest temperature (amber) / wettest precipitation (blue). 25-store sample. |
-| J1-J2 live air | — | `/api/live/air-quality-extremes` | Live. AQI cleanest/worst. PM2.5/PM10 chips. Station distance badge if >30km. |
 
 ### Tab PŁAZY
 
@@ -1186,7 +1171,7 @@ Tab and Section 4 cards ignore the voivodeship cross-filter.
 | Green | `#00c060` | Primary Żabka accent, positive / active state |
 | Amber | `#f5a623` | Surprising facts, outliers, h24 stores |
 | Red-orange | `#e85d2f` | Anomalies (Sunday Wall, merrychef gap, void distance) |
-| Teal | `#00b4c8` | PŁAZY tab accent; ecological / amphibian / live sky data |
+| Teal | `#00b4c8` | PŁAZY tab accent; ecological / amphibian data |
 | North macro-region | `#4a9eff` | Blue — pomorskie, warmińsko-mazurskie, kujawsko-pomorskie, podlaskie |
 | West macro-region | `#00c8a0` | Teal-green — dolnośląskie, zachodniopomorskie, lubuskie, opolskie |
 | Center macro-region | `#00c060` | Green — mazowieckie, łódzkie, świętokrzyskie, wielkopolskie |

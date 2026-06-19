@@ -167,6 +167,10 @@ canvas{display:block}
 @media(max-width:1100px){.compass-grid{grid-template-columns:1fr 1fr 1fr 1fr;gap:8px}.compass-n,.compass-s{grid-column:1/5}.compass-map{grid-column:1/5}}
 @media(max-width:900px){.row-2,.row-3,.row-4,.row-58,.row-64{grid-template-columns:1fr}.kpi-strip{grid-template-columns:repeat(3,1fr)}.spiral-wrap{flex-direction:column}.hero-band{grid-template-columns:1fr}}
 @media(max-width:600px){.kpi-strip{grid-template-columns:1fr 1fr}.row-4{grid-template-columns:1fr 1fr}.tab-btn{font-size:11px;padding:5px 8px}}
+.filter-bar{max-width:1280px;margin:0 auto;padding:0 24px 8px;display:none;align-items:center;gap:8px}
+.filter-chip{display:inline-flex;align-items:center;gap:6px;background:rgba(0,192,96,.12);border:1px solid rgba(0,192,96,.35);border-radius:99px;padding:4px 10px 4px 14px;font-size:12px;color:var(--green)}
+.filter-chip button{background:none;border:none;color:var(--green);cursor:pointer;font-size:14px;line-height:1;padding:0 2px}
+.filter-chip button:hover{color:var(--ink)}
 </style>
 </head>
 <body id="top">
@@ -197,17 +201,21 @@ canvas{display:block}
   <div class="kpi-tile"><div class="kpi-val" id="kpi-sun">95,5%</div><div class="kpi-label">otwarte w niedziele</div></div>
   <div class="kpi-tile"><div class="kpi-val amber" id="kpi-h24">35</div><div class="kpi-label">otwarte 24/7</div></div>
 </div>
+<div class="filter-bar" id="filter-bar">
+  <span class="filter-chip"><span id="filter-chip-text">Filtruj: —</span><button id="filter-clear" title="Wyczysc filtr">×</button></span>
+</div>
 
 <!-- ============ SIEC ============ -->
 <div id="tab-siec" class="tab-panel active">
 <div class="section-wrap">
   <div class="sec-hook reveal">Sposrod 13 tysiecy aktywnych sklepow, polowa otwarta od 2023 roku. Co otworzylo sie wczesniej — i przetrwalo.</div>
 
-  <!-- 1.1 Merged growth chart -->
+  <!-- 1.1 Stacked growth charts -->
   <div class="card reveal" style="margin-bottom:16px">
     <div class="card-title">Kiedy otwarto sklepy, ktore wciaz dzialaja</div>
-    <div class="card-sub">Slupki: nowe sklepy w roku. Linia: laczna liczba aktywnych.</div>
-    <div class="chart-wrap h280"><canvas id="chart-growth"></canvas></div>
+    <div class="card-sub">Gora: nowe sklepy w roku. Dol: skumulowana liczba aktywnych. Tlo: ery sieci.</div>
+    <div class="chart-wrap" style="height:200px"><canvas id="chart-growth-bars"></canvas></div>
+    <div class="chart-wrap" style="height:120px;margin-top:2px"><canvas id="chart-growth-line"></canvas></div>
     <div class="caveat">218 sklepow bez daty otwarcia nie uwzglednionych. Wczesne lata moga byc niedoszacowane.</div>
   </div>
 
@@ -227,10 +235,13 @@ canvas{display:block}
     </div>
   </div>
 
-  <!-- 1.1c Spiral only (no burst) -->
+  <!-- 1.1c Spiral + 1.1d Burst -->
   <div class="card reveal" style="margin-bottom:16px">
     <div class="card-title">28 Rewolucji — kazdy punkt to sklep dzialajacy dzis</div>
-    <div class="card-sub">Najedz, by przesunac punkty. Hover na spirale — szczegoly w panelu.</div>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button class="st-btn active" id="view-spiral">Spirala</button>
+      <button class="st-btn" id="view-burst">Wybuch</button>
+    </div>
     <div class="spiral-wrap">
       <canvas id="canvas-spiral" width="680" height="680" style="cursor:crosshair;flex-shrink:0"></canvas>
       <div class="spiral-side">
@@ -248,7 +259,14 @@ canvas{display:block}
         </div>
       </div>
     </div>
-    <div class="caveat" style="text-align:center">12 925 sklepow z data otwarcia. Im dalej od srodka, tym nowszy. Kursor odpycha punkty.</div>
+    <div class="caveat" id="spiral-caveat" style="text-align:center">12 925 sklepow z data otwarcia. Im dalej od srodka, tym nowszy. Kursor odpycha punkty.</div>
+    <div id="burst-wrap" style="display:none">
+      <canvas id="canvas-burst" style="display:block;width:100%"></canvas>
+      <div style="text-align:center;margin-top:8px">
+        <button class="st-btn" id="burst-replay" style="font-size:11px">Odtworz ponownie</button>
+      </div>
+      <div class="caveat" style="text-align:center;margin-top:6px">13 143 sklepy wylatuja ze srodka do swoich wspolrzednych. Najstarsze leca pierwsze.</div>
+    </div>
   </div>
 
   <!-- 1.1f Fingerprint -->
@@ -357,11 +375,11 @@ canvas{display:block}
     <div class="chart-wrap h260"><canvas id="chart-merrychef"></canvas></div>
   </div>
 
-  <!-- Grouped bar InPost vs Zabka -->
+  <!-- 2.3 InPost dumbbell -->
   <div class="card reveal" style="margin-bottom:16px">
     <div class="card-title">InPost vs Zabka — 2,42 paczkomaty na kazda Zabke w Polsce</div>
-    <div class="card-sub">zielony = Zabka/100k mieszk., bursztyn = InPost/100k mieszk. — posortowane stosunkiem InPost malejaco</div>
-    <div class="chart-wrap h420"><canvas id="chart-inpost-grouped"></canvas></div>
+    <div class="card-sub">Zielona kropka = Zabka/100k, bursztyn = InPost/100k — polaczone linia. Posortowane stosunkiem.</div>
+    <div id="inpost-dumbbell" style="overflow-x:auto"></div>
   </div>
 
   <div class="synthesis reveal">
@@ -577,7 +595,7 @@ canvas{display:block}
       <div class="fact-oneliner">Zabka bez zab. Czy to blad marketingowy?</div>
     </div>
     <div class="card">
-      <div class="card-title">Dziesiec miast z najwieksza liczba zab w poblizu</div>
+      <div class="card-title">Dziesiec Zabek z najwieksza liczba zab w poblizu</div>
       <div class="chart-wrap h220"><canvas id="chart-frog-top10"></canvas></div>
     </div>
   </div>
@@ -602,7 +620,93 @@ const C = {
   bg:'#0d0d14',surface:'#16161f',s2:'#1e1e2e',muted:'#7a7a90',axis:'#2a2a3a',ink:'#e8e8f0',
   North:'#4a9eff',West:'#00c8a0',Center:'#00c060',South:'#f5a623'
 };
-const STATE = {tab:'siec', font:'spec'};
+const STATE = {tab:'siec', font:'spec', filter:null};
+function setFilter(v){
+  STATE.filter=v;
+  const bar=document.getElementById('filter-bar');
+  const chip=document.getElementById('filter-chip-text');
+  if(v){bar.style.display='flex';chip.textContent='Filtruj: '+v}
+  else{bar.style.display='none'}
+  refreshKpiFiltered();
+  if(RENDERED.has('siec'))refreshTopCitiesFiltered();
+  if(RENDERED.has('spoleczenstwo')){highlightPerCapita();highlightMerrychef();highlightScatter();highlightDumbbell()}
+}
+function clearFilter(){setFilter(null)}
+document.addEventListener('DOMContentLoaded',()=>{
+  const btn=document.getElementById('filter-clear');if(btn)btn.addEventListener('click',clearFilter);
+});
+
+function refreshKpiFiltered(){
+  if(!STATE.filter){renderKPI();return}
+  const v=STATE.filter.toLowerCase();
+  const woj=M.voivodeship_merrychef&&M.voivodeship_merrychef.find(d=>d.voivodeship&&d.voivodeship.toLowerCase()===v);
+  const pc=M.per_capita&&M.per_capita.find(d=>d.voivodeship&&d.voivodeship.toLowerCase()===v);
+  const total=pc?pc.count:(woj?woj.total:0);
+  document.getElementById('kpi-stores').textContent=fmt(total);
+  document.getElementById('kpi-cities').textContent='—';
+  if(woj){
+    document.getElementById('kpi-mc').textContent=woj.mc_pct+'%';
+    const sunPct=woj.open_sunday&&woj.total?Math.round(woj.open_sunday/woj.total*1000)/10:'—';
+    document.getElementById('kpi-sun').textContent=typeof sunPct==='number'?sunPct+'%':sunPct;
+    document.getElementById('kpi-h24').textContent=woj.h24||0;
+  }
+  const kpiLabel=document.querySelectorAll('.kpi-label');
+  kpiLabel.forEach(el=>{if(!el.textContent.includes('woj')&&STATE.filter)el.dataset.orig=el.dataset.orig||el.textContent});
+}
+
+function refreshTopCitiesFiltered(){
+  const data=STATE.filter
+    ?M.top_cities.filter(d=>d.voivodeship&&d.voivodeship.toLowerCase()===STATE.filter.toLowerCase())
+    :M.top_cities;
+  destroyChart('top-cities');
+  CHARTS['top-cities']=new Chart(document.getElementById('chart-top-cities'),{
+    type:'bar',
+    data:{labels:data.map(d=>d.city),datasets:[{data:data.map(d=>d.cnt),backgroundColor:data.map(d=>macroCol(d.voivodeship)),borderRadius:2,borderWidth:0}]},
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${fmt(ctx.raw)} sklepow`}}},
+      scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
+    }
+  });
+}
+
+function highlightPerCapita(){
+  const ch=CHARTS['per-capita'];if(!ch)return;
+  const v=STATE.filter;
+  ch.data.datasets[0].backgroundColor=ch.data.labels.map((l,i)=>{
+    const base=macroCol(M.per_capita[i]?M.per_capita[i].voivodeship:l);
+    return(!v||l.toLowerCase()===v.toLowerCase())?base:base.replace(/[^,]+\)$/,'0.25)');
+  });
+  ch.update('none');
+}
+
+function highlightMerrychef(){
+  const ch=CHARTS['merrychef'];if(!ch)return;
+  const v=STATE.filter;
+  const data=ch.data.labels;
+  ch.data.datasets[0].backgroundColor=data.map((l,i)=>{
+    const woj=M.voivodeship_merrychef.find(d=>d.voivodeship===l);
+    const base=woj&&(woj.voivodeship.toLowerCase().includes('dolno')||woj.mc_pct<93)?C.amber:C.green+'aa';
+    return(!v||l.toLowerCase()===v.toLowerCase())?base:base+'44';
+  });
+  ch.update('none');
+}
+
+function highlightScatter(){
+  ['scatter-salary','scatter-unemp'].forEach(k=>{
+    const ch=CHARTS[k];if(!ch)return;
+    const v=STATE.filter;
+    ch.data.datasets[0].backgroundColor=ch.data.datasets[0].data.map(d=>{
+      const base=macroCol(d.voj||'');
+      return(!v||d.voj&&d.voj.toLowerCase()===v.toLowerCase())?base:base.replace(/rgba\(([^,]+,[^,]+,[^,]+),/,'rgba($1,0.08,');
+    });
+    ch.update('none');
+  });
+}
+
+function highlightDumbbell(){
+  if(M.inpost_vs_zabka&&M.inpost_vs_zabka.length)renderDumbbell();
+}
 const CHARTS = {};
 const MAPS = {};
 const RENDERED = new Set();
@@ -718,7 +822,7 @@ document.getElementById('scat-stack').addEventListener('click',()=>{
 /* ========== SIEC ========== */
 function renderSiec(){
   renderOriginCards();
-  renderGrowthMerged();
+  renderGrowthStacked();
   drawSpiral();
   drawFingerprint();
   renderStackedArea();
@@ -727,6 +831,7 @@ function renderSiec(){
   renderTopCities();
   drawClock();
   renderHoursBar();
+  initBurstToggle();
 }
 
 function renderOriginCards(){
@@ -740,30 +845,47 @@ function renderOriginCards(){
   document.getElementById('new-month-count').textContent=o.new_this_month;
 }
 
-/* merged growth chart */
-function renderGrowthMerged(){
+function renderGrowthStacked(){
   const data=M.network_growth;
   const labels=data.map(d=>d.year);
   const barColors=data.map(d=>{if(d.year>=2023)return C.green+'dd';if(d.year>=2010)return C.green+'66';return C.green+'33'});
-  destroyChart('growth');
-  CHARTS['growth']=new Chart(document.getElementById('chart-growth'),{
+  const ERAS=[{x1:1998,x2:2009,color:'rgba(10,48,24,.25)',label:'Wczesna siec'},{x1:2010,x2:2019,color:'rgba(26,96,53,.2)',label:'Wzrost'},{x1:2020,x2:2022,color:'rgba(64,192,112,.12)',label:'Przyspieszenie'},{x1:2023,x2:2026,color:'rgba(128,255,144,.1)',label:'Boom'}];
+  const MILESTONES=[{value:1000,yr:null},{value:2000,yr:null},{value:5000,yr:null},{value:10000,yr:null}];
+  MILESTONES.forEach(m=>{const idx=data.findIndex(d=>d.cumulative>=m.value);if(idx>=0)m.yr=data[idx].year});
+  destroyChart('growth-bars');destroyChart('growth-line');
+  const sharedOpts={responsive:true,maintainAspectRatio:false};
+  CHARTS['growth-bars']=new Chart(document.getElementById('chart-growth-bars'),{
     type:'bar',
-    data:{labels,datasets:[
-      {type:'bar',label:'Nowych sklepow',data:data.map(d=>d.new_stores),backgroundColor:barColors,borderRadius:2,yAxisID:'y',order:2},
-      {type:'line',label:'Laczna liczba aktywnych',data:data.map(d=>d.cumulative),borderColor:C.amber,backgroundColor:'transparent',borderWidth:2,pointRadius:0,tension:.4,yAxisID:'y1',order:1}
-    ]},
+    data:{labels,datasets:[{data:data.map(d=>d.new_stores),backgroundColor:barColors,borderRadius:2,borderWidth:0}]},
     options:{
-      responsive:true,maintainAspectRatio:false,
+      ...sharedOpts,
       plugins:{
-        legend:{labels:{color:C.muted,font:{size:11},usePointStyle:true}},
-        tooltip:{mode:'index',intersect:false,callbacks:{
-          afterBody(items){const yr=data[items[0].dataIndex];return yr?`Era: ${eraName(yr.year)}`:''}
-        }}
+        legend:{display:false},
+        tooltip:{mode:'index',intersect:false,callbacks:{title:i=>'Rok '+i[0].label,label:ctx=>`Nowych: ${fmt(ctx.raw)}`,afterBody(items){return`Era: ${eraName(data[items[0].dataIndex]?.year)}`}}},
+        annot:{shadedBands:ERAS}
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{display:false}},
+        y:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}},title:{display:true,text:'nowych/rok',color:C.muted,font:{size:9}}}
+      }
+    }
+  });
+  CHARTS['growth-line']=new Chart(document.getElementById('chart-growth-line'),{
+    type:'line',
+    data:{labels,datasets:[{data:data.map(d=>d.cumulative),borderColor:C.amber,backgroundColor:'rgba(245,166,35,.05)',fill:true,borderWidth:2,pointRadius:data.map((_,j)=>MILESTONES.some(m=>m.yr===data[j]?.year)?4:0),tension:.4}]},
+    options:{
+      ...sharedOpts,
+      plugins:{
+        legend:{display:false},
+        tooltip:{mode:'index',intersect:false,callbacks:{title:i=>'Rok '+i[0].label,label:ctx=>`Lacznie: ${fmt(ctx.raw)}`}},
+        annot:{
+          shadedBands:ERAS,
+          refLines:MILESTONES.filter(m=>m.yr).map(m=>({value:m.value,axis:'y',color:'rgba(255,255,255,.12)'}))
+        }
       },
       scales:{
         x:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}},
-        y:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}},title:{display:true,text:'nowych / rok',color:C.muted,font:{size:10}},position:'left'},
-        y1:{grid:{display:false},ticks:{color:C.amber,font:{size:10}},title:{display:true,text:'lacznie aktywnych',color:C.amber,font:{size:10}},position:'right'}
+        y:{grid:{color:C.axis},ticks:{color:C.amber,font:{size:10}},title:{display:true,text:'lacznie aktywnych',color:C.amber,font:{size:9}}}
       }
     }
   });
@@ -1031,12 +1153,13 @@ function renderPerCapita(){
     data:{labels:data.map(d=>d.voivodeship),datasets:[{data:data.map(d=>d.per_1k),backgroundColor:colors,borderRadius:2,borderWidth:0}]},
     options:{
       indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      onClick(_e,els){if(els.length){const v=data[els[0].index].voivodeship;setFilter(STATE.filter===v?null:v)}},
       plugins:{
         legend:{display:false},
         tooltip:{callbacks:{label:ctx=>`${ctx.raw}/1k mieszk.`}},
         annot:{refLines:[{value:0.35,axis:'x',color:'rgba(255,255,255,.2)'}]}
       },
-      scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
+      scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{cursor:'pointer',color:C.muted,font:{size:10}}}}
     }
   });
 }
@@ -1121,8 +1244,18 @@ function drawClock(){
       ctx.strokeStyle='rgba(0,192,96,0.022)';ctx.lineWidth=2.5;ctx.stroke();
     }
   });
-  for(let i=0;i<35;i++){
-    const ang=Math.random()*2*Math.PI,r=R-14+(Math.random()-.5)*10;
+  const h24pts=M.section3_rare&&M.section3_rare.h24_points&&M.section3_rare.h24_points.length?
+    M.section3_rare.h24_points:null;
+  const h24count=(M.opening_hours&&M.opening_hours.h24_count)||35;
+  for(let i=0;i<h24count;i++){
+    let ang,r=R-14;
+    if(h24pts&&h24pts[i]){
+      const[lat,lon]=h24pts[i];
+      ang=((lon-14.1)/(24.2-14.1))*2*Math.PI-Math.PI/2;
+      r=R-14+(lat-52)*4;
+    }else{
+      ang=(i/h24count)*2*Math.PI-Math.PI/2;
+    }
     ctx.beginPath();ctx.arc(cx+r*Math.cos(ang),cy+r*Math.sin(ang),3.5,0,Math.PI*2);
     ctx.fillStyle='rgba(245,166,35,0.55)';ctx.fill();
   }
@@ -1152,7 +1285,7 @@ function renderSpoleczenstwo(){
   renderSundayChoropleth();
   renderDensityChoropleth();
   renderMerrychef();
-  renderGroupedBar();
+  renderDumbbell();
 }
 
 function renderScatters(){
@@ -1197,14 +1330,26 @@ function renderSundayChoropleth(){
   const byName={};M.sunday_by_voivodeship.forEach(d=>byName[d.voivodeship]=d.closed_pct);
   L.geoJSON(M.woj_geo,{
     style(f){const p=byName[f.properties.name]||0;const t=Math.min(p/12,1);return{fillColor:`rgba(${Math.round(232*t)},${Math.round(90*(1-t))},${Math.round(47*t)},${0.25+t*.5})`,fillOpacity:.7,color:'#2a2a3a',weight:1}},
-    onEachFeature(f,l){l.bindTooltip(`<b>${f.properties.name}</b><br>${byName[f.properties.name]||0}% zamknietych w niedziele`,{sticky:true})}
+    onEachFeature(f,l){
+      l.bindTooltip(`<b>${f.properties.name}</b><br>${byName[f.properties.name]||0}% zamknietych w niedziele`,{sticky:true});
+      l.on('click',()=>setFilter(STATE.filter===f.properties.name?null:f.properties.name));
+    }
   }).addTo(map);
 }
 
 function renderDensityChoropleth(){
+  const AREA={
+    'mazowieckie':35558,'śląskie':12333,'wielkopolskie':29826,'małopolskie':15183,
+    'łódzkie':18219,'dolnośląskie':19948,'zachodniopomorskie':22892,'warmińsko-mazurskie':24173,
+    'podlaskie':20187,'świętokrzyskie':11711,'lubuskie':13988,'opolskie':9412,
+    'kujawsko-pomorskie':17972,'pomorskie':18310,'podkarpackie':17846,'lubelskie':25122
+  };
   const map=leafletDark('map-density');map.setView([52,19.4],5.5);
-  const dn={};M.voivodeship_density.forEach(d=>{dn[d.voivodeship]=(d.stores/d.area_km2)*100});
-  const maxD=Math.max(...Object.values(dn));
+  const dn={};M.voivodeship_density.forEach(d=>{
+    const area=AREA[d.voivodeship]||1;
+    dn[d.voivodeship]=(d.stores||d.total||0)/area*100;
+  });
+  const maxD=Math.max(...Object.values(dn),0.001);
   L.geoJSON(M.woj_geo,{
     style(f){const d=dn[f.properties.name]||0;return{fillColor:`rgba(0,192,96,${0.1+d/maxD*.75})`,fillOpacity:.7,color:'#2a2a3a',weight:1}},
     onEachFeature(f,l){l.bindTooltip(`<b>${f.properties.name}</b><br>${(dn[f.properties.name]||0).toFixed(1)}/100 km²`,{sticky:true})}
@@ -1216,7 +1361,7 @@ function renderMerrychef(){
   destroyChart('merrychef');
   CHARTS['merrychef']=new Chart(document.getElementById('chart-merrychef'),{
     type:'bar',
-    data:{labels:data.map(d=>d.voivodeship),datasets:[{data:data.map(d=>d.mc_pct),backgroundColor:data.map(d=>d.mc_pct<95?C.amber:C.green+'aa'),borderRadius:2,borderWidth:0}]},
+    data:{labels:data.map(d=>d.voivodeship),datasets:[{data:data.map(d=>d.mc_pct),backgroundColor:data.map(d=>d.voivodeship.toLowerCase().includes('dolno')||d.mc_pct<93?C.amber:C.green+'aa'),borderRadius:2,borderWidth:0}]},
     options:{
       indexAxis:'y',responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw}% z Merrychef`}},annot:{refLines:[{value:97.4,axis:'x',color:'rgba(255,255,255,.25)'}]}},
@@ -1225,35 +1370,95 @@ function renderMerrychef(){
   });
 }
 
-function renderGroupedBar(){
-  const data=M.inpost_vs_zabka;
-  destroyChart('inpost-grouped');
-  CHARTS['inpost-grouped']=new Chart(document.getElementById('chart-inpost-grouped'),{
-    type:'bar',
-    data:{
-      labels:data.map(d=>d.voivodeship),
-      datasets:[
-        {label:'Zabka / 100k',data:data.map(d=>d.zabki_per_100k),backgroundColor:C.green+'cc',borderRadius:2,borderWidth:0},
-        {label:'InPost / 100k',data:data.map(d=>d.lockers_per_100k),backgroundColor:C.amber+'cc',borderRadius:2,borderWidth:0}
-      ]
-    },
-    options:{
-      indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{
-        legend:{labels:{color:C.muted,font:{size:11},usePointStyle:true}},
-        tooltip:{mode:'index',intersect:false,callbacks:{
-          afterBody(items){const d=data[items[0].dataIndex];return d?`Stosunek: ${d.ratio}x`:''}
-        }}
-      },
-      scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
-    }
+function renderDumbbell(){
+  const data=[...M.inpost_vs_zabka].sort((a,b)=>b.ratio-a.ratio);
+  const el=document.getElementById('inpost-dumbbell');if(!el)return;
+  const allVals=data.flatMap(d=>[d.zabki_per_100k||0,d.lockers_per_100k||0]);
+  const maxV=Math.max(...allVals,1);
+  const ROW=32,PAD_L=140,PAD_R=70,W_CHART=440,H=data.length*ROW+40;
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('viewBox',`0 0 ${PAD_L+W_CHART+PAD_R} ${H}`);
+  svg.style.cssText=`width:100%;min-width:520px;display:block;background:transparent`;
+  function px(v){return PAD_L+v/maxV*W_CHART}
+  [0.25,0.5,0.75,1.0].forEach(f=>{
+    const x=px(maxV*f);
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',x);line.setAttribute('y1',20);line.setAttribute('x2',x);line.setAttribute('y2',H-10);
+    line.setAttribute('stroke','#2a2a3a');line.setAttribute('stroke-width','0.8');
+    svg.appendChild(line);
+    const lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
+    lbl.setAttribute('x',x);lbl.setAttribute('y',14);lbl.setAttribute('text-anchor','middle');
+    lbl.setAttribute('fill','#7a7a90');lbl.setAttribute('font-size','9');
+    lbl.textContent=(maxV*f).toFixed(0);svg.appendChild(lbl);
   });
+  data.forEach((d,i)=>{
+    const y=28+i*ROW;
+    const xz=px(d.zabki_per_100k||0),xi=px(d.lockers_per_100k||0);
+    const isFiltered=STATE.filter&&d.voivodeship.toLowerCase()!==STATE.filter.toLowerCase();
+    const alpha=isFiltered?'0.2':'1';
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','line');
+    ln.setAttribute('x1',Math.min(xz,xi));ln.setAttribute('y1',y);ln.setAttribute('x2',Math.max(xz,xi));ln.setAttribute('y2',y);
+    ln.setAttribute('stroke','#3a3a4a');ln.setAttribute('stroke-width','2');ln.setAttribute('opacity',alpha);
+    svg.appendChild(ln);
+    const cz=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    cz.setAttribute('cx',xz);cz.setAttribute('cy',y);cz.setAttribute('r','6');
+    cz.setAttribute('fill',C.green);cz.setAttribute('opacity',alpha);
+    svg.appendChild(cz);
+    const ci=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    ci.setAttribute('cx',xi);ci.setAttribute('cy',y);ci.setAttribute('r','6');
+    ci.setAttribute('fill',C.amber);ci.setAttribute('opacity',alpha);
+    svg.appendChild(ci);
+    const lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
+    lbl.setAttribute('x',PAD_L-8);lbl.setAttribute('y',y+4);lbl.setAttribute('text-anchor','end');
+    lbl.setAttribute('fill',isFiltered?'#3a3a5a':'#c8c8d8');lbl.setAttribute('font-size','11');
+    lbl.textContent=d.voivodeship;svg.appendChild(lbl);
+    const rb=document.createElementNS('http://www.w3.org/2000/svg','text');
+    rb.setAttribute('x',PAD_L+W_CHART+6);rb.setAttribute('y',y+4);
+    rb.setAttribute('fill','#7a7a90');rb.setAttribute('font-size','10');
+    rb.textContent=d.ratio+'x';svg.appendChild(rb);
+  });
+  const LEG_Y=H-4;
+  [[C.green,'Zabka/100k'],[C.amber,'InPost/100k']].forEach(([col,lbl],i)=>{
+    const cx2=PAD_L+60+i*120;
+    const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',cx2);c.setAttribute('cy',LEG_Y);c.setAttribute('r','5');c.setAttribute('fill',col);
+    svg.appendChild(c);
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',cx2+9);t.setAttribute('y',LEG_Y+4);t.setAttribute('fill','#7a7a90');t.setAttribute('font-size','10');
+    t.textContent=lbl;svg.appendChild(t);
+  });
+  el.innerHTML='';el.appendChild(svg);
 }
 
 /* ========== EDGE CASE'Y ========== */
 let jumpedFact=null;
 
+function populateFactCards(){
+  if(!M.kraniec_facts||!M.kraniec_facts.length)return;
+  const byId={};M.kraniec_facts.forEach(f=>byId[f.id]=f);
+  const DOM_IDS={
+    north:{big:null,city:null,street:null},
+    south:{big:null,city:null,street:null},
+    east:{big:null,city:null,street:null},
+    west:{big:null,city:null,street:null},
+    highest:{big:null,city:null,street:null},
+    lowest:{big:null,city:null,street:null},
+    isolated:{big:null,city:null,street:null},
+  };
+  Object.keys(DOM_IDS).forEach(id=>{
+    const f=byId[id];if(!f)return;
+    const card=document.querySelector(`[data-fact-id="${id}"]`);if(!card)return;
+    const bigEl=card.querySelector('.fact-big');
+    const cityEl=card.querySelector('.fact-city');
+    const streetEl=card.querySelector('.fact-street');
+    if(bigEl&&f.value)bigEl.textContent=f.value;
+    if(cityEl&&f.city)cityEl.textContent=f.city+(f.voivodeship?', '+f.voivodeship:'');
+    if(streetEl&&f.street)streetEl.textContent=f.street;
+  });
+}
+
 function renderEdge(){
+  populateFactCards();
   renderEdgeMap();
   renderElevHist();
   renderNeighborDist();
@@ -1381,11 +1586,13 @@ function drawParksDonut(){
   const cv=document.getElementById('canvas-parks-donut');
   const S=100;cv.width=S;cv.height=S;
   const ctx=cv.getContext('2d');ctx.clearRect(0,0,S,S);
-  const cx=S/2,cy=S/2,R=S/2-6,pct=719/13143;
+  const parksCount=(M.section3_rare.parks&&M.section3_rare.parks.count)||719;
+  const totalAct=(M.summary&&M.summary.total_active)||13143;
+  const cx=S/2,cy=S/2,R=S/2-6,pct=parksCount/totalAct;
   ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.strokeStyle=C.axis;ctx.lineWidth=8;ctx.stroke();
   ctx.beginPath();ctx.arc(cx,cy,R,-Math.PI/2,-Math.PI/2+pct*2*Math.PI);ctx.strokeStyle=C.green;ctx.lineWidth=8;ctx.stroke();
   ctx.fillStyle=C.ink;ctx.font=`bold 13px '${getFont('display')}',sans-serif`;
-  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('5,5%',cx,cy);
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText((pct*100).toFixed(1)+'%',cx,cy);
   const el=document.getElementById('parks-top3');
   if(el)el.innerHTML=(M.section3_rare.parks.top3||[]).map(p=>`${p.park_name}: ${p.cnt}`).join('<br>');
 }
@@ -1402,6 +1609,60 @@ function drawVoidMini(){
   const vp=projectPL(49.01,22.89,W,100);
   ctx.beginPath();ctx.arc(vp.x,vp.y,18,0,Math.PI*2);
   ctx.strokeStyle=C.red;ctx.lineWidth=1.5;ctx.setLineDash([4,3]);ctx.stroke();ctx.setLineDash([]);
+}
+
+let burstPlayed=false;
+function initBurstToggle(){
+  const btnSpiral=document.getElementById('view-spiral');
+  const btnBurst=document.getElementById('view-burst');
+  if(!btnSpiral||!btnBurst)return;
+  btnSpiral.addEventListener('click',()=>{
+    btnSpiral.classList.add('active');btnBurst.classList.remove('active');
+    document.querySelector('.spiral-wrap').style.display='flex';
+    document.getElementById('spiral-caveat').style.display='';
+    document.getElementById('burst-wrap').style.display='none';
+  });
+  btnBurst.addEventListener('click',()=>{
+    btnBurst.classList.add('active');btnSpiral.classList.remove('active');
+    document.querySelector('.spiral-wrap').style.display='none';
+    document.getElementById('spiral-caveat').style.display='none';
+    document.getElementById('burst-wrap').style.display='block';
+    if(!burstPlayed)playBurst();
+    document.getElementById('burst-replay').onclick=playBurst;
+  });
+}
+
+function playBurst(){
+  burstPlayed=true;
+  const cv=document.getElementById('canvas-burst');
+  const W=cv.offsetWidth||960;const H=Math.round(W*0.55);
+  cv.width=W;cv.height=H;
+  const ctx=cv.getContext('2d');
+  const stores=M.stores_timeline&&M.stores_timeline.stores||[];
+  const byYear={};stores.forEach(s=>{const yr=s[2];byYear[yr]=(byYear[yr]||0)+1});
+  const sortedStores=[...stores].sort((a,b)=>a[2]-b[2]);
+  const dots=sortedStores.map(([lat,lon,yr],i)=>{
+    const tx=(lon-14.1)/(24.2-14.1)*W;
+    const ty=(1-(lat-49.0)/(54.9-49.0))*H;
+    return{tx,ty,x:W/2,y:H/2,yr,delay:i/sortedStores.length*1600};
+  });
+  const START=performance.now();const DUR=2500;
+  function frame(now){
+    ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,H);
+    let allDone=true;
+    dots.forEach(d=>{
+      const t=Math.max(0,Math.min(1,(now-START-d.delay)/(DUR-d.delay*0.3)));
+      if(t<1)allDone=false;
+      const ease=1-Math.pow(1-t,3);
+      d.x=W/2+(d.tx-W/2)*ease;
+      d.y=H/2+(d.ty-H/2)*ease;
+      ctx.fillStyle=era(d.yr);ctx.globalAlpha=0.75;
+      ctx.beginPath();ctx.arc(d.x,d.y,1.5,0,Math.PI*2);ctx.fill();
+    });
+    ctx.globalAlpha=1;
+    if(!allDone)requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
 }
 
 function renderCivicStreets(){
@@ -1592,6 +1853,9 @@ async function fetchJSON(url, timeout=8000) {
 }
 
 async function loadData() {
+  document.querySelectorAll('.chart-wrap canvas,.map-container>div,.hero-band,.origin-cards').forEach(el=>{
+    el.classList.add('skel');el.dataset.skelApplied='1';
+  });
   const BASE = '/api';
   const [
     summary, networkGrowth, networkOrigin, storesTimeline, openingHours,
@@ -1650,6 +1914,7 @@ async function loadData() {
   };
 
   renderKPI();
+  document.querySelectorAll('[data-skel-applied]').forEach(el=>{el.classList.remove('skel');delete el.dataset.skelApplied});
   RENDERED.add('siec');
   setTimeout(()=>renderSiec(), 120);
 }
