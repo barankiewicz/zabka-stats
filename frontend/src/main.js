@@ -1,5 +1,6 @@
 import Chart from 'chart.js/auto';
 import 'leaflet/dist/leaflet.css';
+import './style.css';
 import { annotPlugin, C, STATE } from './config.js';
 import { M, CHARTS, MAPS, RENDERED } from './state.js';
 import { getFont, destroyChart } from './utils.js';
