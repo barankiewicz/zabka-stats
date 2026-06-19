@@ -1,436 +1,1577 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="pl" data-font="spec">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Żabka w Polsce - Atlas sklepów i liczby</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Zabka w liczbach</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap&subset=latin,latin-ext" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Fraunces:opsz,wght@9..144,300;9..144,700;9..144,900&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
-:root{
-  --bg:#0a120a; --panel:#0f1b0e; --panel2:#15271300; --line:rgba(140,200,80,.14);
-  --frog:#84c341; --frog-bright:#a6e84a; --lime:#d7f25a; --amber:#f2a359; --coral:#e8693d; --teal:#4dd0b1;
-  --ink:#eef3e6; --muted:#93a487; --muted2:#5d6c52;
-  --r:16px;
+:root {
+  --bg:#0d0d14; --surface:#16161f; --s2:#1e1e2e;
+  --green:#00c060; --amber:#f5a623; --red:#e85d2f; --teal:#00b4c8;
+  --muted:#7a7a90; --axis:#2a2a3a; --ink:#e8e8f0;
+  --north:#4a9eff; --west:#00c8a0; --center:#00c060; --south:#f5a623;
+  --font-display:'Bricolage Grotesque',sans-serif;
+  --font-body:'IBM Plex Sans',sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  --r:10px;
 }
-*{box-sizing:border-box}
+html[data-font="editorial"]{--font-display:'Fraunces',serif;--font-body:'Inter',sans-serif;--font-mono:'JetBrains Mono',monospace}
+html[data-font="swiss"]{--font-display:'Space Grotesk',sans-serif;--font-body:'IBM Plex Sans',sans-serif;--font-mono:'Space Mono',monospace}
+html[data-font="brutalist"]{--font-display:'Clash Display',sans-serif;--font-body:'Satoshi',sans-serif;--font-mono:'JetBrains Mono',monospace}
+html[data-font="contrast"]{--font-display:'Instrument Serif',serif;--font-body:'Plus Jakarta Sans',sans-serif;--font-mono:'JetBrains Mono',monospace}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--ink);
-  font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:16px;line-height:1.55;
-  -webkit-font-smoothing:antialiased;overflow-x:hidden}
-body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
-  background:radial-gradient(900px 600px at 78% -8%,rgba(132,195,65,.10),transparent 60%),
-             radial-gradient(700px 500px at 8% 18%,rgba(77,208,177,.06),transparent 55%)}
-.wrap{position:relative;z-index:1;max-width:1280px;margin:0 auto;padding:0 22px}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse 900px 700px at 10% 15%,rgba(0,192,96,.07) 0%,transparent 60%),
+             radial-gradient(ellipse 700px 600px at 90% 85%,rgba(0,180,200,.05) 0%,transparent 55%)}
 
-nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(10px);
-  background:linear-gradient(180deg,rgba(10,18,10,.92),rgba(10,18,10,.6));
-  border-bottom:1px solid var(--line)}
-.nav-in{max-width:1280px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:18px}
-.brand{display:flex;align-items:center;gap:9px;font-family:"Bricolage Grotesque";font-weight:800;font-size:17px;letter-spacing:-.02em}
-.dot{width:12px;height:12px;border-radius:50%;background:var(--frog);box-shadow:0 0 14px var(--frog)}
+/* NAV */
+nav{position:sticky;top:0;z-index:100;background:rgba(13,13,20,.9);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.06)}
+.nav-inner{max-width:1280px;margin:0 auto;padding:0 24px;display:flex;align-items:center;gap:16px;height:52px}
+.brand{display:flex;align-items:center;gap:8px;font-family:var(--font-display);font-weight:700;font-size:15px;letter-spacing:-.02em;white-space:nowrap;cursor:pointer;text-decoration:none;color:var(--ink)}
+.brand:hover .brand-dot{box-shadow:0 0 18px var(--green)}
+.brand-dot{width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);flex-shrink:0;transition:box-shadow .3s}
+.tab-nav{display:flex;gap:2px;flex:1}
+.tab-btn{border:0;background:transparent;color:var(--muted);font-family:var(--font-body);font-size:12.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;padding:6px 14px;border-radius:99px;cursor:pointer;transition:color .2s,background .2s;white-space:nowrap}
+.tab-btn:hover{color:var(--ink);background:rgba(255,255,255,.05)}
+.tab-btn.active{color:var(--green);background:rgba(0,192,96,.1)}
+.font-switcher{display:flex;gap:3px;align-items:center;margin-left:auto}
+.fs-btn{border:1px solid var(--axis);background:transparent;color:var(--muted);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:4px 8px;border-radius:5px;cursor:pointer;transition:all .15s}
+.fs-btn:hover{color:var(--ink);border-color:var(--muted)}
+.fs-btn.active{color:var(--bg);background:var(--green);border-color:var(--green)}
 
-h1,h2,h3{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.02em;margin:0;line-height:.98}
-.mono{font-family:"JetBrains Mono",monospace}
+/* KPI */
+.kpi-strip{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);gap:12px;padding:20px 24px 8px;position:relative;z-index:1}
+.kpi-tile{background:var(--surface);border:1px solid var(--axis);border-radius:var(--r);padding:16px 18px;min-height:80px}
+.kpi-val{font-family:var(--font-display);font-weight:800;font-size:28px;line-height:1;letter-spacing:-.03em;color:var(--green)}
+.kpi-val.amber{color:var(--amber)}
+.kpi-label{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.3}
 
-header{padding:60px 0 40px}
-.eyebrow{font-family:"JetBrains Mono";font-size:12.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--frog);margin-bottom:12px}
-.hero-num{font-family:"Bricolage Grotesque";font-weight:800;font-size:clamp(64px,15vw,140px);line-height:.82;
-  background:linear-gradient(180deg,#d8f49a,#84c341 62%,#5a9b22);-webkit-background-clip:text;background-clip:text;color:transparent;
-  letter-spacing:-.04em}
-.hero h1{font-size:clamp(24px,3.5vw,40px);margin:6px 0 12px;max-width:18ch}
-.hero p{color:var(--muted);font-size:clamp(15px,1.8vw,18px);max-width:60ch;margin:0}
+/* TABS */
+.tab-panel{display:none;position:relative;z-index:1}
+.tab-panel.active{display:block}
+.section-wrap{max-width:1280px;margin:0 auto;padding:24px 24px 64px}
 
-.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:36px 0 0}
-.kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:24px 18px}
-.kpi .v{font-family:"Bricolage Grotesque";font-weight:800;font-size:42px;color:var(--frog-bright);line-height:1}
-.kpi .l{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.4}
-.kpi .caption{font-size:12px;color:var(--muted2);margin-top:8px}
+/* SECTION HOOK */
+.sec-hook{border-left:3px solid var(--green);padding:12px 16px;margin-bottom:28px;background:rgba(0,192,96,.04);border-radius:0 var(--r) var(--r) 0;font-size:14px;color:var(--muted);font-style:italic;line-height:1.6}
+.sec-hook.teal{border-color:var(--teal);background:rgba(0,180,200,.04)}
 
-section{padding:48px 0;border-top:1px solid var(--line);margin-top:8px}
-.sec-head{margin-bottom:20px;max-width:70ch}
-.sec-head .tag{font-family:"JetBrains Mono";font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted2)}
-.sec-head h2{font-size:clamp(22px,2.8vw,32px);margin:6px 0 8px}
-.sec-head p{color:var(--muted);margin:0;font-size:14.5px}
+/* GRID */
+.row{display:grid;gap:16px;margin-bottom:16px}
+.row-2{grid-template-columns:1fr 1fr}
+.row-3{grid-template-columns:1fr 1fr 1fr}
+.row-4{grid-template-columns:1fr 1fr 1fr 1fr}
+.row-58{grid-template-columns:5fr 3fr}
+.row-64{grid-template-columns:6fr 4fr}
 
-.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px}
-.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:16px}
-.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
-.grid-map{display:grid;grid-template-columns:1.6fr 1fr;gap:16px}
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--axis);border-radius:var(--r);padding:20px;position:relative;overflow:hidden}
+.card-title{font-family:var(--font-display);font-weight:700;font-size:14px;color:var(--ink);margin-bottom:4px;line-height:1.3}
+.card-sub{font-size:12px;color:var(--muted);margin-bottom:14px}
+.chart-wrap{position:relative}
+.h720{height:720px}.h680{height:680px}.h560{height:560px}.h500{height:500px}.h460{height:460px}.h420{height:420px}.h400{height:400px}.h380{height:380px}.h360{height:360px}.h340{height:340px}.h280{height:280px}.h260{height:260px}.h220{height:220px}.h200{height:200px}.h180{height:180px}.h140{height:140px}
+canvas{display:block}
 
-.chart-box{position:relative;width:100%;min-height:300px;display:flex;align-items:center;justify-content:center}
-.h-tall{min-height:500px}
-.h-mid{min-height:380px}
-.h-sm{min-height:280px}
+/* SKELETON */
+.skel{background:linear-gradient(90deg,var(--surface) 25%,var(--s2) 50%,var(--surface) 75%);background-size:400% 100%;animation:shimmer 1.4s infinite;border-radius:6px}
+@keyframes shimmer{0%{background-position:100%}100%{background-position:-100%}}
 
-#map{border-radius:12px;background:#08110a;border:1px solid var(--line);width:100%;height:500px}
-.leaflet-container{background:#08110a;font-family:"IBM Plex Sans"}
+/* REVEAL */
+.reveal{opacity:0;transform:translateY(12px);transition:opacity .5s ease,transform .5s ease}
+.reveal.shown{opacity:1;transform:none}
 
-.insight-box{background:linear-gradient(135deg,rgba(132,195,65,.08),rgba(77,208,177,.04));
-  border:1px solid var(--line);border-radius:var(--r);padding:20px;margin:16px 0}
-.insight-label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px}
-.insight-value{font-family:"Bricolage Grotesque";font-weight:800;font-size:36px;color:var(--lime);line-height:1.1}
-.insight-caption{font-size:14px;color:var(--muted);margin-top:8px}
+/* SPIRAL */
+.spiral-wrap{display:flex;gap:16px;align-items:flex-start}
+.spiral-side{min-width:210px;background:var(--s2);border:1px solid var(--axis);border-radius:8px;padding:16px;font-size:13px;flex-shrink:0}
+.spiral-side-yr{font-family:var(--font-display);font-weight:800;font-size:22px;color:var(--green);line-height:1;margin-bottom:2px}
+.spiral-side-hint{color:var(--muted);font-size:11px;margin-bottom:10px}
+.spiral-stat{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--axis)}
+.spiral-stat:last-of-type{border:0}
+.spiral-stat-label{color:var(--muted)}
+.spiral-stat-val{font-family:var(--font-mono);color:var(--ink)}
+.sp-months{margin-top:10px}
 
-.badge{display:inline-block;background:rgba(132,195,65,.15);border:1px solid rgba(132,195,65,.3);
-  border-radius:99px;padding:8px 14px;font-size:13px;color:var(--ink);margin-right:8px;margin-bottom:8px}
+/* COMPASS GRID */
+.compass-grid{display:grid;grid-template-columns:180px 1fr 1fr 180px;grid-template-rows:auto auto auto;gap:12px;margin-bottom:16px}
+.compass-n{grid-column:2/4;grid-row:1}
+.compass-w{grid-column:1;grid-row:2;align-self:center}
+.compass-map{grid-column:2/4;grid-row:2}
+.compass-e{grid-column:4;grid-row:2;align-self:center}
+.compass-s{grid-column:2/4;grid-row:3}
 
-.gauge{position:relative;width:100%;height:200px;display:flex;align-items:center;justify-content:center}
-.gauge-text{font-family:"Bricolage Grotesque";font-weight:800;font-size:52px;color:var(--frog-bright)}
-.gauge-sub{font-size:13px;color:var(--muted);margin-top:4px;text-align:center}
+/* FACT CARDS */
+.fact-card{background:var(--surface);border:1px solid var(--axis);border-radius:var(--r);padding:18px;cursor:pointer;transition:border-color .2s,box-shadow .2s}
+.fact-card:hover{border-color:rgba(255,255,255,.15);box-shadow:0 4px 20px rgba(0,0,0,.3)}
+.fact-card.jumped{border-color:var(--green);box-shadow:0 0 0 1px var(--green)}
+.fact-big{font-family:var(--font-display);font-weight:800;font-size:38px;line-height:1;letter-spacing:-.03em;color:var(--green);margin:6px 0}
+.fact-big.amber{color:var(--amber)}
+.fact-big.red{color:var(--red)}
+.fact-big.teal{color:var(--teal)}
+.fact-big.sm{font-size:26px}
+.fact-big.muted{color:var(--muted)}
+.fact-label{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.fact-city{font-size:13px;color:var(--ink);margin-top:4px}
+.fact-street{font-size:11px;color:var(--muted);margin-top:2px;font-family:var(--font-mono)}
+.fact-oneliner{font-size:12px;color:var(--muted);margin-top:10px;font-style:italic}
+.jump-hint{font-size:10px;color:var(--teal);margin-top:8px;opacity:.7}
 
-.comparison{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.comp-box{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px;text-align:center}
-.comp-num{font-family:"Bricolage Grotesque";font-weight:800;font-size:48px;color:var(--frog-bright)}
-.comp-label{font-size:13px;color:var(--muted);margin-top:8px}
+/* BACK BUTTON */
+.back-btn{display:none;position:absolute;top:12px;right:12px;z-index:10;background:var(--s2);border:1px solid var(--green);color:var(--green);font-size:12px;font-weight:600;padding:6px 14px;border-radius:99px;cursor:pointer;transition:all .2s}
+.back-btn:hover{background:rgba(0,192,96,.15)}
+.back-btn.visible{display:block}
 
-.ranking-item{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(140,200,80,.08)}
-.ranking-item:last-child{border-bottom:none}
-.ranking-name{flex:1;font-size:14px}
-.ranking-value{font-family:"JetBrains Mono";font-weight:600;color:var(--frog-bright)}
-.ranking-bar{position:absolute;height:2px;background:var(--frog);opacity:.3;right:0;width:var(--pct)}
+/* ORIGIN CARDS */
+.origin-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.origin-card{background:var(--s2);border:1px solid var(--axis);border-radius:8px;padding:14px 16px}
+.origin-date{font-family:var(--font-mono);font-size:13px;color:var(--green);margin-bottom:4px}
+.origin-city{font-size:15px;font-weight:600;color:var(--ink)}
+.origin-street{font-size:12px;color:var(--muted)}
+.origin-footnote{font-size:11px;color:var(--muted);margin-top:6px;font-style:italic}
 
-footer{padding:40px 0;border-top:1px solid var(--line);margin-top:40px;color:var(--muted);font-size:13px}
+/* SCATTER TOGGLE */
+.scatter-toggle{display:flex;gap:4px;margin-bottom:12px}
+.st-btn{border:1px solid var(--axis);background:transparent;color:var(--muted);font-size:12px;padding:5px 12px;border-radius:6px;cursor:pointer;transition:all .15s}
+.st-btn.active{background:var(--green);color:var(--bg);border-color:var(--green)}
+.scatter-container{display:grid;grid-template-columns:1fr 1fr;gap:16px;transition:all .3s}
+.scatter-container.stacked{grid-template-columns:1fr}
+
+/* SYNTHESIS */
+.synthesis{border-left:2px solid var(--green);padding:16px 20px;background:rgba(0,192,96,.04);border-radius:0 var(--r) var(--r) 0;margin-top:8px}
+.synthesis-tag{font-size:10px;text-transform:uppercase;letter-spacing:.15em;color:var(--muted);margin-bottom:8px}
+.synthesis-body{font-size:14px;color:rgba(232,232,240,.85);line-height:1.7}
+.synthesis-foot{font-size:11px;color:rgba(122,122,144,.6);margin-top:10px}
+
+/* HERO BAND */
+.hero-band{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--axis);border:1px solid var(--axis);border-radius:var(--r);overflow:hidden;margin-bottom:20px}
+.hero-stat{background:var(--surface);padding:24px;text-align:center}
+.hero-num{font-family:var(--font-mono);font-size:44px;font-weight:700;color:var(--teal);line-height:1}
+.hero-desc{font-size:12px;color:var(--muted);margin-top:6px}
+
+/* MAP */
+.map-container{border-radius:8px;overflow:hidden;position:relative}
+#map-edge,#map-plazy-main{height:460px}
+#map-sunday,#map-density{height:360px}
+#map-parks{height:200px}
+.map-container .leaflet-container{background:#08110a !important}
+
+/* CAVEAT */
+.caveat{font-size:11px;color:var(--muted);margin-top:8px;font-style:italic}
+
+/* RESPONSIVE */
+@media(max-width:1100px){.compass-grid{grid-template-columns:1fr 1fr 1fr 1fr;gap:8px}.compass-n,.compass-s{grid-column:1/5}.compass-map{grid-column:1/5}}
+@media(max-width:900px){.row-2,.row-3,.row-4,.row-58,.row-64{grid-template-columns:1fr}.kpi-strip{grid-template-columns:repeat(3,1fr)}.spiral-wrap{flex-direction:column}.hero-band{grid-template-columns:1fr}}
+@media(max-width:600px){.kpi-strip{grid-template-columns:1fr 1fr}.row-4{grid-template-columns:1fr 1fr}.tab-btn{font-size:11px;padding:5px 8px}}
 </style>
 </head>
-<body>
+<body id="top">
 
 <nav>
-<div class="nav-in">
-  <div class="brand"><div class="dot"></div>Żabka Atlas</div>
-  <div style="margin-left:auto;font-size:13px;color:var(--muted)">Mapa i statystyka sklepów w Polsce</div>
-</div>
+  <div class="nav-inner">
+    <a class="brand" href="#top"><span class="brand-dot"></span>Zabka w liczbach</a>
+    <div class="tab-nav" role="tablist">
+      <button class="tab-btn active" data-tab="siec">SIEC</button>
+      <button class="tab-btn" data-tab="spoleczenstwo">SPOLECZENSTWO</button>
+      <button class="tab-btn" data-tab="edge">EDGE CASE'Y</button>
+      <button class="tab-btn" data-tab="plazy">PLAZY</button>
+    </div>
+    <div class="font-switcher">
+      <button class="fs-btn" data-font="editorial" title="Fraunces + Inter">Ed</button>
+      <button class="fs-btn" data-font="swiss" title="Space Grotesk + IBM Plex">CH</button>
+      <button class="fs-btn active" data-font="spec" title="Bricolage + IBM Plex">Sp</button>
+      <button class="fs-btn" data-font="brutalist" title="Clash Display + Satoshi">BB</button>
+      <button class="fs-btn" data-font="contrast" title="Instrument Serif + Jakarta">Ce</button>
+    </div>
+  </div>
 </nav>
 
-<div class="wrap">
-
-<header>
-  <div class="eyebrow">Żabka w liczbach</div>
-  <div class="hero">
-    <div class="hero-num" id="heroNum">13,168</div>
-    <h1>Sklep, który jest zawsze blisko</h1>
-    <p>13 tysięcy sklepów rozrzuconych po 2203 miastach i miasteczkach. W medianie? 297 metrów do następnego.</p>
-  </div>
-
-  <div class="kpi-grid">
-    <div class="kpi">
-      <div class="v" id="kpi-czypiec">97%</div>
-      <div class="l">Czy ma piec</div>
-      <div class="caption">Kafeteria ze spreparowanymi posiłkami w prawie każdym sklepie</div>
-    </div>
-    <div class="kpi">
-      <div class="v" id="kpi-sunday">95%</div>
-      <div class="l">Otwarte w niedziele</div>
-      <div class="caption">Przeszkód nie ma na zakupy w weekend</div>
-    </div>
-    <div class="kpi">
-      <div class="v" id="kpi-24h">35</div>
-      <div class="l">Otwarte 24/7</div>
-      <div class="caption">Zaledwie 35 lokacji pracuje całą dobę. To pół procenta sieci.</div>
-    </div>
-    <div class="kpi">
-      <div class="v" id="kpi-towns">2,203</div>
-      <div class="l">Miasta i miasteczka</div>
-      <div class="caption">Od największych do najmniejszych</div>
-    </div>
-  </div>
-</header>
-
-<section>
-  <div class="sec-head">
-    <div class="tag">Rozkład przestrzenny</div>
-    <h2>Gdzie skupia się sieć</h2>
-    <p>Mapa pokazuje gdzie jest więcej sklepów (ciemniejsze obszary) i gdzie ich brakuje (jaśniejsze).</p>
-  </div>
-  <div class="grid-map">
-    <div id="map"></div>
-    <div style="background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px">
-      <h4 style="font-family:'Bricolage Grotesque';font-weight:800;margin:0 0 12px;font-size:15px">Statystyka województw</h4>
-      <div id="voivodeship-stats" style="font-size:13px;color:var(--muted);line-height:1.8">
-        Wczytywanie danych...
-      </div>
-    </div>
-  </div>
-</section>
-
-<section>
-  <div class="sec-head">
-    <div class="tag">Rankingi</div>
-    <h2>30 miast z największą liczbą Żabek</h2>
-    <p>Warszawa daleko z przodu. Ale Wrocław, Kraków i Poznań też mają ich spora ilość.</p>
-  </div>
-  <div class="card">
-    <div class="chart-box h-tall" id="citiesChart"></div>
-  </div>
-</section>
-
-<section>
-  <div class="sec-head">
-    <div class="tag">Województwa</div>
-    <h2>Rozkład po Polsce</h2>
-  </div>
-  <div class="grid3">
-    <div class="card">
-      <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px">Liczba sklepów</div>
-      <div class="chart-box h-mid" id="voivodeshipCountChart"></div>
-    </div>
-    <div class="card">
-      <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px">Gęstość na km2</div>
-      <div class="chart-box h-mid" id="voivodeshipDensityChart"></div>
-    </div>
-    <div class="card">
-      <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px">Czy ma piec (%)</div>
-      <div class="chart-box h-mid" id="voivodeshipFeatureChart"></div>
-    </div>
-  </div>
-</section>
-
-<section>
-  <div class="sec-head">
-    <div class="tag">Dostępność</div>
-    <h2>Kiedy otwarte, co mają</h2>
-    <p>Piekarnik to standard. Niedziele otwarte? Prawie wszędzie. 24/7? Rzadkość.</p>
-  </div>
-  <div class="grid3">
-    <div class="card">
-      <div style="text-align:center;padding:20px 0">
-        <div style="font-family:'JetBrains Mono';font-size:11px;text-transform:uppercase;letter-spacing:.15em;color:var(--muted2);margin-bottom:12px">Czy ma piec</div>
-        <div class="gauge-text">97%</div>
-        <div class="gauge-sub">Kafeteria z gorącym jedzeniem</div>
-      </div>
-    </div>
-    <div class="card">
-      <div style="text-align:center;padding:20px 0">
-        <div style="font-family:'JetBrains Mono';font-size:11px;text-transform:uppercase;letter-spacing:.15em;color:var(--muted2);margin-bottom:12px">Niedziele otwarte</div>
-        <div class="gauge-text">95%</div>
-        <div class="gauge-sub">W niedzielę kupisz</div>
-      </div>
-    </div>
-    <div class="card">
-      <div style="text-align:center;padding:20px 0">
-        <div style="font-family:'JetBrains Mono';font-size:11px;text-transform:uppercase;letter-spacing:.15em;color:var(--muted2);margin-bottom:12px">24/7 Dostępne</div>
-        <div class="gauge-text" style="font-size:64px">35</div>
-        <div class="gauge-sub">Lokacji nocnych (0,27% sieci)</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section>
-  <div class="sec-head">
-    <div class="tag">Bliskość</div>
-    <h2>Jak daleko do następnego?</h2>
-    <p>297 metrów to mediana. W Warszawie? 187 metrów. Zawsze coś blisko.</p>
-  </div>
-  <div class="grid2">
-    <div class="card">
-      <div class="chart-box h-mid" id="distanceChart"></div>
-    </div>
-    <div class="card">
-      <div style="padding:12px 0">
-        <div class="insight-box">
-          <div class="insight-label">Mediana odległości</div>
-          <div class="insight-value">297m</div>
-          <div class="insight-caption">Średnio do następnego sklepu</div>
-        </div>
-        <div class="insight-box">
-          <div class="insight-label">Najwięcej zagęszczenia</div>
-          <div class="insight-value">Warszawa</div>
-          <div class="insight-caption">187 metrów do sąsiedniego sklepu</div>
-        </div>
-        <div class="insight-box">
-          <div class="insight-label">Ekstremalnie blisko</div>
-          <div class="insight-value">0m</div>
-          <div class="insight-caption">Dwa sklepy w tym samym kompleksie</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section>
-  <div class="sec-head">
-    <div class="tag">Nazwy ulic</div>
-    <h2>Nazwy które się powtarzają</h2>
-    <p>Kościuszki pojawia się 124 razy. Rynek 108 razy. Tych samych nazw w każdym mieście.</p>
-  </div>
-  <div class="card">
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;padding:12px 0" id="streetsTable">
-      Wczytywanie danych...
-    </div>
-  </div>
-</section>
-
-<section>
-  <div class="sec-head">
-    <div class="tag">Ciekawostki</div>
-    <h2>Ciekawostki</h2>
-  </div>
-  <div class="grid3">
-    <div class="insight-box">
-      <div class="insight-label">Dominacja Warszawy</div>
-      <div class="insight-value">1,143</div>
-      <div class="insight-caption">Sklepy w stolicy. To więcej niż w 11 województwach razem.</div>
-    </div>
-    <div class="insight-box">
-      <div class="insight-label">Rzadkość nocna</div>
-      <div class="insight-value">0,27%</div>
-      <div class="insight-caption">Procent sieci otwartej 24/7. Zaledwie 35 lokacji.</div>
-    </div>
-    <div class="insight-box">
-      <div class="insight-label">Rozwój geograficzny</div>
-      <div class="insight-value">2,203</div>
-      <div class="insight-caption">Miast i miasteczek z reprezentacją Żabki.</div>
-    </div>
-  </div>
-</section>
-
-<footer>
-  <div class="wrap" style="padding:20px 0">
-    <p>Atlas Żabki w Polsce. Dane na dzień 15 czerwca 2026. Interaktywna mapa pokazuje rzeczywisty rozkład sieci handlowej.</p>
-  </div>
-</footer>
-
+<div class="kpi-strip">
+  <div class="kpi-tile"><div class="kpi-val" id="kpi-stores">13 143</div><div class="kpi-label">aktywnych sklepow</div></div>
+  <div class="kpi-tile"><div class="kpi-val" id="kpi-cities">2 203</div><div class="kpi-label">miejscowosci</div></div>
+  <div class="kpi-tile"><div class="kpi-val" id="kpi-mc">97,4%</div><div class="kpi-label">z piecem Merrychef</div></div>
+  <div class="kpi-tile"><div class="kpi-val" id="kpi-sun">95,5%</div><div class="kpi-label">otwarte w niedziele</div></div>
+  <div class="kpi-tile"><div class="kpi-val amber" id="kpi-h24">35</div><div class="kpi-label">otwarte 24/7</div></div>
 </div>
 
+<!-- ============ SIEC ============ -->
+<div id="tab-siec" class="tab-panel active">
+<div class="section-wrap">
+  <div class="sec-hook reveal">Sposrod 13 tysiecy aktywnych sklepow, polowa otwarta od 2023 roku. Co otworzylo sie wczesniej — i przetrwalo.</div>
+
+  <!-- 1.1 Merged growth chart -->
+  <div class="card reveal" style="margin-bottom:16px">
+    <div class="card-title">Kiedy otwarto sklepy, ktore wciaz dzialaja</div>
+    <div class="card-sub">Slupki: nowe sklepy w roku. Linia: laczna liczba aktywnych.</div>
+    <div class="chart-wrap h280"><canvas id="chart-growth"></canvas></div>
+    <div class="caveat">218 sklepow bez daty otwarcia nie uwzglednionych. Wczesne lata moga byc niedoszacowane.</div>
+  </div>
+
+  <!-- 1.1b origin cards -->
+  <div class="origin-cards reveal" style="margin-bottom:16px">
+    <div class="origin-card">
+      <div class="origin-date" id="oldest-date">17 pazdziernika 1998</div>
+      <div class="origin-city" id="oldest-city">Swarzedz</div>
+      <div class="origin-street" id="oldest-street">Rynek 4/5, wielkopolskie</div>
+      <div class="origin-footnote">Najstarsza wciaz dzialajaca Zabka. Przetrwala 28 lat.</div>
+    </div>
+    <div class="origin-card">
+      <div class="origin-date" id="newest-date">—</div>
+      <div class="origin-city" id="newest-city">—</div>
+      <div class="origin-street" id="newest-street">—</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:8px"><span id="new-month-count">130</span> nowych sklepow w ostatnim miesiacu</div>
+    </div>
+  </div>
+
+  <!-- 1.1c Spiral only (no burst) -->
+  <div class="card reveal" style="margin-bottom:16px">
+    <div class="card-title">28 Rewolucji — kazdy punkt to sklep dzialajacy dzis</div>
+    <div class="card-sub">Najedz, by przesunac punkty. Hover na spirale — szczegoly w panelu.</div>
+    <div class="spiral-wrap">
+      <canvas id="canvas-spiral" width="680" height="680" style="cursor:crosshair;flex-shrink:0"></canvas>
+      <div class="spiral-side">
+        <div class="spiral-side-yr" id="sp-year">—</div>
+        <div class="spiral-side-hint" id="sp-hint">Najedz na spirale</div>
+        <div class="spiral-stat"><span class="spiral-stat-label">Nowych</span><span class="spiral-stat-val" id="sp-new">—</span></div>
+        <div class="spiral-stat"><span class="spiral-stat-label">Lacznie aktywnych</span><span class="spiral-stat-val" id="sp-cum">—</span></div>
+        <div class="spiral-stat"><span class="spiral-stat-label">Era</span><span class="spiral-stat-val" id="sp-era">—</span></div>
+        <div class="sp-months" id="sp-months"></div>
+        <div style="margin-top:16px">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:11px;color:var(--muted)"><span style="width:10px;height:10px;background:#0a3018;border-radius:50%;display:inline-block;flex-shrink:0"></span>1998–2009 Wczesna siec</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:11px;color:var(--muted)"><span style="width:10px;height:10px;background:#1a6035;border-radius:50%;display:inline-block;flex-shrink:0"></span>2010–2019 Wzrost</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:11px;color:var(--muted)"><span style="width:10px;height:10px;background:#40c070;border-radius:50%;display:inline-block;flex-shrink:0"></span>2020–2022 Przyspieszenie</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)"><span style="width:10px;height:10px;background:#80ff90;border-radius:50%;display:inline-block;flex-shrink:0"></span>2023–2026 Boom</div>
+        </div>
+      </div>
+    </div>
+    <div class="caveat" style="text-align:center">12 925 sklepow z data otwarcia. Im dalej od srodka, tym nowszy. Kursor odpycha punkty.</div>
+  </div>
+
+  <!-- 1.1f Fingerprint -->
+  <div class="card reveal" style="margin-bottom:16px">
+    <div class="card-title">Odcisk Sieci — w ktorym kierunku rosla Zabka kazdy rok</div>
+    <div class="card-sub">Kazdy pierscien to rok. Wybrzuszenie = dominujacy kierunek ekspansji. Hover na pierscien — szczegoly.</div>
+    <div style="position:relative;display:inline-block;width:100%">
+      <canvas id="canvas-fingerprint" width="680" height="680" style="display:block;cursor:crosshair"></canvas>
+      <div id="fp-tooltip" style="display:none;position:absolute;background:var(--s2);border:1px solid var(--axis);border-radius:8px;padding:10px 14px;font-size:12px;pointer-events:none;z-index:10;min-width:180px"></div>
+    </div>
+  </div>
+
+  <!-- 1.2 -->
+  <div class="row row-58 reveal" style="margin-bottom:16px">
+    <div class="card">
+      <div class="card-title">Jak rosly makroregiony</div>
+      <div class="card-sub">Hover na obszar — szczegoly roku i regionu</div>
+      <div class="chart-wrap h420"><canvas id="chart-stacked-area"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Pomorskie prowadzi per capita</div>
+      <div class="card-sub">sklepy na 1 000 mieszkancow</div>
+      <div class="chart-wrap h420"><canvas id="chart-per-capita"></canvas></div>
+    </div>
+  </div>
+
+  <!-- 1.3 -->
+  <div class="row row-2 reveal" style="margin-bottom:16px">
+    <div class="card">
+      <div class="card-title">Siec docierala do nowych miast — 333 w 2025</div>
+      <div class="chart-wrap h380"><canvas id="chart-city-coverage"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Warszawa: 1 138. Wroclaw i Krakow razem: 1 029.</div>
+      <div class="chart-wrap h380"><canvas id="chart-top-cities"></canvas></div>
+    </div>
+  </div>
+
+  <!-- 1.4 -->
+  <div class="row row-58 reveal" style="margin-bottom:16px">
+    <div class="card">
+      <div class="card-title">Zegar Zabki — 91,7% otwiera sie o 6:00</div>
+      <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+        <canvas id="canvas-clock" width="320" height="320" style="flex-shrink:0"></canvas>
+        <div>
+          <div style="font-size:13px;color:var(--muted);line-height:2.2">
+            <span style="color:var(--green);font-weight:600;font-family:var(--font-display)">97,4%</span> z piecem Merrychef<br>
+            <span style="color:var(--green);font-weight:600;font-family:var(--font-display)">95,5%</span> otwarte w niedziele<br>
+            <span style="color:var(--amber);font-weight:600;font-family:var(--font-display)">35</span> czynnych cala dobe
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">91,7% sklepow otwiera sie dokladnie o 6:00 rano</div>
+      <div class="chart-wrap h220"><canvas id="chart-hours"></canvas></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ============ SPOLECZENSTWO ============ -->
+<div id="tab-spoleczenstwo" class="tab-panel">
+<div class="section-wrap">
+  <div class="sec-hook reveal">Gestosc Zabek jest zaskakujaco dobrym barometrem polskiej ekonomii. I zrodlem kilku anomalii, ktorych dane nie wyjasniaja.</div>
+
+  <!-- Scatter toggle + scatters -->
+  <div class="reveal" style="margin-bottom:16px">
+    <div class="scatter-toggle">
+      <button class="st-btn active" id="scat-side">Obok siebie</button>
+      <button class="st-btn" id="scat-stack">Jeden pod drugim</button>
+    </div>
+    <div class="scatter-container" id="scatter-container">
+      <div class="card">
+        <div class="card-title">Bogatsze powiaty maja wiecej Zabek</div>
+        <div class="card-sub">r = +0,41 ze srednia pensja</div>
+        <div class="chart-wrap h400"><canvas id="chart-scatter-salary"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Wyzsze bezrobocie = mniej Zabek</div>
+        <div class="card-sub">r = -0,35 ze stopa bezrobocia</div>
+        <div class="chart-wrap h400"><canvas id="chart-scatter-unemp"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Choropleths full width -->
+  <div class="row row-2 reveal" style="margin-bottom:16px">
+    <div class="card">
+      <div class="card-title">Zachodni klaster niedzielny</div>
+      <div class="card-sub">% sklepow zamknietych w niedziele — dolnoslaskie 10,6%, zachodniopom. 9,3%, lubuskie 9,1%</div>
+      <div class="map-container"><div id="map-sunday"></div></div>
+      <div class="caveat">"Dlaczego zachod?" — dane nie odpowiadaja.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Slask: 12,3 sklepu / 100 km²</div>
+      <div class="card-sub">gestosc sieci na powierzchni — 3,5x srednia krajowa</div>
+      <div class="map-container"><div id="map-density"></div></div>
+    </div>
+  </div>
+
+  <!-- Merrychef full row -->
+  <div class="card reveal" style="margin-bottom:16px">
+    <div class="card-title">Dolnoslaskie: jedyny region ponizej 95% z piecem</div>
+    <div class="card-sub">% sklepow z Merrychef, posortowane rosna co — srednia krajowa 97,4%</div>
+    <div class="chart-wrap h260"><canvas id="chart-merrychef"></canvas></div>
+  </div>
+
+  <!-- Grouped bar InPost vs Zabka -->
+  <div class="card reveal" style="margin-bottom:16px">
+    <div class="card-title">InPost vs Zabka — 2,42 paczkomaty na kazda Zabke w Polsce</div>
+    <div class="card-sub">zielony = Zabka/100k mieszk., bursztyn = InPost/100k mieszk. — posortowane stosunkiem InPost malejaco</div>
+    <div class="chart-wrap h420"><canvas id="chart-inpost-grouped"></canvas></div>
+  </div>
+
+  <div class="synthesis reveal">
+    <div class="synthesis-tag">Co wiemy na pewno</div>
+    <div class="synthesis-body">Trzy niezalezne miary — dochod powiatu, stopa bezrobocia, stosunek paczkomatow do sklepow — wskazuja te sama strukture: zachodnia i centralna Polska jest lepiej obslugiwana niz wschodnia. Anomalie dolnoslaskie (niedziele, piekarniki) pozostaja bez wyjasnienia w dostepnych danych. Siec wyglada jednorodnie. Nie jest.</div>
+    <div class="synthesis-foot">Dane: snapshot czerwiec 2026. Analiza obejmuje sklepy aktywne.</div>
+  </div>
+</div>
+</div>
+
+<!-- ============ EDGE CASE'Y ============ -->
+<div id="tab-edge" class="tab-panel">
+<div class="section-wrap">
+  <div class="sec-hook reveal">Reszta. Ktora tez jest prawda. Kliknij karte — mapa przeskakuje do miejsca.</div>
+
+  <!-- 3.0 Extremes map -->
+  <div class="card reveal" style="margin-bottom:20px;position:relative">
+    <div class="card-title">Mapa krancow</div>
+    <div class="card-sub">Kliknij dowolna karte faktu — mapa przeskakuje do tego miejsca z tooltipem.</div>
+    <button class="back-btn" id="edge-back-btn" onclick="jumpBack()">← Wróc do widoku Polski</button>
+    <div class="map-container"><div id="map-edge"></div></div>
+  </div>
+
+  <!-- A: Compass in 4 directions -->
+  <div class="compass-grid reveal">
+    <div class="fact-card compass-n" data-fact-id="north" onclick="jumpToFact('north')">
+      <div class="fact-label">N — najdalej na polnoc</div>
+      <div class="fact-big sm">54,83°N</div>
+      <div class="fact-city">Jastrzebia Gora, pomorskie</div>
+      <div class="fact-street">Rozewska 3</div>
+      <div class="jump-hint">Kliknij — przeskocz na mape</div>
+    </div>
+    <div class="card compass-map" style="padding:0;overflow:hidden">
+      <div style="background:var(--s2);height:100%;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;min-height:120px">Mapa powyzej</div>
+    </div>
+    <div class="fact-card compass-w" data-fact-id="west" onclick="jumpToFact('west')">
+      <div class="fact-label">W — zachod</div>
+      <div class="fact-big sm">14,20°E</div>
+      <div class="fact-city">Cedynia</div>
+      <div class="fact-street">Pl. Wolnosci 4</div>
+      <div class="jump-hint">Kliknij</div>
+    </div>
+    <div class="fact-card compass-e" data-fact-id="east" onclick="jumpToFact('east')">
+      <div class="fact-label">E — wschod</div>
+      <div class="fact-big sm">23,90°E</div>
+      <div class="fact-city">Hrubieszow</div>
+      <div class="fact-street">Rynek 1</div>
+      <div class="jump-hint">Kliknij</div>
+    </div>
+    <div class="fact-card compass-s" data-fact-id="south" onclick="jumpToFact('south')">
+      <div class="fact-label">S — najdalej na poludnie</div>
+      <div class="fact-big sm">49,21°N</div>
+      <div class="fact-city">Cisna, podkarpackie</div>
+      <div class="fact-street">Cisna 87</div>
+      <div class="jump-hint">Kliknij — przeskocz na mape</div>
+    </div>
+  </div>
+
+  <!-- B: Elevation -->
+  <div class="row row-3 reveal" style="margin-bottom:16px">
+    <div class="fact-card" data-fact-id="highest" onclick="jumpToFact('highest')">
+      <div class="fact-label">Najwyzej n.p.m.</div>
+      <div class="fact-big amber">962,6 m</div>
+      <div class="fact-city">Koscielisko, malopolskie</div>
+      <div class="fact-street">Nedzy Kubinca 101</div>
+      <div class="fact-oneliner">Wyzej niz wiekszosc osrodkow narciarskich.</div>
+      <div class="jump-hint">Kliknij — przeskocz na mape</div>
+    </div>
+    <div class="fact-card" data-fact-id="lowest" onclick="jumpToFact('lowest')">
+      <div class="fact-label">Jedyna Zabka ponizej poziomu morza</div>
+      <div class="fact-big amber">-1,5 m</div>
+      <div class="fact-city">Gdansk (port), pomorskie</div>
+      <div class="fact-street">Przelom 12</div>
+      <div class="fact-oneliner">Technicznie pod woda.</div>
+      <div class="jump-hint">Kliknij — przeskocz na mape</div>
+    </div>
+    <div class="card">
+      <div class="card-title">95% sieci miedzy 17 a 332 m n.p.m.</div>
+      <div class="chart-wrap h180"><canvas id="chart-elev-hist"></canvas></div>
+      <div class="caveat">Obszar zaznaczony na wykresie.</div>
+    </div>
+  </div>
+
+  <!-- C: Isolation -->
+  <div class="row row-2 reveal" style="margin-bottom:16px">
+    <div class="fact-card" data-fact-id="isolated" onclick="jumpToFact('isolated')">
+      <div class="fact-label">Najbardziej izolowana Zabka w Polsce</div>
+      <div class="fact-big teal">27,3 km</div>
+      <div class="fact-city">Michalowo, podlaskie</div>
+      <div class="fact-street">Bialostocka 2</div>
+      <div class="fact-oneliner">Zanim dojdziesz do kolejnej, mozesz przejsc maraton.</div>
+      <div class="jump-hint">Kliknij — przeskocz na mape</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Polowa sieci ma sasiada blizej niz 300 m — ogon siega 27 km</div>
+      <div class="chart-wrap h180"><canvas id="chart-neighbor-dist"></canvas></div>
+      <div style="display:flex;gap:20px;margin-top:8px;font-family:var(--font-mono);font-size:12px">
+        <span><span style="color:var(--muted)">mediana</span> <span style="color:var(--ink)">299 m</span></span>
+        <span><span style="color:var(--muted)">srednia</span> <span style="color:var(--ink)">942 m</span></span>
+        <span><span style="color:var(--muted)">max</span> <span style="color:var(--ink)">27 321 m</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- E: Rare ones -->
+  <div class="row row-3 reveal" style="margin-bottom:16px">
+    <div class="card" style="cursor:pointer" onclick="jumpToH24()">
+      <div class="fact-label">Sklepy otwarte cala dobe</div>
+      <div class="fact-big amber">35</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">0,27% sieci — kliknij, by zobaczyc na mapie</div>
+      <canvas id="canvas-h24-mini" width="200" height="100" style="display:block"></canvas>
+      <div id="h24-cities-list" style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.8"></div>
+      <div class="jump-hint">Nie dla nocnych markow — dla tirow na A2.</div>
+    </div>
+    <div class="card" onclick="jumpToParks()" style="cursor:pointer">
+      <div class="fact-label">W parkach i rezerwatach</div>
+      <div class="fact-big" style="font-size:36px;color:var(--green)">719</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">5,5% sieci — kliknij, by zobaczyc na mapie</div>
+      <canvas id="canvas-parks-donut" width="100" height="100" style="display:block;margin:0 auto 8px"></canvas>
+      <div id="parks-top3" style="font-size:11px;color:var(--muted);line-height:1.8"></div>
+    </div>
+    <div class="fact-card" data-fact-id="void" onclick="jumpToFact('void')">
+      <div class="fact-label">Najwieksza pustka bez Zabki</div>
+      <div class="fact-big red">46,5 km</div>
+      <canvas id="canvas-void-mini" width="200" height="100" style="display:block;margin-top:8px"></canvas>
+      <div class="fact-city" style="margin-top:6px">Bieszczady, podkarpackie</div>
+      <div class="fact-oneliner">Tam, gdzie konczy sie siec.</div>
+      <div class="jump-hint">Kliknij — przeskocz na mape</div>
+    </div>
+  </div>
+
+  <!-- Parks mini map -->
+  <div class="card reveal" style="margin-bottom:16px" id="parks-map-card">
+    <div class="card-title">Parki i obszary chronione z Zabkami</div>
+    <div class="card-sub">Kolor = typ ochrony: zielony = parki krajobrazowe, bursztyn = parki narodowe i bufory</div>
+    <div class="map-container"><div id="map-parks"></div></div>
+  </div>
+
+  <!-- F + G -->
+  <div class="row row-2 reveal" style="margin-bottom:16px">
+    <div class="fact-card" data-fact-id="frogstreet" onclick="jumpToFact('frogstreet')">
+      <div class="fact-label">Zabka na ulicy Zabki</div>
+      <div style="font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--teal);margin:8px 0">ul. Zielonej Zabki 7</div>
+      <div class="fact-city">Zabia Wola, mazowieckie</div>
+      <div class="fact-oneliner">24 sklepy na ulicach o wodnych i plazich nazwach.</div>
+      <div id="frog-streets-list" style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.9"></div>
+      <div class="jump-hint">Kliknij — przeskocz na mape</div>
+    </div>
+    <div class="card">
+      <div class="fact-big" style="font-size:26px;color:var(--green)">370 powiatow. Zaden bez Zabki.</div>
+      <div class="caveat">Od 1 sklepu (powiat prudnicki) do 521 (Wroclaw)</div>
+      <div class="chart-wrap h180" style="margin-top:12px"><canvas id="chart-civic-streets"></canvas></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:8px">Zabka osiedlila sie na Rynku, przy Kosciuszkim, Pilsudskim i Mickiewiczu.</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ============ PLAZY ============ -->
+<div id="tab-plazy" class="tab-panel">
+<div class="section-wrap">
+  <div class="sec-hook teal reveal">Siec nazwana od plaza. Sprawdzilismy, gdzie Zabka naprawde spotyka zabke — i gdzie nie spotyka jej wcale.</div>
+
+  <div class="hero-band reveal">
+    <div class="hero-stat"><div class="hero-num">46 000</div><div class="hero-desc">obserwacji plazow w Polsce (GBIF, klasa Amphibia)</div></div>
+    <div class="hero-stat"><div class="hero-num">84</div><div class="hero-desc">mediana obserwacji w promieniu 5 km od sklepu</div></div>
+    <div class="hero-stat"><div class="hero-num">2 028</div><div class="hero-desc">rekord: jeden sklep, Ursynow — nie park narodowy</div></div>
+  </div>
+
+  <!-- P1 Beeswarm -->
+  <div class="card reveal" style="margin-bottom:16px">
+    <div class="card-title">Wiekszosc Zabek ma kilkadziesiat zab w poblizu. Jedna ma 2 028.</div>
+    <div class="card-sub">Kazdy punkt to sklep. Os X: liczba obserwacji plazow w promieniu 5 km (skala log).</div>
+    <canvas id="canvas-beeswarm" style="display:block;width:100%;height:300px"></canvas>
+    <div class="caveat">Proba 5 000 sklepow. Ursynow (Warszawa) zaznaczony jako outlier.</div>
+  </div>
+
+  <!-- P2 coexistence map FULL WIDTH -->
+  <div class="card reveal" style="margin-bottom:16px">
+    <div class="card-title">Zabki nad woda maja najwiecej zab — doliny rzek swiecą tealem</div>
+    <div class="card-sub">Kolor = liczba obserwacji GBIF w promieniu 5 km (ciemny teal = mniej, jasny = wiecej). Mgielka = obserwacje GBIF.</div>
+    <div class="map-container"><div id="map-plazy-main"></div></div>
+  </div>
+
+  <!-- P3 + P4 -->
+  <div class="row row-2 reveal" style="margin-bottom:16px">
+    <div class="card">
+      <div class="card-title">Najbardziej zabie Zabki sa na wschodzie</div>
+      <div class="card-sub">srednia liczba obserwacji na sklep, wedlug wojewodztwa</div>
+      <div class="chart-wrap h420"><canvas id="chart-frog-voiv"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Im blizej najblizszej zaby, tym ich wiecej w okolicy</div>
+      <div class="card-sub">X = odleglosc do najblizszej obserwacji (km), Y = obserwacje w 5 km (log)</div>
+      <div class="chart-wrap h420"><canvas id="chart-frog-scatter"></canvas></div>
+    </div>
+  </div>
+
+  <!-- P5 P6 cards + P7 top 10 -->
+  <div class="row row-3 reveal">
+    <div class="fact-card">
+      <div class="fact-label">Najbardziej zabia Zabka w Polsce</div>
+      <div class="fact-big teal">2 028</div>
+      <div class="fact-city">Warszawa — Ursynow</div>
+      <div class="fact-street">al. KEN 36</div>
+      <div class="fact-oneliner">Nie Bialowieza (425). Nie park narodowy. Ursynow.</div>
+    </div>
+    <div class="fact-card">
+      <div class="fact-label">Zabka bez zab</div>
+      <div class="fact-big muted">668</div>
+      <div style="font-size:12px;color:var(--muted)">sklepow (5,1%) ze zero plazami w 5 km</div>
+      <div class="fact-city" style="margin-top:6px">Najdalej od jakiejkolwiek: Osieciny, 12,48 km</div>
+      <div class="fact-oneliner">Zabka bez zab. Czy to blad marketingowy?</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Dziesiec miast z najwieksza liczba zab w poblizu</div>
+      <div class="chart-wrap h220"><canvas id="chart-frog-top10"></canvas></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script src="mock-data.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
 <script>
-const C = {bg:'#0a120a',panel:'#0f1b0e',frog:'#84c341',fbright:'#a6e84a',
-  lime:'#d7f25a',muted:'#93a487',muted2:'#5d6c52',ink:'#eef3e6'};
+'use strict';
+const M = window.MOCK;
+const C = {
+  green:'#00c060',amber:'#f5a623',red:'#e85d2f',teal:'#00b4c8',
+  bg:'#0d0d14',surface:'#16161f',s2:'#1e1e2e',muted:'#7a7a90',axis:'#2a2a3a',ink:'#e8e8f0',
+  North:'#4a9eff',West:'#00c8a0',Center:'#00c060',South:'#f5a623'
+};
+const STATE = {tab:'siec', font:'spec'};
+const CHARTS = {};
+const MAPS = {};
+const RENDERED = new Set();
 
-let DATA = null;
+function era(yr){if(yr<=2009)return'#0a3018';if(yr<=2019)return'#1a6035';if(yr<=2022)return'#40c070';return'#80ff90'}
+function eraName(yr){if(yr<=2009)return'Wczesna siec';if(yr<=2019)return'Wzrost';if(yr<=2022)return'Przyspieszenie';return'Boom'}
+function fmt(n){return(+n).toLocaleString('pl-PL')}
+function macroCol(v){return C[M.macro[v]]||C.green}
+function getFont(r){const m={spec:{display:'Bricolage Grotesque',body:'IBM Plex Sans',mono:'JetBrains Mono'},editorial:{display:'Fraunces',body:'Inter',mono:'JetBrains Mono'},swiss:{display:'Space Grotesk',body:'IBM Plex Sans',mono:'Space Mono'},brutalist:{display:'Clash Display',body:'Satoshi',mono:'JetBrains Mono'},contrast:{display:'Instrument Serif',body:'Plus Jakarta Sans',mono:'JetBrains Mono'}};return(m[STATE.font]||m.spec)[r]}
+function destroyChart(id){if(CHARTS[id]){CHARTS[id].destroy();delete CHARTS[id]}}
 
-async function loadDashboard() {
-  try {
-    const response = await fetch('/api/dashboard-data');
-    DATA = await response.json();
-    initDashboard();
-  } catch (e) {
-    console.error('Failed to load:', e);
+/* ref-line + shaded-band plugin */
+const annotPlugin={
+  id:'annot',
+  beforeDraw(chart){
+    const{ctx,chartArea:ca,scales,options:{refLines=[],shadedBands=[]}}=chart;
+    shadedBands.forEach(({x1,x2,color})=>{
+      const s=scales.x;
+      if(!s)return;
+      const px1=s.getPixelForValue(x1),px2=s.getPixelForValue(x2);
+      ctx.save();ctx.fillStyle=color||'rgba(255,255,255,.08)';
+      ctx.fillRect(Math.min(px1,px2),ca.top,Math.abs(px2-px1),ca.height);ctx.restore();
+    });
+    refLines.forEach(({value,axis='y',color='#7a7a90'})=>{
+      const s=axis==='x'?scales.x:scales.y;if(!s)return;
+      const p=s.getPixelForValue(value);
+      ctx.save();ctx.strokeStyle=color;ctx.lineWidth=1;ctx.setLineDash([5,4]);
+      ctx.beginPath();
+      if(axis==='x'){ctx.moveTo(p,ca.top);ctx.lineTo(p,ca.bottom)}
+      else{ctx.moveTo(ca.left,p);ctx.lineTo(ca.right,p)}
+      ctx.stroke();ctx.restore();
+    });
   }
+};
+Chart.register(annotPlugin);
+
+function chartDefaults(){
+  Chart.defaults.color=C.muted;
+  Chart.defaults.borderColor=C.axis;
+  Chart.defaults.font.family=`'${getFont('body')}',sans-serif`;
+  Chart.defaults.font.size=12;
+}
+chartDefaults();
+
+/* reveal */
+function revealAll(){document.querySelectorAll('.reveal').forEach((el,i)=>setTimeout(()=>el.classList.add('shown'),80+i*50))}
+setTimeout(revealAll,100);
+
+/* KPI */
+function renderKPI(){
+  const s=M.summary;
+  document.getElementById('kpi-stores').textContent=fmt(s.total_active);
+  document.getElementById('kpi-cities').textContent=fmt(s.cities_count);
+  document.getElementById('kpi-mc').textContent=s.merrychef_pct+'%';
+  document.getElementById('kpi-sun').textContent=s.sunday_pct+'%';
+  document.getElementById('kpi-h24').textContent=fmt(s.h24_count);
+}
+renderKPI();
+
+/* tabs */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    const tab=btn.dataset.tab;
+    document.getElementById('tab-'+tab).classList.add('active');
+    STATE.tab=tab;
+    if(!RENDERED.has(tab)){RENDERED.add(tab);setTimeout(()=>renderTab(tab),60)}
+    setTimeout(()=>Object.values(MAPS).forEach(m=>m&&m.invalidateSize&&m.invalidateSize()),200);
+  });
+});
+
+/* font switcher */
+document.querySelectorAll('.fs-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.fs-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    STATE.font=btn.dataset.font;
+    document.documentElement.dataset.font=STATE.font;
+    chartDefaults();
+    Object.keys(CHARTS).forEach(k=>destroyChart(k));
+    RENDERED.forEach(t=>{if(t!==STATE.tab)RENDERED.delete(t)});
+    renderTab(STATE.tab);
+    setTimeout(()=>{drawSpiral();drawFingerprint();drawClock();
+      if(RENDERED.has('edge')){drawH24Mini();drawVoidMini();drawParksDonut()}
+      if(RENDERED.has('plazy'))drawBeeswarm();
+    },50);
+  });
+});
+
+function renderTab(tab){
+  if(tab==='siec')renderSiec();
+  if(tab==='spoleczenstwo')renderSpoleczenstwo();
+  if(tab==='edge')renderEdge();
+  if(tab==='plazy')renderPlazy();
+}
+RENDERED.add('siec');
+setTimeout(()=>renderSiec(),120);
+
+/* scatter toggle */
+document.getElementById('scat-side').addEventListener('click',()=>{
+  document.getElementById('scat-side').classList.add('active');
+  document.getElementById('scat-stack').classList.remove('active');
+  document.getElementById('scatter-container').classList.remove('stacked');
+  document.querySelectorAll('#scatter-container .h400').forEach(el=>el.style.height='400px');
+});
+document.getElementById('scat-stack').addEventListener('click',()=>{
+  document.getElementById('scat-stack').classList.add('active');
+  document.getElementById('scat-side').classList.remove('active');
+  document.getElementById('scatter-container').classList.add('stacked');
+  document.querySelectorAll('#scatter-container .h400').forEach(el=>el.style.height='520px');
+  setTimeout(()=>Object.values(CHARTS).forEach(c=>c.resize&&c.resize()),100);
+});
+
+/* ========== SIEC ========== */
+function renderSiec(){
+  renderOriginCards();
+  renderGrowthMerged();
+  drawSpiral();
+  drawFingerprint();
+  renderStackedArea();
+  renderPerCapita();
+  renderCityCoverage();
+  renderTopCities();
+  drawClock();
+  renderHoursBar();
 }
 
-function initDashboard() {
-  if (!DATA) return;
+function renderOriginCards(){
+  const o=M.network_origin;if(!o)return;
+  document.getElementById('oldest-date').textContent=o.oldest.first_opening_date;
+  document.getElementById('oldest-city').textContent=o.oldest.city;
+  document.getElementById('oldest-street').textContent=o.oldest.street+', '+o.oldest.voivodeship;
+  document.getElementById('newest-date').textContent=o.newest.first_opening_date;
+  document.getElementById('newest-city').textContent=o.newest.city;
+  document.getElementById('newest-street').textContent=o.newest.street+', '+o.newest.voivodeship;
+  document.getElementById('new-month-count').textContent=o.new_this_month;
+}
 
-  // KPI updates
-  document.getElementById('kpi-czypiec').textContent = Math.round(DATA.meta.czy_ma_piec / DATA.meta.total * 100) + '%';
-  document.getElementById('kpi-sunday').textContent = Math.round(DATA.meta.open_sunday / DATA.meta.total * 100) + '%';
+/* merged growth chart */
+function renderGrowthMerged(){
+  const data=M.network_growth;
+  const labels=data.map(d=>d.year);
+  const barColors=data.map(d=>{if(d.year>=2023)return C.green+'dd';if(d.year>=2010)return C.green+'66';return C.green+'33'});
+  destroyChart('growth');
+  CHARTS['growth']=new Chart(document.getElementById('chart-growth'),{
+    type:'bar',
+    data:{labels,datasets:[
+      {type:'bar',label:'Nowych sklepow',data:data.map(d=>d.new_stores),backgroundColor:barColors,borderRadius:2,yAxisID:'y',order:2},
+      {type:'line',label:'Laczna liczba aktywnych',data:data.map(d=>d.cumulative),borderColor:C.amber,backgroundColor:'transparent',borderWidth:2,pointRadius:0,tension:.4,yAxisID:'y1',order:1}
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{labels:{color:C.muted,font:{size:11},usePointStyle:true}},
+        tooltip:{mode:'index',intersect:false,callbacks:{
+          afterBody(items){const yr=data[items[0].dataIndex];return yr?`Era: ${eraName(yr.year)}`:''}
+        }}
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}},
+        y:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}},title:{display:true,text:'nowych / rok',color:C.muted,font:{size:10}},position:'left'},
+        y1:{grid:{display:false},ticks:{color:C.amber,font:{size:10}},title:{display:true,text:'lacznie aktywnych',color:C.amber,font:{size:10}},position:'right'}
+      }
+    }
+  });
+}
 
-  // Map
-  const map = L.map('map').setView([51.9, 19.145], 6);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: 'CartoDB',
-    subdomains: 'abcd',
-    maxZoom: 19
+/* ---- SPIRAL with repulsion ---- */
+let spiralCache=null;
+let spiralRaf=null;
+let spiralMouse={x:-999,y:-999};
+let spiralActive=false;
+let spiralCanvas=null;
+
+function drawSpiral(){
+  const cv=document.getElementById('canvas-spiral');
+  spiralCanvas=cv;
+  const W=cv.offsetWidth||680;
+  cv.width=W;cv.height=W;
+  const ctx=cv.getContext('2d');
+  const cx=W/2,cy=W/2;
+  const a=28,b=7.8,SCALE=0.257*(W/720);
+  const stores=M.stores_timeline.stores;
+  const byYear={};
+  for(const[,,yr]of stores)byYear[yr]=(byYear[yr]||0)+1;
+  spiralCache={dots:[],yearData:{}};
+  const idx={};
+  for(const yr in byYear)idx[yr]=0;
+  for(const[,,yr]of stores){
+    const i=idx[yr]++;
+    const total=byYear[yr];
+    const frac=total>1?i/total:0;
+    const theta=(yr-1998+frac)*2*Math.PI;
+    const r=(a+b*theta)*SCALE;
+    const jt=theta+(Math.random()-.5)*.09;
+    const jr=r+(Math.random()-.5)*2.5*SCALE;
+    const ox=cx+jr*Math.cos(jt-Math.PI/2);
+    const oy=cy+jr*Math.sin(jt-Math.PI/2);
+    spiralCache.dots.push({ox,oy,x:ox,y:oy,vx:0,vy:0,yr});
+  }
+  M.network_growth.forEach(d=>{spiralCache.yearData[d.year]={new_stores:d.new_stores,cumulative:d.cumulative}});
+  renderSpiralFrame(ctx,cx,cy,a,b,SCALE,W);
+  cv.addEventListener('mousemove',e=>{
+    const rect=cv.getBoundingClientRect();
+    spiralMouse.x=(e.clientX-rect.left)*(W/rect.width);
+    spiralMouse.y=(e.clientY-rect.top)*(W/rect.height);
+    updateSpiralCard(a,b,SCALE,cx,cy,W);
+    if(!spiralActive){spiralActive=true;spiralLoop(ctx,cx,cy,a,b,SCALE,W)}
+  });
+  cv.addEventListener('mouseleave',()=>{
+    spiralMouse.x=-999;spiralMouse.y=-999;
+    document.getElementById('sp-hint').textContent='Najedz na spirale';
+    document.getElementById('sp-year').textContent='—';
+  });
+}
+
+function spiralLoop(ctx,cx,cy,a,b,SCALE,W){
+  if(!spiralCache)return;
+  const mx=spiralMouse.x,my=spiralMouse.y;
+  const R=55,REP=900,K=0.10,DAMP=0.80;
+  let hasMove=false;
+  spiralCache.dots.forEach(dot=>{
+    const dx=dot.x-mx,dy=dot.y-my;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist<R&&dist>0.5){
+      const f=((R-dist)/R)*REP/Math.max(dist,1);
+      dot.vx+=dx*f*0.016;dot.vy+=dy*f*0.016;
+    }
+    dot.vx+=(dot.ox-dot.x)*K;dot.vy+=(dot.oy-dot.y)*K;
+    dot.vx*=DAMP;dot.vy*=DAMP;
+    dot.x+=dot.vx;dot.y+=dot.vy;
+    if(Math.abs(dot.vx)+Math.abs(dot.vy)>0.05)hasMove=true;
+  });
+  renderSpiralFrame(ctx,cx,cy,a,b,SCALE,W);
+  if(hasMove||mx>0){spiralRaf=requestAnimationFrame(()=>spiralLoop(ctx,cx,cy,a,b,SCALE,W))}
+  else{spiralActive=false}
+}
+
+function renderSpiralFrame(ctx,cx,cy,a,b,SCALE,W){
+  ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,W);
+  if(!spiralCache)return;
+  ctx.globalAlpha=0.85;
+  spiralCache.dots.forEach(dot=>{
+    ctx.fillStyle=era(dot.yr);
+    ctx.beginPath();ctx.arc(dot.x,dot.y,1.8,0,Math.PI*2);ctx.fill();
+  });
+  ctx.globalAlpha=1;
+  ctx.font=`500 10px '${getFont('mono')}',monospace`;
+  ctx.fillStyle='#4a4a6a';
+  [1998,2005,2010,2015,2020,2025].forEach(yr=>{
+    const theta=(yr-1998)*2*Math.PI;
+    const r=(a+b*theta)*SCALE;
+    const x=cx+r*Math.cos(-Math.PI/2);
+    const y=cy+r*Math.sin(-Math.PI/2)-8;
+    ctx.fillText(yr,x-14,y);
+  });
+}
+
+function updateSpiralCard(a,b,SCALE,cx,cy,W){
+  if(!spiralCache)return;
+  const mx=spiralMouse.x,my=spiralMouse.y;
+  const dx=mx-cx,dy=my-cy;
+  const radius=Math.sqrt(dx*dx+dy*dy);
+  const rawRev=(radius/SCALE-a)/b;
+  if(rawRev<0||rawRev>28.5)return;
+  const yr=Math.min(2026,Math.max(1998,Math.round(1998+rawRev)));
+  const yd=spiralCache.yearData[yr];if(!yd)return;
+  document.getElementById('sp-year').textContent=yr;
+  document.getElementById('sp-hint').textContent='rok '+yr;
+  document.getElementById('sp-new').textContent=fmt(yd.new_stores);
+  document.getElementById('sp-cum').textContent=fmt(yd.cumulative);
+  document.getElementById('sp-era').textContent=eraName(yr);
+  const months=(M.timeline_monthly||[]).filter(m=>m.month.startsWith(String(yr)));
+  const monthEl=document.getElementById('sp-months');
+  if(!monthEl)return;
+  if(months.length>0){
+    const MN=['Sty','Lut','Mar','Kwi','Maj','Cze','Lip','Sie','Wrz','Paz','Lis','Gru'];
+    const maxM=Math.max(...months.map(m=>m.opened));
+    monthEl.innerHTML='<div style="font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Rozklad miesięczny</div>'+
+      months.map(m=>{
+        const mn=parseInt(m.month.split('-')[1])-1;
+        const pct=m.opened/maxM*100;
+        return`<div style="display:flex;align-items:center;gap:5px;margin:2px 0">
+          <span style="font-size:10px;color:var(--muted);width:22px;flex-shrink:0">${MN[mn]}</span>
+          <div style="height:5px;background:${C.green};width:${pct}%;border-radius:3px;min-width:2px;flex-shrink:0"></div>
+          <span style="font-family:var(--font-mono);font-size:10px;color:var(--ink)">${m.opened}</span>
+        </div>`;
+      }).join('');
+  }else{monthEl.innerHTML='<div style="font-size:11px;color:var(--muted);margin-top:6px">Brak danych miesięcznych</div>'}
+}
+
+/* ---- FINGERPRINT with axes ---- */
+function drawFingerprint(){
+  const cv=document.getElementById('canvas-fingerprint');
+  const W=cv.offsetWidth||680;
+  cv.width=W;cv.height=W;
+  const ctx=cv.getContext('2d');
+  const cx=W/2,cy=W/2;
+  ctx.fillStyle='#12121a';ctx.fillRect(0,0,W,W);
+  /* bright center circle */
+  const cg=ctx.createRadialGradient(cx,cy,0,cx,cy,35);
+  cg.addColorStop(0,'rgba(40,40,60,0.9)');cg.addColorStop(1,'transparent');
+  ctx.fillStyle=cg;ctx.beginPath();ctx.arc(cx,cy,35,0,Math.PI*2);ctx.fill();
+  /* radial reference lines */
+  ctx.strokeStyle='rgba(42,42,58,0.6)';ctx.lineWidth=0.8;
+  for(let a=0;a<8;a++){
+    const ang=a*Math.PI/4-Math.PI/2;
+    ctx.beginPath();ctx.moveTo(cx,cy);
+    ctx.lineTo(cx+(W/2-8)*Math.cos(ang),cy+(W/2-8)*Math.sin(ang));ctx.stroke();
+  }
+  const BASE=28*(W/680),RING=9*(W/680),DEFORM=15*(W/680);
+  const years=Object.keys({});
+  const stores=M.stores_timeline.stores;
+  const byYear={};
+  for(const[lat,lon,yr]of stores){
+    if(!byYear[yr])byYear[yr]=new Array(72).fill(0);
+    const dlon=lon-19.52,dlat=lat-52.05;
+    const bearing=((Math.atan2(dlon,dlat)*180/Math.PI)+360)%360;
+    byYear[yr][Math.floor(bearing/5)]++;
+  }
+  const sortedYears=Object.keys(byYear).map(Number).sort();
+  /* reference circles */
+  ctx.strokeStyle='rgba(42,42,58,0.45)';ctx.lineWidth=0.6;ctx.setLineDash([]);
+  [8,16,24].forEach(i=>{
+    const r=BASE+i*RING;
+    ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+  });
+  sortedYears.forEach((yr,i)=>{
+    const bins=byYear[yr];
+    const maxBin=Math.max(...bins,1);
+    const baseR=BASE+i*RING;
+    const N=72;
+    ctx.beginPath();
+    for(let j=0;j<=N;j++){
+      const bi=j%N;
+      const r=baseR+(bins[bi]/maxBin)*DEFORM;
+      const angle=(j/N)*2*Math.PI-Math.PI/2;
+      if(j===0)ctx.moveTo(cx+r*Math.cos(angle),cy+r*Math.sin(angle));
+      else ctx.lineTo(cx+r*Math.cos(angle),cy+r*Math.sin(angle));
+    }
+    ctx.closePath();
+    ctx.strokeStyle=era(yr);ctx.lineWidth=1.4;ctx.stroke();
+    const ec=era(yr);const m=ec.match(/[0-9a-f]{2}/gi)||['00','00','00'];
+    const rr=parseInt(m[0]||'00',16),gg=parseInt(m[1]||'00',16),bb=parseInt(m[2]||'00',16);
+    ctx.fillStyle=`rgba(${rr},${gg},${bb},0.07)`;ctx.fill();
+  });
+  /* compass labels */
+  const dirs=[['N',0],['NE',45],['E',90],['SE',135],['S',180],['SW',225],['W',270],['NW',315]];
+  dirs.forEach(([label,deg])=>{
+    const rad=deg*Math.PI/180-Math.PI/2;
+    const isMain=['N','S','E','W'].includes(label);
+    const r=W/2-10;
+    const x=cx+r*Math.cos(rad),y=cy+r*Math.sin(rad);
+    ctx.font=`${isMain?'600':'400'} ${isMain?13:10}px '${getFont('body')}',sans-serif`;
+    ctx.fillStyle=isMain?'#8a8aaa':'#4a4a6a';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(label,x,y);
+  });
+  ctx.textAlign='left';ctx.textBaseline='alphabetic';
+  /* hover tooltip */
+  const tt=document.getElementById('fp-tooltip');
+  cv.addEventListener('mousemove',e=>{
+    const rect=cv.getBoundingClientRect();
+    const mx=(e.clientX-rect.left)*(W/rect.width);
+    const my=(e.clientY-rect.top)*(W/rect.height);
+    const r=Math.sqrt((mx-cx)**2+(my-cy)**2);
+    const i=Math.round((r-BASE)/RING);
+    if(i>=0&&i<sortedYears.length){
+      const yr=sortedYears[i];
+      const bins=byYear[yr];
+      const domBin=bins.indexOf(Math.max(...bins));
+      const dirs16=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+      const dirLabel=dirs16[Math.floor(domBin/(72/16))%16]||'N';
+      const yd=spiralCache&&spiralCache.yearData?spiralCache.yearData[yr]:null;
+      tt.style.display='block';
+      tt.style.left=(e.clientX-cv.getBoundingClientRect().left+12)+'px';
+      tt.style.top=(e.clientY-cv.getBoundingClientRect().top-20)+'px';
+      tt.innerHTML=`<div style="color:${era(yr)};font-family:var(--font-display);font-weight:700;font-size:16px">${yr}</div>
+        <div style="color:var(--muted);font-size:11px;margin-top:2px">Era: ${eraName(yr)}</div>
+        ${yd?`<div style="margin-top:6px;font-size:12px">Nowych: <span style="color:var(--ink);font-family:var(--font-mono)">${fmt(yd.new_stores)}</span></div>`:''}
+        <div style="font-size:12px;margin-top:2px">Kierunek: <span style="color:${C.teal};font-weight:600">${dirLabel}</span></div>`;
+    }else{tt.style.display='none'}
+  });
+  cv.addEventListener('mouseleave',()=>{tt.style.display='none'});
+}
+
+/* stacked area */
+function renderStackedArea(){
+  const raw=M.growth_by_voivodeship;
+  const macros={North:[],West:[],Center:[],South:[]};
+  const years=[...new Set(raw.map(r=>r.yr))].sort();
+  years.forEach(yr=>{
+    Object.keys(macros).forEach(mac=>{
+      macros[mac].push(raw.filter(r=>r.yr===yr&&M.macro[r.voivodeship]===mac).reduce((a,b)=>a+b.new_stores,0));
+    });
+  });
+  destroyChart('stacked-area');
+  CHARTS['stacked-area']=new Chart(document.getElementById('chart-stacked-area'),{
+    type:'line',
+    data:{labels:years,datasets:Object.entries(macros).map(([mac,data])=>({
+      label:mac,data,backgroundColor:C[mac]+'55',borderColor:C[mac],fill:true,borderWidth:1.5,pointRadius:0,tension:.4
+    }))},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{labels:{color:C.muted,font:{size:11},usePointStyle:true}},
+        tooltip:{mode:'index',intersect:false,callbacks:{
+          title:items=>'Rok '+items[0].label,
+          label:ctx=>`${ctx.dataset.label}: ${fmt(ctx.raw)} nowych`
+        }}
+      },
+      scales:{
+        x:{stacked:true,ticks:{color:C.muted,font:{size:10}},grid:{color:C.axis}},
+        y:{stacked:true,ticks:{color:C.muted,font:{size:10}},grid:{color:C.axis}}
+      }
+    }
+  });
+}
+
+/* per capita — no cross-filter */
+function renderPerCapita(){
+  const data=[...M.per_capita].sort((a,b)=>b.per_1k-a.per_1k);
+  const colors=data.map(d=>macroCol(d.voivodeship));
+  destroyChart('per-capita');
+  CHARTS['per-capita']=new Chart(document.getElementById('chart-per-capita'),{
+    type:'bar',
+    data:{labels:data.map(d=>d.voivodeship),datasets:[{data:data.map(d=>d.per_1k),backgroundColor:colors,borderRadius:2,borderWidth:0}]},
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>`${ctx.raw}/1k mieszk.`}},
+        annot:{refLines:[{value:0.35,axis:'x',color:'rgba(255,255,255,.2)'}]}
+      },
+      scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
+    }
+  });
+}
+
+/* city coverage with labeled key years */
+function renderCityCoverage(){
+  const data=M.city_first_opening;
+  const keyYears=[1998,2000,2005,2010,2015,2020,2022,2025];
+  const ptR=data.map(d=>keyYears.includes(d.yr)?5:0);
+  const labels2=data.map(d=>keyYears.includes(d.yr)?fmt(d.cumulative_cities):'');
+  destroyChart('city-coverage');
+  CHARTS['city-coverage']=new Chart(document.getElementById('chart-city-coverage'),{
+    type:'line',
+    data:{
+      labels:data.map(d=>d.yr),
+      datasets:[
+        {data:data.map(d=>d.new_cities),type:'bar',backgroundColor:'rgba(0,192,96,.15)',yAxisID:'y2',label:'nowych miast',borderWidth:0},
+        {data:data.map(d=>d.cumulative_cities),borderColor:C.green,backgroundColor:'rgba(0,192,96,.05)',fill:true,borderWidth:2,
+         pointRadius:ptR,pointBackgroundColor:C.green,tension:.4,label:'lacznie',
+         datalabels:{display:false}}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{mode:'index',intersect:false,callbacks:{
+          title:i=>'Rok '+i[0].label,
+          label:ctx=>ctx.datasetIndex===1?`Lacznie: ${fmt(ctx.raw)} miast`:`Nowych: ${fmt(ctx.raw)}`
+        }}
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}},
+        y:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},
+        y2:{grid:{display:false},ticks:{display:false},position:'right'}
+      }
+    }
+  });
+}
+
+function renderTopCities(){
+  const data=M.top_cities;
+  destroyChart('top-cities');
+  CHARTS['top-cities']=new Chart(document.getElementById('chart-top-cities'),{
+    type:'bar',
+    data:{labels:data.map(d=>d.city),datasets:[{data:data.map(d=>d.cnt),backgroundColor:data.map(d=>macroCol(d.voivodeship)),borderRadius:2,borderWidth:0}]},
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${fmt(ctx.raw)} sklepow`}}},
+      scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
+    }
+  });
+}
+
+function drawClock(){
+  const cv=document.getElementById('canvas-clock');
+  const S=Math.min(cv.offsetWidth||320,320);cv.width=S;cv.height=S;
+  const ctx=cv.getContext('2d');
+  const cx=S/2,cy=S/2,R=S/2-12;
+  ctx.fillStyle=C.surface;ctx.fillRect(0,0,S,S);
+  ctx.strokeStyle=C.axis;ctx.lineWidth=1;
+  for(let h=0;h<24;h++){
+    const a=(h/24)*2*Math.PI-Math.PI/2;
+    ctx.beginPath();ctx.moveTo(cx+R*Math.cos(a),cy+R*Math.sin(a));
+    ctx.lineTo(cx+(R-6)*Math.cos(a),cy+(R-6)*Math.sin(a));ctx.stroke();
+    if(h%6===0){
+      ctx.fillStyle=C.muted;ctx.font=`10px '${getFont('mono')}',monospace`;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(h===0?'0':h,cx+(R-18)*Math.cos(a),cy+(R-18)*Math.sin(a));
+    }
+  }
+  M.opening_hours.forEach(p=>{
+    const pts=p.pattern.split(' - ');if(pts.length<2)return;
+    const[oh,om]=(pts[0]||'06:00').split(':').map(Number);
+    const[ch,cm]=(pts[1]||'23:00').split(':').map(Number);
+    if(isNaN(oh)||isNaN(ch))return;
+    const aO=((oh*60+om)/1440)*2*Math.PI-Math.PI/2;
+    const aC=((ch*60+cm)/1440)*2*Math.PI-Math.PI/2;
+    const reps=Math.ceil(p.cnt/60);
+    for(let k=0;k<reps;k++){
+      ctx.beginPath();ctx.arc(cx,cy,R-14+(Math.random()-.5)*8,aO,aC);
+      ctx.strokeStyle='rgba(0,192,96,0.022)';ctx.lineWidth=2.5;ctx.stroke();
+    }
+  });
+  for(let i=0;i<35;i++){
+    const ang=Math.random()*2*Math.PI,r=R-14+(Math.random()-.5)*10;
+    ctx.beginPath();ctx.arc(cx+r*Math.cos(ang),cy+r*Math.sin(ang),3.5,0,Math.PI*2);
+    ctx.fillStyle='rgba(245,166,35,0.55)';ctx.fill();
+  }
+  ctx.font=`bold 22px '${getFont('display')}',sans-serif`;
+  ctx.fillStyle=C.green;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('06:00',cx,cy);
+  ctx.font=`10px '${getFont('body')}',sans-serif`;ctx.fillStyle=C.muted;
+  ctx.fillText('91,7% otwiera sie tutaj',cx,cy+18);
+}
+
+function renderHoursBar(){
+  const data=M.opening_hours;
+  destroyChart('hours');
+  CHARTS['hours']=new Chart(document.getElementById('chart-hours'),{
+    type:'bar',
+    data:{labels:data.map(d=>d.pattern.substring(0,13)),datasets:[{data:data.map(d=>d.cnt),backgroundColor:data.map((_,i)=>i===0?C.green:'rgba(0,192,96,.35)'),borderRadius:2,borderWidth:0}]},
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${fmt(ctx.raw)} sklepow`}}},
+      scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
+    }
+  });
+}
+
+/* ========== SPOLECZENSTWO ========== */
+function renderSpoleczenstwo(){
+  renderScatters();
+  renderSundayChoropleth();
+  renderDensityChoropleth();
+  renderMerrychef();
+  renderGroupedBar();
+}
+
+function renderScatters(){
+  const data=M.powiat_economics.filter(d=>d.avg_salary>0&&d.per_1k>0);
+  const ptSize=d=>Math.max(3,Math.sqrt(d.population/5000));
+  const ptColor=d=>macroCol(d.voivodeship);
+  const scatterOpts=(xKey,xLabel,rVal)=>({
+    responsive:true,maintainAspectRatio:false,
+    plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label:ctx=>`${ctx.raw.label||'powiat'} (${ctx.raw.voj}): ${ctx.raw.y.toFixed(2)}/1k`}},
+      annot:{refLines:[]}
+    },
+    scales:{
+      x:{title:{display:true,text:xLabel,color:C.muted,font:{size:11}},ticks:{color:C.muted,font:{size:10}},grid:{color:C.axis}},
+      y:{title:{display:true,text:'sklepy / 1k mieszk.',color:C.muted,font:{size:11}},ticks:{color:C.muted,font:{size:10}},grid:{color:C.axis}}
+    }
+  });
+  destroyChart('scatter-salary');
+  CHARTS['scatter-salary']=new Chart(document.getElementById('chart-scatter-salary'),{
+    type:'scatter',
+    data:{datasets:[{data:data.map(d=>({x:d.avg_salary,y:d.per_1k,label:d.powiat,voj:d.voivodeship})),backgroundColor:data.map(ptColor),pointRadius:data.map(ptSize),pointHoverRadius:7}]},
+    options:scatterOpts('avg_salary','srednia pensja (PLN)','+0,41')
+  });
+  destroyChart('scatter-unemp');
+  CHARTS['scatter-unemp']=new Chart(document.getElementById('chart-scatter-unemp'),{
+    type:'scatter',
+    data:{datasets:[{data:data.map(d=>({x:d.unemployment_rate,y:d.per_1k,label:d.powiat,voj:d.voivodeship})),backgroundColor:data.map(ptColor),pointRadius:data.map(ptSize),pointHoverRadius:7}]},
+    options:scatterOpts('unemployment_rate','stopa bezrobocia (%)','−0,35')
+  });
+}
+
+function leafletDark(id){
+  if(MAPS[id])return MAPS[id];
+  const map=L.map(id,{zoomControl:true,attributionControl:false});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:18}).addTo(map);
+  MAPS[id]=map;return map;
+}
+
+function renderSundayChoropleth(){
+  const map=leafletDark('map-sunday');map.setView([52,19.4],5.5);
+  const byName={};M.sunday_by_voivodeship.forEach(d=>byName[d.voivodeship]=d.closed_pct);
+  L.geoJSON(M.woj_geo,{
+    style(f){const p=byName[f.properties.name]||0;const t=Math.min(p/12,1);return{fillColor:`rgba(${Math.round(232*t)},${Math.round(90*(1-t))},${Math.round(47*t)},${0.25+t*.5})`,fillOpacity:.7,color:'#2a2a3a',weight:1}},
+    onEachFeature(f,l){l.bindTooltip(`<b>${f.properties.name}</b><br>${byName[f.properties.name]||0}% zamknietych w niedziele`,{sticky:true})}
   }).addTo(map);
-
-  if (DATA.points && DATA.points.length > 0) {
-    const heatLayer = L.heatLayer(DATA.points, {
-      radius: 12, blur: 13, maxZoom: 11, minOpacity: 0.35,
-      gradient: {0.2:'#1f3d12', 0.4:'#52901c', 0.6:'#74bd2a', 0.8:'#a6e84a', 1:'#e8ff8a'}
-    }).addTo(map);
-  }
-
-  // Voivodeship stats
-  if (DATA.voivodeships && DATA.voivodeships.length > 0) {
-    const top3 = DATA.voivodeships.sort((a,b) => b.count - a.count).slice(0, 3);
-    document.getElementById('voivodeship-stats').innerHTML = top3
-      .map(v => `<div style="margin-bottom:12px">
-        <strong>${v.name.charAt(0).toUpperCase() + v.name.slice(1)}</strong>: ${v.count} sklepów<br>
-        <span style="font-size:12px;color:var(--muted2)">Gęstość: ${v.per_km2.toFixed(3)}/km2</span>
-      </div>`).join('');
-  }
-
-  // Charts
-  createCharts();
 }
 
-function createCharts() {
-  const ctx = (id) => document.getElementById(id)?.getContext?.('2d');
-
-  // Cities chart
-  if (ctx('citiesChart') && DATA.cities) {
-    const top30 = DATA.cities.slice(0, 30);
-    new Chart(ctx('citiesChart'), {
-      type: 'bar',
-      data: {
-        labels: top30.map(c => c.name),
-        datasets: [{
-          data: top30.map(c => c.count),
-          backgroundColor: C.frog,
-          borderRadius: 6,
-          borderSkipped: false
-        }]
-      },
-      options: {
-        indexAxis: 'y',
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {display: false}
-        },
-        scales: {
-          x: {
-            grid: {color: 'rgba(140,200,80,.08)', drawBorder: false},
-            ticks: {color: C.muted}
-          },
-          y: {
-            grid: {display: false},
-            ticks: {color: C.muted, font: {size: 12}}
-          }
-        }
-      }
-    });
-  }
-
-  // Voivodeship count chart
-  if (ctx('voivodeshipCountChart') && DATA.voivodeships) {
-    const vois = DATA.voivodeships.sort((a,b) => b.count - a.count);
-    new Chart(ctx('voivodeshipCountChart'), {
-      type: 'bar',
-      data: {
-        labels: vois.map(v => v.name.charAt(0).toUpperCase() + v.name.slice(1)),
-        datasets: [{
-          data: vois.map(v => v.count),
-          backgroundColor: C.fbright,
-          borderRadius: 4
-        }]
-      },
-      options: {
-        indexAxis: 'x',
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {legend: {display: false}},
-        scales: {
-          x: {grid: {color: 'rgba(140,200,80,.08)'}, ticks: {color: C.muted, font: {size: 11}}},
-          y: {grid: {display: false}, ticks: {color: C.muted}}
-        }
-      }
-    });
-  }
-
-  // Streets table
-  if (DATA.streets && DATA.streets.length > 0) {
-    const top = DATA.streets.slice(0, 15);
-    document.getElementById('streetsTable').innerHTML = top
-      .map(s => `<div style="background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px">
-        <div style="font-weight:600;font-size:13px">${s.street}</div>
-        <div style="font-size:12px;color:var(--muted)">w ${s.town}</div>
-        <div style="font-family:'JetBrains Mono';color:var(--frog-bright);margin-top:4px;font-size:14px;font-weight:600">${s.count}</div>
-      </div>`).join('');
-  }
+function renderDensityChoropleth(){
+  const map=leafletDark('map-density');map.setView([52,19.4],5.5);
+  const dn={};M.voivodeship_density.forEach(d=>{dn[d.voivodeship]=(d.stores/d.area_km2)*100});
+  const maxD=Math.max(...Object.values(dn));
+  L.geoJSON(M.woj_geo,{
+    style(f){const d=dn[f.properties.name]||0;return{fillColor:`rgba(0,192,96,${0.1+d/maxD*.75})`,fillOpacity:.7,color:'#2a2a3a',weight:1}},
+    onEachFeature(f,l){l.bindTooltip(`<b>${f.properties.name}</b><br>${(dn[f.properties.name]||0).toFixed(1)}/100 km²`,{sticky:true})}
+  }).addTo(map);
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', loadDashboard);
-} else {
-  loadDashboard();
+function renderMerrychef(){
+  const data=[...M.voivodeship_merrychef].sort((a,b)=>a.mc_pct-b.mc_pct);
+  destroyChart('merrychef');
+  CHARTS['merrychef']=new Chart(document.getElementById('chart-merrychef'),{
+    type:'bar',
+    data:{labels:data.map(d=>d.voivodeship),datasets:[{data:data.map(d=>d.mc_pct),backgroundColor:data.map(d=>d.mc_pct<95?C.amber:C.green+'aa'),borderRadius:2,borderWidth:0}]},
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw}% z Merrychef`}},annot:{refLines:[{value:97.4,axis:'x',color:'rgba(255,255,255,.25)'}]}},
+      scales:{x:{min:88,max:100,grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
+    }
+  });
+}
+
+function renderGroupedBar(){
+  const data=M.inpost_vs_zabka;
+  destroyChart('inpost-grouped');
+  CHARTS['inpost-grouped']=new Chart(document.getElementById('chart-inpost-grouped'),{
+    type:'bar',
+    data:{
+      labels:data.map(d=>d.voivodeship),
+      datasets:[
+        {label:'Zabka / 100k',data:data.map(d=>d.zabki_per_100k),backgroundColor:C.green+'cc',borderRadius:2,borderWidth:0},
+        {label:'InPost / 100k',data:data.map(d=>d.lockers_per_100k),backgroundColor:C.amber+'cc',borderRadius:2,borderWidth:0}
+      ]
+    },
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{labels:{color:C.muted,font:{size:11},usePointStyle:true}},
+        tooltip:{mode:'index',intersect:false,callbacks:{
+          afterBody(items){const d=data[items[0].dataIndex];return d?`Stosunek: ${d.ratio}x`:''}
+        }}
+      },
+      scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
+    }
+  });
+}
+
+/* ========== EDGE CASE'Y ========== */
+let jumpedFact=null;
+
+function renderEdge(){
+  renderEdgeMap();
+  renderElevHist();
+  renderNeighborDist();
+  drawH24Mini();
+  drawParksDonut();
+  drawVoidMini();
+  renderCivicStreets();
+  fillFrogStreets();
+  renderParksMap();
+}
+
+function renderEdgeMap(){
+  const map=leafletDark('map-edge');map.setView([52,19.4],6);
+  M.points_sample.forEach(([lat,lon])=>{
+    L.circleMarker([lat,lon],{radius:1.5,color:'#1f3a26',fillColor:'#1f3a26',fillOpacity:.5,weight:0}).addTo(map);
+  });
+  const gc={compass:C.green,elevation:C.amber,isolation:C.teal,amphibian:C.teal,street:C.teal,void:C.red};
+  const markers={};
+  M.kraniec_facts.forEach(fact=>{
+    const col=gc[fact.group]||C.green;
+    let m;
+    if(fact.type==='void'){
+      m=L.circleMarker([fact.lat,fact.lon],{radius:8,color:col,fillColor:col,fillOpacity:.3,weight:2});
+      L.circle([fact.lat,fact.lon],{radius:46520,color:col,fill:false,weight:1.5,dashArray:'6,4'}).addTo(map);
+    }else{
+      m=L.circleMarker([fact.lat,fact.lon],{radius:7,color:col,fillColor:col,fillOpacity:.8,weight:2});
+    }
+    m.bindPopup(`<b style="color:${col}">${fact.value}</b><br>${fact.city}, ${fact.voivodeship}<br><small>${fact.street}</small>`);
+    m.addTo(map);markers[fact.id]=m;
+  });
+  MAPS['edge-markers']=markers;MAPS.edge=map;
+}
+
+function jumpToFact(id){
+  const fact=M.kraniec_facts.find(f=>f.id===id);if(!fact||!MAPS.edge)return;
+  jumpedFact=id;
+  document.querySelectorAll('.fact-card').forEach(c=>c.classList.remove('jumped'));
+  const card=document.querySelector(`[data-fact-id="${id}"]`);
+  if(card)card.classList.add('jumped');
+  const mapCard=document.getElementById('map-edge').closest('.card');
+  if(mapCard)mapCard.scrollIntoView({behavior:'smooth',block:'center'});
+  const back=document.getElementById('edge-back-btn');if(back)back.classList.add('visible');
+  setTimeout(()=>{
+    const prefRed=window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+    if(prefRed)MAPS.edge.setView([fact.lat,fact.lon],fact.zoom||10);
+    else MAPS.edge.flyTo([fact.lat,fact.lon],fact.zoom||10,{duration:.8,easeLinearity:.5});
+    const m=MAPS['edge-markers'];if(m&&m[id])m[id].openPopup();
+  },500);
+}
+
+function jumpBack(){
+  if(!MAPS.edge)return;
+  MAPS.edge.flyTo([52,19.4],6,{duration:.6});
+  const m=MAPS['edge-markers'];if(m)Object.values(m).forEach(mk=>mk.closePopup&&mk.closePopup());
+  document.querySelectorAll('.fact-card').forEach(c=>c.classList.remove('jumped'));
+  const back=document.getElementById('edge-back-btn');if(back)back.classList.remove('visible');
+  jumpedFact=null;
+}
+
+function jumpToH24(){
+  if(!MAPS.edge)return;
+  const back=document.getElementById('edge-back-btn');if(back)back.classList.add('visible');
+  const mapCard=document.getElementById('map-edge').closest('.card');
+  if(mapCard)mapCard.scrollIntoView({behavior:'smooth',block:'center'});
+  setTimeout(()=>MAPS.edge.flyTo([51.94,15.50],8,{duration:.8}),500);
+}
+
+function jumpToParks(){
+  const pc=document.getElementById('parks-map-card');
+  if(pc)pc.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+function renderElevHist(){
+  const hist=M.elevation.histogram.filter(d=>d.cnt>0);
+  const colors=hist.map(d=>(d.bucket_m>=0&&d.bucket_m<=350)?C.amber+'99':C.amber+'30');
+  destroyChart('elev-hist');
+  CHARTS['elev-hist']=new Chart(document.getElementById('chart-elev-hist'),{
+    type:'bar',
+    data:{labels:hist.map(d=>d.bucket_m+'m'),datasets:[{data:hist.map(d=>d.cnt),backgroundColor:colors,borderWidth:0,borderRadius:2}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>`${fmt(ctx.raw)} sklepow`}},
+        annot:{shadedBands:[{x1:17,x2:332,color:'rgba(245,166,35,.07)'}]}
+      },
+      scales:{x:{ticks:{color:C.muted,font:{size:9},maxRotation:45},grid:{display:false}},y:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:9}}}}
+    }
+  });
+}
+
+function renderNeighborDist(){
+  const dist=M.neighbor_stats.distribution.buckets;
+  destroyChart('neighbor-dist');
+  CHARTS['neighbor-dist']=new Chart(document.getElementById('chart-neighbor-dist'),{
+    type:'bar',
+    data:{labels:dist.map(d=>d.bucket),datasets:[{data:dist.map(d=>d.cnt),backgroundColor:C.teal+'99',borderWidth:0,borderRadius:3}]},
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${fmt(ctx.raw)} sklepow`}}},
+      scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
+    }
+  });
+}
+
+function projectPL(lat,lon,W,H){return{x:(lon-14.1)/(24.2-14.1)*W,y:(1-(lat-49)/(54.9-49))*H}}
+
+function drawH24Mini(){
+  const cv=document.getElementById('canvas-h24-mini');
+  const W=cv.offsetWidth||200;cv.width=W;cv.height=100;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle=C.surface;ctx.fillRect(0,0,W,100);
+  const pts=M.section3_rare.h24_points||[];
+  pts.forEach(([lat,lon])=>{
+    const p=projectPL(lat,lon,W,100);
+    ctx.fillStyle=C.amber+'cc';ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();
+  });
+  const el=document.getElementById('h24-cities-list');
+  if(el)(M.section3_rare.h24_cities||[]).forEach(c=>{
+    const div=document.createElement('div');div.textContent=c.city+' ('+c.cnt+')';el.appendChild(div);
+  });
+}
+
+function drawParksDonut(){
+  const cv=document.getElementById('canvas-parks-donut');
+  const S=100;cv.width=S;cv.height=S;
+  const ctx=cv.getContext('2d');ctx.clearRect(0,0,S,S);
+  const cx=S/2,cy=S/2,R=S/2-6,pct=719/13143;
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.strokeStyle=C.axis;ctx.lineWidth=8;ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,R,-Math.PI/2,-Math.PI/2+pct*2*Math.PI);ctx.strokeStyle=C.green;ctx.lineWidth=8;ctx.stroke();
+  ctx.fillStyle=C.ink;ctx.font=`bold 13px '${getFont('display')}',sans-serif`;
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('5,5%',cx,cy);
+  const el=document.getElementById('parks-top3');
+  if(el)el.innerHTML=(M.section3_rare.parks.top3||[]).map(p=>`${p.park_name}: ${p.cnt}`).join('<br>');
+}
+
+function drawVoidMini(){
+  const cv=document.getElementById('canvas-void-mini');
+  const W=cv.offsetWidth||200;cv.width=W;cv.height=100;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle=C.surface;ctx.fillRect(0,0,W,100);
+  M.points_sample.slice(0,400).forEach(([lat,lon])=>{
+    const p=projectPL(lat,lon,W,100);
+    ctx.fillStyle='rgba(0,192,96,.4)';ctx.beginPath();ctx.arc(p.x,p.y,1,0,Math.PI*2);ctx.fill();
+  });
+  const vp=projectPL(49.01,22.89,W,100);
+  ctx.beginPath();ctx.arc(vp.x,vp.y,18,0,Math.PI*2);
+  ctx.strokeStyle=C.red;ctx.lineWidth=1.5;ctx.setLineDash([4,3]);ctx.stroke();ctx.setLineDash([]);
+}
+
+function renderCivicStreets(){
+  const cs=M.section3_rare.civic_streets;
+  destroyChart('civic-streets');
+  CHARTS['civic-streets']=new Chart(document.getElementById('chart-civic-streets'),{
+    type:'bar',
+    data:{labels:['Rynek','Kosciuszki','Pilsudskiego','Wojska Polskiego','Mickiewicza','Jana Pawla II'],
+          datasets:[{data:[cs.rynek,cs.kosciuszki,cs.pilsudskiego,cs.wojska_polskiego,cs.mickiewicza,cs.jana_pawla_ii],backgroundColor:C.green+'88',borderRadius:2,borderWidth:0}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:9}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:9}}}}}
+  });
+}
+
+function fillFrogStreets(){
+  const list=M.section3_rare.frog_streets||[];
+  const el=document.getElementById('frog-streets-list');
+  if(el)el.innerHTML=list.slice(1,5).map(s=>`${s.street}, ${s.city}`).join('<br>');
+}
+
+function renderParksMap(){
+  const map=leafletDark('map-parks');map.setView([52,19.4],6);
+  /* approximate park locations with type */
+  const parks=[
+    {name:'Tatrzanski NP',lat:49.22,lon:19.97,type:'national'},
+    {name:'Bialowieski NP',lat:52.70,lon:23.88,type:'national'},
+    {name:'Kampinoski NP',lat:52.33,lon:20.47,type:'national'},
+    {name:'Wolinski NP',lat:53.92,lon:14.50,type:'national'},
+    {name:'Slowiński NP',lat:54.50,lon:17.50,type:'national'},
+    {name:'Beskid Slaski LP',lat:49.70,lon:18.90,type:'landscape'},
+    {name:'Kaszubski LP',lat:54.20,lon:18.00,type:'landscape'},
+    {name:'Puszcza Rominiecka LP',lat:54.20,lon:22.70,type:'landscape'},
+    {name:'Zalewy Warty LP',lat:52.60,lon:16.10,type:'landscape'},
+    {name:'Roztocze LP',lat:50.40,lon:22.90,type:'landscape'},
+  ];
+  parks.forEach(p=>{
+    const col=p.type==='national'?C.amber:C.teal;
+    L.circleMarker([p.lat,p.lon],{radius:8,color:col,fillColor:col,fillOpacity:.7,weight:2})
+      .bindTooltip(`<b>${p.name}</b><br>${p.type==='national'?'Park narodowy':'Park krajobrazowy'}`,{sticky:true})
+      .addTo(map);
+  });
+  /* legend */
+  const legend=L.control({position:'bottomright'});
+  legend.onAdd=()=>{
+    const div=L.DomUtil.create('div');
+    div.style.cssText='background:rgba(13,13,20,.85);padding:8px 12px;border-radius:6px;font-size:11px;color:#7a7a90;border:1px solid #2a2a3a';
+    div.innerHTML=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="width:10px;height:10px;background:${C.amber};border-radius:50%;display:inline-block"></span>Park narodowy</div><div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;background:${C.teal};border-radius:50%;display:inline-block"></span>Park krajobrazowy</div>`;
+    return div;
+  };
+  legend.addTo(map);
+  MAPS['parks']=map;
+}
+
+/* ========== PLAZY ========== */
+function renderPlazy(){
+  drawBeeswarm();
+  renderPlazyMap();
+  renderFrogVoiv();
+  renderFrogScatter();
+  renderFrogTop10();
+}
+
+function drawBeeswarm(){
+  const cv=document.getElementById('canvas-beeswarm');
+  const W=cv.offsetWidth||1200;cv.width=W;cv.height=300;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,300);
+  const stores=M.amphibian_extremes.stores||[];
+  const logScale=d3.scaleLog().domain([1,2100]).range([60,W-60]).clamp(true);
+  const teals=['#0a2a2a','#0d4040','#0f5a52','#00b4c8','#00e0d0'];
+  const tealsScale=d3.scaleLog().domain([1,2100]).range([0,4]).clamp(true);
+  const bucketStacks={};const BW=Math.ceil(W/120);
+  stores.forEach(([,,occ])=>{if(occ===0)return;const bx=Math.floor(logScale(occ)/BW);bucketStacks[bx]=(bucketStacks[bx]||0)+1});
+  const bucketCurr={};
+  stores.forEach(([lat,lon,occ])=>{
+    if(occ===0)return;
+    const x=Math.round(logScale(occ));
+    const bx=Math.floor(x/BW);
+    const si=(bucketCurr[bx]||0);bucketCurr[bx]=si+1;
+    const cy2=150+(si%2===0?1:-1)*Math.ceil(si/2)*4.5;
+    if(cy2<20||cy2>280)return;
+    const ti=Math.floor(tealsScale(occ));
+    ctx.fillStyle=teals[Math.min(ti,4)];ctx.globalAlpha=.75;
+    ctx.beginPath();ctx.arc(x,cy2,2,0,Math.PI*2);ctx.fill();
+  });
+  ctx.globalAlpha=1;
+  const urx=Math.round(logScale(2028));
+  ctx.beginPath();ctx.arc(urx,150,6,0,Math.PI*2);ctx.fillStyle=C.teal;ctx.fill();
+  ctx.strokeStyle='#ffffff';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.font=`11px '${getFont('body')}',sans-serif`;ctx.fillStyle=C.ink;
+  ctx.textAlign='left';ctx.fillText('Ursynow (2 028)',urx+10,148);
+  [1,10,100,1000].forEach(v=>{
+    const x=logScale(v);
+    ctx.fillStyle=C.muted;ctx.font=`10px '${getFont('mono')}',monospace`;
+    ctx.textAlign='center';ctx.fillText(v,x,288);
+    ctx.strokeStyle=C.axis;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x,280);ctx.lineTo(x,284);ctx.stroke();
+  });
+  ctx.textAlign='left';
+}
+
+function renderPlazyMap(){
+  const map=leafletDark('map-plazy-main');map.setView([52,19.4],6);
+  const stores=M.amphibian_extremes.stores||[];
+  const maxOcc=Math.max(...stores.map(s=>s[2]),1);
+  const tealScale=d3.scaleLog().domain([1,maxOcc]).range(['#0d3535','#00e0c8']);
+  stores.forEach(([lat,lon,occ])=>{
+    L.circleMarker([lat,lon],{radius:3,color:occ>0?tealScale(occ):'#2a2a3a',fillColor:occ>0?tealScale(occ):'#2a2a3a',fillOpacity:.7,weight:0})
+     .bindTooltip(`${fmt(occ)} obserwacji plazow w 5 km`,{sticky:true}).addTo(map);
+  });
+  if(M.amphibian_extremes.gbif_obs&&typeof L.heatLayer==='function'){
+    L.heatLayer(M.amphibian_extremes.gbif_obs.map(([lat,lon])=>[lat,lon,.5]),
+      {radius:18,blur:15,maxZoom:12,gradient:{0:'transparent',.5:'rgba(0,180,200,.25)',1:'rgba(0,224,200,.55)'}}).addTo(map);
+  }
+  MAPS['plazy']=map;
+}
+
+function renderFrogVoiv(){
+  const data=[...M.amphibian_extremes.by_voivodeship].sort((a,b)=>b.avg_occurrences-a.avg_occurrences);
+  const maxV=data[0].avg_occurrences;
+  destroyChart('frog-voiv');
+  CHARTS['frog-voiv']=new Chart(document.getElementById('chart-frog-voiv'),{
+    type:'bar',
+    data:{labels:data.map(d=>d.voivodeship),datasets:[{data:data.map(d=>d.avg_occurrences),backgroundColor:data.map(d=>`rgba(0,180,200,${.25+.75*(d.avg_occurrences/maxV)})`),borderRadius:2,borderWidth:0}]},
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},annot:{refLines:[{value:84,axis:'x',color:'rgba(255,255,255,.2)'}]},tooltip:{callbacks:{label:ctx=>`sr. ${fmt(ctx.raw)} obserwacji`}}},
+      scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
+    }
+  });
+}
+
+function renderFrogScatter(){
+  const stores=M.amphibian_extremes.stores||[];
+  const sample=stores.filter((s,i)=>i%3===0&&s[2]>0).slice(0,800);
+  const maxOcc=Math.max(...sample.map(s=>s[2]),1);
+  const tsc=d3.scaleLog().domain([1,maxOcc]).range(['#0d4040','#00e0c8']);
+  destroyChart('frog-scatter');
+  CHARTS['frog-scatter']=new Chart(document.getElementById('chart-frog-scatter'),{
+    type:'scatter',
+    data:{datasets:[{
+      data:sample.map(s=>({x:+s[3].toFixed(2),y:Math.log10(s[2]+1),occ:s[2]})),
+      backgroundColor:sample.map(s=>tsc(Math.max(s[2],1))),
+      pointRadius:3,pointHoverRadius:7
+    }]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      animation:{duration:800,easing:'easeOutQuart'},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{
+          label:ctx=>{const d=ctx.raw;return`${d.x.toFixed(1)} km od zaby — ${fmt(d.occ)} obs. w 5 km`}
+        }}
+      },
+      scales:{
+        x:{title:{display:true,text:'odleglosc do najblizszej obserwacji (km)',color:C.muted,font:{size:10}},ticks:{color:C.muted,font:{size:10}},grid:{color:C.axis}},
+        y:{title:{display:true,text:'log10(obserwacje)',color:C.muted,font:{size:10}},ticks:{color:C.muted,font:{size:10}},grid:{color:C.axis}}
+      }
+    }
+  });
+}
+
+function renderFrogTop10(){
+  const top10=M.amphibian_extremes.top10||[];
+  destroyChart('frog-top10');
+  CHARTS['frog-top10']=new Chart(document.getElementById('chart-frog-top10'),{
+    type:'bar',
+    data:{labels:top10.map(d=>d.city),datasets:[{data:top10.map(d=>d.occ),backgroundColor:C.teal+'cc',borderRadius:2,borderWidth:0}]},
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${fmt(ctx.raw)} obserwacji w 5 km`}}},
+      scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
+    }
+  });
 }
 </script>
 </body>

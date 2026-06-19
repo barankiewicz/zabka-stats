@@ -20,6 +20,7 @@ import json
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, status, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from backend.database_ch import init_db, client
@@ -28,6 +29,7 @@ from backend.api.history_router import router as history_router
 from backend.api.aggregates_router_cached import router as aggregates_router
 from backend.api.admin_router import router as admin_router
 from backend.api.dashboard_router import router as dashboard_router
+from backend.api.frontend_router import router as frontend_router
 
 # API_TOKEN is set via environment variable
 API_TOKEN = os.getenv("API_TOKEN", "your-secret-token-change-me")
@@ -41,6 +43,7 @@ app = FastAPI(
 )
 
 # CORS
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Adjust in production
@@ -133,7 +136,9 @@ async def upload_snapshot(
         raise HTTPException(status_code=500, detail=f"Error processing snapshot: {str(e)}")
 
 
-# Include routers
+# Include routers — frontend_router first so its versions of summary/voivodeship/
+# top-cities/per-capita take precedence over the legacy aggregates_router shapes.
+app.include_router(frontend_router, prefix="/api", tags=["Frontend v2"])
 app.include_router(locations_router, prefix="/api", tags=["Locations"])
 app.include_router(history_router, prefix="/api", tags=["History"])
 app.include_router(aggregates_router, prefix="/api", tags=["Aggregates"])
