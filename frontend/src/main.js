@@ -13,6 +13,13 @@ import { renderPlazy, drawBeeswarm } from './tabs/plazy.js';
 
 Chart.register(annotPlugin);
 
+// flip to false to hide all chart/map id labels
+const DEBUG_SHOW_IDS = true;
+
+function initIdOverlays(){
+  document.body.classList.toggle('debug-ids',DEBUG_SHOW_IDS);
+}
+
 function chartDefaults(){
   Chart.defaults.color=C.muted;
   Chart.defaults.borderColor=C.axis;
@@ -40,6 +47,7 @@ function renderTab(tab){
   if(tab==='spoleczenstwo')renderSpoleczenstwo();
   if(tab==='edge')renderEdge();
   if(tab==='plazy')renderPlazy();
+  setTimeout(initIdOverlays,300);
 }
 
 document.querySelectorAll('.tab-btn').forEach(btn=>{
@@ -100,5 +108,5 @@ window.jumpToParks = jumpToParks;
 
 RENDERED.add('siec');
 loadData()
-  .then(()=>{renderKPI();setTimeout(()=>renderSiec(),120)})
+  .then(()=>{renderKPI();setTimeout(()=>{renderSiec();setTimeout(initIdOverlays,300)},120)})
   .catch(err=>console.error('loadData failed:',err));
