@@ -16,10 +16,15 @@ Graceful degradation for columns not yet enriched by the ETL:
 - parcel_lockers empty         -> ratio = 0 for all voivodeships
 """
 
+import json
 import math
+from pathlib import Path
 from fastapi import APIRouter
+from fastapi.responses import Response
 from backend.database_ch import client
 from backend.cache import cached
+
+_GEO_DIR = Path(__file__).parent.parent.parent / "data" / "geo"
 
 router = APIRouter()
 
@@ -985,6 +990,13 @@ async def section3_rare():
 # ---------------------------------------------------------------------------
 # On-demand: Sunday drilldown (not cached — fires only on choropleth click)
 # ---------------------------------------------------------------------------
+
+@router.get("/geo/voivodeships")
+@cached(ttl=86400)
+async def geo_voivodeships():
+    path = _GEO_DIR / "wojewodztwa.geojson"
+    return Response(content=path.read_bytes(), media_type="application/json")
+
 
 @router.get("/stats/sunday-closed-stores")
 async def sunday_closed_stores(voivodeship: str):

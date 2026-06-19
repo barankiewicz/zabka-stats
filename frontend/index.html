@@ -584,14 +584,19 @@ canvas{display:block}
 </div>
 </div>
 
-<script src="mock-data.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
 <script>
 'use strict';
-const M = window.MOCK;
+const MACRO = {
+  pomorskie:'North','warmińsko-mazurskie':'North','kujawsko-pomorskie':'North',podlaskie:'North',
+  'dolnośląskie':'West',zachodniopomorskie:'West',lubuskie:'West',opolskie:'West',
+  mazowieckie:'Center','łódzkie':'Center','świętokrzyskie':'Center',wielkopolskie:'Center',
+  'śląskie':'South','małopolskie':'South',podkarpackie:'South',lubelskie:'South',
+};
+let M = {};
 const C = {
   green:'#00c060',amber:'#f5a623',red:'#e85d2f',teal:'#00b4c8',
   bg:'#0d0d14',surface:'#16161f',s2:'#1e1e2e',muted:'#7a7a90',axis:'#2a2a3a',ink:'#e8e8f0',
@@ -605,7 +610,7 @@ const RENDERED = new Set();
 function era(yr){if(yr<=2009)return'#0a3018';if(yr<=2019)return'#1a6035';if(yr<=2022)return'#40c070';return'#80ff90'}
 function eraName(yr){if(yr<=2009)return'Wczesna siec';if(yr<=2019)return'Wzrost';if(yr<=2022)return'Przyspieszenie';return'Boom'}
 function fmt(n){return(+n).toLocaleString('pl-PL')}
-function macroCol(v){return C[M.macro[v]]||C.green}
+function macroCol(v){return C[MACRO[v]]||C.green}
 function getFont(r){const m={spec:{display:'Bricolage Grotesque',body:'IBM Plex Sans',mono:'JetBrains Mono'},editorial:{display:'Fraunces',body:'Inter',mono:'JetBrains Mono'},swiss:{display:'Space Grotesk',body:'IBM Plex Sans',mono:'Space Mono'},brutalist:{display:'Clash Display',body:'Satoshi',mono:'JetBrains Mono'},contrast:{display:'Instrument Serif',body:'Plus Jakarta Sans',mono:'JetBrains Mono'}};return(m[STATE.font]||m.spec)[r]}
 function destroyChart(id){if(CHARTS[id]){CHARTS[id].destroy();delete CHARTS[id]}}
 
@@ -655,8 +660,6 @@ function renderKPI(){
   document.getElementById('kpi-sun').textContent=s.sunday_pct+'%';
   document.getElementById('kpi-h24').textContent=fmt(s.h24_count);
 }
-renderKPI();
-
 /* tabs */
 document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.addEventListener('click',()=>{
@@ -695,8 +698,7 @@ function renderTab(tab){
   if(tab==='edge')renderEdge();
   if(tab==='plazy')renderPlazy();
 }
-RENDERED.add('siec');
-setTimeout(()=>renderSiec(),120);
+/* data is loaded in loadData() below — renderKPI() and renderSiec() called there */
 
 /* scatter toggle */
 document.getElementById('scat-side').addEventListener('click',()=>{
@@ -993,7 +995,7 @@ function renderStackedArea(){
   const years=[...new Set(raw.map(r=>r.yr))].sort();
   years.forEach(yr=>{
     Object.keys(macros).forEach(mac=>{
-      macros[mac].push(raw.filter(r=>r.yr===yr&&M.macro[r.voivodeship]===mac).reduce((a,b)=>a+b.new_stores,0));
+      macros[mac].push(raw.filter(r=>r.yr===yr&&MACRO[r.voivodeship]===mac).reduce((a,b)=>a+b.new_stores,0));
     });
   });
   destroyChart('stacked-area');
@@ -1573,6 +1575,86 @@ function renderFrogTop10(){
     }
   });
 }
+
+// ---------------------------------------------------------------------------
+// Data loader — fetches all API endpoints in parallel, populates M, renders
+// ---------------------------------------------------------------------------
+async function fetchJSON(url, timeout=8000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(()=>ctrl.abort(), timeout);
+  try {
+    const r = await fetch(url, {signal: ctrl.signal});
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.json();
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+async function loadData() {
+  const BASE = '/api';
+  const [
+    summary, networkGrowth, networkOrigin, storesTimeline, openingHours,
+    perCapita, growthByVoiv, cityFirst, topCities, economics,
+    sunday, density, merrychef, inpost, kraniec,
+    elevation, neighborStats, section3, amphibians, wojGeo
+  ] = await Promise.allSettled([
+    fetchJSON(`${BASE}/stats/summary`),
+    fetchJSON(`${BASE}/stats/network-growth`),
+    fetchJSON(`${BASE}/stats/network-origin`),
+    fetchJSON(`${BASE}/stats/stores-timeline`),
+    fetchJSON(`${BASE}/stats/opening-hours`),
+    fetchJSON(`${BASE}/stats/per-capita`),
+    fetchJSON(`${BASE}/stats/growth-by-voivodeship`),
+    fetchJSON(`${BASE}/stats/city-first-opening`),
+    fetchJSON(`${BASE}/stats/top-cities?limit=20`),
+    fetchJSON(`${BASE}/stats/powiat-economics`),
+    fetchJSON(`${BASE}/stats/sunday-by-voivodeship`),
+    fetchJSON(`${BASE}/stats/voivodeship-density`),
+    fetchJSON(`${BASE}/stats/voivodeship`),
+    fetchJSON(`${BASE}/stats/inpost-vs-zabka`),
+    fetchJSON(`${BASE}/stats/kraniec-facts`),
+    fetchJSON(`${BASE}/stats/elevation`),
+    fetchJSON(`${BASE}/stats/neighbor-stats`),
+    fetchJSON(`${BASE}/stats/section3-rare`),
+    fetchJSON(`${BASE}/stats/amphibians`),
+    fetchJSON(`${BASE}/geo/voivodeships`),
+  ]);
+
+  function val(settled, fallback={}) { return settled.status==='fulfilled' ? settled.value : fallback; }
+
+  const kf = val(kraniec, {facts:[], backdrop:[]});
+  M = {
+    summary:              val(summary, {total_active:0, cities_count:0, merrychef_pct:0, sunday_pct:0, h24_count:0}),
+    network_growth:       val(networkGrowth, []),
+    network_origin:       val(networkOrigin, {}),
+    stores_timeline:      val(storesTimeline, []),
+    opening_hours:        val(openingHours, {}),
+    per_capita:           val(perCapita, []),
+    growth_by_voivodeship: val(growthByVoiv, []),
+    city_first_opening:   val(cityFirst, []),
+    top_cities:           val(topCities, []),
+    powiat_economics:     val(economics, []),
+    sunday_by_voivodeship: val(sunday, []),
+    voivodeship_density:  val(density, []),
+    voivodeship_merrychef: val(merrychef, []),
+    inpost_vs_zabka:      val(inpost, []),
+    kraniec_facts:        kf.facts || [],
+    points_sample:        kf.backdrop || [],
+    elevation:            val(elevation, {}),
+    neighbor_stats:       val(neighborStats, {}),
+    section3_rare:        val(section3, {}),
+    amphibian_extremes:   val(amphibians, {}),
+    woj_geo:              val(wojGeo, {type:'FeatureCollection', features:[]}),
+    timeline_monthly:     [],
+  };
+
+  renderKPI();
+  RENDERED.add('siec');
+  setTimeout(()=>renderSiec(), 120);
+}
+
+loadData().catch(err=>console.error('loadData failed:', err));
 </script>
 </body>
 </html>
