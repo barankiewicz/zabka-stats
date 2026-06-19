@@ -19,7 +19,7 @@ export function renderSiec(){
 }
 
 export function renderOriginCards(){
-  const o=M.network_origin;if(!o)return;
+  const o=M.network_origin;if(!o||!o.oldest)return;
   document.getElementById('oldest-date').textContent=o.oldest.first_opening_date;
   document.getElementById('oldest-city').textContent=o.oldest.city;
   document.getElementById('oldest-street').textContent=o.oldest.street+', '+o.oldest.voivodeship;
@@ -87,7 +87,7 @@ export function drawSpiral(){
   const ctx=cv.getContext('2d');
   const cx=W/2,cy=W/2;
   const a=28,b=7.8,SCALE=0.257*(W/720);
-  const stores=M.stores_timeline.stores;
+  const stores=M.stores_timeline.stores||[];
   const byYear={};
   for(const[,,yr]of stores)byYear[yr]=(byYear[yr]||0)+1;
   spiralCache={dots:[],yearData:{}};
@@ -213,7 +213,7 @@ export function drawFingerprint(){
     ctx.lineTo(cx+(W/2-8)*Math.cos(ang),cy+(W/2-8)*Math.sin(ang));ctx.stroke();
   }
   const BASE=28*(W/680),RING=9*(W/680),DEFORM=15*(W/680);
-  const stores=M.stores_timeline.stores;
+  const stores=M.stores_timeline.stores||[];
   const byYear={};
   for(const[lat,lon,yr]of stores){
     if(!byYear[yr])byYear[yr]=new Array(72).fill(0);

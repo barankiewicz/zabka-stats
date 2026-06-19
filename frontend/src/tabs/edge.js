@@ -96,7 +96,7 @@ export function jumpToParks(){
 }
 
 export function renderElevHist(){
-  const hist=M.elevation.histogram.filter(d=>d.cnt>0);
+  const hist=(M.elevation.histogram||[]).filter(d=>d.cnt>0);
   const colors=hist.map(d=>(d.bucket_m>=0&&d.bucket_m<=350)?C.amber+'99':C.amber+'30');
   destroyChart('elev-hist');
   CHARTS['elev-hist']=new Chart(document.getElementById('chart-elev-hist'),{
@@ -115,7 +115,7 @@ export function renderElevHist(){
 }
 
 export function renderNeighborDist(){
-  const dist=M.neighbor_stats.distribution.buckets;
+  const dist=(M.neighbor_stats.distribution||{buckets:[]}).buckets;
   destroyChart('neighbor-dist');
   CHARTS['neighbor-dist']=new Chart(document.getElementById('chart-neighbor-dist'),{
     type:'bar',

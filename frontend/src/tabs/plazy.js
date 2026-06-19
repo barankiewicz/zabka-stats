@@ -69,7 +69,8 @@ export function renderPlazyMap(){
 }
 
 export function renderFrogVoiv(){
-  const data=[...M.amphibian_extremes.by_voivodeship].sort((a,b)=>b.avg_occurrences-a.avg_occurrences);
+  const data=[...(M.amphibian_extremes.by_voivodeship||[])].sort((a,b)=>b.avg_occurrences-a.avg_occurrences);
+  if(!data.length)return;
   const maxV=data[0].avg_occurrences;
   destroyChart('frog-voiv');
   CHARTS['frog-voiv']=new Chart(document.getElementById('chart-frog-voiv'),{

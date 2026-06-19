@@ -17,6 +17,7 @@ Cached endpoints:
 import os
 import pathlib
 import json
+import subprocess
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, status, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -145,9 +146,26 @@ app.include_router(aggregates_router, prefix="/api", tags=["Aggregates"])
 app.include_router(admin_router, prefix="/api", tags=["Administrative & Live Data"])
 app.include_router(dashboard_router, prefix="/api", tags=["Dashboard"])
 
-# Serve frontend — prefer the Vite build output (frontend/dist/), fall back to raw source
-_frontend_root = pathlib.Path(__file__).parent.parent / "frontend"
-frontend_dir = _frontend_root / "dist" if (_frontend_root / "dist").exists() else _frontend_root
+# Serve frontend from Vite build output (frontend/dist/).
+# If the dist is missing, run `npm run build` automatically so the server always works.
+_project_root = pathlib.Path(__file__).parent.parent
+_frontend_root = _project_root / "frontend"
+_dist_dir = _frontend_root / "dist"
+
+if not _dist_dir.exists():
+    print("Frontend dist missing — building now (npm run build)...")
+    result = subprocess.run(
+        ["npm", "run", "build"],
+        cwd=str(_project_root),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        print("Frontend built successfully.")
+    else:
+        print(f"Frontend build failed:\n{result.stderr}")
+
+frontend_dir = _dist_dir if _dist_dir.exists() else _frontend_root
 try:
     app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
 except Exception:

@@ -52,7 +52,7 @@ export async function loadData() {
     summary:               val(summary, {total_active:0, cities_count:0, merrychef_pct:0, sunday_pct:0, h24_count:0}),
     network_growth:        val(networkGrowth, []),
     network_origin:        val(networkOrigin, {}),
-    stores_timeline:       val(storesTimeline, []),
+    stores_timeline:       val(storesTimeline, {}),
     opening_hours:         val(openingHours, {}),
     per_capita:            val(perCapita, []),
     growth_by_voivodeship: val(growthByVoiv, []),
