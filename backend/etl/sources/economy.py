@@ -6,10 +6,15 @@ kazdego wiersza faktow. Modul pobiera dane z GUS i buduje wiersze wymiarow
 
 import os
 import re
+import time
 
 import requests
 
 from backend.etl.io import USER_AGENT, HTTP_TIMEOUT, with_retries
+
+# Without an API key GUS BDL allows 10 req/min (anonymous).
+# With a key: 100 req/min. Throttle to stay safely under the anonymous cap.
+_GUS_THROTTLE = 7.0  # seconds between page requests when no key set
 
 # --- dane ekonomiczne powiatow (GUS BDL) ---
 GUS_BDL_BASE = "https://bdl.stat.gov.pl/api/v1/data/by-variable"
@@ -58,6 +63,8 @@ def _fetch_gus_variable(var_id: str) -> dict:
         best = {}   # name -> (year, val)
         page = 0
         while page < 60:
+            if page > 0 and not GUS_BDL_KEY:
+                time.sleep(_GUS_THROTTLE)
             r = requests.get(f"{GUS_BDL_BASE}/{var_id}",
                              params={"unit-level": 5, "format": "json",
                                      "page-size": 100, "page": page},

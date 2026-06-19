@@ -30,11 +30,11 @@ USER_AGENT = "zabka-dashboard-etl/1.0"
 
 # --- Polityka ponawiania dla krokow sieciowych ---
 # API zrodlowe bywaja kapryśne. Kazdy fetch ze zrodla ponawiamy do RETRY_ATTEMPTS
-# razy, czekajac RETRY_DELAY sekund miedzy probami (domyslnie 5 prob co 5 minut -
+# razy, czekajac RETRY_DELAY sekund miedzy probami (domyslnie 3 prob co 1 minute -
 # damy szanse na przelotne problemy). Pojedyncze zapytanie ma timeout HTTP_TIMEOUT.
 # Po wyczerpaniu prob caller leci dalej bez zrodla (best-effort / lazy, kolumna pusta).
-RETRY_ATTEMPTS = int(os.getenv("ETL_RETRY_ATTEMPTS", "5"))
-RETRY_DELAY = float(os.getenv("ETL_RETRY_DELAY", "300"))
+RETRY_ATTEMPTS = int(os.getenv("ETL_RETRY_ATTEMPTS", "3"))
+RETRY_DELAY = float(os.getenv("ETL_RETRY_DELAY", "60"))
 HTTP_TIMEOUT = float(os.getenv("ETL_HTTP_TIMEOUT", "30"))
 
 

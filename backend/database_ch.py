@@ -130,11 +130,30 @@ def _ensure_schema():
         rw.close()
 
 
+class _ConnectionProxy:
+    """Proxy so `from database_ch import client` stays valid after init_db()
+    swaps the underlying connection. Without this, all module-level imports
+    of `client` hold a stale reference to the connection that init_db() closed."""
+
+    def __init__(self, conn=None):
+        self._conn = conn
+
+    def _replace(self, conn):
+        self._conn = conn
+
+    def close(self):
+        if self._conn is not None:
+            self._conn.close()
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+
 # Read-only connection shared across all API request handlers.
 # DuckDB allows multiple concurrent read-only connections to the same file.
 # The ETL cron stops the backend service before opening its own read-write
 # connection, so there is no write/read conflict in production.
-client = duckdb.connect(str(DB_PATH), read_only=True)
+client = _ConnectionProxy(duckdb.connect(str(DB_PATH), read_only=True))
 
 
 def init_db(keep_open: bool = True):
@@ -147,11 +166,12 @@ def init_db(keep_open: bool = True):
     read-write connection it opens right after — DuckDB does not allow
     concurrent read-only and read-write connections to the same file.
     """
-    global client
     client.close()
     _ensure_schema()
     if keep_open:
-        client = duckdb.connect(str(DB_PATH), read_only=True)
+        client._replace(duckdb.connect(str(DB_PATH), read_only=True))
+    else:
+        client._replace(None)
     return client if keep_open else None
 
 

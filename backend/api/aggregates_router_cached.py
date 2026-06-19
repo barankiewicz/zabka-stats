@@ -24,7 +24,7 @@ async def get_summary_stats(month: str = None):
             SUM(open_sunday) as sunday,
             SUM(h24) as h24
         FROM locations
-        WHERE deleted_at IS NULL {where}
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) {where}
     """).fetchone()
 
     return {
@@ -54,7 +54,7 @@ async def get_voivodeship_stats(month: str = None):
             SUM(open_sunday) as sunday,
             SUM(h24) as h24
         FROM locations
-        WHERE deleted_at IS NULL {where}
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) {where}
         GROUP BY voivodeship
         ORDER BY total DESC
     """).fetchall()
@@ -83,7 +83,7 @@ async def get_top_cities(limit: int = 30, month: str = None):
     results = client.execute(f"""
         SELECT city, voivodeship, COUNT(*) as count
         FROM locations
-        WHERE deleted_at IS NULL {where}
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) {where}
         GROUP BY city, voivodeship
         ORDER BY count DESC
         LIMIT {limit}
@@ -107,7 +107,7 @@ async def get_top_streets(limit: int = 20, month: str = None):
     results = client.execute(f"""
         SELECT street, city, COUNT(*) as count
         FROM locations
-        WHERE deleted_at IS NULL {where}
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) {where}
         GROUP BY street, city
         ORDER BY count DESC
         LIMIT {limit}
@@ -145,9 +145,9 @@ async def get_per_capita(voivodeship: str = None):
 
     where = ""
     if voivodeship:
-        where = f"WHERE voivodeship = '{voivodeship}' AND deleted_at IS NULL"
+        where = f"WHERE voivodeship = '{voivodeship}' AND deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)"
     else:
-        where = "WHERE deleted_at IS NULL"
+        where = "WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)"
 
     results = client.execute(f"""
         SELECT voivodeship, COUNT(*) as count

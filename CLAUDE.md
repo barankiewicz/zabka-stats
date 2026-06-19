@@ -89,11 +89,11 @@ Revert frontend implementation
   the GIOŚ fetch comes back empty, so an unlucky run keeps the previous day's
   stations instead of zeroing `dim_gios_station`.
 - **Retries:** every source fetch goes through `with_retries` - up to
-  `ETL_RETRY_ATTEMPTS` tries (default 5), `ETL_RETRY_DELAY` seconds apart (default
-  300, so 5x5 min), each request capped at `ETL_HTTP_TIMEOUT` (default 30s). This
+  `ETL_RETRY_ATTEMPTS` tries (default 3), `ETL_RETRY_DELAY` seconds apart (default
+  60, so 3x1 min), each request capped at `ETL_HTTP_TIMEOUT` (default 30s). This
   rides out transient API hiccups; only after all retries fail does the source
   fall back to lazy/empty. The core Żabka fetch falls back to a local file before
-  giving up. Per-point elevation keeps its own short retry, not the 5x5 policy.
+  giving up. Per-point elevation keeps its own short retry, not the 3x1 min policy.
 - **DuckDB UNION ALL gotcha:** `ORDER BY ... LIMIT` is not allowed directly inside
   a `UNION ALL` branch. Wrap each branch: `SELECT * FROM (SELECT ... ORDER BY x LIMIT 1)
   UNION ALL SELECT * FROM (SELECT ... ORDER BY y LIMIT 1)`. Affects any endpoint that

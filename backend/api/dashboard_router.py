@@ -14,27 +14,27 @@ async def get_dashboard_data():
     summary = client.execute("""
         SELECT COUNT(*) as total, SUM(has_merrychef) as czy_ma_piec,
                SUM(open_sunday) as open_sunday, SUM(h24) as h24
-        FROM locations WHERE deleted_at IS NULL
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
     """).fetchone()
 
     # Top 30 cities
     cities = client.execute("""
         SELECT city, voivodeship, COUNT(*) as count
-        FROM locations WHERE deleted_at IS NULL
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
         GROUP BY city, voivodeship ORDER BY count DESC LIMIT 30
     """).fetchall()
 
     # Voivodeships with stats
     voivodeships = client.execute("""
         SELECT LOWER(voivodeship) as name, COUNT(*) as count
-        FROM locations WHERE deleted_at IS NULL
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
         GROUP BY voivodeship ORDER BY count DESC
     """).fetchall()
 
     # Streets (simplified - top 25 streets with city)
     streets = client.execute("""
         SELECT street, city as town, COUNT(*) as count
-        FROM locations WHERE deleted_at IS NULL AND street IS NOT NULL
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) AND street IS NOT NULL
         GROUP BY street, city ORDER BY count DESC LIMIT 25
     """).fetchall()
 

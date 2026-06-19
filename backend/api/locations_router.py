@@ -32,6 +32,8 @@ async def get_locations(
     if month:
         where_clauses.append(
             f"snapshot_id IN (SELECT id FROM snapshots WHERE strftime(source_date, '%Y-%m') = '{month}')")
+    else:
+        where_clauses.append("snapshot_id = (SELECT MAX(id) FROM snapshots)")
 
     if voivodeship:
         where_clauses.append(f"voivodeship = '{voivodeship}'")
@@ -87,6 +89,8 @@ async def get_locations_for_map_geojson(
     if month:
         where += (f" AND snapshot_id IN (SELECT id FROM snapshots "
                   f"WHERE strftime(source_date, '%Y-%m') = '{month}')")
+    else:
+        where += " AND snapshot_id = (SELECT MAX(id) FROM snapshots)"
 
     results = client.execute(f"""
         SELECT id, store_id, city, voivodeship, street, latitude, longitude,

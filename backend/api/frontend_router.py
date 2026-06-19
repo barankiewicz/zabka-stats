@@ -121,7 +121,7 @@ async def summary():
                   / NULLIF(COUNT(*), 0), 1)                              AS sunday_pct,
             SUM(CASE WHEN h24 THEN 1 ELSE 0 END)                        AS h24_count
         FROM locations
-        WHERE deleted_at IS NULL
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
     """)
     return {
         "total_active":   int(r[0] or 0),
@@ -146,7 +146,7 @@ async def network_growth():
             SUM(COUNT(*)) OVER (ORDER BY YEAR(first_opening_date)
                                 ROWS UNBOUNDED PRECEDING)                  AS cumulative
         FROM locations
-        WHERE deleted_at IS NULL
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
           AND first_opening_date IS NOT NULL
         GROUP BY 1
         ORDER BY 1
@@ -165,18 +165,18 @@ async def network_origin():
     oldest = _q1("""
         SELECT city, voivodeship, street, first_opening_date
         FROM locations
-        WHERE deleted_at IS NULL AND first_opening_date IS NOT NULL
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) AND first_opening_date IS NOT NULL
         ORDER BY first_opening_date ASC LIMIT 1
     """)
     newest = _q1("""
         SELECT city, voivodeship, street, first_opening_date
         FROM locations
-        WHERE deleted_at IS NULL AND first_opening_date IS NOT NULL
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) AND first_opening_date IS NOT NULL
         ORDER BY first_opening_date DESC LIMIT 1
     """)
     new_month = _q1("""
         SELECT COUNT(*) FROM locations
-        WHERE deleted_at IS NULL AND is_new_month = true
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) AND is_new_month = true
     """)
     def fmt_row(r):
         return {
@@ -200,7 +200,7 @@ async def stores_timeline():
     dated = _q("""
         SELECT latitude, longitude, YEAR(first_opening_date) AS yr
         FROM locations
-        WHERE deleted_at IS NULL
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
           AND first_opening_date IS NOT NULL
           AND latitude IS NOT NULL
         ORDER BY yr ASC
@@ -208,7 +208,7 @@ async def stores_timeline():
     undated = _q("""
         SELECT latitude, longitude
         FROM locations
-        WHERE deleted_at IS NULL
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
           AND first_opening_date IS NULL
           AND latitude IS NOT NULL
     """)
@@ -217,7 +217,7 @@ async def stores_timeline():
         WITH yr_counts AS (
             SELECT YEAR(first_opening_date) AS y, COUNT(*) AS cnt
             FROM locations
-            WHERE deleted_at IS NULL AND first_opening_date IS NOT NULL
+            WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) AND first_opening_date IS NOT NULL
             GROUP BY 1 ORDER BY 1
         ),
         running AS (
@@ -259,7 +259,7 @@ async def growth_by_voivodeship():
     rows = _q("""
         SELECT voivodeship, YEAR(first_opening_date) AS yr, COUNT(*) AS new_stores
         FROM locations
-        WHERE deleted_at IS NULL AND first_opening_date IS NOT NULL
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) AND first_opening_date IS NOT NULL
         GROUP BY 1, 2 ORDER BY 2, 1
     """)
     return [{"voivodeship": r[0], "yr": int(r[1]), "new_stores": int(r[2])}
@@ -276,7 +276,7 @@ async def per_capita():
     rows = _q("""
         SELECT voivodeship, COUNT(*) AS stores
         FROM locations
-        WHERE deleted_at IS NULL
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
         GROUP BY voivodeship
         ORDER BY stores DESC
     """)
@@ -307,7 +307,7 @@ async def city_first_opening():
         WITH first_by_city AS (
             SELECT city, MIN(first_opening_date) AS first_date
             FROM locations
-            WHERE deleted_at IS NULL AND first_opening_date IS NOT NULL
+            WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) AND first_opening_date IS NOT NULL
             GROUP BY city
         )
         SELECT
@@ -332,7 +332,7 @@ async def top_cities(limit: int = 20):
     rows = _q(f"""
         SELECT city, COUNT(*) AS cnt, voivodeship
         FROM locations
-        WHERE deleted_at IS NULL
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
         GROUP BY city, voivodeship
         ORDER BY cnt DESC
         LIMIT {max(1, min(limit, 200))}
@@ -350,7 +350,7 @@ async def opening_hours():
     rows = _q("""
         SELECT opening_hours_monsat AS pattern, COUNT(*) AS cnt
         FROM locations
-        WHERE deleted_at IS NULL AND opening_hours_monsat IS NOT NULL
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) AND opening_hours_monsat IS NOT NULL
         GROUP BY 1 ORDER BY cnt DESC LIMIT 8
     """)
     return [{"pattern": r[0], "cnt": int(r[1])} for r in rows]
@@ -371,7 +371,7 @@ async def voivodeship_stats():
             ROUND(100.0 * SUM(CASE WHEN has_merrychef THEN 1 ELSE 0 END)
                   / NULLIF(COUNT(*), 0), 1) AS mc_pct
         FROM locations
-        WHERE deleted_at IS NULL
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
         GROUP BY voivodeship
         ORDER BY mc_pct ASC
     """)
@@ -397,7 +397,7 @@ async def powiat_economics():
             COUNT(l.id)                                                        AS stores
         FROM dim_powiat dp
         JOIN dim_voivodeship dv ON dp.voivodeship_id = dv.id
-        LEFT JOIN locations l ON l.powiat_id = dp.id AND l.deleted_at IS NULL
+        LEFT JOIN locations l ON l.powiat_id = dp.id AND l.deleted_at IS NULL AND l.snapshot_id = (SELECT MAX(id) FROM snapshots)
         GROUP BY dp.name, dv.name, dp.avg_salary, dp.unemployment_rate, dp.population
         HAVING COUNT(l.id) > 0
         ORDER BY dp.name
@@ -431,7 +431,7 @@ async def sunday_by_voivodeship():
             SUM(CASE WHEN open_sunday = false THEN 1 ELSE 0 END) AS closed_count,
             COUNT(*) AS total
         FROM locations
-        WHERE deleted_at IS NULL
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
         GROUP BY voivodeship
         ORDER BY closed_pct DESC
     """)
@@ -459,7 +459,7 @@ async def sunday_by_voivodeship():
 async def inpost_vs_zabka():
     zabka_rows = _q("""
         SELECT voivodeship, COUNT(*) AS cnt
-        FROM locations WHERE deleted_at IS NULL GROUP BY voivodeship
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) GROUP BY voivodeship
     """)
     locker_rows = _q("""
         SELECT dv.name, COUNT(pl.id) AS cnt
@@ -500,7 +500,7 @@ async def inpost_vs_zabka():
 async def voivodeship_density():
     rows = _q("""
         SELECT voivodeship, COUNT(*) AS stores
-        FROM locations WHERE deleted_at IS NULL GROUP BY voivodeship
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) GROUP BY voivodeship
     """)
     return [{"voivodeship": r[0], "stores": int(r[1]),
              "area_km2": VOIV_AREA_KM2.get(r[0], 0)}
@@ -517,12 +517,12 @@ async def elevation():
     # Extremes: try DB first, fall back to fun_facts / known values
     top = _q1("""
         SELECT city, voivodeship, street, elevation_meters
-        FROM locations WHERE deleted_at IS NULL AND elevation_meters IS NOT NULL
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) AND elevation_meters IS NOT NULL
         ORDER BY elevation_meters DESC LIMIT 1
     """)
     bot = _q1("""
         SELECT city, voivodeship, street, elevation_meters
-        FROM locations WHERE deleted_at IS NULL AND elevation_meters IS NOT NULL
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) AND elevation_meters IS NOT NULL
         ORDER BY elevation_meters ASC LIMIT 1
     """)
     # Histogram (50 m buckets)
@@ -530,7 +530,7 @@ async def elevation():
         SELECT CAST(FLOOR(elevation_meters / 50) * 50 AS INTEGER) AS bucket_m,
                COUNT(*) AS cnt
         FROM locations
-        WHERE deleted_at IS NULL AND elevation_meters IS NOT NULL
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) AND elevation_meters IS NOT NULL
         GROUP BY 1 ORDER BY 1
     """)
     # If elevation not enriched yet — return known spec values as fallback
@@ -560,7 +560,7 @@ async def elevation():
 async def neighbor_stats():
     loner = _q1("""
         SELECT city, voivodeship, street, nearest_neighbor_distance_meters
-        FROM locations WHERE deleted_at IS NULL
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
           AND nearest_neighbor_distance_meters IS NOT NULL
         ORDER BY nearest_neighbor_distance_meters DESC LIMIT 1
     """)
@@ -569,7 +569,7 @@ async def neighbor_stats():
             MEDIAN(nearest_neighbor_distance_meters)  AS median_m,
             ROUND(AVG(nearest_neighbor_distance_meters)) AS avg_m,
             MAX(nearest_neighbor_distance_meters)     AS max_m
-        FROM locations WHERE deleted_at IS NULL
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
           AND nearest_neighbor_distance_meters IS NOT NULL
     """)
     buckets = _q("""
@@ -583,7 +583,7 @@ async def neighbor_stats():
                 ELSE '>10km'
             END AS bucket,
             COUNT(*) AS cnt
-        FROM locations WHERE deleted_at IS NULL
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
           AND nearest_neighbor_distance_meters IS NOT NULL
         GROUP BY 1
         ORDER BY MIN(nearest_neighbor_distance_meters)
@@ -615,22 +615,22 @@ async def kraniec_facts():
     compass = _q("""
         SELECT * FROM (
             SELECT 'N' AS dir, city, voivodeship, street, latitude, longitude
-            FROM locations WHERE deleted_at IS NULL ORDER BY latitude DESC LIMIT 1
+            FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) ORDER BY latitude DESC LIMIT 1
         )
         UNION ALL
         SELECT * FROM (
             SELECT 'S', city, voivodeship, street, latitude, longitude
-            FROM locations WHERE deleted_at IS NULL ORDER BY latitude ASC LIMIT 1
+            FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) ORDER BY latitude ASC LIMIT 1
         )
         UNION ALL
         SELECT * FROM (
             SELECT 'E', city, voivodeship, street, latitude, longitude
-            FROM locations WHERE deleted_at IS NULL ORDER BY longitude DESC LIMIT 1
+            FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) ORDER BY longitude DESC LIMIT 1
         )
         UNION ALL
         SELECT * FROM (
             SELECT 'W', city, voivodeship, street, latitude, longitude
-            FROM locations WHERE deleted_at IS NULL ORDER BY longitude ASC LIMIT 1
+            FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) ORDER BY longitude ASC LIMIT 1
         )
     """)
     direction_meta = {
@@ -646,18 +646,18 @@ async def kraniec_facts():
     # Elevation extremes (may be NULL if not enriched)
     elev_top = _q1("""
         SELECT city, voivodeship, street, elevation_meters, latitude, longitude
-        FROM locations WHERE deleted_at IS NULL AND elevation_meters IS NOT NULL
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) AND elevation_meters IS NOT NULL
         ORDER BY elevation_meters DESC LIMIT 1
     """)
     elev_bot = _q1("""
         SELECT city, voivodeship, street, elevation_meters, latitude, longitude
-        FROM locations WHERE deleted_at IS NULL AND elevation_meters IS NOT NULL
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) AND elevation_meters IS NOT NULL
         ORDER BY elevation_meters ASC  LIMIT 1
     """)
     # Frog street (static — ul. Zielonej Zabki)
     frog_street = _q1("""
         SELECT street, city, voivodeship, latitude, longitude
-        FROM locations WHERE deleted_at IS NULL
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
           AND LOWER(street) LIKE '%zielonej%'
           AND LOWER(city)   LIKE '%zabia%'
         LIMIT 1
@@ -711,7 +711,7 @@ async def kraniec_facts():
     if isolation_ff:
         iso_loc = _q1("""
             SELECT city, voivodeship, street
-            FROM locations WHERE deleted_at IS NULL
+            FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
               AND ABS(latitude  - ?) < 0.01
               AND ABS(longitude - ?) < 0.01
             LIMIT 1
@@ -754,7 +754,7 @@ async def kraniec_facts():
     # Backdrop: 2000-point sample for the map backdrop
     backdrop = _q("""
         SELECT latitude, longitude
-        FROM locations WHERE deleted_at IS NULL
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
         USING SAMPLE 2000
     """)
     return {
@@ -773,14 +773,14 @@ async def amphibians():
     # Summary stats
     total = _q1("""
         SELECT COUNT(*), SUM(CASE WHEN h24 THEN 1 ELSE 0 END)
-        FROM locations WHERE deleted_at IS NULL
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
     """)
     # Most froggy (if enriched)
     most_froggy_db = _q1("""
         SELECT city, voivodeship, street,
                amphibian_occurrences_5km, nearest_amphibian_km,
                latitude, longitude
-        FROM locations WHERE deleted_at IS NULL
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
           AND amphibian_occurrences_5km IS NOT NULL
         ORDER BY amphibian_occurrences_5km DESC LIMIT 1
     """)
@@ -796,12 +796,12 @@ async def amphibians():
     # Zero-frog count
     zero_count = _q1("""
         SELECT COUNT(*) FROM locations
-        WHERE deleted_at IS NULL AND amphibian_occurrences_5km = 0
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) AND amphibian_occurrences_5km = 0
     """)
     # Farthest from frog
     farthest_ff = _q1("""
         SELECT city, voivodeship, ROUND(nearest_amphibian_km, 2) AS km
-        FROM locations WHERE deleted_at IS NULL AND nearest_amphibian_km IS NOT NULL
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) AND nearest_amphibian_km IS NOT NULL
         ORDER BY nearest_amphibian_km DESC LIMIT 1
     """)
     # Per-store sample for beeswarm/map (enriched or empty)
@@ -809,7 +809,7 @@ async def amphibians():
         SELECT latitude, longitude,
                COALESCE(amphibian_occurrences_5km, 0) AS occ,
                COALESCE(nearest_amphibian_km, 0) AS near_km
-        FROM locations WHERE deleted_at IS NULL
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
         USING SAMPLE 5000
     """)
     has_amphibian_data = most_froggy_db is not None
@@ -826,7 +826,7 @@ async def amphibians():
                 ELSE '1000+'
             END AS bucket,
             COUNT(*) AS cnt
-        FROM locations WHERE deleted_at IS NULL
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
         GROUP BY 1 ORDER BY MIN(COALESCE(amphibian_occurrences_5km, 0))
     """)
     # By voivodeship averages
@@ -834,14 +834,14 @@ async def amphibians():
         SELECT voivodeship,
                ROUND(AVG(COALESCE(amphibian_occurrences_5km, 0)), 0) AS avg_occ,
                COUNT(*) AS stores
-        FROM locations WHERE deleted_at IS NULL
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
         GROUP BY voivodeship ORDER BY avg_occ DESC
     """)
     # Top 10 cities (city-level aggregate)
     top10 = _q("""
         SELECT city, voivodeship,
                SUM(COALESCE(amphibian_occurrences_5km, 0)) AS total_occ
-        FROM locations WHERE deleted_at IS NULL
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
         GROUP BY city, voivodeship
         ORDER BY total_occ DESC LIMIT 10
     """)
@@ -883,25 +883,25 @@ async def section3_rare():
     # h24 cities
     h24_cities = _q("""
         SELECT city, voivodeship, COUNT(*) AS cnt
-        FROM locations WHERE deleted_at IS NULL AND h24 = true
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) AND h24 = true
         GROUP BY city, voivodeship ORDER BY cnt DESC LIMIT 8
     """)
     h24_pts = _q("""
         SELECT latitude, longitude
-        FROM locations WHERE deleted_at IS NULL AND h24 = true
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) AND h24 = true
     """)
     # Parks
     park_count = _q1("""
         SELECT
             SUM(CASE WHEN is_in_nature_park THEN 1 ELSE 0 END) AS in_park,
             COUNT(*) AS total
-        FROM locations WHERE deleted_at IS NULL
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
     """)
     top3_parks = _q("""
         SELECT dp.name AS park_name, dp.type AS park_type, COUNT(*) AS cnt
         FROM locations l
         JOIN dim_park dp ON l.nature_park_id = dp.id
-        WHERE l.deleted_at IS NULL
+        WHERE l.deleted_at IS NULL AND l.snapshot_id = (SELECT MAX(id) FROM snapshots)
         GROUP BY dp.name, dp.type ORDER BY cnt DESC LIMIT 3
     """)
     # Void
@@ -909,7 +909,7 @@ async def section3_rare():
     # Frog streets (plural water/frog names)
     frog_streets = _q("""
         SELECT street, city, voivodeship, latitude, longitude
-        FROM locations WHERE deleted_at IS NULL
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
           AND (LOWER(street) LIKE '%żab%'
             OR LOWER(street) LIKE '%stawow%'
             OR LOWER(street) LIKE '%stawki%'
@@ -922,14 +922,14 @@ async def section3_rare():
     """)
     # Powiats covered
     powiat_count = _q1("""
-        SELECT COUNT(DISTINCT powiat_id) FROM locations WHERE deleted_at IS NULL
+        SELECT COUNT(DISTINCT powiat_id) FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
     """)
     powiat_range = _q("""
         WITH pc AS (
             SELECT dp.name AS p, dv.name AS v, COUNT(l.id) AS cnt
             FROM dim_powiat dp
             JOIN dim_voivodeship dv ON dv.id = dp.voivodeship_id
-            LEFT JOIN locations l ON l.powiat_id = dp.id AND l.deleted_at IS NULL
+            LEFT JOIN locations l ON l.powiat_id = dp.id AND l.deleted_at IS NULL AND l.snapshot_id = (SELECT MAX(id) FROM snapshots)
             GROUP BY dp.name, dv.name HAVING cnt > 0
         )
         SELECT * FROM (SELECT 'min' AS w, p, v, cnt FROM pc ORDER BY cnt ASC LIMIT 1)
@@ -945,7 +945,7 @@ async def section3_rare():
             SUM(CASE WHEN LOWER(street) LIKE '%wojska polsk%'    THEN 1 ELSE 0 END),
             SUM(CASE WHEN LOWER(street) LIKE '%mickiewicz%'      THEN 1 ELSE 0 END),
             SUM(CASE WHEN LOWER(street) LIKE '%jana paw%a%'      THEN 1 ELSE 0 END)
-        FROM locations WHERE deleted_at IS NULL
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
     """)
     return {
         "h24_cities": [
@@ -1003,7 +1003,7 @@ async def sunday_closed_stores(voivodeship: str):
     rows = _q("""
         SELECT city, street, has_merrychef
         FROM locations
-        WHERE deleted_at IS NULL
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
           AND voivodeship = ?
           AND open_sunday = false
         ORDER BY city, street
