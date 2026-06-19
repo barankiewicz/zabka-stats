@@ -11,7 +11,7 @@ export const C = {
   North:'#4a9eff',West:'#00c8a0',Center:'#00c060',South:'#f5a623'
 };
 
-export const STATE = { tab:'siec', font:'spec', filter:null };
+export const STATE = { tab:'siec', filter:null };
 
 export const annotPlugin = {
   id:'annot',

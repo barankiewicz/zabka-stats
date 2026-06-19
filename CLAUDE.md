@@ -103,7 +103,6 @@ Revert frontend implementation
 
 - [ ] Comparison modes (voivodeship vs national trend)
 - [ ] Run ETL with `--elevation` and full GBIF/GUS to populate NULL columns (amphibians, elevation, powiat economics)
-- [ ] Font picker: pick one set, remove the live switcher from production
 
 ## Future improvements
 
@@ -1152,11 +1151,10 @@ Tab and Section 4 cards ignore the voivodeship cross-filter.
   fingerprint radius/angle; `d3.areaRadial` for fingerprint deformed rings (1.1f).
 - **Canvas 2D** — spiral (1.1c), burst (1.1d), fingerprint (1.1f), clock (1.4a), h24 mini
   map (E1), void mini map (E3), beeswarm (P1). Used wherever 13k+ DOM objects would hurt.
-- **Fonts (configurable via live toggle in mockup):** five sets — Editorial Grotesque
-  (Fraunces + Inter + JetBrains Mono), Neo-Swiss (Space Grotesk + IBM Plex + Space Mono),
-  Bold Brutalist (Clash Display + Satoshi + JetBrains Mono), Contrast Editorial
-  (Instrument Serif + Geist + Geist Mono), Spec default (Bricolage Grotesque + IBM Plex +
-  JetBrains Mono). Production: pick one set and remove the switcher.
+- **Fonts:** one production set — Bricolage Grotesque (display) + IBM Plex Sans (body)
+  + JetBrains Mono (mono), loaded from Google Fonts. The mockup carried a live
+  five-set switcher (Editorial, Neo-Swiss, Bold Brutalist, Contrast Editorial, Spec);
+  production keeps only the Spec set and the switcher UI is gone.
 
 ---
 
@@ -1182,7 +1180,7 @@ Tab and Section 4 cards ignore the voivodeship cross-filter.
 Macro-region colors used consistently across 1.2a, 1.2b, 1.3b, 2.1. PŁAZY tab uses
 sequential teal ramps (density) instead of the green accent.
 
-**Typography:** three roles, configurable via the font switcher (see above).
+**Typography:** three roles, one fixed production set (see above).
 - Display: large KPI numbers, chart titles that state a finding
 - Body: axis labels, card copy, caveats
 - Mono: coordinates, raw numbers, code-like values

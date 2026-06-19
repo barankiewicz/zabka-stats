@@ -6,10 +6,10 @@ import { M, CHARTS, MAPS, RENDERED } from './state.js';
 import { getFont, destroyChart } from './utils.js';
 import { setFilter, clearFilter, registerFilterCallbacks } from './filter.js';
 import { loadData } from './data.js';
-import { renderSiec, renderTopCities, drawSpiral, drawFingerprint, drawClock } from './tabs/siec.js';
+import { renderSiec, renderTopCities } from './tabs/siec.js';
 import { renderSpoleczenstwo, renderDumbbell } from './tabs/spoleczenstwo.js';
-import { renderEdge, jumpToFact, jumpBack, jumpToH24, jumpToParks, drawH24Mini, drawVoidMini, drawParksDonut } from './tabs/edge.js';
-import { renderPlazy, drawBeeswarm } from './tabs/plazy.js';
+import { renderEdge, jumpToFact, jumpBack, jumpToH24, jumpToParks } from './tabs/edge.js';
+import { renderPlazy } from './tabs/plazy.js';
 
 Chart.register(annotPlugin);
 
@@ -65,23 +65,6 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
 
 document.addEventListener('DOMContentLoaded',()=>{
   const btn=document.getElementById('filter-clear');if(btn)btn.addEventListener('click',clearFilter);
-});
-
-document.querySelectorAll('.fs-btn').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    document.querySelectorAll('.fs-btn').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    STATE.font=btn.dataset.font;
-    document.documentElement.dataset.font=STATE.font;
-    chartDefaults();
-    Object.keys(CHARTS).forEach(k=>destroyChart(k));
-    RENDERED.forEach(t=>{if(t!==STATE.tab)RENDERED.delete(t)});
-    renderTab(STATE.tab);
-    setTimeout(()=>{drawSpiral();drawFingerprint();drawClock();
-      if(RENDERED.has('edge')){drawH24Mini();drawVoidMini();drawParksDonut()}
-      if(RENDERED.has('plazy'))drawBeeswarm();
-    },50);
-  });
 });
 
 const scatSide=document.getElementById('scat-side');
