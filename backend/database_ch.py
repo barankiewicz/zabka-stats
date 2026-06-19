@@ -167,7 +167,14 @@ def init_db(keep_open: bool = True):
     concurrent read-only and read-write connections to the same file.
     """
     client.close()
-    _ensure_schema()
+    try:
+        _ensure_schema()
+    except Exception as e:
+        # In a multi-worker setup, concurrent workers race to open a read-write
+        # connection for schema init. The losers get a lock error — that's fine,
+        # the winner already created the tables. We still need to reopen
+        # client below, so just swallow the error here.
+        print(f"  Schema init skipped (concurrent worker): {e}")
     if keep_open:
         client._replace(duckdb.connect(str(DB_PATH), read_only=True))
     else:
