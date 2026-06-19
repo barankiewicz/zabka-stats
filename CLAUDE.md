@@ -94,15 +94,20 @@ Revert frontend implementation
   rides out transient API hiccups; only after all retries fail does the source
   fall back to lazy/empty. The core Żabka fetch falls back to a local file before
   giving up. Per-point elevation keeps its own short retry, not the 5x5 policy.
+- **DuckDB UNION ALL gotcha:** `ORDER BY ... LIMIT` is not allowed directly inside
+  a `UNION ALL` branch. Wrap each branch: `SELECT * FROM (SELECT ... ORDER BY x LIMIT 1)
+  UNION ALL SELECT * FROM (SELECT ... ORDER BY y LIMIT 1)`. Affects any endpoint that
+  needs "top-1 per category" assembled from multiple queries.
 
 ## TODO (next up)
 
 - [ ] Comparison modes (voivodeship vs national trend)
+- [ ] Run ETL with `--elevation` and full GBIF/GUS to populate NULL columns (amphibians, elevation, powiat economics)
+- [ ] Font picker: pick one set, remove the live switcher from production
 
 ## Future improvements
 
 - [ ] Webhook for automatic snapshot ingest (GitHub Actions, Lambda)
-- [ ] Fill in the frontend chapter (chapter 4) - visual narrative and chart descriptions
 
 
 ---
@@ -277,6 +282,42 @@ GET /api/changes/voivodeship?month=2026-06
 GET /api/changes/timeline?limit_months=12
 ```
 
+**Frontend router** (`backend/api/frontend_router.py`) — additional endpoints consumed
+exclusively by `frontend/index.html`, 1-hour cache, registered before the aggregates
+router so it takes precedence on overlapping paths:
+
+```
+GET /api/geo/voivodeships              -> GeoJSON for choropleth maps
+
+GET /api/stats/network-growth          -> [{year, new_stores, cumulative}]
+GET /api/stats/network-origin          -> {oldest, newest, new_this_month}
+GET /api/stats/stores-timeline         -> {stores[[lat,lon,year]], undated, year_range, milestones}
+GET /api/stats/opening-hours           -> {patterns, h24_count, clock_arcs}
+GET /api/stats/per-capita              -> [{voivodeship, per_1k, total, macro_region}]
+GET /api/stats/growth-by-voivodeship   -> [{voivodeship, year, new_stores, macro_region}]
+GET /api/stats/city-first-opening      -> [{year, cumulative_cities, new_cities}]
+GET /api/stats/top-cities?limit=N      -> [{city, voivodeship, total, macro_region}]
+GET /api/stats/powiat-economics        -> [{powiat, voivodeship, per_1k, avg_salary, unemployment_rate, population}]
+GET /api/stats/sunday-by-voivodeship   -> [{voivodeship, closed_pct, closed_count, total}]
+GET /api/stats/voivodeship-density     -> [{voivodeship, density_per_100km2, total, area_km2}]
+GET /api/stats/inpost-vs-zabka         -> [{voivodeship, zabka_per_100k, inpost_per_100k, ratio}]
+GET /api/stats/kraniec-facts           -> {facts[{id,group,label,value,lat,lon,zoom,type}], backdrop[[lat,lon]]}
+GET /api/stats/elevation               -> {extremes, histogram}
+GET /api/stats/neighbor-stats          -> {loner, distribution}
+GET /api/stats/section3-rare           -> {h24_cities, h24_points, parks, void, frog_streets, powiats_covered, powiat_range, civic_streets}
+GET /api/stats/amphibians              -> {gbif_total, median_occurrences, most_froggy, zero_frog_count, farthest_from_frog, stores, distribution, by_voivodeship, top10, gbif_obs}
+
+GET /api/stats/sunday-closed-stores?voivodeship=X  -> drilldown, not cached
+```
+
+**Live (no cache, external APIs):**
+```
+GET /api/live/best-worst-weather
+GET /api/live/air-quality-extremes
+GET /api/live/darkest-sky-stargazing
+GET /api/live/lightning-danger
+```
+
 ### Protected (token required)
 
 ```
@@ -304,10 +345,11 @@ backend/                 - code + API (chapter 2)
   cache.py               - Redis cache (UNIX socket)
   daily_etl.py           - thin ETL entrypoint (re-exports run + CLI)
   etl/                   - ETL pipeline: geo.py, io.py, pipeline.py, sources/ (one class per source)
-  api/                   - routers (locations, history, aggregates, admin)
+  api/                   - routers (locations, history, aggregates, admin, frontend_router)
 
 frontend/                - Chart.js + Leaflet + D3 SPA (chapter 4)
-  index.html
+  index.html             - production SPA (fetches from /api/* on load)
+  mock-data.js           - dev reference snapshot (700KB, 26 keys, shape matches API)
 
 data/                    - data + data documentation (chapter 3)
   input/                 - snapshot JSON
@@ -961,9 +1003,13 @@ pulling from `/api/*`, rendered via Chart.js + Leaflet + Canvas 2D. Full specifi
 with exact SQL, pixel dimensions, animations, and endpoint register:
 `.claude/analysis/DASHBOARD_SPEC.md`.
 
-**Mockup:** `frontend/index.html` + `frontend/mock-data.js` (700KB, 26 keys, shape 1:1
-with API responses). Production wiring = replace `MOCK.<key>` with
-`fetch('<endpoint>').then(r => r.json())` per component.
+**Data loading:** `frontend/index.html` fires all 20 API endpoints in parallel via
+`Promise.allSettled` on page load (`loadData()`, bottom of the script block). Each
+settled result is mapped into `M`, the global data object consumed by all render
+functions. Failed endpoints fall back to empty arrays/objects so a broken endpoint
+can't white-screen the whole page. `frontend/mock-data.js` (700KB, 26 keys) is kept
+as a dev reference — its shape is 1:1 with the API responses but it is no longer
+loaded by the production frontend.
 
 ---
 
