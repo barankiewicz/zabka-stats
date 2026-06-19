@@ -50,9 +50,41 @@ export function renderSundayChoropleth(){
     style(f){const p=byName[f.properties.name]||0;const t=Math.min(p/12,1);return{fillColor:`rgba(${Math.round(232*t)},${Math.round(90*(1-t))},${Math.round(47*t)},${0.25+t*.5})`,fillOpacity:.7,color:'#2a2a3a',weight:1}},
     onEachFeature(f,l){
       l.bindTooltip(`<b>${f.properties.name}</b><br>${byName[f.properties.name]||0}% zamknietych w niedziele`,{sticky:true});
-      l.on('click',()=>setFilter(STATE.filter===f.properties.name?null:f.properties.name));
+      l.on('click',()=>{
+        const v=f.properties.name;
+        setFilter(STATE.filter===v?null:v);
+        openSundayDrawer(v);
+      });
     }
   }).addTo(map);
+  const closeBtn=document.getElementById('sunday-drawer-close');
+  if(closeBtn&&!closeBtn._wired){
+    closeBtn._wired=true;
+    closeBtn.addEventListener('click',()=>{document.getElementById('sunday-drawer').hidden=true});
+  }
+}
+
+async function openSundayDrawer(voivodeship){
+  const drawer=document.getElementById('sunday-drawer');
+  const title=document.getElementById('sunday-drawer-title');
+  const count=document.getElementById('sunday-drawer-count');
+  const body=document.getElementById('sunday-drawer-body');
+  if(!drawer)return;
+  title.textContent=voivodeship;
+  count.textContent='ladowanie...';
+  body.innerHTML='';
+  drawer.hidden=false;
+  try{
+    const data=await fetch(`/api/stats/sunday-closed-stores?voivodeship=${encodeURIComponent(voivodeship)}`).then(r=>r.json());
+    count.textContent=`${data.length} zamknietych`;
+    if(!data.length){
+      body.innerHTML='<div class="drawer-row" style="color:var(--muted)">Brak zamknietych sklepow w tej woj.</div>';
+      return;
+    }
+    body.innerHTML=data.map(s=>`<div class="drawer-row"><span class="drawer-city">${s.city}</span><span class="drawer-street">${s.street}</span>${s.has_merrychef?'<span class="drawer-mc">piec</span>':''}</div>`).join('');
+  }catch(e){
+    body.innerHTML='<div class="drawer-row" style="color:var(--muted)">Blad ladowania.</div>';
+  }
 }
 
 export function renderDensityChoropleth(){
