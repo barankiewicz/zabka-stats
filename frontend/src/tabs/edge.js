@@ -82,6 +82,25 @@ function renderCiekawostkiKNN(){
   const maxEl=document.getElementById('ciek-stat-max');if(maxEl)maxEl.textContent=maxKm;
 }
 
+// Shared helper: draw a small corner donut (120×120 canvas)
+function _drawCornerDonut(canvas, frac, pctStr, color, trackColor){
+  const W=canvas.width||120,H=canvas.height||120;
+  const ctx=canvas.getContext('2d');
+  const cx=W/2,cy=H/2,rr=Math.min(W,H)/2-10;
+  ctx.clearRect(0,0,W,H);
+  ctx.lineCap='round';
+  ctx.lineWidth=10;
+  ctx.strokeStyle=trackColor;
+  ctx.beginPath();ctx.arc(cx,cy,rr,0,Math.PI*2);ctx.stroke();
+  ctx.strokeStyle=color;
+  ctx.beginPath();ctx.arc(cx,cy,rr,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.max(0,Math.min(1,frac)));ctx.stroke();
+  ctx.fillStyle=color;
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.font=`800 ${Math.round(W*0.2)}px '${getFont('display')}',sans-serif`;
+  ctx.fillText(pctStr+'%',cx,cy);
+}
+
 // ===== CIEKAWOSTKI: Parks donut (Siec-style ring — canvas arc + HTML fraction) =====
 function renderCiekawostkiParks(){
   const parks=(M.section3_rare&&M.section3_rare.parks)||{};
@@ -94,39 +113,13 @@ function renderCiekawostkiParks(){
     :pctRaw.toFixed(1)
   ).toString().replace('.',',');
 
-  // Fraction + top3 below the ring (HTML, like Siec powiat tile)
-  const countEl=document.getElementById('ciek-parks-count');
-  if(countEl) countEl.textContent=fmt(inPark);
-  const totEl=document.getElementById('ciek-parks-total');
-  if(totEl) totEl.textContent=fmt(total);
   const statEl=document.getElementById('ciek-parks-statline');
   if(statEl&&parks.top3&&parks.top3.length)
     statEl.innerHTML=parks.top3.map(p=>`<span>${p.park_name}: <b style="color:var(--green)">${p.cnt}</b></span>`).join('');
 
   const canvas=document.getElementById('ciek-parksDonut');
   if(!canvas)return;
-  const W=canvas.width||200,H=canvas.height||200;
-  const ctx=canvas.getContext('2d');
-  const cx=W/2,cy=H/2,rr=Math.min(W,H)/2-14;
-  ctx.clearRect(0,0,W,H);
-  ctx.lineCap='round';
-  ctx.lineWidth=15;
-
-  // Background track
-  ctx.strokeStyle='rgba(132,195,65,.12)';
-  ctx.beginPath();ctx.arc(cx,cy,rr,0,Math.PI*2);ctx.stroke();
-
-  // Progress arc
-  const frac=Math.max(0,Math.min(1,pctRaw/100));
-  ctx.strokeStyle=C.greenBright;
-  ctx.beginPath();ctx.arc(cx,cy,rr,-Math.PI/2,-Math.PI/2+Math.PI*2*frac);ctx.stroke();
-
-  // Percentage label — centered, no subtitle inside the ring
-  ctx.fillStyle=C.greenBright;
-  ctx.textAlign='center';
-  ctx.textBaseline='middle';
-  ctx.font=`800 ${Math.round(W*0.21)}px '${getFont('display')}',sans-serif`;
-  ctx.fillText(pctStr+'%',cx,cy);
+  _drawCornerDonut(canvas, frac, pctStr, C.greenBright, 'rgba(132,195,65,.12)');
 }
 
 // ===== CIEKAWOSTKI: Zero-frog donut =====
@@ -142,11 +135,6 @@ function renderCiekawostkiFrogs(){
     :pctRaw.toFixed(1)
   ).toString().replace('.',',');
 
-  const countEl=document.getElementById('ciek-frogs-count');
-  if(countEl) countEl.textContent=fmt(zeroCount);
-  const totEl=document.getElementById('ciek-frogs-total');
-  if(totEl) totEl.textContent=fmt(total);
-
   const ff=ae.farthest_from_frog||{};
   const noteEl=document.getElementById('ciek-frogs-note');
   if(noteEl&&ff.city&&ff.nearest_amphibian_km!=null)
@@ -154,25 +142,7 @@ function renderCiekawostkiFrogs(){
 
   const canvas=document.getElementById('ciek-frogsDonut');
   if(!canvas)return;
-  const W=canvas.width||200,H=canvas.height||200;
-  const ctx=canvas.getContext('2d');
-  const cx=W/2,cy=H/2,rr=Math.min(W,H)/2-14;
-  ctx.clearRect(0,0,W,H);
-  ctx.lineCap='round';
-  ctx.lineWidth=15;
-
-  ctx.strokeStyle='rgba(77,208,177,.12)';
-  ctx.beginPath();ctx.arc(cx,cy,rr,0,Math.PI*2);ctx.stroke();
-
-  const frac=Math.max(0,Math.min(1,pctRaw/100));
-  ctx.strokeStyle='#4dd0b1';
-  ctx.beginPath();ctx.arc(cx,cy,rr,-Math.PI/2,-Math.PI/2+Math.PI*2*frac);ctx.stroke();
-
-  ctx.fillStyle='#4dd0b1';
-  ctx.textAlign='center';
-  ctx.textBaseline='middle';
-  ctx.font=`800 ${Math.round(W*0.21)}px '${getFont('display')}',sans-serif`;
-  ctx.fillText(pctStr+'%',cx,cy);
+  _drawCornerDonut(canvas, frac, pctStr, '#4dd0b1', 'rgba(77,208,177,.12)');
 }
 
 // ===== CIEKAWOSTKI: Physical streets (top street+city pairs) =====

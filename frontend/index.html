@@ -354,9 +354,9 @@
       <div class="card ec-reveal">
         <div class="chead">
           <h3>Bezrobocie kontra gęstość sieci</h3>
-          <span class="cap">X = stopa bezrobocia · Y = sklepy / 1000 mieszk. · wielkość = populacja</span>
+         
         </div>
-        <p class="cnote">Te same powiaty. Im dalej w prawo, tym wyższe bezrobocie - i tym chłodniejszy, alarmowy kolor. Chmura punktów opada w prawo.</p>
+        
         <div id="scatter2" class="ec-chart"></div>
       </div>
 
@@ -388,7 +388,7 @@
           <h3>Im wyższe bezrobocie, tym niższy słupek</h3>
           <span class="cap">średnia sklepów / 1000 mieszk. · powiaty pogrupowane wg bezrobocia</span>
         </div>
-        <p class="cnote">Te same powiaty, tym razem w grupach według stopy bezrobocia. Drabina opada - gęstość spada z każdym kolejnym kwartylem.</p>
+        
         <div id="bar2" class="ec-chart bar"></div>
       </div>
 
@@ -415,7 +415,7 @@
       <div class="hero-number tab-hero-num" id="hero-num-edge">46,5</div>
       <div class="hero-number-label">km od najbliższej Żabki - rekord pustki w Bieszczadach</div>
       <h1 class="hero-h1">Na krańcach sieć przestaje być siecią.</h1>
-      <p class="hero-lede" id="hero-lede-edge">Od -1,5 m pod poziomem morza po 963 m w Tatrach. 35 sklepów, które nigdy nie śpią. Jeden punkt w Polsce oddalony o 46,5 km od jakiejkolwiek Żabki.</p>
+      <p class="hero-lede" id="hero-lede-edge">Od -1,5 m pod poziomem morza po 963 m w Tatrach. 35 sklepów, które (prawie) nigdy nie śpią. Jeden punkt w Polsce oddalony o 46,5 km od jakiejkolwiek Żabki.</p>
     </div>
   </header>
 
@@ -525,29 +525,29 @@
       <div class="gran-ref-legend" id="ciek-knn-legend" style="margin-top:8px"></div>
       <div class="statline" style="margin-top:6px"><span>maks. <b id="ciek-stat-max">-</b></span></div>
     </div>
-    <div class="card">
-      <div class="card-title">Zabka na lonie natury</div>
-      <div class="card-sub" id="ciek-parks-cnote">Sklepy w granicach parkow krajobrazowych i otulin.</div>
-      <div style="display:flex;flex-direction:column;align-items:center;padding:18px 0 10px">
-        <canvas id="ciek-parksDonut" class="powiat-donut" width="200" height="200"></canvas>
-        <div class="powiat-frac"><span id="ciek-parks-count">-</span><span class="powiat-of">/<span id="ciek-parks-total">-</span></span></div>
-        <div class="powiat-cap">sklepow w parkach lub otulinach</div>
+    <div class="card ciek-corner-card">
+      <div class="ciek-corner-head">
+        <div>
+          <div class="card-title">Zabka na lonie natury</div>
+          <div class="card-sub" id="ciek-parks-cnote">Sklepy w granicach parkow krajobrazowych i otulin.</div>
+        </div>
+        <canvas id="ciek-parksDonut" width="120" height="120" style="flex-shrink:0"></canvas>
       </div>
-      <div id="ciek-parks-statline" style="margin-top:4px;font-family:var(--font-mono);font-size:11px;color:var(--muted);display:flex;flex-wrap:wrap;gap:10px"></div>
+      <div id="ciek-parks-statline" style="margin-top:auto;padding-top:16px;font-family:var(--font-mono);font-size:11px;color:var(--muted);display:flex;flex-wrap:wrap;gap:10px"></div>
     </div>
   </div>
 
   <!-- wiersz 2: zabki bez zabek + ulice -->
   <div class="row row-2 reveal" style="margin-bottom:16px">
-    <div class="card">
-      <div class="card-title">Zabka bez zadnej zaby w poblizu</div>
-      <div class="card-sub">Sklepy bez ani jednego plazu w promieniu 5 km (dane GBIF, klasa Amphibia).</div>
-      <div style="display:flex;flex-direction:column;align-items:center;padding:18px 0 10px">
-        <canvas id="ciek-frogsDonut" class="powiat-donut" width="200" height="200"></canvas>
-        <div class="powiat-frac"><span id="ciek-frogs-count">-</span><span class="powiat-of">/<span id="ciek-frogs-total">-</span></span></div>
-        <div class="powiat-cap">sklepow bez plaza w promieniu 5 km</div>
+    <div class="card ciek-corner-card">
+      <div class="ciek-corner-head">
+        <div>
+          <div class="card-title">Zabka bez zadnej zaby w poblizu</div>
+          <div class="card-sub">Sklepy bez ani jednego plazu w promieniu 5 km (dane GBIF, klasa Amphibia).</div>
+        </div>
+        <canvas id="ciek-frogsDonut" width="120" height="120" style="flex-shrink:0"></canvas>
       </div>
-      <div id="ciek-frogs-note" style="margin-top:4px;font-family:var(--font-mono);font-size:11px;color:var(--muted)"></div>
+      <div id="ciek-frogs-note" style="margin-top:auto;padding-top:16px;font-family:var(--font-mono);font-size:11px;color:var(--muted)"></div>
     </div>
     <div class="card">
       <div class="card-title">Ulice z najwieksza liczba Zabek</div>
