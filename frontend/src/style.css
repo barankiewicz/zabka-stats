@@ -70,12 +70,12 @@ canvas{display:block}
 .reveal.shown{opacity:1;transform:none}
 
 /* TAB HERO (shared by all tab splash headers) */
-.tab-hero{position:relative;text-align:center;padding:32px 0 24px;margin-bottom:6px;overflow:hidden}
+.tab-hero{position:relative;text-align:center;padding:48px 0 36px;margin-bottom:6px;overflow:visible}
 .tab-hero-teal{opacity:1}
 .tab-hero-num{font-family:var(--font-display);font-weight:800;font-size:clamp(52px,9vw,108px);line-height:.82;letter-spacing:-.04em;background:linear-gradient(180deg,var(--green-bright),var(--green) 58%,#3c7a18);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;filter:drop-shadow(0 0 24px rgba(132,195,65,.4)) drop-shadow(0 0 56px rgba(132,195,65,.18));display:block;margin:0 auto 10px}
 
 /* HISTORIA HERO */
-.historia-hero{position:relative;text-align:center;padding:28px 0 20px;margin-bottom:6px;overflow:hidden}
+.historia-hero{position:relative;text-align:center;padding:48px 0 36px;margin-bottom:6px;overflow:visible}
 .hero-particles{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
 .hero-inner{position:relative;z-index:1}
 .hero-eyebrow{font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.18em;font-size:12px;color:var(--green);margin-bottom:10px}
