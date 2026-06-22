@@ -69,12 +69,22 @@ function buildScatter(cfg) {
   const node = document.getElementById(cfg.el); if (!node) return;
   const chart = echartsInit(node, null, { renderer: 'canvas' });
   const xk = cfg.xkey || 'avg_salary';
-  const data = cfg.pts.map(d => ({ value: [d[xk], d.per_1k, Math.sqrt(d.population) / 8, d.population, d.unemployment_rate, d.voivodeship, d.avg_salary], name: cleanPow(d.powiat) }));
+  const heroMatches = cfg.heroSpecs || [];
+  const isHero = row => heroMatches.some(sp => (row.powiat || '').toLowerCase().includes(sp.match));
+  const makePoint = d => ({ value: [d[xk], d.per_1k, Math.sqrt(d.population) / 8, d.population, d.unemployment_rate, d.voivodeship, d.avg_salary], name: cleanPow(d.powiat) });
+  const regularData = cfg.pts.filter(d => !isHero(d)).map(makePoint);
+  const heroData    = cfg.pts.filter(d =>  isHero(d)).map(makePoint);
+  const dotStyle = { opacity: .84, borderColor: 'rgba(10,18,10,.6)', borderWidth: .5, shadowBlur: 8, shadowColor: 'rgba(132,195,65,.15)' };
+  const tooltipFmt = p => {
+    const v = p.data.value;
+    const xDisp = cfg.xfmt ? cfg.xfmt(v[0]) : v[0];
+    return `<span style="font-family:JetBrains Mono;font-size:12px;line-height:1.6;color:#eef3e6"><b>${p.data.name}</b><br/>${cfg.xname}: <b>${xDisp}</b><br/>Żabki / 1k: <b>${v[1].toFixed(3)}</b><br/>Populacja: ${fmtPop(v[3])}</span>`;
+  };
   chart.setOption({
     backgroundColor: 'transparent',
     animationDuration: RM ? 0 : 900, animationEasing: 'cubicOut', animationDelay: RM ? 0 : (i => i * 4),
     grid: { left: 60, right: 24, top: 24, bottom: 56 },
-    tooltip: { show: false },
+    tooltip: { trigger: 'item', backgroundColor: '#0c160b', borderColor: 'rgba(140,200,80,.3)', borderWidth: 1, padding: [8, 12], textStyle: { color: '#eef3e6', fontFamily: 'IBM Plex Sans', fontSize: 12 }, formatter: tooltipFmt },
     visualMap: { min: cfg.vmMin, max: cfg.vmMax, dimension: 0, calculable: false, show: false, inRange: { color: cfg.colors } },
     xAxis: { type: 'value', min: cfg.xmin, max: cfg.xmax, name: cfg.xname, nameLocation: 'middle', nameGap: 36, nameTextStyle: { color: '#5d6c52', fontFamily: 'JetBrains Mono', fontSize: 11 }, axisLabel: { color: '#93a487', fontFamily: 'JetBrains Mono', fontSize: 11, formatter: cfg.xfmt }, axisLine: { lineStyle: { color: 'rgba(140,200,80,.2)' } }, splitLine: { lineStyle: { color: 'rgba(140,200,80,.06)' } } },
     yAxis: { type: 'value', min: 0, max: cfg.ymax || 1.05, name: 'Żabki / 1000 mieszk.', nameLocation: 'middle', nameGap: 42, nameRotate: 90, nameTextStyle: { color: '#5d6c52', fontFamily: 'JetBrains Mono', fontSize: 11 }, axisLabel: { color: '#93a487', fontFamily: 'JetBrains Mono', fontSize: 11 }, axisLine: { lineStyle: { color: 'rgba(140,200,80,.2)' } }, splitLine: { lineStyle: { color: 'rgba(140,200,80,.06)' } } },
@@ -83,9 +93,11 @@ function buildScatter(cfg) {
         data: [[cfg.tx0, cfg.slope * cfg.tx0 + cfg.intercept], [cfg.tx1, cfg.slope * cfg.tx1 + cfg.intercept]],
         lineStyle: { color: cfg.trendColor, width: 2, type: 'dashed', opacity: .6 },
         markPoint: { symbol: 'circle', symbolSize: 1, silent: true, animationDelay: RM ? 0 : 1300, label: { color: cfg.trendColor, fontFamily: 'JetBrains Mono', fontSize: 13, fontWeight: 500, backgroundColor: 'rgba(12,22,11,.9)', borderColor: cfg.trendColor, borderWidth: 1, borderRadius: 6, padding: [5, 9], formatter: cfg.rText }, data: [{ coord: cfg.rPos }] } },
-      { name: 'powiaty', type: 'scatter', z: 2, data: data, silent: true, symbolSize: d => Math.max(7, Math.min(36, d[2])),
-        itemStyle: { opacity: .84, borderColor: 'rgba(10,18,10,.6)', borderWidth: .5, shadowBlur: 8, shadowColor: 'rgba(132,195,65,.15)' },
-        emphasis: { disabled: true },
+      { name: 'powiaty', type: 'scatter', z: 2, data: regularData, silent: true, symbolSize: d => Math.max(7, Math.min(36, d[2])),
+        itemStyle: dotStyle, emphasis: { disabled: true } },
+      { name: 'hero-pts', type: 'scatter', z: 3, data: heroData, silent: false, symbolSize: d => Math.max(7, Math.min(36, d[2])),
+        itemStyle: dotStyle,
+        emphasis: { scale: 1.35, itemStyle: { borderColor: 'rgba(166,232,74,.8)', borderWidth: 1.5, shadowBlur: 18, shadowColor: 'rgba(166,232,74,.35)' } },
         markPoint: { symbol: 'circle', symbolSize: 1, silent: true, animationDelay: RM ? 0 : 1450, label: { color: '#eef3e6', fontFamily: 'JetBrains Mono', fontSize: 11, fontWeight: 500, backgroundColor: 'rgba(12,22,11,.85)', borderColor: 'rgba(140,200,80,.3)', borderWidth: 1, borderRadius: 6, padding: [4, 7], formatter: p => p.data.txt }, data: cfg.heroes } }
     ]
   });
@@ -238,8 +250,8 @@ export function renderEcon() {
     { match: 'szydłowieck', label: 'szydłowiecki · rekord bezrobocia', color: '#e8693d', pos: 'top', off: [0, -6] },
     { match: 'poznański', label: 'poznanski · min. bezrobocie', color: '#84c341', pos: 'right' },
   ];
-  const ptsS = sampleWithHeroes(rowsS, 130, 'avg_salary',        heroSpecsS);
-  const ptsU = sampleWithHeroes(rowsU, 130, 'unemployment_rate', heroSpecsU);
+  const ptsS = sampleWithHeroes(rowsS, 30, 'avg_salary',        heroSpecsS);
+  const ptsU = sampleWithHeroes(rowsU, 30, 'unemployment_rate', heroSpecsU);
   buildScatter({
     el: 'scatter1', pts: ptsS, xkey: 'avg_salary',
     xname: 'średnia płaca (zł)', xmin: Math.floor(sMin / 500) * 500, xmax: Math.ceil(sMax / 500) * 500,
@@ -247,7 +259,7 @@ export function renderEcon() {
     vmMin: sMin, vmMax: sMax, colors: ['#4dd0b1', '#84c341', '#a6e84a', '#f2a359'],
     slope: reg1.slope, intercept: reg1.intercept, tx0: sMin, tx1: sMax,
     trendColor: '#a6e84a', rText: 'r = ' + plr(r1), rPos: [sMax * 0.88, (ymax * 0.9)],
-    heroes: heroPoints(rowsS, 'avg_salary', heroSpecsS),
+    heroes: heroPoints(rowsS, 'avg_salary', heroSpecsS), heroSpecs: heroSpecsS,
   });
   buildScatter({
     el: 'scatter2', pts: ptsU, xkey: 'unemployment_rate',
@@ -255,7 +267,7 @@ export function renderEcon() {
     vmMin: uMin, vmMax: uMax, colors: ['#84c341', '#a6e84a', '#f2a359', '#e8693d'],
     slope: reg2.slope, intercept: reg2.intercept, tx0: uMin, tx1: uMax,
     trendColor: '#e8693d', rText: 'r = ' + plr(r2), rPos: [uMax * 0.78, (ymax * 0.9)],
-    heroes: heroPoints(rowsU, 'unemployment_rate', heroSpecsU),
+    heroes: heroPoints(rowsU, 'unemployment_rate', heroSpecsU), heroSpecs: heroSpecsU,
   });
 
   // ---- quartile bars from real data ----
