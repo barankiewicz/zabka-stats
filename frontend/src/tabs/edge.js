@@ -113,10 +113,6 @@ function renderCiekawostkiParks(){
     :pctRaw.toFixed(1)
   ).toString().replace('.',',');
 
-  const statEl=document.getElementById('ciek-parks-statline');
-  if(statEl&&parks.top3&&parks.top3.length)
-    statEl.innerHTML=parks.top3.map(p=>`<span>${p.park_name}: <b style="color:var(--green)">${p.cnt}</b></span>`).join('');
-
   const canvas=document.getElementById('ciek-parksDonut');
   if(!canvas)return;
   _drawCornerDonut(canvas, pctRaw/100, pctStr, C.greenBright, 'rgba(132,195,65,.12)');
