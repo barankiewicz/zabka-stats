@@ -185,8 +185,7 @@ async function fetchDumbbellLevel(level,limit){
 
 export function renderDumbbell(data){
   if(!data)data=M.inpost_vs_zabka;
-  // sort alphabetically by name (administrative order)
-  const arr=[...(data||[])].sort((a,b)=>{
+  const arr=(data||[]).filter(d=>(d.zabki_per_100k||0)>0&&(d.lockers_per_100k||0)>0).sort((a,b)=>{
     const na=(a.name||a.voivodeship||'').toLowerCase();
     const nb=(b.name||b.voivodeship||'').toLowerCase();
     return na.localeCompare(nb,'pl');
