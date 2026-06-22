@@ -142,11 +142,12 @@ canvas{display:block}
 .fingerprint-wrap{position:relative;display:flex;justify-content:center;width:100%}
 
 /* GROWTH SLIDER */
-.growth-slider-wrap{padding:12px 4px 4px;display:flex;align-items:center;gap:12px}
-.growth-slider{flex:1;-webkit-appearance:none;appearance:none;height:3px;background:var(--axis);border-radius:2px;outline:none;cursor:pointer}
-.growth-slider::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--green-bright);box-shadow:0 0 8px rgba(166,232,74,.6);cursor:pointer;transition:transform .15s}
-.growth-slider::-webkit-slider-thumb:hover{transform:scale(1.25)}
-.growth-slider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--green-bright);box-shadow:0 0 8px rgba(166,232,74,.6);cursor:pointer;border:none}
+.growth-slider-wrap{padding:16px 4px 8px;display:flex;align-items:center;gap:12px}
+.growth-slider{flex:1;-webkit-appearance:none;appearance:none;height:6px;background:var(--axis);border-radius:3px;outline:none;cursor:pointer}
+.growth-slider::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--green-bright);box-shadow:0 0 10px rgba(166,232,74,.7);cursor:grab;transition:transform .15s,box-shadow .15s}
+.growth-slider::-webkit-slider-thumb:hover{transform:scale(1.15);box-shadow:0 0 16px rgba(166,232,74,.9)}
+.growth-slider::-webkit-slider-thumb:active{cursor:grabbing;transform:scale(1.05)}
+.growth-slider::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--green-bright);box-shadow:0 0 10px rgba(166,232,74,.7);cursor:grab;border:none}
 .growth-slider-label{font-family:var(--font-mono);font-size:11px;color:var(--muted);white-space:nowrap;min-width:36px;text-align:right}
 /* play/pause button to the right of the timeline. Triangle when paused/stopped,
    two bars while the sweep is running (.is-playing). Icons are pure CSS — no glyphs. */
