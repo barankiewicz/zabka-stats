@@ -1,11 +1,23 @@
 import Chart from 'chart.js/auto';
-import * as d3 from 'd3';
 import L from 'leaflet';
 import 'leaflet.heat';
 import { C } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
 import { fmt, getFont, destroyChart, leafletDark, startTabParticles } from '../utils.js';
 import { renderPlazyExt } from './plazy_ext.js';
+
+function _logScale(dMin,dMax,rMin,rMax,clamp){
+  const lMin=Math.log(dMin),lRange=Math.log(dMax)-lMin,rRange=rMax-rMin;
+  return x=>{let t=(Math.log(Math.max(x,dMin))-lMin)/lRange;if(clamp)t=Math.max(0,Math.min(1,t));return rMin+t*rRange};
+}
+function _logColorScale(dMin,dMax,cA,cB){
+  const lMin=Math.log(dMin),lRange=Math.log(dMax)-lMin;
+  const h=s=>[parseInt(s.slice(1,3),16),parseInt(s.slice(3,5),16),parseInt(s.slice(5,7),16)];
+  const [ar,ag,ab]=h(cA),[br,bg,bb]=h(cB);
+  return x=>{const t=Math.max(0,Math.min(1,(Math.log(Math.max(x,dMin))-lMin)/lRange));
+    const r=Math.round(ar+(br-ar)*t),g=Math.round(ag+(bg-ag)*t),b=Math.round(ab+(bb-ab)*t);
+    return`#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`};
+}
 
 // Color buckets for dot map (matches test file scheme)
 const DOT_CLASSES = [
@@ -95,9 +107,9 @@ export function drawBeeswarm() {
   const stores = ae0.stores || [];
   const recMax = ae0.most_froggy ? (ae0.most_froggy.amphibian_occurrences_5km || 1) : 1;
   const domMax = Math.max(100, Math.ceil(recMax * 1.1 / 100) * 100);
-  const logScale = d3.scaleLog().domain([1, domMax]).range([60, W - 60]).clamp(true);
+  const logScale = _logScale(1, domMax, 60, W - 60, true);
   const teals = ['#0a2a2a', '#0d4040', '#0f5a52', '#00b4c8', '#00e0d0'];
-  const tealsScale = d3.scaleLog().domain([1, domMax]).range([0, 4]).clamp(true);
+  const tealsScale = _logScale(1, domMax, 0, 4, true);
   const bucketStacks = {}; const BW = Math.ceil(W / 120);
   stores.forEach(([, , occ]) => { if (occ === 0) return; const bx = Math.floor(logScale(occ) / BW); bucketStacks[bx] = (bucketStacks[bx] || 0) + 1; });
   const bucketCurr = {};
@@ -423,7 +435,7 @@ export function renderFrogScatter() {
   if (!pts.length) return;
 
   const maxOcc = Math.max(...pts.map(p => p[1]), 1);
-  const tsc = d3.scaleLog().domain([1, maxOcc]).range(['#0d4040', '#00e0c8']);
+  const tsc = _logColorScale(1, maxOcc, '#0d4040', '#00e0c8');
   const xLabel = scatter.length ? 'liczba Zabek w promieniu 5 km' : 'odleglosc do najblizszej obserwacji (km)';
 
   destroyChart('frog-scatter');

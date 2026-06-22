@@ -2,7 +2,11 @@
 // wyboru i trybem tournee + cztery wykresy ECharts (wysokość, k-NN, parki,
 // adresy obywatelskie). Dane krańców osadzone (kuratorowane, 9 faktów).
 // Leaflet z app (npm), ECharts bundlowane przez Vite. Wszystko zakresowane do .kr.
-import * as echarts from 'echarts';
+import { init as echartsInit, use as echartsUse, graphic } from 'echarts/core';
+import { BarChart, PieChart } from 'echarts/charts';
+import { GridComponent, TooltipComponent } from 'echarts/components';
+import { CanvasRenderer } from 'echarts/renderers';
+echartsUse([BarChart, PieChart, GridComponent, TooltipComponent, CanvasRenderer]);
 import L from 'leaflet';
 import { M } from '../state.js';
 import { fmt } from '../utils.js';
@@ -266,7 +270,7 @@ function lazyChart(id, fn) {
 
 function buildCharts() {
   lazyChart('kr-c-elev', () => {
-    const ch = echarts.init(document.getElementById('kr-elevChart'));
+    const ch = echartsInit(document.getElementById('kr-elevChart'));
     // Use API data; fall back to spec values if elevation not yet enriched
     const histRaw = (M.elevation && M.elevation.histogram) || [];
     const hasDat = histRaw.length > 0;
@@ -282,13 +286,13 @@ function buildCharts() {
       tooltip: { backgroundColor: '#0c160b', borderColor: 'rgba(140,200,80,.3)', textStyle: { color: '#eef3e6' }, formatter: p => p[0].name + '<br><b>' + p[0].value.toLocaleString('pl-PL') + '</b> sklepów' },
       xAxis: { type: 'category', data: cats, axisLabel: { color: axisC, fontFamily: mono, fontSize: 9, interval: 0, rotate: 30 }, axisLine: { lineStyle: { color: 'rgba(140,200,80,.2)' } }, name: 'm n.p.m.', nameLocation: 'middle', nameGap: 34, nameTextStyle: { color: '#5d6c52', fontFamily: mono, fontSize: 10 } },
       yAxis: { type: 'value', axisLabel: { color: axisC, fontFamily: mono, fontSize: 10 }, splitLine: { lineStyle: { color: split } } },
-      series: [{ type: 'bar', data: vals, barWidth: '62%', itemStyle: { borderRadius: [4, 4, 0, 0], color: new echarts.graphic.LinearGradient(0, 1, 0, 0, [{ offset: 0, color: '#4dd0b1' }, { offset: 1, color: '#f2a359' }]) } }]
+      series: [{ type: 'bar', data: vals, barWidth: '62%', itemStyle: { borderRadius: [4, 4, 0, 0], color: new graphic.LinearGradient(0, 1, 0, 0, [{ offset: 0, color: '#4dd0b1' }, { offset: 1, color: '#f2a359' }]) } }]
     });
     window.addEventListener('resize', () => ch.resize());
   });
 
   lazyChart('kr-c-knn', () => {
-    const ch = echarts.init(document.getElementById('kr-knnChart'));
+    const ch = echartsInit(document.getElementById('kr-knnChart'));
     const bucketsRaw = (M.neighbor_stats && M.neighbor_stats.distribution && M.neighbor_stats.distribution.buckets) || [];
     const hasDat = bucketsRaw.length > 0;
     const cats = hasDat ? bucketsRaw.map(b => b.bucket) : ['<200 m', '200–500 m', '500 m–1 km', '1–3 km', '3–10 km', '>10 km'];
@@ -306,7 +310,7 @@ function buildCharts() {
   });
 
   lazyChart('kr-c-parks', () => {
-    const ch = echarts.init(document.getElementById('kr-parksChart'));
+    const ch = echartsInit(document.getElementById('kr-parksChart'));
     const parks = (M.section3_rare && M.section3_rare.parks) || {};
     const inPark = parks.count || 0;
     const total = parks.total || (M.summary && M.summary.total_active) || 0;
@@ -323,7 +327,7 @@ function buildCharts() {
   });
 
   lazyChart('kr-c-civic', () => {
-    const ch = echarts.init(document.getElementById('kr-civicChart'));
+    const ch = echartsInit(document.getElementById('kr-civicChart'));
     const cs = (M.section3_rare && M.section3_rare.civic_streets) || {};
     const cats = ['Rynek', 'Kościuszki', 'Piłsudskiego', 'Wojska Polskiego', 'Mickiewicza', 'Jana Pawła II'];
     const vals = [

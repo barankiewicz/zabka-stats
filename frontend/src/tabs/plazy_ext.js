@@ -1,7 +1,11 @@
 // "Punkt po punkcie": ECharts log-log scatter — gestość Zabek vs obserwacje plazow.
 // Hardcoded 165-point curated sample (SCPTS); prefers M.amphibian_extremes.scatter_sample if present.
 // Scoped to #zz-plazy-root / .zz-* to avoid collisions with existing plazy.js charts.
-import * as echarts from 'echarts';
+import { init as echartsInit, use as echartsUse } from 'echarts/core';
+import { ScatterChart, LineChart } from 'echarts/charts';
+import { GridComponent, TooltipComponent, MarkPointComponent } from 'echarts/components';
+import { CanvasRenderer } from 'echarts/renderers';
+echartsUse([ScatterChart, LineChart, GridComponent, TooltipComponent, MarkPointComponent, CanvasRenderer]);
 import { M } from '../state.js';
 
 const RM = window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches;
@@ -73,7 +77,7 @@ function buildScatter() {
     ? sample.filter(p => p[0] > 0 && p[1] > 0).map(p => ({ value: [p[0], p[1]] }))
     : SCPTS.map(p => ({ value: [p.d, p.o] }));
 
-  const ch = echarts.init(el);
+  const ch = echartsInit(el);
   // Power-law trend: y = 10^(0.533 * log10(x) + 0.371)
   const tf = x => Math.pow(10, 0.533 * Math.log10(x) + 0.371);
   const axisC = '#93a487', mono = 'JetBrains Mono', splitC = 'rgba(140,200,80,.06)';

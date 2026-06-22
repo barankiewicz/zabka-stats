@@ -402,14 +402,24 @@ export function renderGrowthMap(){
   }
 
   function startGlowLoop(){
-    if(growthRaf)return; // don't fight the sweep
+    if(growthRaf)return;
     if(cv._glowRaf)return;
-    function tick(){
-      const yr=slider?+slider.value:GROWTH_MAX;
-      drawUpTo(yr,null,performance.now());
+    let last=0;
+    function tick(now){
       cv._glowRaf=requestAnimationFrame(tick);
+      if(now-last<100)return; // ~10 fps
+      last=now;
+      const yr=slider?+slider.value:GROWTH_MAX;
+      drawUpTo(yr,null,now);
     }
     cv._glowRaf=requestAnimationFrame(tick);
+    if(!cv._visWired){
+      cv._visWired=true;
+      document.addEventListener('visibilitychange',()=>{
+        if(document.hidden){stopGlowLoop()}
+        else if(!growthRaf){startGlowLoop()}
+      });
+    }
   }
   function stopGlowLoop(){
     if(cv._glowRaf){cancelAnimationFrame(cv._glowRaf);cv._glowRaf=null}

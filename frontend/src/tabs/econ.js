@@ -2,7 +2,11 @@
 // gęstości sieci. Scattery + kwartyle liczone z prawdziwych M.powiat_economics
 // (ECharts, bundlowane przez Vite). Narracja (bohaterowie, twisty)
 // w czystym polskim. Animacje (count-up, reveal, r-meter) zakresowane do .ec.
-import * as echarts from 'echarts';
+import { init as echartsInit, use as echartsUse } from 'echarts/core';
+import { ScatterChart, LineChart, BarChart } from 'echarts/charts';
+import { GridComponent, TooltipComponent, VisualMapContinuousComponent, MarkPointComponent } from 'echarts/components';
+import { CanvasRenderer } from 'echarts/renderers';
+echartsUse([ScatterChart, LineChart, BarChart, GridComponent, TooltipComponent, VisualMapContinuousComponent, MarkPointComponent, CanvasRenderer]);
 import { M } from '../state.js';
 
 const RM = window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches;
@@ -62,8 +66,8 @@ function heroPoints(rows, xkey, specs) {
 }
 
 function buildScatter(cfg) {
-  const E = echarts; const node = document.getElementById(cfg.el); if (!E || !node) return;
-  const chart = E.init(node, null, { renderer: 'canvas' });
+  const node = document.getElementById(cfg.el); if (!node) return;
+  const chart = echartsInit(node, null, { renderer: 'canvas' });
   const xk = cfg.xkey || 'avg_salary';
   const data = cfg.pts.map(d => ({ value: [d[xk], d.per_1k, Math.sqrt(d.population) / 8, d.population, d.unemployment_rate, d.voivodeship, d.avg_salary], name: cleanPow(d.powiat) }));
   chart.setOption({
@@ -89,8 +93,8 @@ function buildScatter(cfg) {
 }
 
 function buildBar(cfg) {
-  const E = echarts; const node = document.getElementById(cfg.el); if (!E || !node) return;
-  const chart = E.init(node, null, { renderer: 'canvas' });
+  const node = document.getElementById(cfg.el); if (!node) return;
+  const chart = echartsInit(node, null, { renderer: 'canvas' });
   chart.setOption({
     backgroundColor: 'transparent',
     animationDuration: RM ? 0 : 1100, animationEasing: 'cubicOut', animationDelay: RM ? 0 : (i => i * 180),

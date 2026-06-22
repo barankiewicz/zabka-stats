@@ -21,7 +21,8 @@ export async function loadData() {
     summary, networkGrowth, networkOrigin, storesTimeline, openingHours,
     perCapita, growthByVoiv, cityFirst, topCities, economics,
     sunday, density, merrychef, inpost, kraniec,
-    elevation, neighborStats, section3, amphibians, wojGeo
+    elevation, neighborStats, section3, amphibians, wojGeo,
+    powiatCoverage, openingsMonthly, coverageFunnel
   ] = await Promise.allSettled([
     fetchJSON(`${BASE}/stats/summary`),
     fetchJSON(`${BASE}/stats/network-growth`),
@@ -43,6 +44,9 @@ export async function loadData() {
     fetchJSON(`${BASE}/stats/section3-rare`),
     fetchJSON(`${BASE}/stats/amphibians`),
     fetchJSON(`${BASE}/geo/voivodeships`),
+    fetchJSON(`${BASE}/stats/powiat-coverage`),
+    fetchJSON(`${BASE}/stats/openings-monthly`),
+    fetchJSON(`${BASE}/stats/coverage-funnel`),
   ]);
 
   function val(settled, fallback={}) { return settled.status==='fulfilled' ? settled.value : fallback; }
@@ -70,6 +74,9 @@ export async function loadData() {
     section3_rare:         val(section3, {}),
     amphibian_extremes:    val(amphibians, {}),
     woj_geo:               val(wojGeo, {type:'FeatureCollection', features:[]}),
+    powiat_coverage:       val(powiatCoverage, {total:0, covered:0, dots:[]}),
+    openings_monthly:      val(openingsMonthly, []),
+    coverage_funnel:       val(coverageFunnel, []),
     timeline_monthly:      [],
   });
 
