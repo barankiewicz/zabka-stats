@@ -1439,6 +1439,7 @@ async def parks_stores():
         SELECT latitude, longitude
         FROM locations
         WHERE is_in_nature_park = TRUE AND deleted_at IS NULL
+          AND snapshot_id = (SELECT MAX(id) FROM snapshots)
     """).fetchall()
     return [[round(float(r[0]), 6), round(float(r[1]), 6)] for r in rows]
 
