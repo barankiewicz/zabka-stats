@@ -201,6 +201,10 @@ function _updateEconFacts() {
       _setDC('ec-fact-u-leski-num', leski.unemployment_rate.toFixed(1));
       _setTxt('ec-fact-u-leski-sub', (leski.powiat || '').replace(/^powiat\s+/i, '') + ' - a gestość ' + leski.per_1k.toFixed(2));
     }
+    const uMedian = su[Math.floor(su.length / 2)].unemployment_rate;
+    _setDC('ec-fact-u-median-num', uMedian.toFixed(1));
+    const uHigh10 = rowsU.filter(r => r.unemployment_rate > 10).length;
+    _setDC('ec-fact-u-high10-num', uHigh10);
   }
 }
 
