@@ -23,16 +23,32 @@ function renderCiekawostkiKNN(){
   const ns=M.neighbor_stats||{};
   const dist=(ns.distribution||{buckets:[]}).buckets;
   const loner=ns.loner||{};
+  const d=ns.distribution||{};
 
-  // Per-bucket colors: green for close, amber for medium, red for far
-  const bucketColor=label=>{
-    if(label==='0 m') return C.lime+'cc';
-    if(label.includes('<50')||label.includes('50-100')||label.includes('100-200')) return C.green+'cc';
-    if(label.includes('200-350')||label.includes('350-500')) return C.amber+'aa';
-    if(label.includes('500 m - 1')) return C.amber+'88';
-    if(label.includes('1-3')) return '#e8916888';
-    return C.red+'88';
-  };
+  // Green gradient: lime at short distances, darker green at long
+  const n=dist.length||1;
+  const bgs=dist.map((_,i)=>{
+    const t=i/Math.max(n-1,1);
+    const r=Math.round(132+(166-132)*(1-t));
+    const g=Math.round(195+(232-195)*(1-t));
+    const bl=Math.round(65+(74-65)*(1-t));
+    return `rgba(${r},${g},${bl},0.85)`;
+  });
+
+  const med=d.median_m!=null?d.median_m:null;
+  const avg=d.avg_m!=null?d.avg_m:null;
+  const refLines=[];
+  if(med!=null) refLines.push({value:med,axis:'x',color:'#4a5a3e',lineWidth:2,label:'MED',labelColor:'#86a86a'});
+  if(avg!=null) refLines.push({value:avg,axis:'x',color:'#7a4a20',lineWidth:2,label:'AVG',labelColor:'#c79257'});
+
+  // Legend below (gran-ref-legend style)
+  const legEl=document.getElementById('ciek-knn-legend');
+  if(legEl){
+    const parts=[];
+    if(med!=null) parts.push(`<span class="lg-item" style="color:#86a86a"><span class="lg-line"></span>MED ${Math.round(med)} m</span>`);
+    if(avg!=null) parts.push(`<span class="lg-item" style="color:#c79257"><span class="lg-line"></span>AVG ${Math.round(avg)} m</span>`);
+    legEl.innerHTML=parts.join('');
+  }
 
   destroyChart('ciek-knn');
   CHARTS['ciek-knn']=new Chart(document.getElementById('ciek-knnChart'),{
@@ -41,33 +57,32 @@ function renderCiekawostkiKNN(){
       labels:dist.map(d=>d.bucket),
       datasets:[{
         data:dist.map(d=>d.cnt),
-        backgroundColor:dist.map(d=>bucketColor(d.bucket)),
+        backgroundColor:bgs,
         borderWidth:0,borderRadius:[0,4,4,0]
       }]
     },
     options:{
       indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${fmt(ctx.raw)} sklepów`}}},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>`${fmt(ctx.raw)} sklepow`}},
+        annot:{refLines},
+        barLabels:{thousands:true,color:C.muted},
+      },
       scales:{
         x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:9}}},
-        y:{grid:{display:false},ticks:{color:C.muted,font:{size:11},font:{family:'IBM Plex Sans'}}}
+        y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}
       }
     }
   });
 
-  // Update statline
-  const d=ns.distribution||{};
-  const med=d.median_m!=null?Math.round(d.median_m)+' m':'—';
-  const avg=d.avg_m!=null?Math.round(d.avg_m)+' m':'—';
   const maxKm=loner.nearest_neighbor_distance_meters
     ?(loner.nearest_neighbor_distance_meters/1000).toFixed(1).replace('.',',')+' km'
     :(d.max_m?(d.max_m/1000).toFixed(1).replace('.',',')+' km':'—');
-  const medEl=document.getElementById('ciek-stat-median');if(medEl)medEl.textContent=med;
-  const avgEl=document.getElementById('ciek-stat-avg');if(avgEl)avgEl.textContent=avg;
   const maxEl=document.getElementById('ciek-stat-max');if(maxEl)maxEl.textContent=maxKm;
 }
 
-// ===== CIEKAWOSTKI: Parks donut (canvas, same style as powiat coverage in Siec tab) =====
+// ===== CIEKAWOSTKI: Parks donut (Siec-style ring — canvas arc + HTML fraction) =====
 function renderCiekawostkiParks(){
   const parks=(M.section3_rare&&M.section3_rare.parks)||{};
   const inPark=parks.count||0;
@@ -79,23 +94,21 @@ function renderCiekawostkiParks(){
     :pctRaw.toFixed(1)
   ).toString().replace('.',',');
 
-  const cnoteEl=document.getElementById('ciek-parks-cnote');
-  if(cnoteEl) cnoteEl.textContent=`${fmt(inPark)} sklepów (${pctStr}%) stoi w parkach lub ich otulinach.`;
+  // Fraction + top3 below the ring (HTML, like Siec powiat tile)
+  const countEl=document.getElementById('ciek-parks-count');
+  if(countEl) countEl.textContent=fmt(inPark);
+  const totEl=document.getElementById('ciek-parks-total');
+  if(totEl) totEl.textContent=fmt(total);
   const statEl=document.getElementById('ciek-parks-statline');
   if(statEl&&parks.top3&&parks.top3.length)
-    statEl.innerHTML=parks.top3.map(p=>`<span>${p.park_name}: <b>${p.cnt}</b></span>`).join('');
+    statEl.innerHTML=parks.top3.map(p=>`<span>${p.park_name}: <b style="color:var(--green)">${p.cnt}</b></span>`).join('');
 
-  destroyChart('ciek-parks');
-
-  const canvas=document.getElementById('ciek-parksChart');
+  const canvas=document.getElementById('ciek-parksDonut');
   if(!canvas)return;
-  const SIZE=200;
-  canvas.width=SIZE; canvas.height=SIZE;
-  canvas.style.cssText='display:block;margin:12px auto 0';
-
+  const W=canvas.width||200,H=canvas.height||200;
   const ctx=canvas.getContext('2d');
-  const cx=SIZE/2,cy=SIZE/2,rr=SIZE/2-16;
-  ctx.clearRect(0,0,SIZE,SIZE);
+  const cx=W/2,cy=H/2,rr=Math.min(W,H)/2-14;
+  ctx.clearRect(0,0,W,H);
   ctx.lineCap='round';
   ctx.lineWidth=15;
 
@@ -104,21 +117,16 @@ function renderCiekawostkiParks(){
   ctx.beginPath();ctx.arc(cx,cy,rr,0,Math.PI*2);ctx.stroke();
 
   // Progress arc
-  const f=Math.max(0,Math.min(1,pctRaw/100));
+  const frac=Math.max(0,Math.min(1,pctRaw/100));
   ctx.strokeStyle=C.greenBright;
-  ctx.beginPath();ctx.arc(cx,cy,rr,-Math.PI/2,-Math.PI/2+Math.PI*2*f);ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,rr,-Math.PI/2,-Math.PI/2+Math.PI*2*frac);ctx.stroke();
 
-  // Percentage label
+  // Percentage label — centered, no subtitle inside the ring
   ctx.fillStyle=C.greenBright;
   ctx.textAlign='center';
   ctx.textBaseline='middle';
-  ctx.font=`800 ${Math.round(SIZE*0.21)}px '${getFont('display')}',sans-serif`;
-  ctx.fillText(pctStr+'%',cx,cy-10);
-
-  // Subtitle
-  ctx.fillStyle=C.muted;
-  ctx.font=`400 ${Math.round(SIZE*0.09)}px '${getFont('body')}',sans-serif`;
-  ctx.fillText('w parkach lub otulinach',cx,cy+14);
+  ctx.font=`800 ${Math.round(W*0.21)}px '${getFont('display')}',sans-serif`;
+  ctx.fillText(pctStr+'%',cx,cy);
 }
 
 // ===== CIEKAWOSTKI: Physical streets (top street+city pairs) =====
@@ -126,7 +134,7 @@ function renderCiekawostkiStreets(){
   const streets=(M.section3_rare&&M.section3_rare.physical_streets)||[];
   if(!streets.length)return;
 
-  const top=streets.slice(0,10);
+  const top=streets.slice(0,14);
 
   // Strip "ul." prefix, basic normalization for all-caps names
   const cleanStreet=s=>{
@@ -138,49 +146,30 @@ function renderCiekawostkiStreets(){
   // Lime -> green gradient, brightest at top
   const bgs=top.map((_,i)=>{
     const t=i/Math.max(top.length-1,1);
-    return `rgba(166,232,74,${0.92-t*0.52})`;
+    return `rgba(166,232,74,${0.88-t*0.48})`;
   });
-
-  // Inline count label drawn at bar end
-  const countPlugin={
-    id:'ciekStreetLabels',
-    afterDatasetsDraw(chart){
-      const{ctx}=chart;
-      const meta=chart.getDatasetMeta(0);
-      ctx.save();
-      ctx.textBaseline='middle';
-      ctx.textAlign='left';
-      ctx.font='600 11px "IBM Plex Sans",sans-serif';
-      meta.data.forEach((bar,i)=>{
-        const v=top[i]?top[i].cnt:0;
-        ctx.fillStyle=i===0?'rgba(166,232,74,0.95)':'rgba(200,230,160,0.8)';
-        ctx.fillText(v===1?'1 sklep':v+' sklepy',bar.x+6,bar.y);
-      });
-      ctx.restore();
-    }
-  };
 
   destroyChart('ciek-streets');
   CHARTS['ciek-streets']=new Chart(document.getElementById('ciek-streetsChart'),{
     type:'bar',
-    plugins:[countPlugin],
     data:{
       labels:top.map(s=>[cleanStreet(s.street),s.city]),
       datasets:[{
         data:top.map(s=>s.cnt),
         backgroundColor:bgs,
         borderWidth:0,
-        borderRadius:[0,5,5,0],
-        barThickness:22,
+        borderRadius:[0,4,4,0],
+        barThickness:16,
       }]
     },
     options:{
       indexAxis:'y',
       responsive:true,
       maintainAspectRatio:false,
-      layout:{padding:{right:88}},
+      layout:{padding:{right:52}},
       plugins:{
         legend:{display:false},
+        barLabels:{thousands:false,color:C.muted},
         tooltip:{callbacks:{
           title:ctx=>`${top[ctx[0].dataIndex].street}, ${top[ctx[0].dataIndex].city}`,
           label:ctx=>`${ctx.raw} ${ctx.raw===1?'sklep':'sklepy'} pod tym adresem`,
@@ -194,7 +183,7 @@ function renderCiekawostkiStreets(){
         },
         y:{
           grid:{display:false},
-          ticks:{color:C.muted,font:{size:10},crossAlign:'far'},
+          ticks:{color:C.muted,font:{size:9},crossAlign:'far'},
         }
       }
     }

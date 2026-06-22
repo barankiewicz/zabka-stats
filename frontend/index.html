@@ -258,9 +258,9 @@
       <div class="stat-sub">miejscowości z co najmniej 1 sklepem</div>
     </div>
     <div class="stat-tile">
-      <div class="stat-kicker">Z piecem</div>
-      <div class="stat-big" id="spol-kpi-mc">-<span class="stat-unit">%</span></div>
-      <div class="stat-sub">sklepów ma piec Merrychef</div>
+      <div class="stat-kicker">Zamknięte o 23:00</div>
+      <div class="stat-big" id="spol-kpi-closed23">-<span class="stat-unit">%</span></div>
+      <div class="stat-sub">sklepów kończy o 23:00</div>
     </div>
   </div>
 
@@ -270,7 +270,7 @@
     <div class="card-sub">Pojedynek dwóch gigantów polskiej przestrzeni publicznej!</div>
     <div class="gran-split" style="margin-top:16px">
       <div>
-        <div id="map-inpost" style="height:380px;border-radius:8px;overflow:hidden"></div>
+        <div id="map-inpost" style="height:420px;border-radius:8px;overflow:hidden"></div>
       </div>
       <div>
         <div class="gran-left-head" style="margin-bottom:8px">
@@ -283,7 +283,7 @@
             </div>
           </div>
         </div>
-        <div id="inpost-dumbbell" style="overflow-x:auto"></div>
+        <div id="inpost-dumbbell" style="height:420px;overflow:auto"></div>
       </div>
     </div>
   </div>
@@ -307,7 +307,7 @@
         <div id="scatter1" class="ec-chart"></div>
       </div>
 
-      <div class="stat-strip ec-reveal" style="grid-template-columns:repeat(4,1fr);margin-top:0;margin-bottom:0">
+      <div class="stat-strip ec-reveal" style="grid-template-columns:repeat(4,1fr);margin-top:16px;margin-bottom:0">
         <div class="stat-tile ec-reveal d1">
           <div class="stat-kicker">Łącznie</div>
           <div class="stat-big" id="ec-fact-total-num" data-count="13154" data-dec="0">0</div>
@@ -320,12 +320,12 @@
         </div>
         <div class="stat-tile ec-reveal d3">
           <div class="stat-kicker">Rekord gęstości</div>
-          <div class="stat-big" style="color:var(--amber)">1 : <span id="ec-fact-record-num" data-count="1008" data-dec="0">0</span></div>
+          <div class="stat-big">1 : <span id="ec-fact-record-num" data-count="1008" data-dec="0">0</span></div>
           <div class="stat-sub" id="ec-fact-record-sub">Międzyzdroje (pow. kamieński)</div>
         </div>
         <div class="stat-tile ec-reveal d4">
           <div class="stat-kicker">Rozpiętość województw</div>
-          <div class="stat-big" id="ec-fact-voiv-num" data-count="2.5" data-dec="1" data-suffix="x" style="color:var(--teal)">0</div>
+          <div class="stat-big" id="ec-fact-voiv-num" data-count="2.5" data-dec="1" data-suffix="x">0</div>
           <div class="stat-sub" id="ec-fact-voiv-sub">Pomorskie vs Podkarpackie</div>
         </div>
       </div>
@@ -361,7 +361,7 @@
         <div id="scatter2" class="ec-chart"></div>
       </div>
 
-      <div class="stat-strip ec-reveal" style="grid-template-columns:repeat(4,1fr);margin-top:0;margin-bottom:0">
+      <div class="stat-strip ec-reveal" style="grid-template-columns:repeat(4,1fr);margin-top:16px;margin-bottom:0">
         <div class="stat-tile ec-reveal d1">
           <div class="stat-kicker">Odwrotna drabina</div>
           <div class="stat-big" id="ec-fact-u-ratio-num" data-count="1.8" data-dec="1" data-suffix="x">0</div>
@@ -374,12 +374,12 @@
         </div>
         <div class="stat-tile ec-reveal d3">
           <div class="stat-kicker">Rekord bezrobocia</div>
-          <div class="stat-big" id="ec-fact-u-max-num" data-count="22.1" data-dec="1" data-suffix="%" style="color:var(--red)">0</div>
+          <div class="stat-big" id="ec-fact-u-max-num" data-count="22.1" data-dec="1" data-suffix="%">0</div>
           <div class="stat-sub" id="ec-fact-u-max-sub">szydłowiecki - tylko <span id="ec-fact-u-max-density">0,16</span> skl./1000</div>
         </div>
         <div class="stat-tile ec-reveal d4">
           <div class="stat-kicker">Wyjątek kurortowy</div>
-          <div class="stat-big" id="ec-fact-u-leski-num" data-count="19.7" data-dec="1" data-suffix="%" style="color:var(--amber)">0</div>
+          <div class="stat-big" id="ec-fact-u-leski-num" data-count="19.7" data-dec="1" data-suffix="%">0</div>
           <div class="stat-sub" id="ec-fact-u-leski-sub">leski - wysokie bezrobocie, przyzwoita sieć</div>
         </div>
       </div>
@@ -522,19 +522,24 @@
     <div class="card">
       <div class="card-title">Polowa sieci ma sasiadke blizej niz 300 m</div>
       <div class="card-sub">Rozklad odleglosci do najblizszego sklepu (k-NN).</div>
-      <div class="chart-wrap" style="height:240px"><canvas id="ciek-knnChart"></canvas></div>
-      <div class="statline" style="margin-top:8px"><span>mediana <b id="ciek-stat-median">-</b></span><span>srednia <b id="ciek-stat-avg">-</b></span><span>maks. <b id="ciek-stat-max">-</b></span></div>
+      <div class="chart-wrap" style="height:280px"><canvas id="ciek-knnChart"></canvas></div>
+      <div class="gran-ref-legend" id="ciek-knn-legend" style="margin-top:8px"></div>
+      <div class="statline" style="margin-top:6px"><span>maks. <b id="ciek-stat-max">-</b></span></div>
     </div>
     <div class="card">
       <div class="card-title">Zabka na lonie natury</div>
       <div class="card-sub" id="ciek-parks-cnote">Sklepy w granicach parkow krajobrazowych i otulin.</div>
-      <div class="chart-wrap" style="height:240px"><canvas id="ciek-parksChart"></canvas></div>
-      <div id="ciek-parks-statline" style="margin-top:8px"></div>
+      <div style="display:flex;flex-direction:column;align-items:center;padding:18px 0 10px">
+        <canvas id="ciek-parksDonut" class="powiat-donut" width="200" height="200"></canvas>
+        <div class="powiat-frac"><span id="ciek-parks-count">-</span><span class="powiat-of">/<span id="ciek-parks-total">-</span></span></div>
+        <div class="powiat-cap">sklepow w parkach lub otulinach</div>
+      </div>
+      <div id="ciek-parks-statline" style="margin-top:4px;font-family:var(--font-mono);font-size:11px;color:var(--muted);display:flex;flex-wrap:wrap;gap:10px"></div>
     </div>
     <div class="card">
       <div class="card-title">Ulice z najwieksza liczba Zabek</div>
       <div class="card-sub">Konkretna ulica i miasto - nie tylko nazwa.</div>
-      <div class="chart-wrap" style="height:240px"><canvas id="ciek-streetsChart"></canvas></div>
+      <div class="chart-wrap" style="height:360px"><canvas id="ciek-streetsChart"></canvas></div>
     </div>
   </div>
 </div>

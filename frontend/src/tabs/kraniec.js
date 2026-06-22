@@ -98,7 +98,7 @@ function buildMap() {
     const c = COL[f.g];
     const icon = L.divIcon({ className: '', html: `<div class="mk ${f.id === 'frog' ? 'big' : ''}" style="--c:${c}"></div>`, iconSize: [16, 16], iconAnchor: [8, 8] });
     const m = L.marker([f.lat, f.lon], { icon }).addTo(map);
-    m.bindTooltip(`<div style="font-size:12px"><b style="color:${c}">${f.val}</b><br>${f.city} · ${f.voiv}</div>`, { direction: 'top', offset: [0, -10], opacity: 0.95 });
+    m.bindTooltip(`<div style="font-size:12px;line-height:1.5"><b style="color:${c}">${f.lab}</b><br>${f.val}<br><span style="color:#93a487;font-size:11px">${f.city} · ${f.street}</span></div>`, { direction: 'top', offset: [0, -10], opacity: 0.95 });
     m.bindPopup(`<div class="pop" style="--c:${c}"><div class="pk">${f.lab}</div><div class="pv">${f.val}</div><div class="pc">${f.city}</div><div class="ps">${f.voiv} · ${f.street}</div><div class="pd">${f.desc}</div></div>`, { maxWidth: 260, closeButton: false });
     m.on('click', () => select(f.id, true));
     markers[f.id] = m;
@@ -146,7 +146,10 @@ function buildMap() {
   const parksLayer = L.layerGroup();
   let parksOn = false;
   const parksStores = M.parks_stores || [];
-  parksStores.forEach(([lat, lon]) => L.circleMarker([lat, lon], { radius: 3, color: '#84c341', weight: 0, fillColor: '#84c341', fillOpacity: .5, interactive: false }).addTo(parksLayer));
+  const parksSample = parksStores.length > 150
+    ? parksStores.filter((_, i) => i % Math.ceil(parksStores.length / 150) === 0).slice(0, 150)
+    : parksStores;
+  parksSample.forEach(([lat, lon]) => L.circleMarker([lat, lon], { radius: 4, color: '#84c341', weight: 1, fillColor: '#a6e84a', fillOpacity: .7, interactive: false }).addTo(parksLayer));
   const parksBtn = document.getElementById('kr-layer-parks');
   if (parksBtn) parksBtn.onclick = () => {
     parksOn = !parksOn;
