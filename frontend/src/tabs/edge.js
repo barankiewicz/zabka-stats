@@ -1,11 +1,8 @@
 import Chart from 'chart.js/auto';
-import L from 'leaflet';
 import { C } from '../config.js';
-import { M, CHARTS, MAPS } from '../state.js';
-import { fmt, getFont, destroyChart, projectPL, leafletDark, startTabParticles } from '../utils.js';
-import { renderKraniec } from './kraniec.js';
-
-let jumpedFact=null;
+import { M, CHARTS } from '../state.js';
+import { fmt, getFont, destroyChart, startTabParticles } from '../utils.js';
+import { renderKraniec, selectFact } from './kraniec.js';
 
 function _updateEdgeHeroLede(){
   const ledeEl=document.getElementById('hero-lede-edge');if(!ledeEl)return;
@@ -19,78 +16,6 @@ function _updateEdgeHeroLede(){
   const h24Str=h24n!=null?h24n:35;
   const voidStr=voidVal?String(voidVal).replace('.',','):'46,5';
   ledeEl.textContent=`Od ${loStr} pod poziomem morza po ${hiStr} w Tatrach. ${h24Str} sklepów, które nigdy nie śpią. Jeden punkt w Polsce oddalony o ${voidStr} km od jakiejkolwiek Żabki.`;
-}
-
-// ===== CIEKAWOSTKI: KPI bar (frog data + min distance) =====
-function renderCiekawostkiKPI(){
-  const ae=M.amphibian_extremes||{};
-  const ns=M.neighbor_stats||{};
-  const el=id=>document.getElementById(id);
-
-  // Most froggy
-  if(ae.most_froggy){
-    const mf=ae.most_froggy;
-    if(el('ciek-kpi-froggy')) el('ciek-kpi-froggy').textContent=fmt(mf.amphibian_occurrences_5km||0);
-    if(el('ciek-kpi-froggy-sub')) el('ciek-kpi-froggy-sub').textContent=`rekord: ${mf.city||''}`;
-  }
-
-  // Zero frogs count
-  if(ae.zero_frog_count!=null&&el('ciek-kpi-dry'))
-    el('ciek-kpi-dry').textContent=fmt(ae.zero_frog_count);
-
-  // Farthest from frog
-  if(ae.farthest_from_frog){
-    const ff=ae.farthest_from_frog;
-    const km=ff.nearest_amphibian_km?ff.nearest_amphibian_km.toFixed(2).replace('.',',')+' km':'—';
-    if(el('ciek-kpi-farthest')) el('ciek-kpi-farthest').textContent=km;
-    if(el('ciek-kpi-farthest-sub')) el('ciek-kpi-farthest-sub').textContent=ff.city||'';
-  }
-
-  // Zero distance count from neighbor stats
-  const zeroCnt=ns.zero_distance_count||0;
-  if(el('ciek-kpi-zero')){
-    if(zeroCnt>0) el('ciek-kpi-zero').textContent='0 m ('+fmt(zeroCnt)+' par)';
-    else el('ciek-kpi-zero').textContent='0 m';
-  }
-}
-
-// ===== CIEKAWOSTKI: Elevation histogram =====
-function renderCiekawostkiElev(){
-  const hist=(M.elevation||{histogram:[]}).histogram.filter(d=>d.cnt>0);
-  if(!hist.length){
-    const wrap=document.querySelector('#ciek-c-elev .chart-wrap');
-    if(wrap) wrap.innerHTML='<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;text-align:center;padding:20px">Dane wysokosciowe wymagaja uruchomienia ETL z flaga --elevation</div>';
-    return;
-  }
-  const pcts=(M.elevation.percentiles)||{};
-  const p5=pcts.p5!=null?pcts.p5:17;
-  const p95=pcts.p95!=null?pcts.p95:332;
-  const colors=hist.map(d=>(d.bucket_m>=p5&&d.bucket_m<=p95)?C.amber+'cc':C.amber+'30');
-
-  // Update cnote
-  const elev=M.elevation||{};
-  if(elev.extremes&&elev.extremes.length>=2){
-    const top=elev.extremes.find(e=>e.which==='top');
-    const bot=elev.extremes.find(e=>e.which==='bottom');
-    const cnoteEl=document.getElementById('ciek-elev-cnote');
-    const capEl=document.getElementById('ciek-elev-cap-n');
-    if(capEl){const n=hist.reduce((a,b)=>a+(b.cnt||0),0);if(n>0)capEl.textContent=n.toLocaleString('pl-PL');}
-    if(cnoteEl&&top&&bot){
-      const pRange=(pcts.p5!=null&&pcts.p95!=null)?`między ${pcts.p5} a ${pcts.p95} m`:'między 17 a 332 m';
-      cnoteEl.innerHTML=`95% sieci mieści się ${pRange}. Rekordy: <b style="color:#f2a359">${top.city} ${(Math.round(top.elevation_meters*10)/10).toFixed(1).replace('.',',')} m</b> i <b style="color:#e8693d">${bot.city} ${bot.elevation_meters} m</b>.`;
-    }
-  }
-
-  destroyChart('ciek-elev');
-  CHARTS['ciek-elev']=new Chart(document.getElementById('ciek-elevChart'),{
-    type:'bar',
-    data:{labels:hist.map(d=>d.bucket_m+'m'),datasets:[{data:hist.map(d=>d.cnt),backgroundColor:colors,borderWidth:0,borderRadius:2}]},
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${fmt(ctx.raw)} sklepów`}}},
-      scales:{x:{ticks:{color:C.muted,font:{size:9},maxRotation:45},grid:{display:false}},y:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:9}}}}
-    }
-  });
 }
 
 // ===== CIEKAWOSTKI: kNN distribution (more buckets) =====
@@ -276,327 +201,84 @@ function renderCiekawostkiStreets(){
   });
 }
 
-// ===== CIEKAWOSTKI: P3 frog density by voivodeship =====
-function renderCiekawostkiFrogVoiv(){
-  const data=[...(M.amphibian_extremes.by_voivodeship||[])].sort((a,b)=>b.avg_occurrences-a.avg_occurrences);
-  if(!data.length)return;
-  const maxV=data[0].avg_occurrences;
-  destroyChart('frog-voiv-edge');
-  CHARTS['frog-voiv-edge']=new Chart(document.getElementById('chart-frog-voiv-edge'),{
-    type:'bar',
-    data:{
-      labels:data.map(d=>d.voivodeship),
-      datasets:[{
-        data:data.map(d=>d.avg_occurrences),
-        backgroundColor:data.map(d=>`rgba(0,180,200,${.25+.75*(d.avg_occurrences/maxV)})`),
-        borderRadius:2,borderWidth:0
-      }]
-    },
-    options:{
-      indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`sr. ${fmt(ctx.raw)} obserwacji`}}},
-      scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
-    }
-  });
-}
+function renderEdgeKPIs() {
+  const s = M.summary || {};
+  const s3 = M.section3_rare || {};
+  const parks = s3.parks || {};
+  const ns = M.neighbor_stats || {};
+  const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
 
-// ===== CIEKAWOSTKI: P4 frog scatter =====
-function _logColorScale2(dMin,dMax,cA,cB){
-  const lMin=Math.log(dMin),lRange=Math.log(dMax)-lMin;
-  const h=s=>[parseInt(s.slice(1,3),16),parseInt(s.slice(3,5),16),parseInt(s.slice(5,7),16)];
-  const [ar,ag,ab]=h(cA),[br,bg,bb]=h(cB);
-  return x=>{const t=Math.max(0,Math.min(1,(Math.log(Math.max(x,dMin))-lMin)/lRange));
-    const r=Math.round(ar+(br-ar)*t),g=Math.round(ag+(bg-ag)*t),b=Math.round(ab+(bb-ab)*t);
-    return`#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;};
-}
-function renderCiekawostkiFrogScatter(){
-  const ae=M.amphibian_extremes||{};
-  const scatter=ae.scatter_sample||[];
-  const stores=ae.stores||[];
-  let pts=[];
-  if(scatter.length) pts=scatter.filter(p=>p[0]>0&&p[1]>0);
-  else pts=stores.filter((_,i)=>i%3===0&&_[2]>0&&_[3]>0).slice(0,300).map(s=>[s[3],s[2]]);
-  if(!pts.length)return;
-  const maxOcc=Math.max(...pts.map(p=>p[1]),1);
-  const tsc=_logColorScale2(1,maxOcc,'#0d4040','#00e0c8');
-  const xLabel=scatter.length?'liczba Żabek w promieniu 5 km':'odległość do najbl. obserwacji (km)';
-  destroyChart('frog-scatter-edge');
-  CHARTS['frog-scatter-edge']=new Chart(document.getElementById('chart-frog-scatter-edge'),{
-    type:'scatter',
-    data:{datasets:[{
-      data:pts.map(p=>({x:p[0],y:p[1]})),
-      backgroundColor:pts.map(p=>tsc(Math.max(p[1],1))),
-      pointRadius:4,pointHoverRadius:7
-    }]},
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      animation:{duration:800,easing:'easeOutQuart'},
-      plugins:{
-        legend:{display:false},
-        tooltip:{callbacks:{label:ctx=>`${ctx.raw.x} · ${fmt(ctx.raw.y)} obs.`}}
-      },
-      scales:{
-        x:{type:scatter.length?'logarithmic':'linear',title:{display:true,text:xLabel,color:C.muted,font:{size:10}},ticks:{color:C.muted,font:{size:10}},grid:{color:C.axis}},
-        y:{type:'logarithmic',title:{display:true,text:'obserwacje płazów w 5 km',color:C.muted,font:{size:10}},ticks:{color:C.muted,font:{size:10}},grid:{color:C.axis}}
-      }
+  if (s.h24_count != null) set('edge-kpi-h24', String(s.h24_count));
+  if (parks.count != null) set('edge-kpi-parks', fmt(parks.count));
+  if (s3.powiats_covered != null) set('edge-kpi-powiats', `${s3.powiats_covered}<span class="stat-unit">/381</span>`);
+  if (s3.frog_streets_count != null) set('edge-kpi-frogstreets', String(s3.frog_streets_count));
+
+  // ep-parks-val / ep-parks-note
+  if (parks.count != null) {
+    set('ep-parks-val', fmt(parks.count));
+    if (s.total_active) {
+      const pct = ((parks.count / s.total_active) * 100).toFixed(1).replace('.', ',');
+      set('ep-parks-note', `sklepow (${pct}%) w parkach krajobrazowych i otulinach`);
     }
-  });
+  }
+
+  // ep-isolated-val from neighbor_stats loner
+  const loner = ns.loner || {};
+  if (loner.nearest_neighbor_distance_meters) {
+    const km = (loner.nearest_neighbor_distance_meters / 1000).toFixed(1).replace('.', ',');
+    set('edge-kpi-isolated', `${km}<span class="stat-unit"> km</span>`);
+    set('ep-isolated-val', `${km} km`);
+    if (loner.city) set('ep-isolated-city', `${loner.city}${loner.voivodeship ? ', ' + loner.voivodeship : ''}`);
+    if (loner.street) set('ep-isolated-street', loner.street);
+  }
+
+  // void KPI from section3_rare
+  const vd = s3.void;
+  if (vd && vd.value) {
+    set('edge-kpi-void', `${String(vd.value).replace('.', ',')}<span class="stat-unit"> km</span>`);
+  }
+
+  // Elevation panels from M.elevation.extremes
+  const elev = M.elevation || {};
+  if (elev.extremes && elev.extremes.length) {
+    const top = elev.extremes.find(e => e.which === 'top');
+    const bot = elev.extremes.find(e => e.which === 'bottom');
+    if (top) {
+      const val = (Math.round(top.elevation_meters * 10) / 10).toFixed(1).replace('.', ',') + ' m';
+      set('ep-highest-val', val);
+      if (top.city) set('ep-highest-city', `${top.city}${top.voivodeship ? ', ' + top.voivodeship : ''}`);
+      if (top.street) set('ep-highest-street', top.street);
+    }
+    if (bot) {
+      const val = String(bot.elevation_meters).replace('.', ',') + ' m';
+      set('ep-lowest-val', val);
+      if (bot.city) set('ep-lowest-city', `${bot.city}${bot.voivodeship ? ', ' + bot.voivodeship : ''}`);
+      if (bot.street) set('ep-lowest-street', bot.street);
+    }
+  }
+
+  // Frog street panel
+  const frogStreets = s3.frog_streets || [];
+  if (frogStreets.length) {
+    const crown = frogStreets[0];
+    if (crown.city) set('ep-frogstreet-city', `${crown.city}${crown.voivodeship ? ', ' + crown.voivodeship : ''}`);
+    const cnt = s3.frog_streets_count || frogStreets.length;
+    set('ep-frogstreet-note', `Zabka przy ulicy Zielonej Zabki - jeden z ${cnt} sklepow na ulicach z zabim motywem.`);
+  }
 }
 
 export function renderEdge(){
   startTabParticles('particles-edge',[96,200,148],42);
   _updateEdgeHeroLede();
-  // Ciekawostki section
-  renderCiekawostkiKPI();
-  renderCiekawostkiElev();
+  renderEdgeKPIs();
   renderCiekawostkiKNN();
   renderCiekawostkiParks();
   renderCiekawostkiStreets();
-  renderCiekawostkiFrogVoiv();
-  renderCiekawostkiFrogScatter();
-  // Wartosci brzegowe section
   renderKraniec();
-  populateFactCards();
-  renderEdgeMap();
-  renderElevHist();
-  renderNeighborDist();
-  drawH24Mini();
-  drawParksDonut();
-  drawVoidMini();
-  renderCivicStreets();
-  fillFrogStreets();
-  renderParksMap();
 }
 
-export function populateFactCards(){
-  if(!M.kraniec_facts||!M.kraniec_facts.length)return;
-  const byId={};M.kraniec_facts.forEach(f=>byId[f.id]=f);
-  ['north','south','east','west','highest','lowest','isolated','void','frogstreet'].forEach(id=>{
-    const f=byId[id];if(!f)return;
-    const card=document.querySelector(`[data-fact-id="${id}"]`);if(!card)return;
-    const bigEl=card.querySelector('.fact-big');
-    const cityEl=card.querySelector('.fact-city');
-    const streetEl=card.querySelector('.fact-street');
-    if(bigEl&&f.value)bigEl.textContent=f.value;
-    if(cityEl&&f.city)cityEl.textContent=f.city+(f.voivodeship?', '+f.voivodeship:'');
-    if(streetEl&&f.street)streetEl.textContent=f.street;
-  });
+export function jumpToFact(id) { selectFact(id); }
+export function jumpBack() {}
+export function jumpToH24() {}
+export function jumpToParks() {}
 
-  const h24Count=M.section3_rare&&M.section3_rare.h24_cities
-    ?(M.summary&&M.summary.h24_count)||0:0;
-  const e1big=document.querySelector('[data-debug-id="E1"]');
-  if(e1big){const fb=e1big.closest('.card')?.querySelector('.fact-big');if(fb&&h24Count)fb.textContent=fmt(h24Count);}
-
-  const parks=(M.section3_rare&&M.section3_rare.parks)||{};
-  const e2big=document.getElementById('kr-e2-parks-count');
-  if(e2big&&parks.count)e2big.textContent=fmt(parks.count);
-}
-
-export function renderEdgeMap(){
-  const map=leafletDark('map-edge');map.setView([52,19.4],6);
-  M.points_sample.forEach(([lat,lon])=>{
-    L.circleMarker([lat,lon],{radius:1.5,color:'#1f3a26',fillColor:'#1f3a26',fillOpacity:.5,weight:0}).addTo(map);
-  });
-  const gc={compass:C.green,elevation:C.amber,isolation:C.teal,amphibian:C.teal,street:C.teal,void:C.red};
-  const markers={};
-  M.kraniec_facts.forEach(fact=>{
-    const col=gc[fact.group]||C.green;
-    let m;
-    if(fact.type==='void'){
-      m=L.circleMarker([fact.lat,fact.lon],{radius:8,color:col,fillColor:col,fillOpacity:.3,weight:2});
-      L.circle([fact.lat,fact.lon],{radius:46520,color:col,fill:false,weight:1.5,dashArray:'6,4'}).addTo(map);
-    }else{
-      m=L.circleMarker([fact.lat,fact.lon],{radius:7,color:col,fillColor:col,fillOpacity:.8,weight:2});
-    }
-    m.bindPopup(`<b style="color:${col}">${fact.value}</b><br>${fact.city}, ${fact.voivodeship}<br><small>${fact.street}</small>`);
-    m.addTo(map);markers[fact.id]=m;
-  });
-  MAPS['edge-markers']=markers;MAPS.edge=map;
-}
-
-export function jumpToFact(id){
-  const fact=M.kraniec_facts.find(f=>f.id===id);if(!fact||!MAPS.edge)return;
-  jumpedFact=id;
-  document.querySelectorAll('.fact-card').forEach(c=>c.classList.remove('jumped'));
-  const card=document.querySelector(`[data-fact-id="${id}"]`);
-  if(card)card.classList.add('jumped');
-  const mapCard=document.getElementById('map-edge').closest('.card');
-  if(mapCard)mapCard.scrollIntoView({behavior:'smooth',block:'center'});
-  const back=document.getElementById('edge-back-btn');if(back)back.classList.add('visible');
-  setTimeout(()=>{
-    const prefRed=window.matchMedia('(prefers-reduced-motion:reduce)').matches;
-    if(prefRed)MAPS.edge.setView([fact.lat,fact.lon],fact.zoom||10);
-    else MAPS.edge.flyTo([fact.lat,fact.lon],fact.zoom||10,{duration:.8,easeLinearity:.5});
-    const m=MAPS['edge-markers'];if(m&&m[id])m[id].openPopup();
-  },500);
-}
-
-export function jumpBack(){
-  if(!MAPS.edge)return;
-  MAPS.edge.flyTo([52,19.4],6,{duration:.6});
-  const m=MAPS['edge-markers'];if(m)Object.values(m).forEach(mk=>mk.closePopup&&mk.closePopup());
-  document.querySelectorAll('.fact-card').forEach(c=>c.classList.remove('jumped'));
-  const back=document.getElementById('edge-back-btn');if(back)back.classList.remove('visible');
-  jumpedFact=null;
-}
-
-export function jumpToH24(){
-  if(!MAPS.edge)return;
-  const back=document.getElementById('edge-back-btn');if(back)back.classList.add('visible');
-  const mapCard=document.getElementById('map-edge').closest('.card');
-  if(mapCard)mapCard.scrollIntoView({behavior:'smooth',block:'center'});
-  setTimeout(()=>MAPS.edge.flyTo([51.94,15.50],8,{duration:.8}),500);
-}
-
-export function jumpToParks(){
-  const pc=document.getElementById('parks-map-card');
-  if(pc)pc.scrollIntoView({behavior:'smooth',block:'center'});
-}
-
-export function renderElevHist(){
-  const hist=(M.elevation.histogram||[]).filter(d=>d.cnt>0);
-  const pcts=(M.elevation.percentiles)||{};
-  const p5=pcts.p5!=null?pcts.p5:17;
-  const p95=pcts.p95!=null?pcts.p95:332;
-  const colors=hist.map(d=>(d.bucket_m>=p5&&d.bucket_m<=p95)?C.amber+'99':C.amber+'30');
-  destroyChart('elev-hist');
-  CHARTS['elev-hist']=new Chart(document.getElementById('chart-elev-hist'),{
-    type:'bar',
-    data:{labels:hist.map(d=>d.bucket_m+'m'),datasets:[{data:hist.map(d=>d.cnt),backgroundColor:colors,borderWidth:0,borderRadius:2}]},
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      plugins:{
-        legend:{display:false},
-        tooltip:{callbacks:{label:ctx=>`${fmt(ctx.raw)} sklepow`}},
-        annot:{shadedBands:[{x1:p5,x2:p95,color:'rgba(245,166,35,.07)'}]}
-      },
-      scales:{x:{ticks:{color:C.muted,font:{size:9},maxRotation:45},grid:{display:false}},y:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:9}}}}
-    }
-  });
-}
-
-export function renderNeighborDist(){
-  const ns=M.neighbor_stats||{};
-  const dist=(ns.distribution||{buckets:[]}).buckets;
-  destroyChart('neighbor-dist');
-  CHARTS['neighbor-dist']=new Chart(document.getElementById('chart-neighbor-dist'),{
-    type:'bar',
-    data:{labels:dist.map(d=>d.bucket),datasets:[{data:dist.map(d=>d.cnt),backgroundColor:C.teal+'99',borderWidth:0,borderRadius:3}]},
-    options:{
-      indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${fmt(ctx.raw)} sklepow`}}},
-      scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
-    }
-  });
-  const d=ns.distribution||{};
-  const loner=ns.loner||{};
-  if(d.median_m!=null){
-    const med=Math.round(d.median_m)+' m';
-    const avg=Math.round(d.avg_m)+' m';
-    const maxKm=loner.nearest_neighbor_distance_meters
-      ?(loner.nearest_neighbor_distance_meters/1000).toFixed(1).replace('.',',')+' km'
-      :(d.max_m?(d.max_m/1000).toFixed(1).replace('.',',')+' km':'—');
-    const medEl=document.getElementById('c2-stat-med');if(medEl)medEl.textContent=med;
-    const avgEl=document.getElementById('c2-stat-avg');if(avgEl)avgEl.textContent=avg;
-    const maxEl=document.getElementById('c2-stat-max');if(maxEl)maxEl.textContent=maxKm;
-    const titleEl=document.getElementById('c2-card-title');
-    if(titleEl)titleEl.textContent=`Połowa sieci ma sąsiada bliżej niż ${Math.round(d.median_m)} m - ogon sięga ${maxKm}`;
-  }
-}
-
-export function drawH24Mini(){
-  const cv=document.getElementById('canvas-h24-mini');
-  const W=cv.offsetWidth||200;cv.width=W;cv.height=100;
-  const ctx=cv.getContext('2d');
-  ctx.fillStyle=C.surface;ctx.fillRect(0,0,W,100);
-  const pts=M.section3_rare.h24_points||[];
-  pts.forEach(([lat,lon])=>{
-    const p=projectPL(lat,lon,W,100);
-    ctx.fillStyle=C.amber+'cc';ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();
-  });
-  const el=document.getElementById('h24-cities-list');
-  if(el)(M.section3_rare.h24_cities||[]).forEach(c=>{
-    const div=document.createElement('div');div.textContent=c.city+' ('+c.cnt+')';el.appendChild(div);
-  });
-}
-
-export function drawParksDonut(){
-  const cv=document.getElementById('canvas-parks-donut');
-  const S=100;cv.width=S;cv.height=S;
-  const ctx=cv.getContext('2d');ctx.clearRect(0,0,S,S);
-  const parksCount=(M.section3_rare.parks&&M.section3_rare.parks.count)||0;
-  const totalAct=(M.summary&&M.summary.total_active)||0;
-  if(!totalAct)return;
-  const cx=S/2,cy=S/2,R=S/2-6,pct=parksCount/totalAct;
-  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.strokeStyle=C.axis;ctx.lineWidth=8;ctx.stroke();
-  ctx.beginPath();ctx.arc(cx,cy,R,-Math.PI/2,-Math.PI/2+pct*2*Math.PI);ctx.strokeStyle=C.green;ctx.lineWidth=8;ctx.stroke();
-  ctx.fillStyle=C.ink;ctx.font=`bold 13px '${getFont('display')}',sans-serif`;
-  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText((pct*100).toFixed(1)+'%',cx,cy);
-  const el=document.getElementById('parks-top3');
-  if(el)el.innerHTML=(M.section3_rare.parks.top3||[]).map(p=>`${p.park_name}: ${p.cnt}`).join('<br>');
-}
-
-export function drawVoidMini(){
-  const cv=document.getElementById('canvas-void-mini');
-  const W=cv.offsetWidth||200;cv.width=W;cv.height=100;
-  const ctx=cv.getContext('2d');
-  ctx.fillStyle=C.surface;ctx.fillRect(0,0,W,100);
-  M.points_sample.slice(0,400).forEach(([lat,lon])=>{
-    const p=projectPL(lat,lon,W,100);
-    ctx.fillStyle='rgba(0,192,96,.4)';ctx.beginPath();ctx.arc(p.x,p.y,1,0,Math.PI*2);ctx.fill();
-  });
-  const vp=projectPL(49.01,22.89,W,100);
-  ctx.beginPath();ctx.arc(vp.x,vp.y,18,0,Math.PI*2);
-  ctx.strokeStyle=C.red;ctx.lineWidth=1.5;ctx.setLineDash([4,3]);ctx.stroke();ctx.setLineDash([]);
-}
-
-export function renderCivicStreets(){
-  // kept for legacy calls - canvas may not exist now
-  const canvas=document.getElementById('chart-civic-streets');
-  if(!canvas)return;
-  const cs=M.section3_rare.civic_streets;
-  destroyChart('civic-streets');
-  CHARTS['civic-streets']=new Chart(canvas,{
-    type:'bar',
-    data:{labels:['Rynek','Kosciuszki','Pilsudskiego','Wojska Polskiego','Mickiewicza','Jana Pawla II'],
-          datasets:[{data:[cs.rynek,cs.kosciuszki,cs.pilsudskiego,cs.wojska_polskiego,cs.mickiewicza,cs.jana_pawla_ii],backgroundColor:C.green+'88',borderRadius:2,borderWidth:0}]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:9}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:9}}}}}
-  });
-}
-
-export function fillFrogStreets(){
-  const list=M.section3_rare.frog_streets||[];
-  const el=document.getElementById('frog-streets-list');
-  if(el)el.innerHTML=list.slice(1,5).map(s=>`${s.street}, ${s.city}`).join('<br>');
-}
-
-export function renderParksMap(){
-  const map=leafletDark('map-parks');map.setView([52,19.4],6);
-  const parks=[
-    {name:'Tatrzanski NP',lat:49.22,lon:19.97,type:'national'},
-    {name:'Bialowieski NP',lat:52.70,lon:23.88,type:'national'},
-    {name:'Kampinoski NP',lat:52.33,lon:20.47,type:'national'},
-    {name:'Wolinski NP',lat:53.92,lon:14.50,type:'national'},
-    {name:'Slowiński NP',lat:54.50,lon:17.50,type:'national'},
-    {name:'Beskid Slaski LP',lat:49.70,lon:18.90,type:'landscape'},
-    {name:'Kaszubski LP',lat:54.20,lon:18.00,type:'landscape'},
-    {name:'Puszcza Rominiecka LP',lat:54.20,lon:22.70,type:'landscape'},
-    {name:'Zalewy Warty LP',lat:52.60,lon:16.10,type:'landscape'},
-    {name:'Roztocze LP',lat:50.40,lon:22.90,type:'landscape'},
-  ];
-  parks.forEach(p=>{
-    const col=p.type==='national'?C.amber:C.teal;
-    L.circleMarker([p.lat,p.lon],{radius:8,color:col,fillColor:col,fillOpacity:.7,weight:2})
-      .bindTooltip(`<b>${p.name}</b><br>${p.type==='national'?'Park narodowy':'Park krajobrazowy'}`,{sticky:true})
-      .addTo(map);
-  });
-  const legend=L.control({position:'bottomright'});
-  legend.onAdd=()=>{
-    const div=L.DomUtil.create('div');
-    div.style.cssText='background:rgba(13,13,20,.85);padding:8px 12px;border-radius:6px;font-size:11px;color:#7a7a90;border:1px solid #2a2a3a';
-    div.innerHTML=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="width:10px;height:10px;background:${C.amber};border-radius:50%;display:inline-block"></span>Park narodowy</div><div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;background:${C.teal};border-radius:50%;display:inline-block"></span>Park krajobrazowy</div>`;
-    return div;
-  };
-  legend.addTo(map);
-  MAPS['parks']=map;
-}

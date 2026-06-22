@@ -31,7 +31,8 @@ const HOME = [52.05, 19.3], HOME_Z = 6;
 
 const axisC = '#93a487', mono = 'JetBrains Mono', split = 'rgba(140,200,80,.06)';
 
-let _krDone = false, _krMap = null;
+let _krDone = false, _krMap = null, _select = null;
+export function selectFact(id) { if (_select) _select(id, true); }
 
 function _setDC(id, v) {
   const el = document.getElementById(id); if (!el) return;
@@ -41,117 +42,17 @@ function _setText(id, t) { const el = document.getElementById(id); if (el) el.te
 function _setHTML(id, h) { const el = document.getElementById(id); if (el) el.innerHTML = h; }
 
 function _updateKrDataCounts() {
-  const s = M.summary || {};
   const s3 = M.section3_rare || {};
-  const parks = s3.parks || {};
-
-  // KPI strip
-  if (s.total_active) _setDC('kr-kpi-stores', s.total_active);
-  if (s3.powiats_covered) _setDC('kr-kpi-powiats', s3.powiats_covered);
-  if (s.h24_count) _setDC('kr-kpi-h24', s.h24_count);
-  if (parks.count) _setDC('kr-kpi-parks', parks.count);
-  if (s3.frog_streets_count) _setDC('kr-kpi-frogstreets', s3.frog_streets_count);
-
-  // Parks KPI label
-  if (parks.count && s.total_active) {
-    const pct = ((parks.count / s.total_active) * 100).toFixed(1).replace('.', ',');
-    _setText('kr-kpi-parks-label', `w parkach krajobrazowych · ${pct}%`);
-  }
-
-  // Hero number (void distance)
   const vd = s3.void;
   if (vd && vd.value) {
     const el = document.getElementById('hero-num-edge');
     if (el) el.textContent = String(vd.value).replace('.', ',');
   }
-
-  // E2 parks count
-  if (parks.count) _setText('kr-e2-parks-count', fmt(parks.count));
-
-  // E3 void distance
-  if (vd && vd.value) _setText('kr-e3-void', String(vd.value).replace('.', ',') + ' km');
-
-  // Sidecards
-  if (s.h24_count) _setDC('kr-sc-h24', s.h24_count);
-  const pr = (s3.powiat_range || []);
-  const maxRow = pr.find(r => r.which === 'max');
-  const minRow = pr.find(r => r.which === 'min');
-  if (maxRow) {
-    _setDC('kr-sc-maxpowiat', maxRow.cnt);
-    _setHTML('kr-sc-powiat-label',
-      `rozpiętość pokrycia powiatów: od <b style="color:#eef3e6">${minRow ? minRow.cnt : 1}</b> ` +
-      `(${minRow ? minRow.powiat : '?'}) do <b style="color:#eef3e6">${maxRow.cnt}</b> (${maxRow.powiat}).`);
-  }
-
-  // F1 frog streets
-  if (s3.frog_streets_count) {
-    _setText('kr-f1-oneliner', `${s3.frog_streets_count} sklepów na ulicach o wodnych i płazich nazwach.`);
-    _setHTML('kr-frogstreets-blurb',
-      `Żabia Wola, mazowieckie. Sklep <b>Żabka</b> przy ulicy <b>Zielonej Żabki</b> — marketingowy zbieg okoliczności idealny. ` +
-      `To jeden z ${s3.frog_streets_count} sklepów stojących na ulicach ze słowem „żaba" lub bliskoznacznych w nazwie.`);
-  }
-
-  // G1 powiats text
-  if (s3.powiats_covered) {
-    _setText('kr-g1-text', `${fmt(s3.powiats_covered)} powiatów. Żaden bez Żabki.`);
-    if (maxRow && minRow) {
-      _setText('kr-g1-caveat',
-        `Od ${minRow.cnt} sklepu (${minRow.powiat}) do ${fmt(maxRow.cnt)} (${maxRow.powiat})`);
-    }
-  }
-
-  // Neighbor stats statline
-  const ns = M.neighbor_stats && M.neighbor_stats.distribution;
-  if (ns) {
-    const med = ns.median_m ? Math.round(ns.median_m) + ' m' : '—';
-    const avg = ns.avg_m ? Math.round(ns.avg_m) + ' m' : '—';
-    const loner = M.neighbor_stats.loner || {};
-    const maxKm = loner.nearest_neighbor_distance_meters
-      ? (loner.nearest_neighbor_distance_meters / 1000).toFixed(1).replace('.', ',') + ' km'
-      : (ns.max_m ? (ns.max_m / 1000).toFixed(1).replace('.', ',') + ' km' : '—');
-    _setText('kr-stat-median', med);
-    _setText('kr-stat-avg', avg);
-    _setText('kr-stat-max', maxKm);
-  }
-
-  // Parks cnote + statline
-  if (parks.count && s.total_active) {
-    const pct = ((parks.count / s.total_active) * 100).toFixed(1).replace('.', ',');
-    _setText('kr-parks-cnote', `${fmt(parks.count)} sklepów (${pct}%) stoi w parkach lub ich otulinach.`);
-  }
-  if (parks.top3 && parks.top3.length) {
-    _setHTML('kr-parks-statline', parks.top3.map(p => `<span>${p.park_name}: <b>${p.cnt}</b></span>`).join(''));
-  }
-
-  // Elevation histogram caption (n = total stores with elevation data)
-  const elev = M.elevation || {};
-  const elevHist = elev.histogram || [];
-  const elevN = elevHist.reduce((acc, b) => acc + (b.cnt || 0), 0);
-  if (elevN > 0) {
-    const capEl = document.getElementById('kr-elev-cap-n');
-    if (capEl) capEl.textContent = elevN.toLocaleString('pl-PL');
-  }
-  if (elev.extremes && elev.extremes.length >= 2) {
-    const top = elev.extremes.find(e => e.which === 'top');
-    const bot = elev.extremes.find(e => e.which === 'bottom');
-    const cnoteEl = document.getElementById('kr-elev-cnote');
-    if (cnoteEl && top && bot) {
-      const hiStr = top.city + ' ' + (Math.round(top.elevation_meters * 10) / 10).toFixed(1).replace('.', ',') + ' m';
-      const loStr = bot.city + ' ' + bot.elevation_meters + ' m';
-      const pcts = elev.percentiles;
-      const rangeStr = (pcts && pcts.p5 != null && pcts.p95 != null)
-        ? `między ${pcts.p5} a ${pcts.p95} m`
-        : 'między 17 a 332 m';
-      cnoteEl.innerHTML = `95% sieci mieści się ${rangeStr}. Rekordy: <b style="color:#f2a359">${hiStr}</b> i <b style="color:#e8693d">${loStr} (jedyna poniżej morza)</b>.`;
-    }
-  }
-
-  // Siec hero eyebrow - snapshot date from network_origin
   const no = M.network_origin;
   if (no && no.snapshot_date) {
-    _setText('hero-eyebrow-siec', `Atlas Żabki · migawka ${no.snapshot_date}`);
+    _setText('hero-eyebrow-siec', `Atlas Zabki · migawka ${no.snapshot_date}`);
   } else if (M.network_growth && M.network_growth.length) {
-    _setText('hero-eyebrow-siec', `Atlas Żabki · dane ${M.network_growth[M.network_growth.length - 1].year}`);
+    _setText('hero-eyebrow-siec', `Atlas Zabki · dane ${M.network_growth[M.network_growth.length - 1].year}`);
   }
 }
 
@@ -177,7 +78,6 @@ export function renderKraniec() {
   root.querySelectorAll('[data-count]').forEach(el => co.observe(el));
 
   buildMap();
-  buildCharts();
 }
 
 function buildMap() {
@@ -232,13 +132,44 @@ function buildMap() {
     if (open) { const m = markers[f.id]; setTimeout(() => m.openPopup(), RM ? 0 : 650); }
   };
   const select = (id, open) => { activeId = id; flyToFact(FACTS.find(f => f.id === id), open); };
+  _select = select;
 
   const resetBtn = document.getElementById('kr-reset');
   if (resetBtn) resetBtn.onclick = () => {
     activeId = null; setActiveMarker(null); map.closePopup();
     document.querySelectorAll('#kr-rail .item').forEach(it => it.classList.remove('active'));
     map.flyTo(HOME, HOME_Z, { duration: RM ? 0 : 1.4, easeLinearity: .22 });
-    if (cap) cap.textContent = 'Wskazówka: kliknij punkt z panelu obok - mapa doleci tam płynnie i pokaże szczegóły.';
+    if (cap) cap.textContent = 'Najedz na pozycje z listy - mapa doleci. Kliknij - szczegoly.';
+  };
+
+  // Layer toggles
+  const parksLayer = L.layerGroup();
+  let parksOn = false;
+  const parksStores = M.parks_stores || [];
+  parksStores.forEach(([lat, lon]) => L.circleMarker([lat, lon], { radius: 3, color: '#84c341', weight: 0, fillColor: '#84c341', fillOpacity: .5, interactive: false }).addTo(parksLayer));
+  const parksBtn = document.getElementById('kr-layer-parks');
+  if (parksBtn) parksBtn.onclick = () => {
+    parksOn = !parksOn;
+    parksOn ? parksLayer.addTo(map) : map.removeLayer(parksLayer);
+    parksBtn.style.background = parksOn ? 'rgba(132,195,65,.2)' : '';
+    parksBtn.style.borderColor = parksOn ? 'var(--green)' : '';
+  };
+
+  const westVoivs = new Set(['dolnoslaskie', 'zachodniopomorskie', 'lubuskie']);
+  const westLayer = L.layerGroup();
+  let westOn = false;
+  (M.woj_geo && M.woj_geo.features || []).forEach(f => {
+    const name = (f.properties && (f.properties.nazwa || f.properties.name || '')).toLowerCase().replace(/\s/g, '');
+    if (westVoivs.has(name)) {
+      L.geoJSON(f, { style: { color: '#f2a359', weight: 1.5, fillColor: '#f2a359', fillOpacity: .14, interactive: false } }).addTo(westLayer);
+    }
+  });
+  const westBtn = document.getElementById('kr-layer-west');
+  if (westBtn) westBtn.onclick = () => {
+    westOn = !westOn;
+    westOn ? westLayer.addTo(map) : map.removeLayer(westLayer);
+    westBtn.style.background = westOn ? 'rgba(242,163,89,.15)' : '';
+    westBtn.style.borderColor = westOn ? 'var(--amber)' : '';
   };
 
   // selection rail
@@ -249,7 +180,8 @@ function buildMap() {
     if (f.grp !== lastGrp) { const h = document.createElement('div'); h.className = 'grp-h'; h.style.setProperty('--c', c); h.innerHTML = `<span class="dot"></span>${f.grp}`; rail.appendChild(h); lastGrp = f.grp; }
     const it = document.createElement('div'); it.className = 'item'; it.dataset.id = f.id; it.style.setProperty('--c', c);
     it.innerHTML = `<div class="v">${f.val}</div><div class="meta"><div class="lab">${f.lab}</div><div class="sub">${f.city} · ${f.voiv}</div></div>`;
-    it.onmouseenter = () => { if (activeId !== f.id) { map.flyTo([f.lat, f.lon], Math.max(f.zoom - 1, 7), { duration: RM ? 0 : 1.2, easeLinearity: .25 }); setActiveMarker(f.id); if (cap) cap.innerHTML = `<b>${f.city}</b> · ${f.val} - ${f.desc}`; } };
+    it.onmouseenter = () => { map.flyTo([f.lat, f.lon], Math.max(f.zoom - 1, 7), { duration: RM ? 0 : 1.2, easeLinearity: .25 }); setActiveMarker(f.id); if (cap) cap.innerHTML = `<b>${f.city}</b> · ${f.val} - ${f.desc}`; const mk = markers[f.id]; if (mk) setTimeout(() => mk.openTooltip(), RM ? 0 : 700); };
+    it.onmouseleave = () => { const mk = markers[f.id]; if (mk) mk.closeTooltip(); };
     it.onclick = () => select(f.id, true);
     rail.appendChild(it);
   });
