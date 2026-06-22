@@ -33,6 +33,15 @@ function quartileMeans(rows, kx, ky) {
 const plr = r => (r >= 0 ? '+' : '−') + Math.abs(r).toFixed(2).replace('.', ',');
 const cleanPow = n => (n || '').replace(/^powiat\s+/i, '');
 
+// Stratified subsample: n points spread evenly across the sorted range of sortKey.
+// Stats (pearson, linreg, quartiles) use the full arrays; only scatter dots use this.
+function stratSample(arr, n, sortKey) {
+  if (arr.length <= n) return arr;
+  const s = [...arr].sort((a, b) => a[sortKey] - b[sortKey]);
+  const step = s.length / n;
+  return Array.from({ length: n }, (_, i) => s[Math.min(s.length - 1, Math.round(i * step))]);
+}
+
 function heroPoints(rows, xkey, specs) {
   // specs: [{match, label, color, pos, off}] -> place label on the real point
   const out = [];
@@ -222,8 +231,10 @@ export function renderEcon() {
   const sMax = Math.max(...rowsS.map(d => d.avg_salary));
   const uMin = Math.min(...rowsU.map(d => d.unemployment_rate));
   const uMax = Math.max(...rowsU.map(d => d.unemployment_rate));
+  const ptsS = stratSample(rowsS, 130, 'avg_salary');
+  const ptsU = stratSample(rowsU, 130, 'unemployment_rate');
   buildScatter({
-    el: 'scatter1', pts: rowsS, xkey: 'avg_salary',
+    el: 'scatter1', pts: ptsS, xkey: 'avg_salary',
     xname: 'średnia płaca (zł)', xmin: Math.floor(sMin / 500) * 500, xmax: Math.ceil(sMax / 500) * 500,
     xfmt: v => (v / 1000) + 'k', ymax,
     vmMin: sMin, vmMax: sMax, colors: ['#4dd0b1', '#84c341', '#a6e84a', '#f2a359'],
@@ -237,7 +248,7 @@ export function renderEcon() {
     ])
   });
   buildScatter({
-    el: 'scatter2', pts: rowsU, xkey: 'unemployment_rate',
+    el: 'scatter2', pts: ptsU, xkey: 'unemployment_rate',
     xname: 'stopa bezrobocia (%)', xmin: 0, xmax: Math.ceil(uMax / 2) * 2 + 1, xfmt: v => v + '%', ymax,
     vmMin: uMin, vmMax: uMax, colors: ['#84c341', '#a6e84a', '#f2a359', '#e8693d'],
     slope: reg2.slope, intercept: reg2.intercept, tx0: uMin, tx1: uMax,
