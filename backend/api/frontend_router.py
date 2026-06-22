@@ -427,8 +427,10 @@ async def stores_timeline():
     m = milestones_rows[0] if milestones_rows else (None, None, None, None)
     year_vals = [r[2] for r in dated if r[2] is not None]
     return {
-        "stores":    [[round(r[0], 5), round(r[1], 5), int(r[2])] for r in dated],
-        "undated":   [[round(r[0], 5), round(r[1], 5)] for r in undated],
+        # 4 decimals is ~11 m precision, plenty for country-scale dots and ~20%
+        # fewer bytes than 5 decimals on the biggest endpoint we ship.
+        "stores":    [[round(r[0], 4), round(r[1], 4), int(r[2])] for r in dated],
+        "undated":   [[round(r[0], 4), round(r[1], 4)] for r in undated],
         "year_range": {
             "min": int(min(year_vals)) if year_vals else 1998,
             "max": int(max(year_vals)) if year_vals else 2026,
@@ -666,9 +668,9 @@ async def inpost_vs_zabka():
     result = []
     for name in voivodeships:
         z = zabka_map.get(name, 0)
-        # If no parcel-locker data yet, fall back to known ratios
-        raw_p = locker_map.get(name, 0)
-        p = raw_p if raw_p > 0 else round(z * INPOST_RATIO.get(name, 2.4))
+        p = locker_map.get(name, 0)
+        if not z or not p:
+            continue
         pop = _pop(name)
         ratio = round(p / z, 2) if z else 0.0
         result.append({
@@ -716,8 +718,9 @@ async def inpost_vs_zabka_by_level(level: str = "voivodeship", sort: str = "desc
         rows = []
         for name in zabka_map:
             z = zabka_map.get(name, 0)
-            raw_p = locker_map.get(name, 0)
-            p = raw_p if raw_p > 0 else round(z * INPOST_RATIO.get(name, 2.4))
+            p = locker_map.get(name, 0)
+            if not z or not p:
+                continue
             pop = _pop(name)
             ratio = round(p / z, 2) if z else 0.0
             rows.append({
@@ -740,7 +743,7 @@ async def inpost_vs_zabka_by_level(level: str = "voivodeship", sort: str = "desc
             SELECT dp.name, v.name, COUNT(pl.id)
             FROM dim_powiat dp
             JOIN dim_voivodeship v ON v.id = dp.voivodeship_id
-            LEFT JOIN parcel_lockers pl ON pl.powiat_id = dp.id
+            JOIN parcel_lockers pl ON pl.powiat_id = dp.id
             GROUP BY dp.id, dp.name, v.name
         """)
         locker_map = {(r[0].strip().lower(), r[1].strip().lower()): int(r[2]) for r in locker_rows}
@@ -749,7 +752,8 @@ async def inpost_vs_zabka_by_level(level: str = "voivodeship", sort: str = "desc
             z = int(z)
             key = (name.strip().lower(), voiv.strip().lower())
             p = locker_map.get(key, 0)
-            p = p if p > 0 else round(z * INPOST_RATIO.get(voiv, 2.4))
+            if not p:
+                continue
             pop = int(pop) if pop else 1
             ratio = round(p / z, 2) if z else 0.0
             rows.append({
@@ -781,7 +785,8 @@ async def inpost_vs_zabka_by_level(level: str = "voivodeship", sort: str = "desc
         for voiv, city, z in zabka_rows:
             z = int(z)
             p = locker_map.get((voiv, city), 0)
-            p = p if p > 0 else round(z * INPOST_RATIO.get(voiv, 2.4))
+            if not p:
+                continue
             g = cg.get((voiv, city.strip().lower()), {})
             pop = g.get("population") or 1
             ratio = round(p / z, 2) if z else 0.0
@@ -805,7 +810,7 @@ async def inpost_vs_zabka_by_level(level: str = "voivodeship", sort: str = "desc
             SELECT g.name, v.name, COUNT(pl.id)
             FROM dim_gmina g
             JOIN dim_voivodeship v ON v.id = g.voivodeship_id
-            LEFT JOIN parcel_lockers pl ON pl.powiat_id = g.powiat_id
+            JOIN parcel_lockers pl ON pl.powiat_id = g.powiat_id
             GROUP BY g.id, g.name, v.name
         """)
         locker_map = {(r[0].strip().lower(), r[1].strip().lower()): int(r[2]) for r in locker_rows}
@@ -814,7 +819,8 @@ async def inpost_vs_zabka_by_level(level: str = "voivodeship", sort: str = "desc
             z = int(z)
             key = (name.strip().lower(), voiv.strip().lower())
             p = locker_map.get(key, 0)
-            p = p if p > 0 else round(z * INPOST_RATIO.get(voiv, 2.4))
+            if not p:
+                continue
             pop = int(pop) if pop else 1
             ratio = round(p / z, 2) if z else 0.0
             rows.append({
@@ -926,18 +932,27 @@ async def neighbor_stats():
     buckets = _q("""
         SELECT
             CASE
-                WHEN nearest_neighbor_distance_meters < 200   THEN '<200m'
-                WHEN nearest_neighbor_distance_meters < 500   THEN '200-500m'
-                WHEN nearest_neighbor_distance_meters < 1000  THEN '500m-1km'
-                WHEN nearest_neighbor_distance_meters < 3000  THEN '1-3km'
-                WHEN nearest_neighbor_distance_meters < 10000 THEN '3-10km'
-                ELSE '>10km'
+                WHEN nearest_neighbor_distance_meters = 0     THEN '0 m'
+                WHEN nearest_neighbor_distance_meters < 50    THEN '<50 m'
+                WHEN nearest_neighbor_distance_meters < 100   THEN '50-100 m'
+                WHEN nearest_neighbor_distance_meters < 200   THEN '100-200 m'
+                WHEN nearest_neighbor_distance_meters < 350   THEN '200-350 m'
+                WHEN nearest_neighbor_distance_meters < 500   THEN '350-500 m'
+                WHEN nearest_neighbor_distance_meters < 1000  THEN '500 m - 1 km'
+                WHEN nearest_neighbor_distance_meters < 3000  THEN '1-3 km'
+                WHEN nearest_neighbor_distance_meters < 10000 THEN '3-10 km'
+                ELSE '>10 km'
             END AS bucket,
             COUNT(*) AS cnt
         FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
           AND nearest_neighbor_distance_meters IS NOT NULL
         GROUP BY 1
         ORDER BY MIN(nearest_neighbor_distance_meters)
+    """)
+    zero_dist = _q1("""
+        SELECT COUNT(*) FROM locations WHERE deleted_at IS NULL
+          AND snapshot_id = (SELECT MAX(id) FROM snapshots)
+          AND nearest_neighbor_distance_meters = 0
     """)
     return {
         "loner": {
@@ -952,6 +967,7 @@ async def neighbor_stats():
             "max_m":    float(stats[2] or 0) if stats else 27321,
             "buckets":  [{"bucket": r[0], "cnt": int(r[1])} for r in buckets],
         },
+        "zero_distance_count": int(zero_dist[0] or 0) if zero_dist else 0,
     }
 
 
@@ -1343,6 +1359,18 @@ async def section3_rare():
             SUM(CASE WHEN LOWER(street) LIKE '%jana paw%a%'      THEN 1 ELSE 0 END)
         FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
     """)
+    # Physical streets: top (street, city) pairs by store count
+    physical_streets = _q("""
+        SELECT street, city, COUNT(*) AS cnt
+        FROM locations
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
+          AND street IS NOT NULL AND street != '' AND street != 'nieokreslona'
+          AND LOWER(street) NOT LIKE '%nieokresl%'
+        GROUP BY street, city
+        HAVING COUNT(*) >= 2
+        ORDER BY cnt DESC
+        LIMIT 15
+    """)
     return {
         "h24_cities": [
             {"city": r[0], "voivodeship": r[1], "cnt": int(r[2])} for r in h24_cities
@@ -1380,6 +1408,10 @@ async def section3_rare():
             "mickiewicza":     int(civic[4] or 0) if civic else 0,
             "jana_pawla_ii":   int(civic[5] or 0) if civic else 0,
         },
+        "physical_streets": [
+            {"street": r[0], "city": r[1], "cnt": int(r[2])}
+            for r in physical_streets
+        ],
     }
 
 
