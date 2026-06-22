@@ -272,7 +272,7 @@ export function renderEcon() {
 
   // ---- quartile bars from real data ----
   const q1 = quartileMeans(rowsS, 'avg_salary', 'per_1k');
-  buildBar({ el: 'bar1', left: 50, cats: ['Q1', 'Q2', 'Q3', 'Q4'], vals: q1, cols: ['#4dd0b1', '#84c341', '#a6e84a', '#f2a359'] });
+  buildBar({ el: 'bar1', left: 175, cats: ['Q1 - najniższe zarobki', 'Q2 - niższe zarobki', 'Q3 - wyższe zarobki', 'Q4 - najwyższe zarobki'], vals: q1, cols: ['#4dd0b1', '#84c341', '#a6e84a', '#f2a359'] });
   const q2 = quartileMeans(rowsU, 'unemployment_rate', 'per_1k');
-  buildBar({ el: 'bar2', left: 50, cats: ['Q1', 'Q2', 'Q3', 'Q4'], vals: q2, cols: ['#84c341', '#a6e84a', '#f2a359', '#e8693d'] });
+  buildBar({ el: 'bar2', left: 175, cats: ['Q1 - niskie bezrobocie', 'Q2 - umiarkowane', 'Q3 - podwyższone', 'Q4 - wysokie bezrobocie'], vals: q2, cols: ['#84c341', '#a6e84a', '#f2a359', '#e8693d'] });
 }

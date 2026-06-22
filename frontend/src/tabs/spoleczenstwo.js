@@ -120,7 +120,7 @@ function renderInpostMap(){
   }).addTo(map);
   pairs.forEach(({layer},i)=>setTimeout(()=>{
     const svg=layer.getElement&&layer.getElement();
-    if(svg)svg.style.transition='fill-opacity .25s ease,fill .25s ease';
+    if(svg)svg.style.transition='fill-opacity .25s ease,fill .25s ease,transform .2s ease';
     layer.setStyle({fillOpacity:0.9});
   },10+i*14));
   try{map.fitBounds(L.geoJSON(M.woj_geo).getBounds(),{padding:[6,6]})}catch(e){}

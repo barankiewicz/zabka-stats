@@ -270,11 +270,13 @@
     <div class="card-sub">Pojedynek dwóch gigantów polskiej przestrzeni publicznej!</div>
     <div class="gran-split" style="margin-top:16px">
       <div style="display:flex;flex-direction:column">
-        <div id="map-inpost" style="flex:1;min-height:360px;border-radius:8px;overflow:hidden"></div>
+        <div class="map-container" style="flex:1;min-height:360px">
+          <div id="map-inpost" style="height:100%;background:#08110a"></div>
+        </div>
       </div>
       <div style="display:flex;flex-direction:column">
         <div class="gran-left-head" style="margin-bottom:8px;flex-shrink:0">
-          <div class="card-sub" id="inpost-dumbbell-sub">Zielona kropka = Żabka/100k, bursztyn = InPost/100k. Posortowane alfabetycznie.</div>
+    
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <div class="gran-toggle" role="tablist" id="inpost-level">
               <button class="gran-btn active" data-ilevel="voivodeship">Województwo</button>

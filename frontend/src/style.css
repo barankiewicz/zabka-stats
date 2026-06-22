@@ -322,7 +322,7 @@ canvas{display:block}
 
 /* ===== "Zabka a Polska" infotainment (placa + bezrobocie), scoped to .ec ===== */
 .ec{margin:8px 0 28px}
-.ec h2{font-family:var(--font-display);font-weight:800;letter-spacing:-.02em;font-size:clamp(26px,4vw,46px);line-height:1.02;margin:8px 0 12px;color:var(--ink)}
+.ec h2{font-family:var(--font-display);font-weight:800;letter-spacing:-.02em;font-size:clamp(19px,2.6vw,28px);line-height:1.08;margin:8px 0 12px;color:var(--ink)}
 .ec h3{font-family:var(--font-display);font-size:19px;margin:0;color:var(--ink)}
 .ec .eyebrow{font-family:var(--font-mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--green);display:flex;align-items:center;gap:10px}
 .ec .eyebrow .no{color:var(--muted2)}
@@ -333,9 +333,9 @@ canvas{display:block}
 .ec .chead{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:4px}
 .ec .cap{font-family:var(--font-mono);font-size:11.5px;color:var(--muted2);letter-spacing:.04em}
 .ec .cnote{color:var(--muted);font-size:13.5px;margin:0 0 10px;max-width:80ch}
-.ec-chart{width:100%;height:540px}
-.ec-chart.bar{height:380px}
-@media(max-width:560px){.ec-chart{height:440px}.ec-chart.bar{height:340px}}
+.ec-chart{width:100%;height:400px}
+.ec-chart.bar{height:260px}
+@media(max-width:560px){.ec-chart{height:340px}.ec-chart.bar{height:220px}}
 
 
 .ec .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:16px;margin-top:18px}
