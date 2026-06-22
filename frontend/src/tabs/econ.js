@@ -98,7 +98,7 @@ function buildScatter(cfg) {
       { name: 'hero-pts', type: 'scatter', z: 3, data: heroData, silent: false, symbolSize: d => Math.max(7, Math.min(36, d[2])),
         itemStyle: dotStyle,
         emphasis: { scale: 1.35, itemStyle: { borderColor: 'rgba(166,232,74,.8)', borderWidth: 1.5, shadowBlur: 18, shadowColor: 'rgba(166,232,74,.35)' } },
-        markPoint: { symbol: 'circle', symbolSize: 1, silent: true, animationDelay: RM ? 0 : 1450, label: { color: '#eef3e6', fontFamily: 'JetBrains Mono', fontSize: 11, fontWeight: 500, backgroundColor: 'rgba(12,22,11,.85)', borderColor: 'rgba(140,200,80,.3)', borderWidth: 1, borderRadius: 6, padding: [4, 7], formatter: p => p.data.txt }, data: cfg.heroes } }
+        markPoint: { symbol: 'circle', symbolSize: 1, silent: true, animationDelay: RM ? 0 : 1450, label: { color: '#eef3e6', fontFamily: 'JetBrains Mono', fontSize: 11, fontWeight: 500, backgroundColor: 'rgba(12,22,11,.85)', borderColor: 'rgba(140,200,80,.3)', borderWidth: 1, borderRadius: 4, padding: [5, 11], formatter: p => p.data.txt }, data: cfg.heroes } }
     ]
   });
   window.addEventListener('resize', () => chart.resize());
@@ -247,8 +247,8 @@ export function renderEcon() {
     { match: 'lubińsk',  label: 'lubinski · najbogatszy, a rzadki',  color: '#f2a359', pos: 'left', off: [-6, 0] },
   ];
   const heroSpecsU = [
-    { match: 'szydłowieck', label: 'szydłowiecki · rekord bezrobocia', color: '#e8693d', pos: 'top', off: [0, -6] },
-    { match: 'poznański', label: 'poznanski · min. bezrobocie', color: '#84c341', pos: 'right' },
+    { match: 'szydłowieck', label: 'szydłowiecki', color: '#e8693d', pos: 'top', off: [0, -8] },
+    { match: 'poznański',   label: 'poznański',    color: '#84c341', pos: 'right' },
   ];
   const ptsS = sampleWithHeroes(rowsS, 30, 'avg_salary',        heroSpecsS);
   const ptsU = sampleWithHeroes(rowsU, 30, 'unemployment_rate', heroSpecsU);
@@ -272,7 +272,7 @@ export function renderEcon() {
 
   // ---- quartile bars from real data ----
   const q1 = quartileMeans(rowsS, 'avg_salary', 'per_1k');
-  buildBar({ el: 'bar1', left: 170, cats: ['Najbiedniejsze 25%', 'Drugi kwartyl', 'Trzeci kwartyl', 'Najbogatsze 25%'], vals: q1, cols: ['#4dd0b1', '#84c341', '#a6e84a', '#f2a359'] });
+  buildBar({ el: 'bar1', left: 50, cats: ['Q1', 'Q2', 'Q3', 'Q4'], vals: q1, cols: ['#4dd0b1', '#84c341', '#a6e84a', '#f2a359'] });
   const q2 = quartileMeans(rowsU, 'unemployment_rate', 'per_1k');
-  buildBar({ el: 'bar2', left: 196, cats: ['Najniższe bezrobocie 25%', 'Drugi kwartyl', 'Trzeci kwartyl', 'Najwyższe bezrobocie 25%'], vals: q2, cols: ['#84c341', '#a6e84a', '#f2a359', '#e8693d'] });
+  buildBar({ el: 'bar2', left: 50, cats: ['Q1', 'Q2', 'Q3', 'Q4'], vals: q2, cols: ['#84c341', '#a6e84a', '#f2a359', '#e8693d'] });
 }

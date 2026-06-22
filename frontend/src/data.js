@@ -34,7 +34,7 @@ export async function loadCore() {
   _coreDone = true;
   applySkel();
   const [
-    summary, wojGeo, economics, sunday, density, merrychef, inpost, perCapita, section3,
+    summary, wojGeo, economics, sunday, density, merrychef, inpost, perCapita, section3, openingHours,
   ] = await Promise.allSettled([
     fetchJSON(`${BASE}/stats/summary`),
     fetchJSON(`${BASE}/geo/voivodeships`),
@@ -45,6 +45,7 @@ export async function loadCore() {
     fetchJSON(`${BASE}/stats/inpost-vs-zabka`),
     fetchJSON(`${BASE}/stats/per-capita`),
     fetchJSON(`${BASE}/stats/section3-rare`),
+    fetchJSON(`${BASE}/stats/opening-hours`),
   ]);
   Object.assign(M, {
     summary:               val(summary, {total_active:0, cities_count:0, merrychef_pct:0, sunday_pct:0, h24_count:0}),
@@ -56,6 +57,7 @@ export async function loadCore() {
     inpost_vs_zabka:       val(inpost, []),
     per_capita:            val(perCapita, []),
     section3_rare:         val(section3, {}),
+    opening_hours:         val(openingHours, []),
     timeline_monthly:      [],
   });
   clearSkel();

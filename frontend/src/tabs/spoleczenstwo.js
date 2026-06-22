@@ -42,41 +42,57 @@ function renderSpolecKPIs(){
     set('spol-kpi-cities',(+s.cities_count).toLocaleString('pl-PL'));
   }
 
-  if(s&&s.merrychef_pct!=null){
-    set('spol-kpi-mc',`${String(s.merrychef_pct).replace('.',',')}<span class="stat-unit">%</span>`);
+  const ohArr = Array.isArray(M.opening_hours) ? M.opening_hours : [];
+  if(ohArr.length) {
+    const ohTotal = ohArr.reduce((s,p) => s+(p.cnt||0), 0);
+    const oh23 = ohArr.filter(p => (p.pattern||'').includes('23:')).reduce((s,p) => s+(p.cnt||0), 0);
+    if(ohTotal > 0) {
+      const pct = Math.round(oh23/ohTotal*1000)/10;
+      set('spol-kpi-closed23', `${String(pct).replace('.',',')}<span class="stat-unit">%</span>`);
+    }
   }
 }
 
 function renderInpostMap(){
   const data=M.inpost_vs_zabka||[];
-  if(!data.length||!M.woj_geo)return;
-  const el=document.getElementById('map-inpost');if(!el||el._leaflet_id)return;
+  if(!data.length||!M.woj_geo||!M.woj_geo.features||!M.woj_geo.features.length)return;
+  if(MAPS['map-inpost'])return;
+  const el=document.getElementById('map-inpost');if(!el)return;
   const byName={};
-  data.forEach(d=>{byName[d.voivodeship||d.name||'']=d});
-  const ratios=data.map(d=>(d.lockers_per_100k||0)/(d.zabki_per_100k||1));
-  const maxR=Math.max(...ratios,1);
-  const map=leafletDark('map-inpost');map.setView([52,19.4],5.5);
-  MAPS['map-inpost']=map;
-  L.geoJSON(M.woj_geo,{
+  data.forEach(d=>{byName[d.voivodeship||'']=d});
+  const maxZ=Math.max(...data.map(d=>d.zabki_per_100k||0),1);
+  const map=leafletDark('map-inpost');
+  map.setView([52.1,19.4],5.5);
+  let geoLayer;
+  function getColor(d){
+    if(!d)return'#1a2a1a';
+    const t=Math.min((d.zabki_per_100k||0)/maxZ,1);
+    return`rgba(132,195,65,${(0.15+t*0.72).toFixed(2)})`;
+  }
+  geoLayer=L.geoJSON(M.woj_geo,{
     style(f){
-      const d=byName[f.properties.name];
-      if(!d)return{fillColor:'#1a2a1a',fillOpacity:0.5,color:'#2a2a3a',weight:1};
-      const r=(d.lockers_per_100k||0)/(d.zabki_per_100k||1);
-      const t=Math.min(r/maxR,1);
-      const rc=Math.round(132+(242-132)*t);
-      const gc=Math.round(195-(195-163)*t);
-      const bc=Math.round(65-65*t);
-      return{fillColor:`rgb(${rc},${gc},${bc})`,fillOpacity:0.7,color:'#2a2a3a',weight:1};
+      const d=byName[f.properties.nazwa];
+      return{fillColor:getColor(d),fillOpacity:d?0.72:0.3,color:'rgba(140,200,80,.2)',weight:1};
     },
     onEachFeature(f,l){
-      const d=byName[f.properties.name];
-      if(!d)return;
-      const z=(d.zabki_per_100k||0).toFixed(1);
-      const p=(d.lockers_per_100k||0).toFixed(1);
-      const r=d.ratio||(d.lockers_per_100k&&d.zabki_per_100k?(d.lockers_per_100k/d.zabki_per_100k).toFixed(2):'—');
-      l.bindTooltip(`<b>${f.properties.name}</b><br>Żabka: ${z}/100k<br>InPost: ${p}/100k<br>stosunek: ${r}x`,{sticky:true});
+      const d=byName[f.properties.nazwa];
+      const name=f.properties.nazwa||'';
+      if(d){
+        const z=(d.zabki_per_100k||0).toFixed(1);
+        const p=(d.lockers_per_100k||0).toFixed(1);
+        const r=typeof d.ratio==='number'?d.ratio.toFixed(2):d.ratio;
+        l.bindTooltip(`<b>${name}</b><br>Żabka: ${z}/100k<br>InPost: ${p}/100k<br>stosunek: ${r}x`,{sticky:true});
+      }
+      l.on('mouseover',function(){
+        this.setStyle({fillOpacity:0.92,weight:2,color:'rgba(166,232,74,.5)'});
+      });
+      l.on('mouseout',function(){
+        geoLayer.resetStyle(this);
+      });
     }
   }).addTo(map);
+  MAPS['map-inpost']=map;
+  setTimeout(()=>map.invalidateSize(),120);
 }
 
 export function renderSpoleczenstwo(){
@@ -147,11 +163,11 @@ export function renderSundayChoropleth(){
   const map=leafletDark('map-sunday');map.setView([52,19.4],5.5);
   const byName={};M.sunday_by_voivodeship.forEach(d=>byName[d.voivodeship]=d.closed_pct);
   L.geoJSON(M.woj_geo,{
-    style(f){const p=byName[f.properties.name]||0;const t=Math.min(p/12,1);return{fillColor:`rgba(${Math.round(232*t)},${Math.round(90*(1-t))},${Math.round(47*t)},${0.25+t*.5})`,fillOpacity:.7,color:'#2a2a3a',weight:1}},
+    style(f){const p=byName[f.properties.nazwa]||0;const t=Math.min(p/12,1);return{fillColor:`rgba(${Math.round(232*t)},${Math.round(90*(1-t))},${Math.round(47*t)},${0.25+t*.5})`,fillOpacity:.7,color:'#2a2a3a',weight:1}},
     onEachFeature(f,l){
-      l.bindTooltip(`<b>${f.properties.name}</b><br>${byName[f.properties.name]||0}% zamknietych w niedziele`,{sticky:true});
+      l.bindTooltip(`<b>${f.properties.nazwa}</b><br>${byName[f.properties.nazwa]||0}% zamknietych w niedziele`,{sticky:true});
       l.on('click',()=>{
-        const v=f.properties.name;
+        const v=f.properties.nazwa;
         setFilter(STATE.filter===v?null:v);
         openSundayDrawer(v);
       });
@@ -201,8 +217,8 @@ export function renderDensityChoropleth(){
   });
   const maxD=Math.max(...Object.values(dn),0.001);
   L.geoJSON(M.woj_geo,{
-    style(f){const d=dn[f.properties.name]||0;return{fillColor:`rgba(0,192,96,${0.1+d/maxD*.75})`,fillOpacity:.7,color:'#2a2a3a',weight:1}},
-    onEachFeature(f,l){l.bindTooltip(`<b>${f.properties.name}</b><br>${(dn[f.properties.name]||0).toFixed(1)}/100 km²`,{sticky:true})}
+    style(f){const d=dn[f.properties.nazwa]||0;return{fillColor:`rgba(0,192,96,${0.1+d/maxD*.75})`,fillOpacity:.7,color:'#2a2a3a',weight:1}},
+    onEachFeature(f,l){l.bindTooltip(`<b>${f.properties.nazwa}</b><br>${(dn[f.properties.nazwa]||0).toFixed(1)}/100 km²`,{sticky:true})}
   }).addTo(map);
 }
 
@@ -283,7 +299,8 @@ export function renderDumbbell(data){
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
   const VBW=PAD_L+W_CHART+PAD_R;
   svg.setAttribute('viewBox',`0 0 ${VBW} ${H}`);
-  svg.style.cssText=`display:block;margin:0 auto;width:100%;max-width:${VBW}px;height:auto`;
+  svg.setAttribute('height', H);
+  svg.style.cssText=`display:block;width:100%;max-width:${VBW}px`;
   function px(v){return PAD_L+v/maxV*W_CHART}
   [0.25,0.5,0.75,1.0].forEach(f=>{
     const x=px(maxV*f);
