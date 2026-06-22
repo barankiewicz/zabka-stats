@@ -83,6 +83,8 @@ function renderInpostMap(){
     doubleClickZoom:false,boxZoom:false,keyboard:false
   });
   MAPS['map-inpost']=map;
+  map.setView([52.0,19.3],6);
+  map.invalidateSize();
   const pairs=[];
   L.geoJSON(M.woj_geo,{
     style:f=>wStyle(byName[(f.properties.nazwa||'').toLowerCase()],0),
@@ -118,12 +120,12 @@ function renderInpostMap(){
       });
     }
   }).addTo(map);
+  try{map.fitBounds(L.geoJSON(M.woj_geo).getBounds(),{padding:[6,6]})}catch(e){}
   pairs.forEach(({layer},i)=>setTimeout(()=>{
     const svg=layer.getElement&&layer.getElement();
     if(svg)svg.style.transition='fill-opacity .25s ease,fill .25s ease,transform .2s ease';
     layer.setStyle({fillOpacity:0.9});
   },10+i*14));
-  try{map.fitBounds(L.geoJSON(M.woj_geo).getBounds(),{padding:[6,6]})}catch(e){}
   setTimeout(()=>map&&map.invalidateSize(),60);
 }
 

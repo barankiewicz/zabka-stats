@@ -83,22 +83,22 @@ function buildScatter(cfg) {
   chart.setOption({
     backgroundColor: 'transparent',
     animationDuration: RM ? 0 : 900, animationEasing: 'cubicOut', animationDelay: RM ? 0 : (i => i * 4),
-    grid: { left: 60, right: 24, top: 24, bottom: 56 },
-    tooltip: { trigger: 'item', backgroundColor: '#0c160b', borderColor: 'rgba(140,200,80,.3)', borderWidth: 1, padding: [8, 12], textStyle: { color: '#eef3e6', fontFamily: 'IBM Plex Sans', fontSize: 12 }, formatter: tooltipFmt },
+    grid: { left: 56, right: 20, top: 20, bottom: 48 },
+    tooltip: { trigger: 'item', backgroundColor: '#0c160b', borderColor: 'rgba(140,200,80,.3)', borderWidth: 1, padding: [8, 12], textStyle: { color: '#eef3e6', fontFamily: 'IBM Plex Sans', fontSize: 11 }, formatter: tooltipFmt },
     visualMap: { min: cfg.vmMin, max: cfg.vmMax, dimension: 0, calculable: false, show: false, inRange: { color: cfg.colors } },
-    xAxis: { type: 'value', min: cfg.xmin, max: cfg.xmax, name: cfg.xname, nameLocation: 'middle', nameGap: 36, nameTextStyle: { color: '#5d6c52', fontFamily: 'JetBrains Mono', fontSize: 11 }, axisLabel: { color: '#93a487', fontFamily: 'JetBrains Mono', fontSize: 11, formatter: cfg.xfmt }, axisLine: { lineStyle: { color: 'rgba(140,200,80,.2)' } }, splitLine: { lineStyle: { color: 'rgba(140,200,80,.06)' } } },
-    yAxis: { type: 'value', min: 0, max: cfg.ymax || 1.05, name: 'Żabki / 1000 mieszk.', nameLocation: 'middle', nameGap: 42, nameRotate: 90, nameTextStyle: { color: '#5d6c52', fontFamily: 'JetBrains Mono', fontSize: 11 }, axisLabel: { color: '#93a487', fontFamily: 'JetBrains Mono', fontSize: 11 }, axisLine: { lineStyle: { color: 'rgba(140,200,80,.2)' } }, splitLine: { lineStyle: { color: 'rgba(140,200,80,.06)' } } },
+    xAxis: { type: 'value', min: cfg.xmin, max: cfg.xmax, name: cfg.xname, nameLocation: 'middle', nameGap: 30, nameTextStyle: { color: '#5d6c52', fontFamily: 'JetBrains Mono', fontSize: 10 }, axisLabel: { color: '#93a487', fontFamily: 'JetBrains Mono', fontSize: 10, formatter: cfg.xfmt }, axisLine: { lineStyle: { color: 'rgba(140,200,80,.2)' } }, splitLine: { lineStyle: { color: 'rgba(140,200,80,.06)' } } },
+    yAxis: { type: 'value', min: 0, max: cfg.ymax || 1.05, name: 'Żabki / 1000 mieszk.', nameLocation: 'middle', nameGap: 38, nameRotate: 90, nameTextStyle: { color: '#5d6c52', fontFamily: 'JetBrains Mono', fontSize: 10 }, axisLabel: { color: '#93a487', fontFamily: 'JetBrains Mono', fontSize: 10 }, axisLine: { lineStyle: { color: 'rgba(140,200,80,.2)' } }, splitLine: { lineStyle: { color: 'rgba(140,200,80,.06)' } } },
     series: [
       { name: 'trend', type: 'line', showSymbol: false, silent: true, z: 1, animationDelay: RM ? 0 : 1000, animationDuration: RM ? 0 : 1200,
         data: [[cfg.tx0, cfg.slope * cfg.tx0 + cfg.intercept], [cfg.tx1, cfg.slope * cfg.tx1 + cfg.intercept]],
         lineStyle: { color: cfg.trendColor, width: 2, type: 'dashed', opacity: .6 },
-        markPoint: { symbol: 'circle', symbolSize: 1, silent: true, animationDelay: RM ? 0 : 1300, label: { color: cfg.trendColor, fontFamily: 'JetBrains Mono', fontSize: 13, fontWeight: 500, backgroundColor: 'rgba(12,22,11,.9)', borderColor: cfg.trendColor, borderWidth: 1, borderRadius: 6, padding: [5, 9], formatter: cfg.rText }, data: [{ coord: cfg.rPos }] } },
-      { name: 'powiaty', type: 'scatter', z: 2, data: regularData, silent: true, symbolSize: d => Math.max(7, Math.min(36, d[2])),
+        markPoint: { symbol: 'circle', symbolSize: 1, silent: true, animationDelay: RM ? 0 : 1300, label: { color: cfg.trendColor, fontFamily: 'JetBrains Mono', fontSize: 11, fontWeight: 500, backgroundColor: 'rgba(12,22,11,.9)', borderColor: cfg.trendColor, borderWidth: 1, borderRadius: 6, padding: [5, 9], formatter: cfg.rText }, data: [{ coord: cfg.rPos }] } },
+      { name: 'powiaty', type: 'scatter', z: 2, data: regularData, silent: true, symbolSize: d => Math.max(5, Math.min(22, d[2])),
         itemStyle: dotStyle, emphasis: { disabled: true } },
-      { name: 'hero-pts', type: 'scatter', z: 3, data: heroData, silent: false, symbolSize: d => Math.max(7, Math.min(36, d[2])),
+      { name: 'hero-pts', type: 'scatter', z: 3, data: heroData, silent: false, symbolSize: d => Math.max(5, Math.min(22, d[2])),
         itemStyle: dotStyle,
         emphasis: { scale: 1.35, itemStyle: { borderColor: 'rgba(166,232,74,.8)', borderWidth: 1.5, shadowBlur: 18, shadowColor: 'rgba(166,232,74,.35)' } },
-        markPoint: { symbol: 'circle', symbolSize: 1, silent: true, animationDelay: RM ? 0 : 1450, label: { color: '#eef3e6', fontFamily: 'JetBrains Mono', fontSize: 11, fontWeight: 500, backgroundColor: 'rgba(12,22,11,.85)', borderColor: 'rgba(140,200,80,.3)', borderWidth: 1, borderRadius: 4, padding: [5, 11], formatter: p => p.data.txt }, data: cfg.heroes } }
+        markPoint: { symbol: 'circle', symbolSize: 1, silent: true, animationDelay: RM ? 0 : 1450, label: { color: '#eef3e6', fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 500, backgroundColor: 'rgba(12,22,11,.85)', borderColor: 'rgba(140,200,80,.3)', borderWidth: 1, borderRadius: 4, padding: [4, 9], formatter: p => p.data.txt }, data: cfg.heroes } }
     ]
   });
   window.addEventListener('resize', () => chart.resize());
@@ -110,11 +110,11 @@ function buildBar(cfg) {
   chart.setOption({
     backgroundColor: 'transparent',
     animationDuration: RM ? 0 : 1100, animationEasing: 'cubicOut', animationDelay: RM ? 0 : (i => i * 180),
-    grid: { left: cfg.left || 158, right: 54, top: 8, bottom: 30 },
+    grid: { left: cfg.left || 158, right: 54, top: 6, bottom: 24 },
     tooltip: { backgroundColor: '#0c160b', borderColor: 'rgba(140,200,80,.3)', borderWidth: 1, textStyle: { color: '#eef3e6', fontFamily: 'IBM Plex Sans' }, formatter: p => p.name + '<br><b>' + p.value.toFixed(3) + '</b> sklepu / 1000 mieszk.' },
-    xAxis: { type: 'value', max: 0.45, axisLabel: { color: '#93a487', fontFamily: 'JetBrains Mono', fontSize: 11 }, axisLine: { show: false }, splitLine: { lineStyle: { color: 'rgba(140,200,80,.06)' } } },
-    yAxis: { type: 'category', data: cfg.cats, inverse: true, axisLabel: { color: '#eef3e6', fontFamily: 'IBM Plex Sans', fontSize: 13 }, axisLine: { lineStyle: { color: 'rgba(140,200,80,.2)' } }, axisTick: { show: false } },
-    series: [{ type: 'bar', barWidth: '54%', data: cfg.vals.map((v, i) => ({ value: v, itemStyle: { color: cfg.cols[i], borderRadius: [0, 6, 6, 0] } })), label: { show: true, position: 'right', color: '#eef3e6', fontFamily: 'JetBrains Mono', fontSize: 13, fontWeight: 500, formatter: p => p.value.toFixed(3) } }]
+    xAxis: { type: 'value', max: 0.45, axisLabel: { color: '#93a487', fontFamily: 'JetBrains Mono', fontSize: 10 }, axisLine: { show: false }, splitLine: { lineStyle: { color: 'rgba(140,200,80,.06)' } } },
+    yAxis: { type: 'category', data: cfg.cats, inverse: true, axisLabel: { color: '#eef3e6', fontFamily: 'IBM Plex Sans', fontSize: 11 }, axisLine: { lineStyle: { color: 'rgba(140,200,80,.2)' } }, axisTick: { show: false } },
+    series: [{ type: 'bar', barWidth: '48%', data: cfg.vals.map((v, i) => ({ value: v, itemStyle: { color: cfg.cols[i], borderRadius: [0, 6, 6, 0] } })), label: { show: true, position: 'right', color: '#eef3e6', fontFamily: 'JetBrains Mono', fontSize: 11, fontWeight: 500, formatter: p => p.value.toFixed(3) } }]
   });
   window.addEventListener('resize', () => chart.resize());
 }
@@ -272,7 +272,7 @@ export function renderEcon() {
 
   // ---- quartile bars from real data ----
   const q1 = quartileMeans(rowsS, 'avg_salary', 'per_1k');
-  buildBar({ el: 'bar1', left: 175, cats: ['Q1 - najniższe zarobki', 'Q2 - niższe zarobki', 'Q3 - wyższe zarobki', 'Q4 - najwyższe zarobki'], vals: q1, cols: ['#4dd0b1', '#84c341', '#a6e84a', '#f2a359'] });
+  buildBar({ el: 'bar1', left: 155, cats: ['Q1 - najniższe zarobki', 'Q2 - niższe zarobki', 'Q3 - wyższe zarobki', 'Q4 - najwyższe zarobki'], vals: q1, cols: ['#4dd0b1', '#84c341', '#a6e84a', '#f2a359'] });
   const q2 = quartileMeans(rowsU, 'unemployment_rate', 'per_1k');
-  buildBar({ el: 'bar2', left: 175, cats: ['Q1 - niskie bezrobocie', 'Q2 - umiarkowane', 'Q3 - podwyższone', 'Q4 - wysokie bezrobocie'], vals: q2, cols: ['#84c341', '#a6e84a', '#f2a359', '#e8693d'] });
+  buildBar({ el: 'bar2', left: 155, cats: ['Q1 - niskie bezrobocie', 'Q2 - umiarkowane', 'Q3 - podwyższone', 'Q4 - wysokie bezrobocie'], vals: q2, cols: ['#84c341', '#a6e84a', '#f2a359', '#e8693d'] });
 }
