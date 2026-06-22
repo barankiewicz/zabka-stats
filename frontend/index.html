@@ -269,14 +269,13 @@
     <div class="card-title" data-debug-id="2.3">Żabka vs InPost</div>
     <div class="card-sub">Pojedynek dwóch gigantów polskiej przestrzeni publicznej!</div>
     <div class="gran-split" style="margin-top:16px">
-      <div style="display:flex;flex-direction:column">
-        <div class="map-container" style="flex:1;min-height:360px">
+      <div style="display:flex;flex-direction:column;height:440px">
+        <div class="map-container" style="flex:1">
           <div id="map-inpost" style="height:100%;background:#08110a"></div>
         </div>
       </div>
-      <div style="display:flex;flex-direction:column">
+      <div style="display:flex;flex-direction:column;height:440px">
         <div class="gran-left-head" style="margin-bottom:8px;flex-shrink:0">
-    
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <div class="gran-toggle" role="tablist" id="inpost-level">
               <button class="gran-btn active" data-ilevel="voivodeship">Województwo</button>
@@ -285,7 +284,7 @@
             </div>
           </div>
         </div>
-        <div id="inpost-dumbbell" style="flex:1;min-height:360px;overflow:auto"></div>
+        <div id="inpost-dumbbell" style="flex:1;overflow-y:auto;min-height:0"></div>
       </div>
     </div>
   </div>
@@ -518,9 +517,9 @@
 
   </section>
 
-  <!-- wiersz 1: kNN + parki -->
-  <div class="row row-2 reveal" style="margin-bottom:16px">
-    <div class="card">
+  <!-- wiersz 1: kNN (pol szerokosci) + parki (cwierc) + plazy bez zab (cwierc) -->
+  <div class="row row-4 reveal" style="margin-bottom:16px">
+    <div class="card" style="grid-column:span 2">
       <div class="card-title">Polowa sieci ma sasiadke blizej niz 300 m</div>
       <div class="card-sub">Rozklad odleglosci do najblizszego sklepu (k-NN).</div>
       <div class="chart-wrap" style="height:300px"><canvas id="ciek-knnChart"></canvas></div>
@@ -531,25 +530,30 @@
       <div class="ciek-corner-head">
         <div>
           <div class="card-title">Zabka na lonie natury</div>
-          <div class="card-sub" id="ciek-parks-cnote">Sklepy w granicach parkow krajobrazowych i otulin.</div>
+          <div class="card-sub">Sklepy w granicach parkow krajobrazowych i otulin.</div>
         </div>
         <canvas id="ciek-parksDonut" width="120" height="120" style="flex-shrink:0"></canvas>
       </div>
       <div id="ciek-parks-statline" style="margin-top:auto;padding-top:16px;font-family:var(--font-mono);font-size:11px;color:var(--muted);display:flex;flex-wrap:wrap;gap:10px"></div>
     </div>
-  </div>
-
-  <!-- wiersz 2: zabki bez zabek + ulice -->
-  <div class="row row-2 reveal" style="margin-bottom:16px">
     <div class="card ciek-corner-card">
       <div class="ciek-corner-head">
         <div>
           <div class="card-title">Zabka bez zadnej zaby w poblizu</div>
-          <div class="card-sub">Sklepy bez ani jednego plazu w promieniu 5 km (dane GBIF, klasa Amphibia).</div>
+          <div class="card-sub">Bez ani jednego plazu w promieniu 5 km (GBIF, klasa Amphibia).</div>
         </div>
         <canvas id="ciek-frogsDonut" width="120" height="120" style="flex-shrink:0"></canvas>
       </div>
-      <div id="ciek-frogs-note" style="margin-top:auto;padding-top:16px;font-family:var(--font-mono);font-size:11px;color:var(--muted)"></div>
+    </div>
+  </div>
+
+  <!-- wiersz 2: najdalej od zaby + ulice -->
+  <div class="row row-2 reveal" style="margin-bottom:16px">
+    <div class="card">
+      <div class="card-title">Najdalej od zaby w poblizu</div>
+      <div class="card-sub">Sklep z najdluzszym dystansem do najblizszej obserwacji plaza (GBIF, klasa Amphibia).</div>
+      <div class="stat-big slow" id="ciek-farthest-val" style="margin-top:20px">-</div>
+      <div id="ciek-farthest-city" style="font-family:var(--font-mono);font-size:13px;color:var(--muted);margin-top:6px">-</div>
     </div>
     <div class="card">
       <div class="card-title">Ulice z najwieksza liczba Zabek</div>

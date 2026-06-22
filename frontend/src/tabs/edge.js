@@ -38,8 +38,8 @@ function renderCiekawostkiKNN(){
   const med=d.median_m!=null?d.median_m:null;
   const avg=d.avg_m!=null?d.avg_m:null;
   const refLines=[];
-  if(med!=null) refLines.push({value:med,axis:'x',color:'#4a5a3e',lineWidth:2,label:'MED',labelColor:'#86a86a'});
-  if(avg!=null) refLines.push({value:avg,axis:'x',color:'#7a4a20',lineWidth:2,label:'AVG',labelColor:'#c79257'});
+  if(med!=null) refLines.push({value:med,axis:'x',color:'#4a5a3e',lineWidth:2});
+  if(avg!=null) refLines.push({value:avg,axis:'x',color:'#7a4a20',lineWidth:2});
 
   // Legend below (gran-ref-legend style)
   const legEl=document.getElementById('ciek-knn-legend');
@@ -135,14 +135,24 @@ function renderCiekawostkiFrogs(){
     :pctRaw.toFixed(1)
   ).toString().replace('.',',');
 
-  const ff=ae.farthest_from_frog||{};
-  const noteEl=document.getElementById('ciek-frogs-note');
-  if(noteEl&&ff.city&&ff.nearest_amphibian_km!=null)
-    noteEl.textContent=`Najdalej od plazu: ${ff.city} (${String(ff.nearest_amphibian_km).replace('.',',')} km)`;
-
   const canvas=document.getElementById('ciek-frogsDonut');
   if(!canvas)return;
   _drawCornerDonut(canvas, pctRaw/100, pctStr, '#4dd0b1', 'rgba(77,208,177,.12)');
+}
+
+// ===== CIEKAWOSTKI: Farthest-from-frog info card =====
+function renderCiekawostkiFarthestFrog(){
+  const ae=M.amphibian_extremes||{};
+  const ff=ae.farthest_from_frog||{};
+  if(!ff.city)return;
+  const valEl=document.getElementById('ciek-farthest-val');
+  if(valEl&&ff.nearest_amphibian_km!=null){
+    const km=(Math.round(ff.nearest_amphibian_km*100)/100).toFixed(2).replace('.',',');
+    valEl.textContent=km+' km';
+  }
+  const cityEl=document.getElementById('ciek-farthest-city');
+  if(cityEl)
+    cityEl.textContent=ff.city+(ff.voivodeship?', '+ff.voivodeship:'');
 }
 
 // ===== CIEKAWOSTKI: Physical streets (top street+city pairs) =====
@@ -279,6 +289,7 @@ export function renderEdge(){
   renderCiekawostkiKNN();
   renderCiekawostkiParks();
   renderCiekawostkiFrogs();
+  renderCiekawostkiFarthestFrog();
   renderCiekawostkiStreets();
   renderKraniec();
 }
