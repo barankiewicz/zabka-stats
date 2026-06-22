@@ -129,6 +129,52 @@ function renderCiekawostkiParks(){
   ctx.fillText(pctStr+'%',cx,cy);
 }
 
+// ===== CIEKAWOSTKI: Zero-frog donut =====
+function renderCiekawostkiFrogs(){
+  const ae=M.amphibian_extremes||{};
+  const zeroCount=ae.zero_frog_count;
+  if(zeroCount==null)return;
+  const total=(M.summary&&M.summary.total_active)||0;
+  if(!total)return;
+  const pctRaw=zeroCount/total*100;
+  const pctStr=(Math.abs(pctRaw-Math.round(pctRaw))<0.05
+    ?Math.round(pctRaw)
+    :pctRaw.toFixed(1)
+  ).toString().replace('.',',');
+
+  const countEl=document.getElementById('ciek-frogs-count');
+  if(countEl) countEl.textContent=fmt(zeroCount);
+  const totEl=document.getElementById('ciek-frogs-total');
+  if(totEl) totEl.textContent=fmt(total);
+
+  const ff=ae.farthest_from_frog||{};
+  const noteEl=document.getElementById('ciek-frogs-note');
+  if(noteEl&&ff.city&&ff.nearest_amphibian_km!=null)
+    noteEl.textContent=`Najdalej od plazu: ${ff.city} (${String(ff.nearest_amphibian_km).replace('.',',')} km)`;
+
+  const canvas=document.getElementById('ciek-frogsDonut');
+  if(!canvas)return;
+  const W=canvas.width||200,H=canvas.height||200;
+  const ctx=canvas.getContext('2d');
+  const cx=W/2,cy=H/2,rr=Math.min(W,H)/2-14;
+  ctx.clearRect(0,0,W,H);
+  ctx.lineCap='round';
+  ctx.lineWidth=15;
+
+  ctx.strokeStyle='rgba(77,208,177,.12)';
+  ctx.beginPath();ctx.arc(cx,cy,rr,0,Math.PI*2);ctx.stroke();
+
+  const frac=Math.max(0,Math.min(1,pctRaw/100));
+  ctx.strokeStyle='#4dd0b1';
+  ctx.beginPath();ctx.arc(cx,cy,rr,-Math.PI/2,-Math.PI/2+Math.PI*2*frac);ctx.stroke();
+
+  ctx.fillStyle='#4dd0b1';
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.font=`800 ${Math.round(W*0.21)}px '${getFont('display')}',sans-serif`;
+  ctx.fillText(pctStr+'%',cx,cy);
+}
+
 // ===== CIEKAWOSTKI: Physical streets (top street+city pairs) =====
 function renderCiekawostkiStreets(){
   const streets=(M.section3_rare&&M.section3_rare.physical_streets)||[];
@@ -262,6 +308,7 @@ export function renderEdge(){
   renderEdgeKPIs();
   renderCiekawostkiKNN();
   renderCiekawostkiParks();
+  renderCiekawostkiFrogs();
   renderCiekawostkiStreets();
   renderKraniec();
 }

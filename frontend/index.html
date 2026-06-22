@@ -295,15 +295,14 @@
     <div class="ec-chapter">
       <div class="ec-reveal">
         <h2>Im wyższe zarobki,<br>tym więcej Żabek.</h2>
-        <p class="lead">Korelacja Spearmana r = +0,41. Każdy punkt to jeden z 381 powiatów - im dalej w prawo, tym zamożniej i tym gęstsza sieć.</p>
       </div>
 
       <div class="card ec-reveal">
         <div class="chead">
           <h3>Płaca kontra gęstość sieci</h3>
-          <span class="cap">X = średnia płaca · Y = sklepy / 1000 mieszk. · wielkość = populacja</span>
+          
         </div>
-        <p class="cnote">Każdy punkt to jeden z 381 powiatów. Im bardziej w prawo i cieplejszy kolor - tym zamożniej. Najedź na punkt po szczegóły.</p>
+        
         <div id="scatter1" class="ec-chart"></div>
       </div>
 
@@ -517,12 +516,12 @@
 
   </section>
 
-  <!-- 3 wykresy: dystans do sasiadki, parki, ulice -->
-  <div class="row row-3 reveal" style="margin-bottom:16px">
+  <!-- wiersz 1: kNN + parki -->
+  <div class="row row-2 reveal" style="margin-bottom:16px">
     <div class="card">
       <div class="card-title">Polowa sieci ma sasiadke blizej niz 300 m</div>
       <div class="card-sub">Rozklad odleglosci do najblizszego sklepu (k-NN).</div>
-      <div class="chart-wrap" style="height:280px"><canvas id="ciek-knnChart"></canvas></div>
+      <div class="chart-wrap" style="height:300px"><canvas id="ciek-knnChart"></canvas></div>
       <div class="gran-ref-legend" id="ciek-knn-legend" style="margin-top:8px"></div>
       <div class="statline" style="margin-top:6px"><span>maks. <b id="ciek-stat-max">-</b></span></div>
     </div>
@@ -536,10 +535,24 @@
       </div>
       <div id="ciek-parks-statline" style="margin-top:4px;font-family:var(--font-mono);font-size:11px;color:var(--muted);display:flex;flex-wrap:wrap;gap:10px"></div>
     </div>
+  </div>
+
+  <!-- wiersz 2: zabki bez zabek + ulice -->
+  <div class="row row-2 reveal" style="margin-bottom:16px">
+    <div class="card">
+      <div class="card-title">Zabka bez zadnej zaby w poblizu</div>
+      <div class="card-sub">Sklepy bez ani jednego plazu w promieniu 5 km (dane GBIF, klasa Amphibia).</div>
+      <div style="display:flex;flex-direction:column;align-items:center;padding:18px 0 10px">
+        <canvas id="ciek-frogsDonut" class="powiat-donut" width="200" height="200"></canvas>
+        <div class="powiat-frac"><span id="ciek-frogs-count">-</span><span class="powiat-of">/<span id="ciek-frogs-total">-</span></span></div>
+        <div class="powiat-cap">sklepow bez plaza w promieniu 5 km</div>
+      </div>
+      <div id="ciek-frogs-note" style="margin-top:4px;font-family:var(--font-mono);font-size:11px;color:var(--muted)"></div>
+    </div>
     <div class="card">
       <div class="card-title">Ulice z najwieksza liczba Zabek</div>
       <div class="card-sub">Konkretna ulica i miasto - nie tylko nazwa.</div>
-      <div class="chart-wrap" style="height:360px"><canvas id="ciek-streetsChart"></canvas></div>
+      <div class="chart-wrap" style="height:400px"><canvas id="ciek-streetsChart"></canvas></div>
     </div>
   </div>
 </div>
