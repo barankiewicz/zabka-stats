@@ -119,7 +119,7 @@ function renderCiekawostkiParks(){
 
   const canvas=document.getElementById('ciek-parksDonut');
   if(!canvas)return;
-  _drawCornerDonut(canvas, frac, pctStr, C.greenBright, 'rgba(132,195,65,.12)');
+  _drawCornerDonut(canvas, pctRaw/100, pctStr, C.greenBright, 'rgba(132,195,65,.12)');
 }
 
 // ===== CIEKAWOSTKI: Zero-frog donut =====
@@ -142,7 +142,7 @@ function renderCiekawostkiFrogs(){
 
   const canvas=document.getElementById('ciek-frogsDonut');
   if(!canvas)return;
-  _drawCornerDonut(canvas, frac, pctStr, '#4dd0b1', 'rgba(77,208,177,.12)');
+  _drawCornerDonut(canvas, pctRaw/100, pctStr, '#4dd0b1', 'rgba(77,208,177,.12)');
 }
 
 // ===== CIEKAWOSTKI: Physical streets (top street+city pairs) =====
