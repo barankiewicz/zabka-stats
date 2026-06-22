@@ -752,15 +752,15 @@ async def inpost_vs_zabka_by_level(level: str = "voivodeship", sort: str = "desc
             z = int(z)
             key = (name.strip().lower(), voiv.strip().lower())
             p = locker_map.get(key, 0)
-            if not p:
+            pop = int(pop) if pop else 0
+            if not p or not pop:
                 continue
-            pop = int(pop) if pop else 1
             ratio = round(p / z, 2) if z else 0.0
             rows.append({
                 "name": name, "voivodeship": voiv,
                 "zabki": z, "paczkomaty": p, "population": pop,
-                "zabki_per_100k": round(z * 100000 / pop, 1) if pop else 0.0,
-                "lockers_per_100k": round(p * 100000 / pop, 1) if pop else 0.0,
+                "zabki_per_100k": round(z * 100000 / pop, 1),
+                "lockers_per_100k": round(p * 100000 / pop, 1),
                 "ratio": ratio,
             })
     elif level == "city":
@@ -788,7 +788,9 @@ async def inpost_vs_zabka_by_level(level: str = "voivodeship", sort: str = "desc
             if not p:
                 continue
             g = cg.get((voiv, city.strip().lower()), {})
-            pop = g.get("population") or 1
+            pop = g.get("population") or 0
+            if not pop:
+                continue
             ratio = round(p / z, 2) if z else 0.0
             rows.append({
                 "name": city, "voivodeship": voiv,
@@ -819,9 +821,9 @@ async def inpost_vs_zabka_by_level(level: str = "voivodeship", sort: str = "desc
             z = int(z)
             key = (name.strip().lower(), voiv.strip().lower())
             p = locker_map.get(key, 0)
-            if not p:
+            pop = int(pop) if pop else 0
+            if not p or not pop:
                 continue
-            pop = int(pop) if pop else 1
             ratio = round(p / z, 2) if z else 0.0
             rows.append({
                 "name": name, "voivodeship": voiv,

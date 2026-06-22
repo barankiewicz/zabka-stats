@@ -185,7 +185,12 @@ async function fetchDumbbellLevel(level,limit){
 
 export function renderDumbbell(data){
   if(!data)data=M.inpost_vs_zabka;
-  const arr=(data||[]).filter(d=>(d.zabki_per_100k||0)>0&&(d.lockers_per_100k||0)>0).sort((a,b)=>{
+  const arr=(data||[]).filter(d=>{
+    const z=d.zabki_per_100k||0, p=d.lockers_per_100k||0;
+    if(!z||!p) return false;
+    // require at least 5% relative difference so the line is actually visible
+    return Math.abs(p-z)/Math.max(z,p)>=0.05;
+  }).sort((a,b)=>{
     const na=(a.name||a.voivodeship||'').toLowerCase();
     const nb=(b.name||b.voivodeship||'').toLowerCase();
     return na.localeCompare(nb,'pl');
