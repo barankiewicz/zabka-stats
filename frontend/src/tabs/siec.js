@@ -718,7 +718,7 @@ export function renderPowiatCoverage(){
     dctx.fillText(ptxt+'%',cx,cy);
   }
   function step(now){
-    const k=0.16;let moving=false;
+    const k=0.07;let moving=false;
     S.pct+=(S.pctT-S.pct)*k; if(Math.abs(S.pctT-S.pct)>0.04)moving=true;else S.pct=S.pctT;
     S.cov+=(S.covT-S.cov)*k; if(Math.abs(S.covT-S.cov)>0.4)moving=true;else S.cov=S.covT;
     S.tot+=(S.totT-S.tot)*k; if(Math.abs(S.totT-S.tot)>0.4)moving=true;else S.tot=S.totT;
