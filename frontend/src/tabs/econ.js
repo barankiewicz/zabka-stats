@@ -63,11 +63,7 @@ function buildScatter(cfg) {
     backgroundColor: 'transparent',
     animationDuration: RM ? 0 : 900, animationEasing: 'cubicOut', animationDelay: RM ? 0 : (i => i * 4),
     grid: { left: 60, right: 24, top: 24, bottom: 56 },
-    tooltip: {
-      backgroundColor: '#0c160b', borderColor: 'rgba(140,200,80,.3)', borderWidth: 1,
-      textStyle: { color: '#eef3e6', fontFamily: 'IBM Plex Sans' },
-      formatter: p => { const v = p.value; return '<b style="font-family:Bricolage Grotesque;font-size:15px">' + p.name + '</b><br><span style="color:#93a487">' + v[5] + '</span><br>Płaca: <b>' + v[6].toLocaleString('pl-PL') + ' zł</b><br>Bezrobocie: <b>' + v[4] + '%</b><br>Żabki/1000: <b>' + v[1].toFixed(3) + '</b><br>Populacja: ' + fmtPop(v[3]); }
-    },
+    tooltip: { show: false },
     visualMap: { min: cfg.vmMin, max: cfg.vmMax, dimension: 0, calculable: false, show: false, inRange: { color: cfg.colors } },
     xAxis: { type: 'value', min: cfg.xmin, max: cfg.xmax, name: cfg.xname, nameLocation: 'middle', nameGap: 36, nameTextStyle: { color: '#5d6c52', fontFamily: 'JetBrains Mono', fontSize: 11 }, axisLabel: { color: '#93a487', fontFamily: 'JetBrains Mono', fontSize: 11, formatter: cfg.xfmt }, axisLine: { lineStyle: { color: 'rgba(140,200,80,.2)' } }, splitLine: { lineStyle: { color: 'rgba(140,200,80,.06)' } } },
     yAxis: { type: 'value', min: 0, max: cfg.ymax || 1.05, name: 'Żabki / 1000 mieszk.', nameLocation: 'middle', nameGap: 42, nameRotate: 90, nameTextStyle: { color: '#5d6c52', fontFamily: 'JetBrains Mono', fontSize: 11 }, axisLabel: { color: '#93a487', fontFamily: 'JetBrains Mono', fontSize: 11 }, axisLine: { lineStyle: { color: 'rgba(140,200,80,.2)' } }, splitLine: { lineStyle: { color: 'rgba(140,200,80,.06)' } } },
@@ -76,9 +72,9 @@ function buildScatter(cfg) {
         data: [[cfg.tx0, cfg.slope * cfg.tx0 + cfg.intercept], [cfg.tx1, cfg.slope * cfg.tx1 + cfg.intercept]],
         lineStyle: { color: cfg.trendColor, width: 2, type: 'dashed', opacity: .6 },
         markPoint: { symbol: 'circle', symbolSize: 1, silent: true, animationDelay: RM ? 0 : 1300, label: { color: cfg.trendColor, fontFamily: 'JetBrains Mono', fontSize: 13, fontWeight: 500, backgroundColor: 'rgba(12,22,11,.9)', borderColor: cfg.trendColor, borderWidth: 1, borderRadius: 6, padding: [5, 9], formatter: cfg.rText }, data: [{ coord: cfg.rPos }] } },
-      { name: 'powiaty', type: 'scatter', z: 2, data: data, symbolSize: d => Math.max(7, Math.min(36, d[2])),
+      { name: 'powiaty', type: 'scatter', z: 2, data: data, silent: true, symbolSize: d => Math.max(7, Math.min(36, d[2])),
         itemStyle: { opacity: .84, borderColor: 'rgba(10,18,10,.6)', borderWidth: .5, shadowBlur: 8, shadowColor: 'rgba(132,195,65,.15)' },
-        emphasis: { itemStyle: { opacity: 1, borderColor: '#eef3e6', borderWidth: 1.2, shadowBlur: 16 } },
+        emphasis: { disabled: true },
         markPoint: { symbol: 'circle', symbolSize: 1, silent: true, animationDelay: RM ? 0 : 1450, label: { color: '#eef3e6', fontFamily: 'JetBrains Mono', fontSize: 11, fontWeight: 500, backgroundColor: 'rgba(12,22,11,.85)', borderColor: 'rgba(140,200,80,.3)', borderWidth: 1, borderRadius: 6, padding: [4, 7], formatter: p => p.data.txt }, data: cfg.heroes } }
     ]
   });
