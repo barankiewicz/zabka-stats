@@ -34,12 +34,19 @@ const plr = r => (r >= 0 ? '+' : '−') + Math.abs(r).toFixed(2).replace('.', ',
 const cleanPow = n => (n || '').replace(/^powiat\s+/i, '');
 
 // Stratified subsample: n points spread evenly across the sorted range of sortKey.
+// Hero rows (those matching any spec.match) are always included; the rest are sampled.
 // Stats (pearson, linreg, quartiles) use the full arrays; only scatter dots use this.
 function stratSample(arr, n, sortKey) {
   if (arr.length <= n) return arr;
   const s = [...arr].sort((a, b) => a[sortKey] - b[sortKey]);
   const step = s.length / n;
   return Array.from({ length: n }, (_, i) => s[Math.min(s.length - 1, Math.round(i * step))]);
+}
+function sampleWithHeroes(arr, n, sortKey, specs) {
+  const isHero = r => specs.some(sp => (r.powiat || '').toLowerCase().includes(sp.match));
+  const pinned = arr.filter(isHero);
+  const rest   = arr.filter(r => !isHero(r));
+  return [...pinned, ...stratSample(rest, Math.max(0, n - pinned.length), sortKey)];
 }
 
 function heroPoints(rows, xkey, specs) {
@@ -227,8 +234,18 @@ export function renderEcon() {
   const sMax = Math.max(...rowsS.map(d => d.avg_salary));
   const uMin = Math.min(...rowsU.map(d => d.unemployment_rate));
   const uMax = Math.max(...rowsU.map(d => d.unemployment_rate));
-  const ptsS = stratSample(rowsS, 130, 'avg_salary');
-  const ptsU = stratSample(rowsU, 130, 'unemployment_rate');
+  const heroSpecsS = [
+    { match: 'kamieńsk', label: 'kamienski · kurort (Miedzyzdrojé)', color: '#a6e84a', pos: 'right' },
+    { match: 'tatrza',   label: 'tatrzanski · Zakopane',             color: '#a6e84a', pos: 'right' },
+    { match: 'warszawa', label: 'Warszawa',                          color: '#eef3e6', pos: 'right' },
+    { match: 'lubińsk',  label: 'lubinski · najbogatszy, a rzadki',  color: '#f2a359', pos: 'left', off: [-6, 0] },
+  ];
+  const heroSpecsU = [
+    { match: 'szydłowieck', label: 'szydłowiecki · rekord bezrobocia', color: '#e8693d', pos: 'top', off: [0, -6] },
+    { match: 'poznański', label: 'poznanski · min. bezrobocie', color: '#84c341', pos: 'right' },
+  ];
+  const ptsS = sampleWithHeroes(rowsS, 130, 'avg_salary',        heroSpecsS);
+  const ptsU = sampleWithHeroes(rowsU, 130, 'unemployment_rate', heroSpecsU);
   buildScatter({
     el: 'scatter1', pts: ptsS, xkey: 'avg_salary',
     xname: 'średnia płaca (zł)', xmin: Math.floor(sMin / 500) * 500, xmax: Math.ceil(sMax / 500) * 500,
@@ -236,12 +253,7 @@ export function renderEcon() {
     vmMin: sMin, vmMax: sMax, colors: ['#4dd0b1', '#84c341', '#a6e84a', '#f2a359'],
     slope: reg1.slope, intercept: reg1.intercept, tx0: sMin, tx1: sMax,
     trendColor: '#a6e84a', rText: 'r = ' + plr(r1), rPos: [sMax * 0.88, (ymax * 0.9)],
-    heroes: heroPoints(rowsS, 'avg_salary', [
-      { match: 'kamieńsk', label: 'kamienski · kurort (Miedzyzdrojé)', color: '#a6e84a', pos: 'right' },
-      { match: 'tatrza', label: 'tatrzanski · Zakopane', color: '#a6e84a', pos: 'right' },
-      { match: 'warszawa', label: 'Warszawa', color: '#eef3e6', pos: 'right' },
-      { match: 'lubińsk', label: 'lubinski · najbogatszy, a rzadki', color: '#f2a359', pos: 'left', off: [-6, 0] }
-    ])
+    heroes: heroPoints(rowsS, 'avg_salary', heroSpecsS),
   });
   buildScatter({
     el: 'scatter2', pts: ptsU, xkey: 'unemployment_rate',
@@ -249,11 +261,7 @@ export function renderEcon() {
     vmMin: uMin, vmMax: uMax, colors: ['#84c341', '#a6e84a', '#f2a359', '#e8693d'],
     slope: reg2.slope, intercept: reg2.intercept, tx0: uMin, tx1: uMax,
     trendColor: '#e8693d', rText: 'r = ' + plr(r2), rPos: [uMax * 0.78, (ymax * 0.9)],
-    heroes: heroPoints(rowsU, 'unemployment_rate', [
-      { match: 'szydłowieck', label: 'szydłowiecki · rekord bezrobocia', color: '#e8693d', pos: 'top', off: [0, -6] },
-      { match: 'przysusk', label: 'przysuski · prawie pustynia', color: '#e8693d', pos: 'left', off: [-6, 0] },
-      { match: 'poznański', label: 'poznanski · min. bezrobocie', color: '#84c341', pos: 'right' }
-    ])
+    heroes: heroPoints(rowsU, 'unemployment_rate', heroSpecsU),
   });
 
   // ---- quartile bars from real data ----
