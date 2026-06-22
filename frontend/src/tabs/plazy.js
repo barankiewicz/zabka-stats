@@ -62,9 +62,27 @@ function updatePlazyStats() {
   if (ae.farthest_from_frog && el('plazy-p6-city'))
     el('plazy-p6-city').textContent = 'Najdalej od jakiejkolwiek: ' + ae.farthest_from_frog.city + ', ' + ae.farthest_from_frog.nearest_amphibian_km.toFixed(2).replace('.', ',') + ' km';
   if (ae.zero_frog_count != null && ae.gbif_total && el('plazy-p6-sub')) {
-    const total = M.summary && M.summary.total_active ? M.summary.total_active : 13000;
-    const pct = ((ae.zero_frog_count / total) * 100).toFixed(1).replace('.', ',');
-    el('plazy-p6-sub').textContent = 'sklepow (' + pct + '%) ze zero plazami w 5 km';
+    const total = M.summary && M.summary.total_active;
+    if (total) {
+      const pct = ((ae.zero_frog_count / total) * 100).toFixed(1).replace('.', ',');
+      el('plazy-p6-sub').textContent = 'sklepow (' + pct + '%) ze zero plazami w 5 km';
+    }
+  }
+
+  // Dynamic hero lede
+  const ledeEl = el('hero-lede-plazy');
+  if (ledeEl && ae.median_occurrences != null && ae.most_froggy) {
+    const med = fmt(ae.median_occurrences);
+    const rec = fmt(ae.most_froggy.amphibian_occurrences_5km);
+    const recCity = ae.most_froggy.city || 'Ursynow';
+    ledeEl.textContent = `${med} obserwacje w promieniu 5 km - tyle wynosi mediana dla polskiej Żabki. Jeden sklep w ${recCity} bije rekordy: ${rec}. Białowieża ze swoimi 425 nie ma szans.`;
+  }
+
+  // Dynamic P1 title
+  const p1TitleEl = el('plazy-p1-title');
+  if (p1TitleEl && ae.most_froggy) {
+    const rec = fmt(ae.most_froggy.amphibian_occurrences_5km);
+    p1TitleEl.textContent = `Większość Żabek ma kilkadziesiąt żab w pobliżu. Jedna ma ${rec}.`;
   }
 }
 
@@ -73,10 +91,13 @@ export function drawBeeswarm() {
   const W = cv.offsetWidth || 1200; cv.width = W; cv.height = 300;
   const ctx = cv.getContext('2d');
   ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, 300);
-  const stores = M.amphibian_extremes.stores || [];
-  const logScale = d3.scaleLog().domain([1, 2100]).range([60, W - 60]).clamp(true);
+  const ae0 = M.amphibian_extremes || {};
+  const stores = ae0.stores || [];
+  const recMax = ae0.most_froggy ? (ae0.most_froggy.amphibian_occurrences_5km || 1) : 1;
+  const domMax = Math.max(100, Math.ceil(recMax * 1.1 / 100) * 100);
+  const logScale = d3.scaleLog().domain([1, domMax]).range([60, W - 60]).clamp(true);
   const teals = ['#0a2a2a', '#0d4040', '#0f5a52', '#00b4c8', '#00e0d0'];
-  const tealsScale = d3.scaleLog().domain([1, 2100]).range([0, 4]).clamp(true);
+  const tealsScale = d3.scaleLog().domain([1, domMax]).range([0, 4]).clamp(true);
   const bucketStacks = {}; const BW = Math.ceil(W / 120);
   stores.forEach(([, , occ]) => { if (occ === 0) return; const bx = Math.floor(logScale(occ) / BW); bucketStacks[bx] = (bucketStacks[bx] || 0) + 1; });
   const bucketCurr = {};
@@ -92,11 +113,17 @@ export function drawBeeswarm() {
     ctx.beginPath(); ctx.arc(x, cy2, 2, 0, Math.PI * 2); ctx.fill();
   });
   ctx.globalAlpha = 1;
-  const urx = Math.round(logScale(2028));
-  ctx.beginPath(); ctx.arc(urx, 150, 6, 0, Math.PI * 2); ctx.fillStyle = C.teal; ctx.fill();
-  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
-  ctx.font = `11px '${getFont('body')}',sans-serif`; ctx.fillStyle = C.ink;
-  ctx.textAlign = 'left'; ctx.fillText('Ursynow (2 028)', urx + 10, 148);
+  const ae2 = M.amphibian_extremes || {};
+  const mf2 = ae2.most_froggy;
+  const recOcc = (mf2 && mf2.amphibian_occurrences_5km > 0) ? mf2.amphibian_occurrences_5km : 0;
+  const recCity2 = mf2 ? (mf2.city || '') : '';
+  if (recOcc > 0) {
+    const urx = Math.round(logScale(recOcc));
+    ctx.beginPath(); ctx.arc(urx, 150, 6, 0, Math.PI * 2); ctx.fillStyle = C.teal; ctx.fill();
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.font = `11px '${getFont('body')}',sans-serif`; ctx.fillStyle = C.ink;
+    ctx.textAlign = 'left'; ctx.fillText(recCity2 + ' (' + recOcc.toLocaleString('pl-PL') + ')', urx + 10, 148);
+  }
   [1, 10, 100, 1000].forEach(v => {
     const x = logScale(v);
     ctx.fillStyle = C.muted; ctx.font = `10px '${getFont('mono')}',monospace`;
@@ -228,9 +255,9 @@ export function renderPlazyMap() {
   const dryLon = 18.56216;
 
   const frogM = L.marker([frogLat, frogLon], { icon: mkIcon('#a6e84a') }).addTo(map)
-    .bindPopup(`<b>Najbardziej zabia Zabka</b><br>${fmt(mf.amphibian_occurrences_5km || 2028)} obserwacji<br>${mf.city || 'Warszawa'} · ${mf.street || 'al. KEN 36'}`, { closeButton: false, maxWidth: 240 });
+    .bindPopup(`<b>Najbardziej zabia Zabka</b><br>${fmt(mf.amphibian_occurrences_5km || 0)} obserwacji<br>${mf.city || ''} · ${mf.street || ''}`, { closeButton: false, maxWidth: 240 });
   const dryM = L.marker([dryLat, dryLon], { icon: mkIcon('#e8693d') }).addTo(map)
-    .bindPopup(`<b>Najdalej od plaza</b><br>${(ff.nearest_amphibian_km || 14.91).toFixed(2)} km<br>${ff.city || 'Wielun'} · ${ff.voivodeship || 'lodzkie'}`, { closeButton: false, maxWidth: 240 });
+    .bindPopup(`<b>Najdalej od plaza</b><br>${ff.nearest_amphibian_km ? ff.nearest_amphibian_km.toFixed(2) : '—'} km<br>${ff.city || ''} · ${ff.voivodeship || ''}`, { closeButton: false, maxWidth: 240 });
 
   const flyBtn = id => document.getElementById(id);
   if (flyBtn('plazy-fly-frog')) flyBtn('plazy-fly-frog').addEventListener('click', () => { map.flyTo([frogLat, frogLon], 12, { duration: 1.5, easeLinearity: .22 }); setTimeout(() => frogM.openPopup(), 650); });

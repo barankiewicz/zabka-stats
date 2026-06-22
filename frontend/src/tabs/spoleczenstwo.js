@@ -2,15 +2,42 @@ import Chart from 'chart.js/auto';
 import L from 'leaflet';
 import { C, STATE } from '../config.js';
 import { M, CHARTS } from '../state.js';
-import { fmt, macroCol, getFont, destroyChart, leafletDark } from '../utils.js';
+import { fmt, macroCol, getFont, destroyChart, leafletDark, startTabParticles } from '../utils.js';
 import { setFilter } from '../filter.js';
+import { renderEcon } from './econ.js';
+
 
 export function renderSpoleczenstwo(){
-  renderScatters();
-  renderSundayChoropleth();
-  renderDensityChoropleth();
+  startTabParticles('particles-spoleczenstwo',[188,224,58],60);
+  // Update lead paragraph with live totals
+  const leadEl=document.getElementById('ec-lead-totals');
+  if(leadEl&&M.summary&&M.section3_rare){
+    const total=M.summary.total_active?(+M.summary.total_active).toLocaleString('pl-PL'):null;
+    const powiats=M.section3_rare.powiats_covered||null;
+    if(total&&powiats){
+      leadEl.innerHTML=`<b>${total}</b> sklepów w <b>${powiats}</b> powiatach. W dwóch rozdziałach sprawdzamy, czy gęstość sieci idzie za <b>pieniędzmi</b> i za <b>pracą</b> - i co tak naprawdę mówią o tym liczby.`;
+    }
+  }
+  const hEl=document.getElementById('hero-num-spoleczenstwo');
+  if(hEl&&M.summary&&M.summary.sunday_pct!=null){
+    const target=M.summary.sunday_pct;
+    const prefersReduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(prefersReduced){
+      hEl.innerHTML=`${String(target).replace('.',',')}<span class="stat-unit">%</span>`;
+    }else{
+      const from=70,dur=1800,start=performance.now();
+      (function step(now){
+        const t=Math.min(1,(now-start)/dur);
+        const e=t>=1?1:1-Math.pow(2,-14*t);
+        const v=from+(target-from)*e;
+        hEl.innerHTML=`${String(Math.round(v*10)/10).replace('.',',')}<span class="stat-unit">%</span>`;
+        if(t<1)requestAnimationFrame(step);
+      })(performance.now());
+    }
+  }
+  renderEcon();
   renderMerrychef();
-  renderDumbbell();
+  renderDumbbellByLevel();
 }
 
 export function renderScatters(){
@@ -108,74 +135,176 @@ export function renderDensityChoropleth(){
 
 export function renderMerrychef(){
   const data=[...M.voivodeship_merrychef].sort((a,b)=>a.mc_pct-b.mc_pct);
+  // National average from data; fall back to summary counts if voivodeship list is empty
+  const natAvg=data.length
+    ? Math.round(data.reduce((s,d)=>s+d.mc_pct,0)/data.length*10)/10
+    : (M.summary&&M.summary.with_merrychef&&M.summary.total_active
+        ? Math.round(M.summary.with_merrychef/M.summary.total_active*1000)/10
+        : 0);
+  if(!natAvg)return;
+  const low=data.find(d=>d.mc_pct<natAvg-2);
+  const titleEl=document.querySelector('[data-debug-id="2.2b"]');
+  if(titleEl){
+    titleEl.textContent=low
+      ? `${low.voivodeship.charAt(0).toUpperCase()+low.voivodeship.slice(1)}: jedyny region poniżej ${natAvg}% z piecem`
+      : `Merrychef — rozkład województw (śr. krajowa ${natAvg}%)`;
+  }
+  const subEl=titleEl&&titleEl.closest('.card')&&titleEl.closest('.card').querySelector('.card-sub');
+  if(subEl)subEl.textContent=`% sklepów z Merrychef, posortowane rosnąco — średnia krajowa ${String(natAvg).replace('.',',')}%`;
   destroyChart('merrychef');
   CHARTS['merrychef']=new Chart(document.getElementById('chart-merrychef'),{
     type:'bar',
-    data:{labels:data.map(d=>d.voivodeship),datasets:[{data:data.map(d=>d.mc_pct),backgroundColor:data.map(d=>d.voivodeship.toLowerCase().includes('dolno')||d.mc_pct<93?C.amber:C.green+'aa'),borderRadius:2,borderWidth:0}]},
+    data:{labels:data.map(d=>d.voivodeship),datasets:[{data:data.map(d=>d.mc_pct),backgroundColor:data.map(d=>d.mc_pct<natAvg-2?C.amber:C.green+'aa'),borderRadius:2,borderWidth:0}]},
     options:{
       indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw}% z Merrychef`}},annot:{refLines:[{value:97.4,axis:'x',color:'rgba(255,255,255,.25)'}]}},
-      scales:{x:{min:88,max:100,grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw}% z Merrychef`}},annot:{refLines:[{value:natAvg,axis:'x',color:'rgba(255,255,255,.25)'}]}},
+      scales:{x:{min:Math.max(0,Math.floor(Math.min(...data.map(d=>d.mc_pct))-2)),max:100,grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
     }
   });
 }
 
-export function renderDumbbell(){
-  const data=[...M.inpost_vs_zabka].sort((a,b)=>b.ratio-a.ratio);
+let _dbLevel='voivodeship';
+let _dbTopN=20;
+let _dbSort='desc';
+let _dbDataCache={};
+
+const _DB_LEVEL_MAP={'wojewodztwo':'voivodeship','powiat':'powiat','miasto':'city','gmina':'gmina'};
+const _DB_LEVEL_LABEL_PL={'voivodeship':'Wojewodztwo','powiat':'Powiat','city':'Miasto','gmina':'Gmina'};
+
+async function fetchDumbbellLevel(level,limit){
+  const key=`${level}_${limit}`;
+  if(_dbDataCache[key])return _dbDataCache[key];
+  const apiLevel=_DB_LEVEL_MAP[level]||level;
+  try{
+    const r=await fetch(`/api/stats/inpost-vs-zabka-by-level?level=${encodeURIComponent(apiLevel)}&limit=${limit}`);
+    if(!r.ok)throw new Error(`HTTP ${r.status}`);
+    const d=await r.json();
+    _dbDataCache[key]=d;
+    return d;
+  }catch(e){console.error('dumbbell fetch error',e);return null}
+}
+
+export function renderDumbbell(data){
+  if(!data)data=M.inpost_vs_zabka;
+  // always sort by ratio; _dbSort flips largest-first (default) vs smallest-first
+  const arr=[...(data||[])].sort((a,b)=>_dbSort==='asc'?(a.ratio-b.ratio):(b.ratio-a.ratio));
   const el=document.getElementById('inpost-dumbbell');if(!el)return;
-  const allVals=data.flatMap(d=>[d.zabki_per_100k||0,d.lockers_per_100k||0]);
+  const allVals=arr.flatMap(d=>[d.zabki_per_100k||0,d.lockers_per_100k||0]);
   const maxV=Math.max(...allVals,1);
-  const ROW=32,PAD_L=140,PAD_R=70,W_CHART=440,H=data.length*ROW+40;
+  const ROW=arr.length<=20?24:arr.length<=50?17:13;
+  const PAD_L=arr.length<=20?130:100;
+  const PAD_R=55;
+  const W_CHART=420;
+  const DOT_R=arr.length<=20?5:arr.length<=50?4:3;
+  const FONT_LABEL=arr.length<=20?10:arr.length<=50?8.5:7.5;
+  const FONT_RATIO=arr.length<=20?9:7.5;
+  const FONT_GRID=arr.length<=20?8:7;
+  const H=arr.length*ROW+30;
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
-  svg.setAttribute('viewBox',`0 0 ${PAD_L+W_CHART+PAD_R} ${H}`);
-  svg.style.cssText=`width:100%;min-width:520px;display:block;background:transparent`;
+  const VBW=PAD_L+W_CHART+PAD_R;
+  svg.setAttribute('viewBox',`0 0 ${VBW} ${H}`);
+  // cap the rendered width to the viewBox so the chart can't scale up (and get
+  // huge) on a full-width card; keep aspect, center it
+  svg.style.cssText=`display:block;margin:0 auto;width:100%;max-width:${VBW}px;height:auto`;
   function px(v){return PAD_L+v/maxV*W_CHART}
   [0.25,0.5,0.75,1.0].forEach(f=>{
     const x=px(maxV*f);
     const line=document.createElementNS('http://www.w3.org/2000/svg','line');
-    line.setAttribute('x1',x);line.setAttribute('y1',20);line.setAttribute('x2',x);line.setAttribute('y2',H-10);
-    line.setAttribute('stroke','#2a2a3a');line.setAttribute('stroke-width','0.8');
+    line.setAttribute('x1',x);line.setAttribute('y1',16);line.setAttribute('x2',x);line.setAttribute('y2',H-10);
+    line.setAttribute('stroke','#2a2a3a');line.setAttribute('stroke-width','0.6');
     svg.appendChild(line);
     const lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
-    lbl.setAttribute('x',x);lbl.setAttribute('y',14);lbl.setAttribute('text-anchor','middle');
-    lbl.setAttribute('fill','#7a7a90');lbl.setAttribute('font-size','9');
+    lbl.setAttribute('x',x);lbl.setAttribute('y',12);lbl.setAttribute('text-anchor','middle');
+    lbl.setAttribute('fill','#7a7a90');lbl.setAttribute('font-size',FONT_GRID);
     lbl.textContent=(maxV*f).toFixed(0);svg.appendChild(lbl);
   });
-  data.forEach((d,i)=>{
-    const y=28+i*ROW;
+  arr.forEach((d,i)=>{
+    const y=22+i*ROW;
     const xz=px(d.zabki_per_100k||0),xi=px(d.lockers_per_100k||0);
-    const isFiltered=STATE.filter&&d.voivodeship.toLowerCase()!==STATE.filter.toLowerCase();
-    const alpha=isFiltered?'0.2':'1';
+    const isFiltered=STATE.filter&&d.voivodeship&&d.voivodeship.toLowerCase()!==STATE.filter.toLowerCase();
+    const alpha=isFiltered?'0.15':'1';
     const ln=document.createElementNS('http://www.w3.org/2000/svg','line');
     ln.setAttribute('x1',Math.min(xz,xi));ln.setAttribute('y1',y);ln.setAttribute('x2',Math.max(xz,xi));ln.setAttribute('y2',y);
-    ln.setAttribute('stroke','#3a3a4a');ln.setAttribute('stroke-width','2');ln.setAttribute('opacity',alpha);
+    ln.setAttribute('stroke','#3a3a4a');ln.setAttribute('stroke-width','1.5');ln.setAttribute('opacity',alpha);
     svg.appendChild(ln);
     const cz=document.createElementNS('http://www.w3.org/2000/svg','circle');
-    cz.setAttribute('cx',xz);cz.setAttribute('cy',y);cz.setAttribute('r','6');
-    cz.setAttribute('fill',C.green);cz.setAttribute('opacity',alpha);
+    cz.setAttribute('cx',xz);cz.setAttribute('cy',y);cz.setAttribute('r',DOT_R);
+    cz.setAttribute('fill','#3d7a12');cz.setAttribute('opacity',alpha);
     svg.appendChild(cz);
     const ci=document.createElementNS('http://www.w3.org/2000/svg','circle');
-    ci.setAttribute('cx',xi);ci.setAttribute('cy',y);ci.setAttribute('r','6');
-    ci.setAttribute('fill',C.amber);ci.setAttribute('opacity',alpha);
+    ci.setAttribute('cx',xi);ci.setAttribute('cy',y);ci.setAttribute('r',DOT_R);
+    ci.setAttribute('fill','#5a9e2f');ci.setAttribute('opacity',alpha);
     svg.appendChild(ci);
     const lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
-    lbl.setAttribute('x',PAD_L-8);lbl.setAttribute('y',y+4);lbl.setAttribute('text-anchor','end');
-    lbl.setAttribute('fill',isFiltered?'#3a3a5a':'#c8c8d8');lbl.setAttribute('font-size','11');
-    lbl.textContent=d.voivodeship;svg.appendChild(lbl);
+    lbl.setAttribute('x',PAD_L-6);lbl.setAttribute('y',y+3.5);lbl.setAttribute('text-anchor','end');
+    lbl.setAttribute('fill',isFiltered?'#3a3a5a':'#c8c8d8');lbl.setAttribute('font-size',FONT_LABEL);
+    const name=d.name||d.voivodeship||'';
+    lbl.textContent=name.length>18&&arr.length>20?name.slice(0,17)+'..':name;
+    svg.appendChild(lbl);
     const rb=document.createElementNS('http://www.w3.org/2000/svg','text');
-    rb.setAttribute('x',PAD_L+W_CHART+6);rb.setAttribute('y',y+4);
-    rb.setAttribute('fill','#7a7a90');rb.setAttribute('font-size','10');
+    rb.setAttribute('x',PAD_L+W_CHART+4);rb.setAttribute('y',y+3);
+    rb.setAttribute('fill','#5a5a6a');rb.setAttribute('font-size',FONT_RATIO);
     rb.textContent=d.ratio+'x';svg.appendChild(rb);
   });
-  const LEG_Y=H-4;
-  [[C.green,'Zabka/100k'],[C.amber,'InPost/100k']].forEach(([col,lbl],i)=>{
-    const cx2=PAD_L+60+i*120;
+  const LEG_Y=H-6;
+  [['#3d7a12','Zabka/100k'],['#5a9e2f','InPost/100k']].forEach(([col,lbl],i)=>{
+    const cx2=PAD_L+40+i*100;
     const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
-    c.setAttribute('cx',cx2);c.setAttribute('cy',LEG_Y);c.setAttribute('r','5');c.setAttribute('fill',col);
+    c.setAttribute('cx',cx2);c.setAttribute('cy',LEG_Y);c.setAttribute('r','4');c.setAttribute('fill',col);
     svg.appendChild(c);
     const t=document.createElementNS('http://www.w3.org/2000/svg','text');
-    t.setAttribute('x',cx2+9);t.setAttribute('y',LEG_Y+4);t.setAttribute('fill','#7a7a90');t.setAttribute('font-size','10');
+    t.setAttribute('x',cx2+7);t.setAttribute('y',LEG_Y+3);t.setAttribute('fill','#5a5a6a');t.setAttribute('font-size','8');
     t.textContent=lbl;svg.appendChild(t);
   });
   el.innerHTML='';el.appendChild(svg);
 }
+
+export async function renderDumbbellByLevel(){
+  const topNWrap=document.getElementById('inpost-topn-wrap');
+  if(_dbLevel==='voivodeship'){
+    if(topNWrap)topNWrap.style.display='none';
+    renderDumbbell(M.inpost_vs_zabka);
+    const title=document.querySelector('[data-debug-id="2.3"]');
+    if(title){
+      const inpostRows=M.inpost_vs_zabka||[];
+      const sumZ=inpostRows.reduce((s,d)=>s+(d.zabki_per_100k||0),0);
+      const sumI=inpostRows.reduce((s,d)=>s+(d.lockers_per_100k||0),0);
+      const ratio=sumZ>0?sumI/sumZ:null;
+      title.textContent='InPost vs Żabka'+(ratio?' - '+ratio.toFixed(2).replace('.',',')+' paczkomaty na każdą Żabkę w Polsce':'');
+    }
+    return;
+  }
+  if(topNWrap)topNWrap.style.display='flex';
+  const d=await fetchDumbbellLevel(_dbLevel,_dbTopN);
+  if(!d){renderDumbbell(M.inpost_vs_zabka);return}
+  const label=_DB_LEVEL_LABEL_PL[_dbLevel]||_dbLevel;
+  const title=document.querySelector('[data-debug-id="2.3"]');
+  if(title)title.textContent=`InPost vs Żabka - top ${d.rows.length} ${label} (${d.total} łącznie)`;
+  renderDumbbell(d.rows);
+}
+
+function wireInpostLevel(){
+  document.querySelectorAll('#inpost-level .gran-btn').forEach(btn=>{
+    if(btn._wired)return;btn._wired=true;
+    btn.addEventListener('click',()=>{
+      _dbLevel=btn.dataset.ilevel;
+      document.querySelectorAll('#inpost-level .gran-btn').forEach(b=>b.classList.toggle('active',b===btn));
+      renderDumbbellByLevel();
+    });
+  });
+  const sel=document.getElementById('inpost-topn');
+  if(sel&&!sel._wired){
+    sel._wired=true;
+    sel.addEventListener('change',()=>{_dbTopN=parseInt(sel.value);renderDumbbellByLevel()});
+  }
+  document.querySelectorAll('#inpost-sort .gran-btn').forEach(btn=>{
+    if(btn._wired)return;btn._wired=true;
+    btn.addEventListener('click',()=>{
+      _dbSort=btn.dataset.isort;
+      document.querySelectorAll('#inpost-sort .gran-btn').forEach(b=>b.classList.toggle('active',b===btn));
+      renderDumbbellByLevel();
+    });
+  });
+}
+
+export {wireInpostLevel};

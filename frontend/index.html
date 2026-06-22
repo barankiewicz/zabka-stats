@@ -269,10 +269,10 @@
       </div>
 
       <div class="facts">
-        <div class="fact ec-reveal d1"><div class="ic">// łącznie</div><div class="num frog" data-count="13154" data-dec="0">0</div><div class="lab">żabek naniesionych na mapę - w 381 powiatach całej Polski.</div></div>
-        <div class="fact ec-reveal d2"><div class="ic">// nożyce zamożności</div><div class="num lime" data-count="2.1" data-dec="1" data-suffix="x">0</div><div class="sub">najbogatsza vs najbiedniejsza ćwiartka</div><div class="lab">tak gęstsza jest sieć w najzamożniejszej ćwiartce powiatów niż w najbiedniejszej.</div><div class="bar-mini"><i data-fill="84"></i></div></div>
-        <div class="fact ec-reveal d3"><div class="ic">// rekord gęstości</div><div class="num amber">1 : <span data-count="1008" data-dec="0">0</span></div><div class="sub">Międzyzdroje (pow. kamieński)</div><div class="lab">jedna Żabka na ~1008 osób - niemal 1 na 1000. Kurort liczy turystów, nie meldunki.</div></div>
-        <div class="fact ec-reveal d4"><div class="ic">// województwa</div><div class="num teal" data-count="2.5" data-dec="1" data-suffix="x">0</div><div class="sub">Pomorskie 0,46 vs Podkarpackie 0,19</div><div class="lab">różnica między najgęstszym a najrzadszym województwem na mieszkańca.</div></div>
+        <div class="fact ec-reveal d1"><div class="ic">// łącznie</div><div class="num frog" id="ec-fact-total-num" data-count="13154" data-dec="0">0</div><div class="lab">żabek naniesionych na mapę - w 381 powiatach całej Polski.</div></div>
+        <div class="fact ec-reveal d2"><div class="ic">// nożyce zamożności</div><div class="num lime" id="ec-fact-ratio-num" data-count="2.1" data-dec="1" data-suffix="x">0</div><div class="sub">najbogatsza vs najbiedniejsza ćwiartka</div><div class="lab">tak gęstsza jest sieć w najzamożniejszej ćwiartce powiatów niż w najbiedniejszej.</div><div class="bar-mini"><i id="ec-fact-ratio-bar" data-fill="84"></i></div></div>
+        <div class="fact ec-reveal d3"><div class="ic">// rekord gęstości</div><div class="num amber">1 : <span id="ec-fact-record-num" data-count="1008" data-dec="0">0</span></div><div class="sub" id="ec-fact-record-sub">Międzyzdroje (pow. kamieński)</div><div class="lab">jedna Żabka na ~<span id="ec-fact-record-inv">1008</span> osób - niemal 1 na 1000. Kurort liczy turystów, nie meldunki.</div></div>
+        <div class="fact ec-reveal d4"><div class="ic">// województwa</div><div class="num teal" id="ec-fact-voiv-num" data-count="2.5" data-dec="1" data-suffix="x">0</div><div class="sub" id="ec-fact-voiv-sub">Pomorskie 0,46 vs Podkarpackie 0,19</div><div class="lab">różnica między najgęstszym a najrzadszym województwem na mieszkańca.</div></div>
       </div>
 
       <div class="card ec-reveal">
@@ -318,10 +318,10 @@
       </div>
 
       <div class="facts">
-        <div class="fact ec-reveal d1"><div class="ic">// odwrotna drabina</div><div class="num frog" data-count="1.8" data-dec="1" data-suffix="x">0</div><div class="sub">najniższe vs najwyższe bezrobocie</div><div class="lab">gęściej w ćwiartce z najniższym bezrobociem niż w tej z najwyższym.</div><div class="bar-mini"><i data-fill="71"></i></div></div>
-        <div class="fact ec-reveal d2"><div class="ic">// poniżej mediany</div><div class="num lime" data-count="68" data-dec="0" data-suffix="%">0</div><div class="sub">powiaty z najwyższym bezrobociem</div><div class="lab">tylu z nich ma gęstość Żabki poniżej krajowej mediany.</div></div>
-        <div class="fact ec-reveal d3"><div class="ic">// rekord bezrobocia</div><div class="num coral" data-count="22.1" data-dec="1" data-suffix="%">0</div><div class="sub">szydłowiecki</div><div class="lab">najwyższe bezrobocie w kraju, a tylko 0,16 sklepu / 1000 - niemal pustynia.</div></div>
-        <div class="fact ec-reveal d4"><div class="ic">// kurort wyjątek</div><div class="num amber" data-count="19.7" data-dec="1" data-suffix="%">0</div><div class="sub">leski - a gęstość 0,32</div><div class="lab">wysokie bezrobocie, a sieć przyzwoita: bieszczadzki kurort przykrywa słaby rynek pracy.</div></div>
+        <div class="fact ec-reveal d1"><div class="ic">// odwrotna drabina</div><div class="num frog" id="ec-fact-u-ratio-num" data-count="1.8" data-dec="1" data-suffix="x">0</div><div class="sub">najniższe vs najwyższe bezrobocie</div><div class="lab">gęściej w ćwiartce z najniższym bezrobociem niż w tej z najwyższym.</div><div class="bar-mini"><i id="ec-fact-u-ratio-bar" data-fill="71"></i></div></div>
+        <div class="fact ec-reveal d2"><div class="ic">// poniżej mediany</div><div class="num lime" id="ec-fact-u-below-num" data-count="68" data-dec="0" data-suffix="%">0</div><div class="sub">powiaty z najwyższym bezrobociem</div><div class="lab">tylu z nich ma gęstość Żabki poniżej krajowej mediany.</div></div>
+        <div class="fact ec-reveal d3"><div class="ic">// rekord bezrobocia</div><div class="num coral" id="ec-fact-u-max-num" data-count="22.1" data-dec="1" data-suffix="%">0</div><div class="sub" id="ec-fact-u-max-sub">szydłowiecki</div><div class="lab">najwyższe bezrobocie w kraju, a tylko <span id="ec-fact-u-max-density">0,16</span> sklepu / 1000 - niemal pustynia.</div></div>
+        <div class="fact ec-reveal d4"><div class="ic">// kurort wyjątek</div><div class="num amber" id="ec-fact-u-leski-num" data-count="19.7" data-dec="1" data-suffix="%">0</div><div class="sub" id="ec-fact-u-leski-sub">leski - a gęstość 0,32</div><div class="lab">wysokie bezrobocie, a sieć przyzwoita: bieszczadzki kurort przykrywa słaby rynek pracy.</div></div>
       </div>
 
       <div class="card ec-reveal">
@@ -344,7 +344,7 @@
    <!-- Merrychef full row -->
   <div class="card reveal" style="margin-bottom:16px">
     <div class="card-title" data-debug-id="2.2b">Dolnośląskie: jedyny region poniżej 95% z piecem</div>
-    <div class="card-sub">% sklepów z Merrychef, posortowane rosnąco - średnia krajowa 97,4%</div>
+    <div class="card-sub" id="merrychef-card-sub">% sklepów z Merrychef, posortowane rosnąco - średnia krajowa 97,4%</div>
     <div class="chart-wrap h260"><canvas id="chart-merrychef"></canvas></div>
   </div>
 
@@ -394,7 +394,7 @@
       <div class="hero-number tab-hero-num" id="hero-num-edge">46,5</div>
       <div class="hero-number-label">km od najbliższej Żabki - rekord pustki w Bieszczadach</div>
       <h1 class="hero-h1">Na krańcach sieć przestaje być siecią.</h1>
-      <p class="hero-lede">Od -1,5 m pod poziomem morza po 963 m w Tatrach. 35 sklepów, które nigdy nie śpią. Jeden punkt w Polsce oddalony o 46,5 km od jakiejkolwiek Żabki.</p>
+      <p class="hero-lede" id="hero-lede-edge">Od -1,5 m pod poziomem morza po 963 m w Tatrach. 35 sklepów, które nigdy nie śpią. Jeden punkt w Polsce oddalony o 46,5 km od jakiejkolwiek Żabki.</p>
     </div>
   </header>
 
@@ -442,8 +442,8 @@
     <p class="subsec kr-reveal">Te same krańce, ale w liczbach: jak wysoko sięga sieć, jak ciasno stoją sklepy i gdzie najchętniej lądują.</p>
     <div class="grid2">
       <div class="card kr-reveal" id="kr-c-elev">
-        <div class="chead"><h4>Wysokość nad poziomem morza</h4><span class="cap">kubełki 50 m · n = 13 154</span></div>
-        <p class="cnote">95% sieci mieści się między 17 a 332 m. Rekordy: <b style="color:#f2a359">Kościelisko 962,6 m</b> i <b style="color:#e8693d">Gdańsk −1,5 m</b> (jedyna poniżej morza).</p>
+        <div class="chead"><h4>Wysokość nad poziomem morza</h4><span class="cap">kubełki 50 m · n = <span id="kr-elev-cap-n">13 154</span></span></div>
+        <p class="cnote" id="kr-elev-cnote">95% sieci mieści się między 17 a 332 m. Rekordy: <b style="color:#f2a359">Kościelisko 962,6 m</b> i <b style="color:#e8693d">Gdańsk −1,5 m</b> (jedyna poniżej morza).</p>
         <div id="kr-elevChart" class="chart"></div>
       </div>
       <div class="card kr-reveal" id="kr-c-knn">
@@ -562,12 +562,12 @@
       <div class="jump-hint">Kliknij - przeskocz na mapę</div>
     </div>
     <div class="card">
-      <div class="card-title" data-debug-id="C2">Połowa sieci ma sąsiada bliżej niż 300 m - ogon sięga 27 km</div>
+      <div class="card-title" id="c2-card-title" data-debug-id="C2">Połowa sieci ma sąsiada bliżej niż 300 m - ogon sięga 27 km</div>
       <div class="chart-wrap h180"><canvas id="chart-neighbor-dist"></canvas></div>
       <div style="display:flex;gap:20px;margin-top:8px;font-family:var(--font-mono);font-size:12px">
-        <span><span style="color:var(--muted)">mediana</span> <span style="color:var(--ink)">299 m</span></span>
-        <span><span style="color:var(--muted)">średnia</span> <span style="color:var(--ink)">942 m</span></span>
-        <span><span style="color:var(--muted)">max</span> <span style="color:var(--ink)">27 321 m</span></span>
+        <span><span style="color:var(--muted)">mediana</span> <span id="c2-stat-med" style="color:var(--ink)">299 m</span></span>
+        <span><span style="color:var(--muted)">średnia</span> <span id="c2-stat-avg" style="color:var(--ink)">942 m</span></span>
+        <span><span style="color:var(--muted)">max</span> <span id="c2-stat-max" style="color:var(--ink)">27 321 m</span></span>
       </div>
     </div>
   </div>
@@ -638,7 +638,7 @@
       <div class="hero-number tab-hero-num" style="background:linear-gradient(180deg,#7eeedd,var(--teal) 60%,#1a6b5e);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent" id="hero-num-plazy">46 000</div>
       <div class="hero-number-label">obserwacji płazów w Polsce (GBIF)</div>
       <h1 class="hero-h1">Sieć nazwana od płaza. Sprawdziliśmy.</h1>
-      <p class="hero-lede">84 obserwacje w promieniu 5 km - tyle wynosi mediana dla polskiej Żabki. Jeden sklep na Ursynowie bije rekordy: 2 028. Białowieża ze swoimi 425 nie ma szans.</p>
+      <p class="hero-lede" id="hero-lede-plazy">84 obserwacje w promieniu 5 km - tyle wynosi mediana dla polskiej Żabki. Jeden sklep na Ursynowie bije rekordy: 2 028. Białowieża ze swoimi 425 nie ma szans.</p>
     </div>
   </header>
 
@@ -654,7 +654,7 @@
 
   <!-- P1 Beeswarm -->
   <div class="card reveal" style="margin-bottom:16px">
-    <div class="card-title" data-debug-id="P1">Większość Żabek ma kilkadziesiąt żab w pobliżu. Jedna ma 2 028.</div>
+    <div class="card-title" id="plazy-p1-title" data-debug-id="P1">Większość Żabek ma kilkadziesiąt żab w pobliżu. Jedna ma 2 028.</div>
     <div class="card-sub">Każdy punkt to sklep. Oś X: liczba obserwacji płazów w promieniu 5 km (skala log).</div>
     <canvas id="canvas-beeswarm" style="display:block;width:100%;height:300px"></canvas>
     <div class="caveat">Próba 5 000 sklepów. Ursynów (Warszawa) zaznaczony jako outlier.</div>
@@ -700,7 +700,7 @@
     <div class="zz-card zz-reveal" id="zz-card-scatter">
       <div class="zz-chead">
         <h4>Gęstość Żabek kontra obserwacje płazów</h4>
-        <span class="zz-cap">ρ = +0,67 (Spearman) · próbka ~165 z 13 154</span>
+        <span class="zz-cap">ρ = +0,67 (Spearman) · próbka ~165 z <span id="zz-scatter-total">13 154</span></span>
       </div>
       <p class="zz-cnote">Surowy współczynnik r jest niski (0,21) tylko przez skrajną skośność — dlatego liczymy korelację rang. W skali logarytmicznej wspólna zmienność to ok. 35%.</p>
       <div id="zz-scatter" class="zz-scchart"></div>

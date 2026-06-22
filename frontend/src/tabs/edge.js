@@ -2,11 +2,30 @@ import Chart from 'chart.js/auto';
 import L from 'leaflet';
 import { C } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
-import { fmt, getFont, destroyChart, projectPL, leafletDark } from '../utils.js';
+import { fmt, getFont, destroyChart, projectPL, leafletDark, startTabParticles } from '../utils.js';
+import { renderKraniec } from './kraniec.js';
 
 let jumpedFact=null;
 
+function _updateEdgeHeroLede(){
+  const ledeEl=document.getElementById('hero-lede-edge');if(!ledeEl)return;
+  const elevExt=(M.elevation&&M.elevation.extremes)||[];
+  const top=elevExt.find(e=>e.which==='top');
+  const bot=elevExt.find(e=>e.which==='bottom');
+  const h24n=(M.summary&&M.summary.h24_count)||null;
+  const voidVal=M.section3_rare&&M.section3_rare.void&&M.section3_rare.void.value;
+  const hiStr=top?Math.round(top.elevation_meters)+' m':'963 m';
+  const loStr=bot?String(bot.elevation_meters).replace('.',',')+' m':'−1,5 m';
+  const h24Str=h24n!=null?h24n:35;
+  const voidStr=voidVal?String(voidVal).replace('.',','):'46,5';
+  ledeEl.textContent=`Od ${loStr} pod poziomem morza po ${hiStr} w Tatrach. ${h24Str} sklepów, które nigdy nie śpią. Jeden punkt w Polsce oddalony o ${voidStr} km od jakiejkolwiek Żabki.`;
+}
+
 export function renderEdge(){
+  // Cool seafoam green — slightly cooler/more geographic feel
+  startTabParticles('particles-edge',[96,200,148],42);
+  _updateEdgeHeroLede();
+  renderKraniec();
   populateFactCards();
   renderEdgeMap();
   renderElevHist();
@@ -22,7 +41,8 @@ export function renderEdge(){
 export function populateFactCards(){
   if(!M.kraniec_facts||!M.kraniec_facts.length)return;
   const byId={};M.kraniec_facts.forEach(f=>byId[f.id]=f);
-  ['north','south','east','west','highest','lowest','isolated'].forEach(id=>{
+  // include void + frogstreet so those cards also get API values
+  ['north','south','east','west','highest','lowest','isolated','void','frogstreet'].forEach(id=>{
     const f=byId[id];if(!f)return;
     const card=document.querySelector(`[data-fact-id="${id}"]`);if(!card)return;
     const bigEl=card.querySelector('.fact-big');
@@ -32,6 +52,22 @@ export function populateFactCards(){
     if(cityEl&&f.city)cityEl.textContent=f.city+(f.voivodeship?', '+f.voivodeship:'');
     if(streetEl&&f.street)streetEl.textContent=f.street;
   });
+
+  // E1: h24 count (fact-big + canvas caption + mini card)
+  const h24Count = M.section3_rare && M.section3_rare.h24_cities
+    ? (M.summary && M.summary.h24_count) || 0
+    : 0;
+  const h24el = document.querySelector('[data-debug-id="E1"] + .fact-big');
+  // The E1 card has the count in .fact-big with amber color
+  const e1big = document.querySelector('[data-debug-id="E1"]');
+  if(e1big){
+    const fb=e1big.closest('.card')?.querySelector('.fact-big');
+    if(fb&&h24Count)fb.textContent=fmt(h24Count);
+  }
+  // E2: parks count via section3_rare
+  const parks=(M.section3_rare&&M.section3_rare.parks)||{};
+  const e2big=document.getElementById('kr-e2-parks-count');
+  if(e2big&&parks.count)e2big.textContent=fmt(parks.count);
 }
 
 export function renderEdgeMap(){
@@ -115,7 +151,8 @@ export function renderElevHist(){
 }
 
 export function renderNeighborDist(){
-  const dist=(M.neighbor_stats.distribution||{buckets:[]}).buckets;
+  const ns=M.neighbor_stats||{};
+  const dist=(ns.distribution||{buckets:[]}).buckets;
   destroyChart('neighbor-dist');
   CHARTS['neighbor-dist']=new Chart(document.getElementById('chart-neighbor-dist'),{
     type:'bar',
@@ -126,6 +163,20 @@ export function renderNeighborDist(){
       scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
     }
   });
+  const d=ns.distribution||{};
+  const loner=ns.loner||{};
+  if(d.median_m!=null){
+    const med=Math.round(d.median_m)+' m';
+    const avg=Math.round(d.avg_m)+' m';
+    const maxKm=loner.nearest_neighbor_distance_meters
+      ?(loner.nearest_neighbor_distance_meters/1000).toFixed(1).replace('.',',')+' km'
+      :(d.max_m?(d.max_m/1000).toFixed(1).replace('.',',')+' km':'—');
+    const medEl=document.getElementById('c2-stat-med');if(medEl)medEl.textContent=med;
+    const avgEl=document.getElementById('c2-stat-avg');if(avgEl)avgEl.textContent=avg;
+    const maxEl=document.getElementById('c2-stat-max');if(maxEl)maxEl.textContent=maxKm;
+    const titleEl=document.getElementById('c2-card-title');
+    if(titleEl)titleEl.textContent=`Połowa sieci ma sąsiada bliżej niż ${Math.round(d.median_m)} m - ogon sięga ${maxKm}`;
+  }
 }
 
 export function drawH24Mini(){
@@ -148,8 +199,9 @@ export function drawParksDonut(){
   const cv=document.getElementById('canvas-parks-donut');
   const S=100;cv.width=S;cv.height=S;
   const ctx=cv.getContext('2d');ctx.clearRect(0,0,S,S);
-  const parksCount=(M.section3_rare.parks&&M.section3_rare.parks.count)||719;
-  const totalAct=(M.summary&&M.summary.total_active)||13143;
+  const parksCount=(M.section3_rare.parks&&M.section3_rare.parks.count)||0;
+  const totalAct=(M.summary&&M.summary.total_active)||0;
+  if(!totalAct)return;
   const cx=S/2,cy=S/2,R=S/2-6,pct=parksCount/totalAct;
   ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.strokeStyle=C.axis;ctx.lineWidth=8;ctx.stroke();
   ctx.beginPath();ctx.arc(cx,cy,R,-Math.PI/2,-Math.PI/2+pct*2*Math.PI);ctx.strokeStyle=C.green;ctx.lineWidth=8;ctx.stroke();

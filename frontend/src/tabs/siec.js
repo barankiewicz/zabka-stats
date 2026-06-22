@@ -1,219 +1,483 @@
 import Chart from 'chart.js/auto';
+import L from 'leaflet';
 import { C, STATE } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
-import { era, eraName, fmt, macroCol, getFont, destroyChart } from '../utils.js';
-import { setFilter } from '../filter.js';
+import { era, fmt, getFont, destroyChart } from '../utils.js';
+import { fetchJSON } from '../data.js';
+import { renderBubble } from './bubble.js';
+
+const prefersReduced = () =>
+  window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export function renderSiec(){
-  renderOriginCards();
-  renderGrowthStacked();
-  drawSpiral();
-  drawFingerprint();
-  renderStackedArea();
-  renderPerCapita();
-  renderCityCoverage();
-  renderTopCities();
-  drawClock();
-  renderHoursBar();
-  initBurstToggle();
+  renderHero();
+  renderStatStrip();
+  renderOrigins();
+  renderBubble();
+  renderGrowthMap();
+  drawFingerprintFlat();
+  renderGrowthChart();
+  wireGranular();
+  renderGranular();
+  renderPowiatCoverage();
 }
 
-export function renderOriginCards(){
-  const o=M.network_origin;if(!o||!o.oldest)return;
-  document.getElementById('oldest-date').textContent=o.oldest.first_opening_date;
-  document.getElementById('oldest-city').textContent=o.oldest.city;
-  document.getElementById('oldest-street').textContent=o.oldest.street+', '+o.oldest.voivodeship;
-  document.getElementById('newest-date').textContent=o.newest.first_opening_date;
-  document.getElementById('newest-city').textContent=o.newest.city;
-  document.getElementById('newest-street').textContent=o.newest.street+', '+o.newest.voivodeship;
-  document.getElementById('new-month-count').textContent=o.new_this_month;
+/* ---------------- HERO: glowing count-up + particle field ---------------- */
+
+let heroRaf=null;
+export function renderHero(){
+  const el=document.getElementById('hero-number');if(!el)return;
+  const total=(M.summary&&+M.summary.total_active)||0;
+  if(!total){el.textContent='—';return;}
+  if(prefersReduced()){
+    el.textContent=fmt(total);
+  }else{
+    // start the count near the top so it reads as the last sprint to the real
+    // total, not a from-zero ramp
+    const from=Math.max(0,total-1000);
+    const dur=2000,start=performance.now();
+    (function step(now){
+      const t=Math.min(1,(now-start)/dur);
+      // easeOutExpo with a steep factor — quick overall, but most of the time is
+      // spent crawling the final approach to 13k before it settles
+      const e=t>=1?1:1-Math.pow(2,-14*t);
+      el.textContent=fmt(Math.round(from+(total-from)*e));
+      if(t<1)requestAnimationFrame(step);
+    })(performance.now());
+  }
+  startHeroParticles();
 }
 
-export function renderGrowthStacked(){
-  const data=M.network_growth;
-  const labels=data.map(d=>d.year);
-  const barColors=data.map(d=>{if(d.year>=2023)return C.green+'dd';if(d.year>=2010)return C.green+'66';return C.green+'33'});
-  const ERAS=[{x1:1998,x2:2009,color:'rgba(10,48,24,.25)',label:'Wczesna siec'},{x1:2010,x2:2019,color:'rgba(26,96,53,.2)',label:'Wzrost'},{x1:2020,x2:2022,color:'rgba(64,192,112,.12)',label:'Przyspieszenie'},{x1:2023,x2:2026,color:'rgba(128,255,144,.1)',label:'Boom'}];
-  const MILESTONES=[{value:1000,yr:null},{value:2000,yr:null},{value:5000,yr:null},{value:10000,yr:null}];
-  MILESTONES.forEach(m=>{const idx=data.findIndex(d=>d.cumulative>=m.value);if(idx>=0)m.yr=data[idx].year});
-  destroyChart('growth-bars');destroyChart('growth-line');
-  const sharedOpts={responsive:true,maintainAspectRatio:false};
-  CHARTS['growth-bars']=new Chart(document.getElementById('chart-growth-bars'),{
-    type:'bar',
-    data:{labels,datasets:[{data:data.map(d=>d.new_stores),backgroundColor:barColors,borderRadius:2,borderWidth:0}]},
-    options:{
-      ...sharedOpts,
-      plugins:{
-        legend:{display:false},
-        tooltip:{mode:'index',intersect:false,callbacks:{title:i=>'Rok '+i[0].label,label:ctx=>`Nowych: ${fmt(ctx.raw)}`,afterBody(items){return`Era: ${eraName(data[items[0].dataIndex]?.year)}`}}},
-        annot:{shadedBands:ERAS}
-      },
-      scales:{
-        x:{grid:{display:false},ticks:{display:false}},
-        y:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}},title:{display:true,text:'nowych/rok',color:C.muted,font:{size:9}}}
+function startHeroParticles(){
+  const cv=document.getElementById('hero-particles');if(!cv)return;
+  if(prefersReduced())return;
+  const wrap=cv.parentElement;
+  const ctx=cv.getContext('2d');
+  function size(){const r=wrap.getBoundingClientRect();cv.width=r.width;cv.height=r.height;}
+  size();
+  const N=Math.min(70,Math.max(24,Math.round(cv.width/16)));
+  const ps=Array.from({length:N},()=>({
+    x:Math.random()*cv.width,y:Math.random()*cv.height,
+    r:Math.random()*1.8+0.4,
+    vx:(Math.random()-.5)*0.18,vy:-(Math.random()*0.25+0.05),
+    a:Math.random()*0.5+0.18
+  }));
+  if(heroRaf)cancelAnimationFrame(heroRaf);
+  (function frame(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.shadowColor='rgba(132,195,65,.8)';ctx.shadowBlur=8;
+    ps.forEach(p=>{
+      p.x+=p.vx;p.y+=p.vy;
+      if(p.y<-6)p.y=cv.height+6;
+      if(p.x<-6)p.x=cv.width+6;else if(p.x>cv.width+6)p.x=-6;
+      ctx.beginPath();ctx.fillStyle=`rgba(166,232,74,${p.a})`;
+      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+    });
+    ctx.shadowBlur=0;
+    heroRaf=requestAnimationFrame(frame);
+  })();
+  if(!startHeroParticles._wired){
+    startHeroParticles._wired=true;
+    window.addEventListener('resize',size);
+  }
+}
+
+/* ---------------- STAT STRIP: milestone cadence + origins ---------------- */
+
+const PL_MONTHS=['stycznia','lutego','marca','kwietnia','maja','czerwca','lipca','sierpnia','wrzesnia','pazdziernika','listopada','grudnia'];
+function plYears(n){const u=n%10,t=n%100;if(n===1)return'rok';if(u>=2&&u<=4&&(t<12||t>14))return'lata';return'lat'}
+function plDate(s){if(!s)return'—';const[y,m,d]=s.split('-').map(Number);return`${d} ${PL_MONTHS[m-1]||''} ${y}`}
+
+export function renderStatStrip(){
+  const ng=M.network_growth||[];
+  const yrAt=v=>{const d=ng.find(d=>d.cumulative>=v);return d?d.year:null};
+  const firstYr=ng.length?ng[0].year:1998;
+  const y1k=yrAt(1000),y5k=yrAt(5000),y10k=yrAt(10000);
+  const toFirst=y1k!=null?y1k-firstYr:null;
+  const last5=(y10k!=null&&y5k!=null)?y10k-y5k:null;
+  // two split tiles: the slow first 1 000 vs the fast last 5 000
+  const setYears=(id,n)=>{const el=document.getElementById(id);if(el&&n!=null)el.innerHTML=`${n}<span class="stat-unit">${plYears(n)}</span>`};
+  setYears('stat-first1k',toFirst);
+  setYears('stat-last5k',last5);
+
+  const best=ng.reduce((a,b)=>b.new_stores>(a?a.new_stores:-1)?b:a,null);
+  if(best){
+    const bv=document.getElementById('stat-bestyear');if(bv)bv.textContent=fmt(best.new_stores);
+    const perH=best.new_stores>0?8760/best.new_stores:0;
+    const sub=document.getElementById('stat-bestyear-sub');
+    if(sub)sub.textContent=`nowych w ${best.year} — co ~${perH.toFixed(1).replace('.',',')} h`;
+  }
+
+  const o=M.network_origin;
+  if(o&&o.new_this_month!=null){
+    const nm=document.getElementById('stat-newmonth');if(nm)nm.textContent=fmt(o.new_this_month);
+  }
+
+  const s=M.summary;
+  if(s){
+    const ce=document.getElementById('stat-cities');if(ce)ce.textContent=(+s.cities_count).toLocaleString('pl-PL');
+    const me=document.getElementById('stat-mc');if(me)me.innerHTML=`${s.merrychef_pct}<span class="stat-unit">%</span>`;
+  }
+}
+
+/* ---------------- ORIGINS: newest vs oldest active store ---------------- */
+
+export function renderOrigins(){
+  const o=M.network_origin;if(!o)return;
+  const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null&&v!=='')el.textContent=v};
+  if(o.newest){
+    set('origin-new-year',(o.newest.first_opening_date||'').slice(0,4));
+    set('origin-new-city',o.newest.city);
+    set('origin-new-street',o.newest.street);
+    set('origin-new-date',plDate(o.newest.first_opening_date));
+  }
+  if(o.oldest){
+    set('origin-old-year',(o.oldest.first_opening_date||'').slice(0,4));
+    set('origin-old-city',o.oldest.city);
+    set('origin-old-street',o.oldest.street);
+    set('origin-old-date',plDate(o.oldest.first_opening_date));
+  }
+}
+
+/* ---------------- BIG MAP: vector Poland + year-sweep growth ---------------- */
+
+let growthMap=null,growthRaf=null,growthPts=null,growthSorted=null,growthLoopTimer=null,growthDensity=[];
+let growthLoop=true; // auto-repeat until the user grabs the timeline
+let calData=null;    // {byYM: Map(year*100+month -> cnt), max}
+const GROWTH_MIN=1998,GROWTH_MAX=2026;
+const MONTH_INI=['S','L','M','K','M','C','L','S','W','P','L','G']; // PL month initials
+
+// Calendar animation state
+let _calAnimMap=new Map(); // key(y*100+m) -> {born:ms, dir:-1|1}
+let _calUptoYear=GROWTH_MIN;
+let _calRaf=null;
+const CELL_STAGGER=52;   // ms stagger between consecutive months within a year
+const CELL_DUR=880;      // ms total duration of pop animation
+
+function resetCalAnim(){
+  _calAnimMap.clear();
+  if(_calRaf){cancelAnimationFrame(_calRaf);_calRaf=null}
+}
+
+function buildCalData(){
+  const byYM=new Map();let max=1;
+  for(const d of (M.openings_monthly||[])){byYM.set(d.year*100+d.month,d.cnt);if(d.cnt>max)max=d.cnt}
+  calData={byYM,max};
+}
+
+// 'Kalendarz ekspansji': cells appear L->R per year with a scale+glow pop
+// (~880 ms). Overall grid proportions are square (12 cols × 29 rows scaled
+// so that 12*cw ≈ 29*ch, i.e. total grid width ≈ total grid height).
+function drawCalendar(uptoYear){
+  const cv=document.getElementById('canvas-calendar');if(!cv||!calData)return;
+  _calUptoYear=uptoYear;
+
+  // Derive row height from the fixed map height (520 px); derive cell width so
+  // the 12×29 grid is overall square: 12*cw = 29*ch  →  cw = ch*(years/12).
+  const H_REF=520; // matches .growth-map{height:520px}
+  const years=GROWTH_MAX-GROWTH_MIN+1; // 29
+  const padL=34,padT=14,padR=6,padB=10,gap=1.5;
+  const ch=(H_REF-padT-padB)/years;
+  const cw=ch*(years/12);              // square overall grid
+  const W=Math.round(padL+12*cw+padR);
+  const H=Math.round(padT+years*ch+padB);
+  cv.width=W;cv.height=H;
+  cv.style.width=W+'px';
+
+  const ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+
+  // Month-initial header
+  ctx.textAlign='center';ctx.textBaseline='alphabetic';
+  ctx.fillStyle='#5d6c52';ctx.font=`9px '${getFont('mono')}',monospace`;
+  for(let m=0;m<12;m++)ctx.fillText(MONTH_INI[m],padL+cw*(m+0.5),padT-3);
+
+  const now=performance.now();
+  let hasActive=false;
+
+  for(let i=0;i<years;i++){
+    const y=GROWTH_MIN+i,yy=padT+ch*i;
+    // Every row gets its year label
+    ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillStyle='#5d6c52';
+    ctx.font=`9px '${getFont('mono')}',monospace`;
+    ctx.fillText(y,padL-4,yy+ch/2);
+
+    for(let m=1;m<=12;m++){
+      const key=y*100+m;
+      const visible=y<=uptoYear;
+
+      // Register animation entry the moment a cell first becomes visible
+      if(visible&&!_calAnimMap.has(key)){
+        const delay=(m-1)*CELL_STAGGER;
+        _calAnimMap.set(key,{born:now+delay});
       }
-    }
-  });
-  CHARTS['growth-line']=new Chart(document.getElementById('chart-growth-line'),{
-    type:'line',
-    data:{labels,datasets:[{data:data.map(d=>d.cumulative),borderColor:C.amber,backgroundColor:'rgba(245,166,35,.05)',fill:true,borderWidth:2,pointRadius:data.map((_,j)=>MILESTONES.some(m=>m.yr===data[j]?.year)?4:0),tension:.4}]},
-    options:{
-      ...sharedOpts,
-      plugins:{
-        legend:{display:false},
-        tooltip:{mode:'index',intersect:false,callbacks:{title:i=>'Rok '+i[0].label,label:ctx=>`Lacznie: ${fmt(ctx.raw)}`}},
-        annot:{
-          shadedBands:ERAS,
-          refLines:MILESTONES.filter(m=>m.yr).map(m=>({value:m.value,axis:'y',color:'rgba(255,255,255,.12)'}))
+
+      const val=calData.byYM.get(key)||0;
+      const color=!visible?'rgba(255,255,255,.02)'
+        :(val<=0?'#0d1a0d':fpRamp(Math.sqrt(val/calData.max)));
+
+      const x0=padL+cw*(m-1)+gap,y0=yy+gap,w0=cw-gap*2,h0=ch-gap*2;
+
+      if(visible){
+        const anim=_calAnimMap.get(key);
+        const elapsed=anim?now-anim.born:Infinity;
+
+        if(elapsed<0){
+          // Still in stagger queue — dark placeholder, keep loop alive
+          hasActive=true;
+          ctx.fillStyle='rgba(255,255,255,.02)';
+          ctx.fillRect(x0,y0,w0,h0);
+        }else if(elapsed<CELL_DUR){
+          // No animation — just draw at full size immediately
+          hasActive=true;
+          ctx.fillStyle=color;
+          ctx.fillRect(x0,y0,w0,h0);
+        }else{
+          ctx.fillStyle=color;ctx.fillRect(x0,y0,w0,h0);
         }
-      },
-      scales:{
-        x:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}},
-        y:{grid:{color:C.axis},ticks:{color:C.amber,font:{size:10}},title:{display:true,text:'lacznie aktywnych',color:C.amber,font:{size:9}}}
+      }else{
+        ctx.fillStyle=color;ctx.fillRect(x0,y0,w0,h0);
       }
     }
-  });
-}
-
-let spiralCache=null;
-let spiralRaf=null;
-let spiralMouse={x:-999,y:-999};
-let spiralActive=false;
-
-export function drawSpiral(){
-  const cv=document.getElementById('canvas-spiral');
-  const W=cv.offsetWidth||680;
-  cv.width=W;cv.height=W;
-  const ctx=cv.getContext('2d');
-  const cx=W/2,cy=W/2;
-  const a=28,b=7.8,SCALE=0.257*(W/720);
-  const stores=M.stores_timeline.stores||[];
-  const byYear={};
-  for(const[,,yr]of stores)byYear[yr]=(byYear[yr]||0)+1;
-  spiralCache={dots:[],yearData:{}};
-  const idx={};
-  for(const yr in byYear)idx[yr]=0;
-  for(const[,,yr]of stores){
-    const i=idx[yr]++;
-    const total=byYear[yr];
-    const frac=total>1?i/total:0;
-    const theta=(yr-1998+frac)*2*Math.PI;
-    const r=(a+b*theta)*SCALE;
-    const jt=theta+(Math.random()-.5)*.09;
-    const jr=r+(Math.random()-.5)*2.5*SCALE;
-    const ox=cx+jr*Math.cos(jt-Math.PI/2);
-    const oy=cy+jr*Math.sin(jt-Math.PI/2);
-    spiralCache.dots.push({ox,oy,x:ox,y:oy,vx:0,vy:0,yr});
   }
-  M.network_growth.forEach(d=>{spiralCache.yearData[d.year]={new_stores:d.new_stores,cumulative:d.cumulative}});
-  renderSpiralFrame(ctx,cx,cy,a,b,SCALE,W);
-  cv.addEventListener('mousemove',e=>{
-    const rect=cv.getBoundingClientRect();
-    spiralMouse.x=(e.clientX-rect.left)*(W/rect.width);
-    spiralMouse.y=(e.clientY-rect.top)*(W/rect.height);
-    updateSpiralCard(a,b,SCALE,cx,cy,W);
-    if(!spiralActive){spiralActive=true;spiralLoop(ctx,cx,cy,a,b,SCALE,W)}
-  });
-  cv.addEventListener('mouseleave',()=>{
-    spiralMouse.x=-999;spiralMouse.y=-999;
-    document.getElementById('sp-hint').textContent='Najedz na spirale';
-    document.getElementById('sp-year').textContent='—';
-  });
+
+  // Self-schedule when cells are still animating (growth map may be paused)
+  if(hasActive&&!_calRaf){
+    _calRaf=requestAnimationFrame(()=>{_calRaf=null;drawCalendar(_calUptoYear)});
+  }
 }
 
-function spiralLoop(ctx,cx,cy,a,b,SCALE,W){
-  if(!spiralCache)return;
-  const mx=spiralMouse.x,my=spiralMouse.y;
-  const R=55,REP=900,K=0.10,DAMP=0.80;
-  let hasMove=false;
-  spiralCache.dots.forEach(dot=>{
-    const dx=dot.x-mx,dy=dot.y-my;
-    const dist=Math.sqrt(dx*dx+dy*dy);
-    if(dist<R&&dist>0.5){
-      const f=((R-dist)/R)*REP/Math.max(dist,1);
-      dot.vx+=dx*f*0.016;dot.vy+=dy*f*0.016;
+export function renderGrowthMap(){
+  const el=document.getElementById('map-growth');if(!el)return;
+  const stores=(M.stores_timeline&&M.stores_timeline.stores)||[];
+  if(!growthMap){
+    // no zoom buttons; scroll is gated behind ctrl (see wheel handler below) so the
+    // page still scrolls normally when the cursor is over the map
+    growthMap=L.map('map-growth',{zoomControl:false,attributionControl:false,scrollWheelZoom:false,minZoom:5,maxZoom:9});
+    MAPS['map-growth']=growthMap;
+    growthMap.setView([52.0,19.3],6);
+    if(M.woj_geo){
+      L.geoJSON(M.woj_geo,{interactive:false,style:{fillColor:'#11240d',fillOpacity:.55,color:'rgba(140,200,80,.18)',weight:1}}).addTo(growthMap);
     }
-    dot.vx+=(dot.ox-dot.x)*K;dot.vy+=(dot.oy-dot.y)*K;
-    dot.vx*=DAMP;dot.vy*=DAMP;
-    dot.x+=dot.vx;dot.y+=dot.vy;
-    if(Math.abs(dot.vx)+Math.abs(dot.vy)>0.05)hasMove=true;
-  });
-  renderSpiralFrame(ctx,cx,cy,a,b,SCALE,W);
-  if(hasMove||mx>0){spiralRaf=requestAnimationFrame(()=>spiralLoop(ctx,cx,cy,a,b,SCALE,W))}
-  else{spiralActive=false}
-}
-
-function renderSpiralFrame(ctx,cx,cy,a,b,SCALE,W){
-  ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,W);
-  if(!spiralCache)return;
-  ctx.globalAlpha=0.85;
-  spiralCache.dots.forEach(dot=>{
-    ctx.fillStyle=era(dot.yr);
-    ctx.beginPath();ctx.arc(dot.x,dot.y,1.8,0,Math.PI*2);ctx.fill();
-  });
-  ctx.globalAlpha=1;
-  ctx.font=`500 10px '${getFont('mono')}',monospace`;
-  ctx.fillStyle='#4a4a6a';
-  [1998,2005,2010,2015,2020,2025].forEach(yr=>{
-    const theta=(yr-1998)*2*Math.PI;
-    const r=(a+b*theta)*SCALE;
-    const x=cx+r*Math.cos(-Math.PI/2);
-    const y=cy+r*Math.sin(-Math.PI/2)-8;
-    ctx.fillText(yr,x-14,y);
-  });
-}
-
-function updateSpiralCard(a,b,SCALE,cx,cy,W){
-  if(!spiralCache)return;
-  const mx=spiralMouse.x,my=spiralMouse.y;
-  const dx=mx-cx,dy=my-cy;
-  const radius=Math.sqrt(dx*dx+dy*dy);
-  const rawRev=(radius/SCALE-a)/b;
-  if(rawRev<0||rawRev>28.5)return;
-  const yr=Math.min(2026,Math.max(1998,Math.round(1998+rawRev)));
-  const yd=spiralCache.yearData[yr];if(!yd)return;
-  document.getElementById('sp-year').textContent=yr;
-  document.getElementById('sp-hint').textContent='rok '+yr;
-  document.getElementById('sp-new').textContent=fmt(yd.new_stores);
-  document.getElementById('sp-cum').textContent=fmt(yd.cumulative);
-  document.getElementById('sp-era').textContent=eraName(yr);
-  const months=(M.timeline_monthly||[]).filter(m=>m.month.startsWith(String(yr)));
-  const monthEl=document.getElementById('sp-months');
-  if(!monthEl)return;
-  if(months.length>0){
-    const MN=['Sty','Lut','Mar','Kwi','Maj','Cze','Lip','Sie','Wrz','Paz','Lis','Gru'];
-    const maxM=Math.max(...months.map(m=>m.opened));
-    monthEl.innerHTML='<div style="font-size:10px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Rozklad miesięczny</div>'+
-      months.map(m=>{
-        const mn=parseInt(m.month.split('-')[1])-1;
-        const pct=m.opened/maxM*100;
-        return`<div style="display:flex;align-items:center;gap:5px;margin:2px 0">
-          <span style="font-size:10px;color:var(--muted);width:22px;flex-shrink:0">${MN[mn]}</span>
-          <div style="height:5px;background:${C.green};width:${pct}%;border-radius:3px;min-width:2px;flex-shrink:0"></div>
-          <span style="font-family:var(--font-mono);font-size:10px;color:var(--ink)">${m.opened}</span>
-        </div>`;
-      }).join('');
-  }else{monthEl.innerHTML='<div style="font-size:11px;color:var(--muted);margin-top:6px">Brak danych miesięcznych</div>'}
-}
-
-export function drawFingerprint(){
-  const cv=document.getElementById('canvas-fingerprint');
-  const W=cv.offsetWidth||680;
-  cv.width=W;cv.height=W;
-  const ctx=cv.getContext('2d');
-  const cx=W/2,cy=W/2;
-  ctx.fillStyle='#12121a';ctx.fillRect(0,0,W,W);
-  const cg=ctx.createRadialGradient(cx,cy,0,cx,cy,35);
-  cg.addColorStop(0,'rgba(40,40,60,0.9)');cg.addColorStop(1,'transparent');
-  ctx.fillStyle=cg;ctx.beginPath();ctx.arc(cx,cy,35,0,Math.PI*2);ctx.fill();
-  ctx.strokeStyle='rgba(42,42,58,0.6)';ctx.lineWidth=0.8;
-  for(let a=0;a<8;a++){
-    const ang=a*Math.PI/4-Math.PI/2;
-    ctx.beginPath();ctx.moveTo(cx,cy);
-    ctx.lineTo(cx+(W/2-8)*Math.cos(ang),cy+(W/2-8)*Math.sin(ang));ctx.stroke();
+    // ctrl + scroll to zoom, centered on the cursor
+    el.addEventListener('wheel',ev=>{
+      if(!ev.ctrlKey)return;
+      ev.preventDefault();
+      const ll=growthMap.containerPointToLatLng(growthMap.mouseEventToContainerPoint(ev));
+      const z=growthMap.getZoom()+(ev.deltaY<0?1:-1);
+      growthMap.setZoomAround(ll,Math.max(growthMap.getMinZoom(),Math.min(growthMap.getMaxZoom(),z)));
+    },{passive:false});
+    if(!el.querySelector('.map-zoom-hint')){
+      const hint=document.createElement('div');
+      hint.className='map-zoom-hint';
+      hint.textContent='ctrl + scroll to zoom';
+      el.appendChild(hint);
+    }
   }
-  const BASE=28*(W/680),RING=9*(W/680),DEFORM=15*(W/680);
-  const stores=M.stores_timeline.stores||[];
+  let cv=document.getElementById('growth-dots');
+  if(!cv){
+    cv=document.createElement('canvas');cv.id='growth-dots';
+    cv.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:450';
+    el.appendChild(cv);
+  }
+  const ctx=cv.getContext('2d');
+  growthSorted=[...stores].sort((a,b)=>a[2]-b[2]);
+  buildCalData();
+  const yrLabel=document.getElementById('growth-year');
+  const slider=document.getElementById('growth-slider');
+
+  function size(){const r=el.getBoundingClientRect();cv.width=r.width;cv.height=r.height}
+  function project(){
+    // remember the center+zoom this projection was drawn for, and drop any
+    // live transform — the dots are now baked at their true positions
+    growthMap._drawnCenter=growthMap.getCenter();
+    growthMap._drawnZoom=growthMap.getZoom();
+    cv.style.transition='';cv.style.transform='';
+    growthPts=growthSorted.map(s=>{const p=growthMap.latLngToContainerPoint([s[0],s[1]]);return[p.x,p.y,s[2]]});
+    // build spatial-density grid: which dots are in a cluster (>=5 neighbors within 25px)?
+    const CS=25;
+    const grid=new Map();
+    growthPts.forEach(([x,y])=>{
+      const k=`${Math.floor(x/CS)},${Math.floor(y/CS)}`;
+      grid.set(k,(grid.get(k)||0)+1);
+    });
+    growthDensity=growthPts.map(([x,y])=>{
+      const cx=Math.floor(x/CS),cy=Math.floor(y/CS);
+      let n=0;
+      for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)n+=grid.get(`${cx+dx},${cy+dy}`)||0;
+      return n;
+    });
+  }
+  // map old (drawn) pixels onto a target view via an affine transform, so the dot
+  // canvas tracks both pan AND zoom instead of snapping only after the gesture ends
+  function applyTransform(center,zoom){
+    if(growthMap._drawnCenter==null)return;
+    const dz=growthMap._drawnZoom;
+    const scale=growthMap.getZoomScale(zoom,dz);
+    const half=growthMap.getSize().divideBy(2);
+    const otl=growthMap.project(growthMap._drawnCenter,dz).subtract(half);
+    const ntl=growthMap.project(center,zoom).subtract(half);
+    const off=otl.multiplyBy(scale).subtract(ntl);
+    cv.style.transformOrigin='0 0';
+    cv.style.transform=`translate(${off.x}px,${off.y}px) scale(${scale})`;
+  }
+  function drawUpTo(yr,hi,now){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    if(!growthPts)return;
+    const progress=(yr-GROWTH_MIN)/(GROWTH_MAX-GROWTH_MIN);
+    const glowGain=Math.max(0,(progress-0.65)/0.35); // ramp in over the last ~35%
+    const glow=3+4*Math.sin((now||performance.now())/600);
+    let di=0;
+    for(const[x,y,yy]of growthPts){
+      if(yy>yr)break;
+      ctx.beginPath();
+      ctx.fillStyle=era(yy);
+      ctx.globalAlpha=(hi&&yy===hi)?1:0.7;
+      const dense=growthDensity[di++]>=12;
+      if(dense&&glowGain>0){
+        ctx.shadowColor='rgba(166,232,74,.45)';
+        ctx.shadowBlur=glow*glowGain;
+      }else ctx.shadowBlur=0;
+      ctx.arc(x,y,1.6,0,Math.PI*2);ctx.fill();
+    }
+    ctx.shadowBlur=0;
+    ctx.globalAlpha=1;
+    drawCalendar(yr);
+  }
+  function redrawStatic(){
+    size();project();
+    const yr=slider?+slider.value:GROWTH_MAX;
+    drawUpTo(yr);
+    if(yrLabel)yrLabel.textContent=yr;
+  }
+
+  const playBtn=document.getElementById('growth-replay');
+  const setPlaying=on=>{if(playBtn)playBtn.classList.toggle('is-playing',on)};
+
+  // pause: freeze on the current year, stop looping, flip the button back to play
+  function pauseAnim(){
+    growthLoop=false;
+    if(growthRaf){cancelAnimationFrame(growthRaf);growthRaf=null}
+    if(growthLoopTimer){clearTimeout(growthLoopTimer);growthLoopTimer=null}
+    setPlaying(false);
+    startGlowLoop(); // keep the glow alive while static
+  }
+  // play/resume: sweep from `fromYear` (default the start) to 2026, then loop
+  function play(fromYear){
+    stopGlowLoop();
+    if(growthRaf)cancelAnimationFrame(growthRaf);
+    if(growthLoopTimer){clearTimeout(growthLoopTimer);growthLoopTimer=null}
+    growthLoop=true;
+    size();project();
+    // Reset calendar pop-animations when replaying from the beginning
+    if(fromYear==null||fromYear<=GROWTH_MIN)resetCalAnim();
+    if(prefersReduced()){drawUpTo(GROWTH_MAX);if(yrLabel)yrLabel.textContent=GROWTH_MAX;if(slider)slider.value=GROWTH_MAX;growthLoop=false;setPlaying(false);startGlowLoop();return}
+    setPlaying(true);
+    const span=GROWTH_MAX-GROWTH_MIN,DUR=2800;
+    let t0=0;
+    if(fromYear!=null){const f=Math.max(GROWTH_MIN,Math.min(GROWTH_MAX,fromYear));t0=(f-GROWTH_MIN)/span;if(t0>=1)t0=0}
+    const start=performance.now()-t0*DUR;
+    (function frame(now){
+      const t=Math.min(1,(now-start)/DUR);
+      const yr=Math.round(GROWTH_MIN+span*t);
+      drawUpTo(yr,yr);
+      if(yrLabel)yrLabel.textContent=yr;
+      if(slider)slider.value=yr;
+      if(t<1)growthRaf=requestAnimationFrame(frame);
+      else{
+        drawUpTo(GROWTH_MAX);
+        startGlowLoop();
+        if(yrLabel)yrLabel.textContent=GROWTH_MAX;
+        if(slider)slider.value=GROWTH_MAX;
+        growthRaf=null;
+        // brief hold on the full map, then sweep again from the start
+        if(growthLoop)growthLoopTimer=setTimeout(()=>{if(growthLoop)play()},1000);
+      }
+    })(performance.now());
+  }
+
+  function startGlowLoop(){
+    if(growthRaf)return; // don't fight the sweep
+    if(cv._glowRaf)return;
+    function tick(){
+      const yr=slider?+slider.value:GROWTH_MAX;
+      drawUpTo(yr,null,performance.now());
+      cv._glowRaf=requestAnimationFrame(tick);
+    }
+    cv._glowRaf=requestAnimationFrame(tick);
+  }
+  function stopGlowLoop(){
+    if(cv._glowRaf){cancelAnimationFrame(cv._glowRaf);cv._glowRaf=null}
+  }
+
+  if(!growthMap._growthWired){
+    growthMap._growthWired=true;
+    growthMap.on('moveend zoomend',redrawStatic);
+    window.addEventListener('resize',redrawStatic);
+    // live tracking: slide the already-drawn dot canvas with the map while
+    // dragging, and scale+slide it through the zoom animation, so the dots follow
+    // the gesture instead of snapping into place only after it ends.
+    growthMap.on('zoomstart',()=>{growthMap._zooming=true});
+    growthMap.on('zoomend',()=>{growthMap._zooming=false});
+    growthMap.on('move',()=>{
+      if(growthMap._zooming)return;
+      cv.style.transition='';
+      applyTransform(growthMap.getCenter(),growthMap.getZoom());
+    });
+    // match Leaflet's zoom-animation easing so the canvas scales in sync
+    growthMap.on('zoomanim',e=>{
+      cv.style.transition='transform .25s cubic-bezier(0,0,.25,1)';
+      applyTransform(e.center,e.zoom);
+    });
+  }
+  // play/pause toggle: pause freezes on the current year, play resumes from it
+  if(playBtn&&!playBtn._wired){
+    playBtn._wired=true;
+    playBtn.addEventListener('click',()=>{
+      if(playBtn.classList.contains('is-playing'))pauseAnim();
+      else play(slider?+slider.value:GROWTH_MIN);
+    });
+  }
+
+  // timeline slider: grabbing it stops the auto-loop (button reverts to play) and
+  // scrubs years manually
+  if(slider&&!slider._wired){
+    slider._wired=true;
+    const scrub=()=>{
+      pauseAnim();
+      size();project();
+      const yr=+slider.value;
+      drawUpTo(yr);
+      if(yrLabel)yrLabel.textContent=yr;
+    };
+    slider.addEventListener('pointerdown',pauseAnim);
+    slider.addEventListener('input',scrub);
+  }
+
+  setTimeout(()=>{growthMap.invalidateSize();play()},150);
+}
+
+/* ---------------- 1.1f-flat: fingerprint unrolled (X=direction, Y=year) ----- */
+
+let fpfData=null;
+
+// per-year color ramp: deep green -> green -> lime -> yellow -> amber. More stops
+// than the 4 eras, so each year reads as its own shade along the timeline.
+const FP_STOPS=['#103d1d','#1d5a28','#2f7d2e','#5aa82e','#84c341','#a6e84a','#c8f06a'];
+function fpRamp(t){
+  t=Math.max(0,Math.min(1,t));
+  const seg=t*(FP_STOPS.length-1),i=Math.min(FP_STOPS.length-2,Math.floor(seg)),u=seg-i;
+  const h=k=>[parseInt(k.slice(1,3),16),parseInt(k.slice(3,5),16),parseInt(k.slice(5,7),16)];
+  const a=h(FP_STOPS[i]),b=h(FP_STOPS[i+1]);
+  return`rgb(${Math.round(a[0]+(b[0]-a[0])*u)},${Math.round(a[1]+(b[1]-a[1])*u)},${Math.round(a[2]+(b[2]-a[2])*u)})`;
+}
+
+export function drawFingerprintFlat(){
+  const cv=document.getElementById('canvas-fingerprint-flat');if(!cv)return;
+  const W=cv.offsetWidth||900;
+  const ctx=cv.getContext('2d');
+  // bins per year, identical bearing math to the radial fingerprint
+  const stores=(M.stores_timeline&&M.stores_timeline.stores)||[];
   const byYear={};
   for(const[lat,lon,yr]of stores){
     if(!byYear[yr])byYear[yr]=new Array(72).fill(0);
@@ -222,293 +486,632 @@ export function drawFingerprint(){
     byYear[yr][Math.floor(bearing/5)]++;
   }
   const sortedYears=Object.keys(byYear).map(Number).sort();
-  ctx.strokeStyle='rgba(42,42,58,0.45)';ctx.lineWidth=0.6;ctx.setLineDash([]);
-  [8,16,24].forEach(i=>{
-    const r=BASE+i*RING;
-    ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+  const yearData={};(M.network_growth||[]).forEach(d=>{yearData[d.year]={new_stores:d.new_stores,cumulative:d.cumulative}});
+  const n=sortedYears.length;
+  // fixed spacing per year so every curve gets its own band + room for a label;
+  // the canvas height is derived from the year count so nothing is cramped or clipped
+  const rowH=22,DEFORM=rowH*0.85,padL=54,padR=16,padT=16,padB=30;
+  const plotW=W-padL-padR;
+  const H=padT+DEFORM+(n-1)*rowH+padB;
+  cv.width=W;cv.height=H;cv.style.height=H+'px';
+  fpfData={W,H,padL,padR,padT,padB,plotW,rowH,DEFORM,byYear,sortedYears,yearData};
+  renderFpFlat(ctx);
+
+  const tt=document.getElementById('fpf-tooltip');
+  if(tt&&!cv._fpfWired){
+    cv._fpfWired=true;
+    cv.addEventListener('mousemove',e=>{
+      if(!fpfData)return;
+      const{padL,padB,plotW,rowH,sortedYears,byYear,yearData}=fpfData;
+      const rect=cv.getBoundingClientRect();
+      const mx=(e.clientX-rect.left)*(fpfData.W/rect.width);
+      const my=(e.clientY-rect.top)*(fpfData.H/rect.height);
+      const n=sortedYears.length;
+      const i=Math.round((fpfData.H-padB-my)/rowH);
+      const fx=(mx-padL)/plotW;
+      // vertical guide follows the cursor whenever it is over the plot
+      fpfData.hoverX=(fx>=0&&fx<=1)?mx:null;
+      renderFpFlat(ctx);
+      if(i>=0&&i<n&&fx>=0&&fx<=1){
+        const yr=sortedYears[i],bins=byYear[yr];
+        const bin=Math.min(71,Math.max(0,Math.floor(fx*72)));
+        const dirs16=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+        const dirLabel=dirs16[Math.floor((bin*5)/(360/16))%16]||'N';
+        const domBin=bins.indexOf(Math.max(...bins));
+        const domLabel=dirs16[Math.floor((domBin*5)/(360/16))%16]||'N';
+        const yd=yearData[yr];
+        const col=fpRamp(n>1?i/(n-1):0);
+        tt.style.display='block';
+        tt.style.left=Math.min(e.clientX-rect.left+12,fpfData.W-190)+'px';
+        tt.style.top=(e.clientY-rect.top-20)+'px';
+        tt.innerHTML=`<div style="color:${col};font-family:var(--font-display);font-weight:700;font-size:16px">${yr}</div>
+          ${yd?`<div style="margin-top:6px;font-size:12px">Nowych: <span style="color:var(--ink);font-family:var(--font-mono)">${fmt(yd.new_stores)}</span></div>`:''}
+          <div style="font-size:12px;margin-top:2px">Kursor: <span style="color:${C.teal};font-weight:600">${dirLabel}</span> (${fmt(bins[bin])})</div>
+          <div style="font-size:12px;margin-top:2px">dominanta ROKU: <span style="color:${C.green};font-weight:600">${domLabel}</span></div>`;
+      }else tt.style.display='none';
+    });
+    cv.addEventListener('mouseleave',()=>{tt.style.display='none';if(fpfData){fpfData.hoverX=null;renderFpFlat(ctx)}});
+  }
+  if(!cv._fpfResize){cv._fpfResize=true;window.addEventListener('resize',()=>drawFingerprintFlat())}
+}
+
+function renderFpFlat(ctx){
+  if(!fpfData)return;
+  const{W,H,padL,padB,plotW,rowH,DEFORM,byYear,sortedYears}=fpfData;
+  ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+
+  const n=sortedYears.length;
+  const N=72;
+  const baseY=i=>H-padB-i*rowH; // i=0 oldest at bottom, newest on top
+  const plotTop=baseY(n-1)-DEFORM,plotBottom=baseY(0);
+
+  // direction gridlines + X labels (N E S W N)
+  const dirs=[['N',0],['E',90],['S',180],['W',270],['N',360]];
+  ctx.lineWidth=0.8;ctx.textAlign='center';
+  dirs.forEach(([lab,deg])=>{
+    const x=padL+(deg/360)*plotW;
+    ctx.strokeStyle='rgba(132,195,65,.10)';
+    ctx.beginPath();ctx.moveTo(x,plotTop);ctx.lineTo(x,plotBottom);ctx.stroke();
+    ctx.fillStyle='#9ab088';ctx.font=`600 11px '${getFont('body')}',sans-serif`;
+    ctx.textBaseline='top';ctx.fillText(lab,x,plotBottom+8);
   });
-  sortedYears.forEach((yr,i)=>{
-    const bins=byYear[yr];
+
+  // one curve per year, colored along the timeline ramp (era as color only)
+  ctx.textAlign='right';ctx.textBaseline='middle';
+  for(let i=n-1;i>=0;i--){
+    const yr=sortedYears[i],bins=byYear[yr];
     const maxBin=Math.max(...bins,1);
-    const baseR=BASE+i*RING;
-    const N=72;
+    const yBase=baseY(i);
+    const col=fpRamp(n>1?i/(n-1):0);
     ctx.beginPath();
     for(let j=0;j<=N;j++){
       const bi=j%N;
-      const r=baseR+(bins[bi]/maxBin)*DEFORM;
-      const angle=(j/N)*2*Math.PI-Math.PI/2;
-      if(j===0)ctx.moveTo(cx+r*Math.cos(angle),cy+r*Math.sin(angle));
-      else ctx.lineTo(cx+r*Math.cos(angle),cy+r*Math.sin(angle));
+      const x=padL+(j/N)*plotW;
+      const y=yBase-(bins[bi]/maxBin)*DEFORM;
+      if(j===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
     }
-    ctx.closePath();
-    ctx.strokeStyle=era(yr);ctx.lineWidth=1.4;ctx.stroke();
-    const ec=era(yr);const m=ec.match(/[0-9a-f]{2}/gi)||['00','00','00'];
-    const rr=parseInt(m[0]||'00',16),gg=parseInt(m[1]||'00',16),bb=parseInt(m[2]||'00',16);
-    ctx.fillStyle=`rgba(${rr},${gg},${bb},0.07)`;ctx.fill();
-  });
-  const dirs=[['N',0],['NE',45],['E',90],['SE',135],['S',180],['SW',225],['W',270],['NW',315]];
-  dirs.forEach(([label,deg])=>{
-    const rad=deg*Math.PI/180-Math.PI/2;
-    const isMain=['N','S','E','W'].includes(label);
-    const r=W/2-10;
-    const x=cx+r*Math.cos(rad),y=cy+r*Math.sin(rad);
-    ctx.font=`${isMain?'600':'400'} ${isMain?13:10}px '${getFont('body')}',sans-serif`;
-    ctx.fillStyle=isMain?'#8a8aaa':'#4a4a6a';
-    ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText(label,x,y);
-  });
+    ctx.strokeStyle=col;ctx.lineWidth=1.3;ctx.stroke();
+    // every curve gets its year on the left, in its own shade
+    ctx.fillStyle=col;ctx.font=`10px '${getFont('mono')}',monospace`;
+    ctx.fillText(yr,padL-8,yBase);
+  }
   ctx.textAlign='left';ctx.textBaseline='alphabetic';
-  const tt=document.getElementById('fp-tooltip');
-  cv.addEventListener('mousemove',e=>{
-    const rect=cv.getBoundingClientRect();
-    const mx=(e.clientX-rect.left)*(W/rect.width);
-    const my=(e.clientY-rect.top)*(W/rect.height);
-    const r=Math.sqrt((mx-cx)**2+(my-cy)**2);
-    const i=Math.round((r-BASE)/RING);
-    if(i>=0&&i<sortedYears.length){
-      const yr=sortedYears[i];
-      const bins=byYear[yr];
-      const domBin=bins.indexOf(Math.max(...bins));
-      const dirs16=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
-      const dirLabel=dirs16[Math.floor(domBin/(72/16))%16]||'N';
-      const yd=spiralCache&&spiralCache.yearData?spiralCache.yearData[yr]:null;
-      tt.style.display='block';
-      tt.style.left=(e.clientX-cv.getBoundingClientRect().left+12)+'px';
-      tt.style.top=(e.clientY-cv.getBoundingClientRect().top-20)+'px';
-      tt.innerHTML=`<div style="color:${era(yr)};font-family:var(--font-display);font-weight:700;font-size:16px">${yr}</div>
-        <div style="color:var(--muted);font-size:11px;margin-top:2px">Era: ${eraName(yr)}</div>
-        ${yd?`<div style="margin-top:6px;font-size:12px">Nowych: <span style="color:var(--ink);font-family:var(--font-mono)">${fmt(yd.new_stores)}</span></div>`:''}
-        <div style="font-size:12px;margin-top:2px">Kierunek: <span style="color:${C.teal};font-weight:600">${dirLabel}</span></div>`;
-    }else{tt.style.display='none'}
-  });
-  cv.addEventListener('mouseleave',()=>{tt.style.display='none'});
+
+  // tasteful vertical guide through the cursor on hover
+  if(fpfData.hoverX!=null){
+    const hx=Math.max(padL,Math.min(padL+plotW,fpfData.hoverX));
+    ctx.save();
+    ctx.setLineDash([3,4]);
+    ctx.strokeStyle='rgba(230,242,220,.38)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(hx,plotTop-6);ctx.lineTo(hx,plotBottom+2);ctx.stroke();
+    ctx.restore();
+  }
 }
 
-export function renderStackedArea(){
-  const raw=M.growth_by_voivodeship;
-  const macros={North:[],West:[],Center:[],South:[]};
-  const years=[...new Set(raw.map(r=>r.yr))].sort();
-  years.forEach(yr=>{
-    Object.keys(macros).forEach(mac=>{
-      macros[mac].push(raw.filter(r=>r.yr===yr&&r.voivodeship&&C[mac]===macroCol(r.voivodeship)&&
-        (['North','West','Center','South'].includes(mac))).reduce((a,b)=>a+b.new_stores,0));
-    });
-  });
-  const raw2=M.growth_by_voivodeship;
-  const macros2={North:[],West:[],Center:[],South:[]};
-  years.forEach(yr=>{
-    const MACRO_MAP={pomorskie:'North','warmińsko-mazurskie':'North','kujawsko-pomorskie':'North',podlaskie:'North','dolnośląskie':'West',zachodniopomorskie:'West',lubuskie:'West',opolskie:'West',mazowieckie:'Center','łódzkie':'Center','świętokrzyskie':'Center',wielkopolskie:'Center','śląskie':'South','małopolskie':'South',podkarpackie:'South',lubelskie:'South'};
-    Object.keys(macros2).forEach(mac=>{
-      macros2[mac].push(raw2.filter(r=>r.yr===yr&&MACRO_MAP[r.voivodeship]===mac).reduce((a,b)=>a+b.new_stores,0));
-    });
-  });
-  destroyChart('stacked-area');
-  CHARTS['stacked-area']=new Chart(document.getElementById('chart-stacked-area'),{
-    type:'line',
-    data:{labels:years,datasets:Object.entries(macros2).map(([mac,data])=>({
-      label:mac,data,backgroundColor:C[mac]+'55',borderColor:C[mac],fill:true,borderWidth:1.5,pointRadius:0,tension:.4
-    }))},
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      plugins:{
-        legend:{labels:{color:C.muted,font:{size:11},usePointStyle:true}},
-        tooltip:{mode:'index',intersect:false,callbacks:{
-          title:items=>'Rok '+items[0].label,
-          label:ctx=>`${ctx.dataset.label}: ${fmt(ctx.raw)} nowych`
-        }}
-      },
-      scales:{
-        x:{stacked:true,ticks:{color:C.muted,font:{size:10}},grid:{color:C.axis}},
-        y:{stacked:true,ticks:{color:C.muted,font:{size:10}},grid:{color:C.axis}}
-      }
-    }
-  });
-}
+/* ---------------- 1.1 merged growth chart (bars + cumulative, dual axis) ----- */
 
-export function renderPerCapita(){
-  const data=[...M.per_capita].sort((a,b)=>b.per_1k-a.per_1k);
-  const colors=data.map(d=>macroCol(d.voivodeship));
-  destroyChart('per-capita');
-  CHARTS['per-capita']=new Chart(document.getElementById('chart-per-capita'),{
+export function renderGrowthChart(){
+  const data=M.network_growth||[];
+  const vals=data.map(d=>d.new_stores);
+  const labels=data.map(d=>d.year);
+  const barColors=data.map(d=>{if(d.year>=2023)return C.green;if(d.year>=2010)return C.green+'88';return C.green+'44'});
+  const ERAS=[
+    {x1:1998,x2:2009,color:'rgba(31,61,18,.25)'},
+    {x1:2010,x2:2019,color:'rgba(53,102,21,.18)'},
+    {x1:2020,x2:2022,color:'rgba(116,189,42,.12)'},
+    {x1:2023,x2:2026,color:'rgba(166,232,74,.10)'}
+  ];
+  destroyChart('growth');
+  CHARTS['growth']=new Chart(document.getElementById('chart-growth'),{
     type:'bar',
-    data:{labels:data.map(d=>d.voivodeship),datasets:[{data:data.map(d=>d.per_1k),backgroundColor:colors,borderRadius:2,borderWidth:0}]},
+    data:{labels,datasets:[
+      {type:'bar',label:'nowych/rok',data:vals,backgroundColor:barColors,borderRadius:2,borderWidth:0,yAxisID:'y',order:2},
+      {type:'line',label:'lacznie aktywnych',data:data.map(d=>d.cumulative),borderColor:C.amber,backgroundColor:'rgba(242,163,89,.06)',fill:true,borderWidth:2,pointRadius:0,tension:.4,yAxisID:'y1',order:1}
+    ]},
     options:{
-      indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      onClick(_e,els){if(els.length){const v=data[els[0].index].voivodeship;setFilter(STATE.filter===v?null:v)}},
+      responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
       plugins:{
-        legend:{display:false},
-        tooltip:{callbacks:{label:ctx=>`${ctx.raw}/1k mieszk.`}},
-        annot:{refLines:[{value:0.35,axis:'x',color:'rgba(255,255,255,.2)'}]}
-      },
-      scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{cursor:'pointer',color:C.muted,font:{size:10}}}}
-    }
-  });
-}
-
-export function renderCityCoverage(){
-  const data=M.city_first_opening;
-  const keyYears=[1998,2000,2005,2010,2015,2020,2022,2025];
-  const ptR=data.map(d=>keyYears.includes(d.yr)?5:0);
-  destroyChart('city-coverage');
-  CHARTS['city-coverage']=new Chart(document.getElementById('chart-city-coverage'),{
-    type:'line',
-    data:{
-      labels:data.map(d=>d.yr),
-      datasets:[
-        {data:data.map(d=>d.new_cities),type:'bar',backgroundColor:'rgba(0,192,96,.15)',yAxisID:'y2',label:'nowych miast',borderWidth:0},
-        {data:data.map(d=>d.cumulative_cities),borderColor:C.green,backgroundColor:'rgba(0,192,96,.05)',fill:true,borderWidth:2,
-         pointRadius:ptR,pointBackgroundColor:C.green,tension:.4,label:'lacznie'}
-      ]
-    },
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      plugins:{
-        legend:{display:false},
-        tooltip:{mode:'index',intersect:false,callbacks:{
-          title:i=>'Rok '+i[0].label,
-          label:ctx=>ctx.datasetIndex===1?`Lacznie: ${fmt(ctx.raw)} miast`:`Nowych: ${fmt(ctx.raw)}`
-        }}
+        legend:{display:true,labels:{color:C.muted,usePointStyle:true,font:{size:11}}},
+        tooltip:{enabled:false},
+        barLabels:{thousands:true,color:C.green,onlyBars:true,inside:true},
+        annot:{shadedBands:ERAS}
       },
       scales:{
         x:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}},
-        y:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},
-        y2:{grid:{display:false},ticks:{display:false},position:'right'}
+        y:{position:'left',grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}},title:{display:true,text:'nowych/rok',color:C.muted,font:{size:9}}},
+        y1:{position:'right',grid:{display:false},ticks:{color:C.amber,font:{size:10}},title:{display:true,text:'lacznie aktywnych',color:C.amber,font:{size:9}}}
       }
     }
   });
 }
 
-export function renderTopCities(filtered=false){
-  const data=filtered&&STATE.filter
-    ?M.top_cities.filter(d=>d.voivodeship&&d.voivodeship.toLowerCase()===STATE.filter.toLowerCase())
-    :M.top_cities;
-  destroyChart('top-cities');
-  CHARTS['top-cities']=new Chart(document.getElementById('chart-top-cities'),{
+/* ---------------- powiat coverage tile: 380/380 + dot map ----- */
+
+let _pcLevel='powiaty';
+const _PC_CAP={powiaty:'powiatów ma Żabkę',miasta:'miast ma Żabkę',gminy:'gmin ma Żabkę'};
+let _pcState=null;   // persistent so a level switch animates instead of jumping
+
+export function renderPowiatCoverage(){
+  const pc=M.powiat_coverage||{};
+  const funnel=M.coverage_funnel||[];
+  const node=funnel.find(f=>f.level===_pcLevel)
+    || (_pcLevel==='powiaty'?{with:pc.covered,total:pc.total,pct:100}:{with:0,total:0,pct:0});
+  const pct=node.pct!=null?node.pct:0;
+  const setT=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.textContent=v};
+  setT('powiat-cap',_PC_CAP[_pcLevel]||'');   // label can snap
+  wirePowiatLevel();
+
+  const cv=document.getElementById('canvas-powiat-map');if(!cv)return;
+  const donut=document.getElementById('powiat-donut');
+  const W=cv.offsetWidth||420,H=cv.offsetHeight||Math.round(W*0.62);
+  // resize only when the size actually changed — avoids a clear/flash on switch
+  if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H}
+  const ctx=cv.getContext('2d');
+  const dctx=donut?donut.getContext('2d'):null;
+
+  const COS=Math.cos(52*Math.PI/180);
+  const loMin=14.1,loMax=24.2,laMin=49.0,laMax=54.9;
+  const projW=(loMax-loMin)*COS,projH=(laMax-laMin);
+  const sc=Math.min(W/projW,H/projH)*0.96;
+  const ox=(W-projW*sc)/2,oy=(H-projH*sc)/2;
+  const P=(lat,lon)=>[ox+(lon-loMin)*COS*sc, oy+(laMax-lat)*sc];
+  const dots=(pc.dots||[]).map(([lat,lon])=>P(lat,lon));
+
+  // green = covered share of the level (golden-ratio scatter), red = the rest;
+  // fixed dot count — only the green/red split changes
+  const frac=pct/100;
+  const target=dots.map((_,i)=>((i*0.6180339887)%1)<frac);
+
+  if(!_pcState){
+    _pcState={dots,target,greenness:target.map(g=>g?1:0),
+      pct,cov:node.with||0,tot:node.total||0,
+      pctT:pct,covT:node.with||0,totT:node.total||0,hover:null,raf:0};
+  }else{
+    Object.assign(_pcState,{dots,target,pctT:pct,covT:node.with||0,totT:node.total||0});
+  }
+  const S=_pcState;
+
+  const RED=[232,105,61],GRN=[132,195,65],LIME=[166,232,74];
+  const lerp=(a,b,t)=>Math.round(a+(b-a)*t);
+
+  function drawMap(now){
+    ctx.clearRect(0,0,W,H);
+    const wg=M.woj_geo;
+    if(wg&&wg.features){
+      ctx.strokeStyle='rgba(132,195,65,.16)';ctx.lineWidth=0.8;
+      wg.features.forEach(f=>{const g=f.geometry||{};
+        const polys=g.type==='MultiPolygon'?g.coordinates:g.type==='Polygon'?[g.coordinates]:[];
+        polys.forEach(poly=>{const ring=poly[0];if(!ring)return;ctx.beginPath();
+          ring.forEach((pt,k)=>{const[x,y]=P(pt[1],pt[0]);k?ctx.lineTo(x,y):ctx.moveTo(x,y)});
+          ctx.closePath();ctx.stroke()})});
+    }
+    const EFFECT_R=46,BASE_R=1.6,MAX_R=2.5,hover=S.hover;
+    S.dots.forEach(([x,y],i)=>{
+      const gn=S.greenness[i];
+      const dist=hover?Math.hypot(x-hover[0],y-hover[1]):999;
+      const t=dist<EFFECT_R?1-dist/EFFECT_R:0;
+      const breathe=t>0?0.2*Math.sin(now/280+dist/18):0;
+      const jx=t>0?0.5*Math.sin(now/370+dist/22):0;
+      const jy=t>0?0.5*Math.cos(now/340+dist/28):0;
+      const r=Math.max(0.5,BASE_R+t*(MAX_R-BASE_R)+breathe);
+      const gtop=[lerp(GRN[0],LIME[0],t),lerp(GRN[1],LIME[1],t),lerp(GRN[2],LIME[2],t)];
+      const col=[lerp(RED[0],gtop[0],gn),lerp(RED[1],gtop[1],gn),lerp(RED[2],gtop[2],gn)];
+      ctx.beginPath();ctx.arc(x+jx,y+jy,r,0,Math.PI*2);
+      ctx.fillStyle=`rgb(${col[0]},${col[1]},${col[2]})`;
+      ctx.shadowColor=gn>0.5?`rgba(166,232,74,${0.5+0.3*t})`:`rgba(232,105,61,${0.45+0.3*t})`;
+      ctx.shadowBlur=3+t*7;ctx.fill();ctx.shadowBlur=0;
+    });
+  }
+  function drawDonut(){
+    if(!dctx)return;
+    const w=donut.width,h=donut.height,cx=w/2,cy=h/2,rr=Math.min(w,h)/2-14;
+    dctx.clearRect(0,0,w,h);
+    dctx.lineCap='round';dctx.lineWidth=15;
+    dctx.strokeStyle='rgba(132,195,65,.12)';
+    dctx.beginPath();dctx.arc(cx,cy,rr,0,Math.PI*2);dctx.stroke();
+    const f2=Math.max(0,Math.min(1,S.pct/100));
+    dctx.strokeStyle=C.greenBright;
+    dctx.beginPath();dctx.arc(cx,cy,rr,-Math.PI/2,-Math.PI/2+Math.PI*2*f2);dctx.stroke();
+    dctx.fillStyle=C.greenBright;dctx.textAlign='center';dctx.textBaseline='middle';
+    dctx.font=`800 ${Math.round(w*0.21)}px '${getFont('display')}',sans-serif`;
+    const ptxt=(Math.abs(S.pct-Math.round(S.pct))<0.05?Math.round(S.pct):S.pct.toFixed(1)).toString().replace('.',',');
+    dctx.fillText(ptxt+'%',cx,cy);
+  }
+  function step(now){
+    const k=0.16;let moving=false;
+    S.pct+=(S.pctT-S.pct)*k; if(Math.abs(S.pctT-S.pct)>0.04)moving=true;else S.pct=S.pctT;
+    S.cov+=(S.covT-S.cov)*k; if(Math.abs(S.covT-S.cov)>0.4)moving=true;else S.cov=S.covT;
+    S.tot+=(S.totT-S.tot)*k; if(Math.abs(S.totT-S.tot)>0.4)moving=true;else S.tot=S.totT;
+    for(let i=0;i<S.greenness.length;i++){const tg=S.target[i]?1:0;
+      S.greenness[i]+=(tg-S.greenness[i])*k;
+      if(Math.abs(tg-S.greenness[i])>0.004)moving=true;else S.greenness[i]=tg}
+    drawMap(now);drawDonut();
+    setT('powiat-covered',fmt(Math.round(S.cov)));
+    setT('powiat-total',fmt(Math.round(S.tot)));
+    S.raf=(moving||S.hover)?requestAnimationFrame(step):0;
+  }
+  if(!S.raf)S.raf=requestAnimationFrame(step);
+
+  if(!cv._pcHoverInit){
+    cv._pcHoverInit=true;
+    cv.addEventListener('mousemove',e=>{const r=cv.getBoundingClientRect();
+      _pcState.hover=[e.clientX-r.left,e.clientY-r.top];
+      if(!_pcState.raf)_pcState.raf=requestAnimationFrame(step)});
+    cv.addEventListener('mouseleave',()=>{_pcState.hover=null;
+      if(!_pcState.raf)_pcState.raf=requestAnimationFrame(step)});
+  }
+  if(!cv._pcResize){cv._pcResize=true;window.addEventListener('resize',()=>{_pcState=null;renderPowiatCoverage()})}
+}
+
+function wirePowiatLevel(){
+  document.querySelectorAll('#powiat-level .gran-btn').forEach(btn=>{
+    if(btn._wired)return;btn._wired=true;
+    btn.addEventListener('click',()=>{
+      _pcLevel=btn.dataset.plevel;
+      document.querySelectorAll('#powiat-level .gran-btn').forEach(b=>b.classList.toggle('active',b===btn));
+      renderPowiatCoverage();
+    });
+  });
+}
+
+/* ---------------- 1.2/1.3 bars (left) + voivodeship choropleth (right) ----- */
+
+const GRAN_WORD={voivodeship:'wojewodztwa',powiat:'powiaty',city:'miasta'};
+const PAGE=20;
+// Default dim is powiat (not voivodeship) per design spec
+let _gDim='powiat',_gMetric='count',_gSort='desc',_gRows=[],_gTotal=0,_gOffset=0;
+let _gAvg=null,_gMedian=null,_gSum=0;
+
+const _dimCache=new Map();
+function fetchDim(dim,metric,sort,limit,offset){
+  const key=`${dim}|${metric}|${sort}|${limit}|${offset}`;
+  if(_dimCache.has(key))return _dimCache.get(key);
+  const p=fetch(`/api/stats/by-dimension?dim=${dim}&metric=${metric}&sort=${sort}&limit=${limit}&offset=${offset}`)
+    .then(r=>r.json()).catch(()=>({rows:[],total:0}));
+  _dimCache.set(key,p);
+  return p;
+}
+const _vKey=()=>_gMetric==='per1k'?'per_1k':_gMetric==='per_km2'?'per_km2':'cnt';
+const _isCount=()=>_gMetric==='count';
+
+// cross-filter passes a truthy non-string (legacy); ignore and re-render current view.
+// skipMap: pass true when only the dimension changed — the right choropleth is
+// voivodeship-only and doesn't care which dim the left chart shows.
+export async function renderGranular(arg,{skipMap=false}={}){
+  if(typeof arg==='string'&&GRAN_WORD[arg])_gDim=arg;
+  _gOffset=0;
+  const pageLimit=_gDim==='voivodeship'?16:PAGE;
+  const res=await fetchDim(_gDim,_gMetric,_gSort,pageLimit,0);
+  _gRows=res.rows||[];_gTotal=res.total||0;
+  _gAvg=res.avg;_gMedian=res.median;_gSum=res.sum||0;
+  drawGranularChart();
+  updateMoreBtn();
+  if(!skipMap)renderWojMap();
+  else if(_wojMap)_wojMap.invalidateSize();
+}
+
+async function loadMoreGranular(){
+  _gOffset+=PAGE;
+  const res=await fetchDim(_gDim,_gMetric,_gSort,PAGE,_gOffset);
+  _gRows=_gRows.concat(res.rows||[]);
+  drawGranularChart();updateMoreBtn();
+}
+
+function updateMoreBtn(){
+  const b=document.getElementById('gran-more');if(!b)return;
+  const more=_gDim!=='voivodeship'&&_gRows.length<_gTotal;
+  b.hidden=!more;
+  if(more)b.textContent=`Zaladuj wiecej (${_gRows.length}/${_gTotal})`;
+}
+
+function drawGranularChart(){
+  const vk=_vKey();
+  const f=STATE.filter?STATE.filter.toLowerCase():null;
+  let rows=_gRows;
+  if(f&&_gDim!=='voivodeship')rows=rows.filter(d=>d.voivodeship&&d.voivodeship.toLowerCase()===f);
+  const n=rows.length;
+  const colors=rows.map((d,i)=>{
+    if(f&&_gDim==='voivodeship'&&d.name&&d.name.toLowerCase()!==f)return'rgba(132,195,65,.22)';
+    return fpRamp(n>1?1-i/(n-1):1);
+  });
+  const word=GRAN_WORD[_gDim];
+  const mlabel=_gMetric==='per1k'?'sklepy na 1000 mieszkancow':_gMetric==='per_km2'?'sklepy na km2':'liczba aktywnych sklepow';
+  const tEl=document.getElementById('gran-title');
+  if(tEl)tEl.textContent=`${_gSort==='asc'?'Najmniej':'Najwiecej'} Zabek — ${word}`;
+  const sEl=document.getElementById('gran-sub');
+  if(sEl)sEl.textContent=mlabel+(f&&_gDim!=='voivodeship'?` — ${STATE.filter}`:'');
+  // grow the chart with the row count so load-more rows are not squished
+  const wrap=document.getElementById('gran-chart-wrap');
+  if(wrap)wrap.style.height=Math.max(320,n*22+44)+'px';
+  // right-side map height is governed by CSS (gran-split stretch); just refresh it
+  if(_wojMap)setTimeout(()=>_wojMap.invalidateSize(),0);
+
+  // Labels + data: optionally append POZOSTALE for powiat/city with count metric
+  let labels=rows.map(d=>d.name);
+  let data=rows.map(d=>d[vk]);
+  let _hasPozostale=false;
+  if(_isCount()&&_gDim!=='voivodeship'&&!_gOffset&&_gRows.length<_gTotal){
+    const visibleSum=data.reduce((a,b)=>a+b,0);
+    const pozostale=_gSum-visibleSum;
+    const remainingCount=_gTotal-_gRows.length;
+    if(pozostale>0&&remainingCount>0){
+      const avgPozostale=Math.round(pozostale/remainingCount);
+      labels=labels.concat('Pozostałe (avg)');
+      data=data.concat(avgPozostale);
+      colors.push('rgba(132,195,65,.15)');
+      _hasPozostale=true;
+    }
+  }
+
+  // Reference lines: AVG + MED from full dataset (skip vertical lines for city)
+  const refLines=[];
+  let avgLabel='',medLabel='';
+  if(_gAvg!=null){
+    if(_gDim!=='city') refLines.push({value:_gAvg,axis:'x',color:'#4a5a3e',lineWidth:2.5});
+    avgLabel=`AVG ${_isCount()?fmt(Math.round(_gAvg)):_gAvg}`;
+  }
+  if(_gMedian!=null){
+    if(_gDim!=='city') refLines.push({value:_gMedian,axis:'x',color:'#7a4a20',lineWidth:2.5});
+    medLabel=`MED ${_isCount()?fmt(Math.round(_gMedian)):_gMedian.toFixed(_gMetric==='per_km2'?3:2)}`;
+  }
+  const legEl=document.getElementById('gran-ref-legend');
+  if(legEl){
+    const parts=[];
+    if(avgLabel)parts.push(`<span class="lg-item" style="color:#86a86a"><span class="lg-line"></span>${avgLabel}</span>`);
+    if(medLabel)parts.push(`<span class="lg-item" style="color:#c79257"><span class="lg-line"></span>${medLabel}</span>`);
+    legEl.innerHTML=parts.join('');
+  }
+
+  destroyChart('granular');
+  CHARTS['granular']=new Chart(document.getElementById('chart-granular'),{
     type:'bar',
-    data:{labels:data.map(d=>d.city),datasets:[{data:data.map(d=>d.cnt),backgroundColor:data.map(d=>macroCol(d.voivodeship)),borderRadius:2,borderWidth:0}]},
+    data:{labels,datasets:[{
+      data,backgroundColor:colors,
+      hoverBackgroundColor:colors.map(()=>C.greenBright),borderRadius:2,borderWidth:0
+    }]},
     options:{
-      indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${fmt(ctx.raw)} sklepow`}}},
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:48,top:28}},
+      plugins:{
+        legend:{display:false},
+        tooltip:{enabled:false},
+        barLabels:_isCount()?{thousands:true,color:C.muted}:{decimals:_gMetric==='per_km2'?3:2,color:C.muted},
+        annot:{refLines},
+      },
       scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
     }
   });
 }
+
+/* ---- Right-side: locked voivodeship choropleth, styled like the reference --- */
+
+// Green gradient matching the reference: very dark -> bright lime
+const WOJ_STOPS=['#132912','#1e4019','#2d6324','#4a9228','#72c133','#a6e84a'];
+function wojRamp(t){
+  t=Math.max(0,Math.min(1,t));
+  const seg=t*(WOJ_STOPS.length-1),i=Math.min(WOJ_STOPS.length-2,Math.floor(seg)),u=seg-i;
+  const h=k=>[parseInt(k.slice(1,3),16),parseInt(k.slice(3,5),16),parseInt(k.slice(5,7),16)];
+  const a=h(WOJ_STOPS[i]),b=h(WOJ_STOPS[i+1]);
+  return`rgb(${Math.round(a[0]+(b[0]-a[0])*u)},${Math.round(a[1]+(b[1]-a[1])*u)},${Math.round(a[2]+(b[2]-a[2])*u)})`;
+}
+
+// Module-level state so hover handlers always use the live metric/sort
+// even after the closure that created them is gone.
+let _wojMap=null,_wojLayer=null,_wojPairs=null;
+let _wojByName=new Map(),_wojById=new Map();
+let _wojVmin=0,_wojVmax=1,_wojInverted=false,_wojMetricLive='count';
+
+function _wFindRow(f){
+  const p=f.properties||{};
+  return _wojById.get(String(p.id??p.ID))||_wojById.get(String(p.nazwa))
+    ||_wojByName.get((p.nazwa||'').toLowerCase())||_wojByName.get((p.name||'').toLowerCase());
+}
+function _wNorm(v){
+  const t=(_wojVmax>_wojVmin)?(v-_wojVmin)/(_wojVmax-_wojVmin):0.5;
+  return _wojInverted?1-t:t;
+}
+function _wVk(){return _wojMetricLive==='per1k'?'per_1k':_wojMetricLive==='per_km2'?'per_km2':'cnt'}
+function _wFmtVal(r){
+  const vk=_wVk();
+  return _wojMetricLive==='count'?`${fmt(r[vk]||r.cnt)} sklepów`
+    :_wojMetricLive==='per1k'?`${r.per_1k}/1k mieszk.`:`${r.per_km2}/km²`;
+}
+function _wStyle(f,opacity=0.9){
+  const r=_wFindRow(f);const v=r?r[_wVk()]:null;
+  return{weight:1,color:'#08110a',
+    fillColor:v!=null?wojRamp(_wNorm(v)):'#0e1e0c',fillOpacity:opacity};
+}
+
+async function renderWojMap(){
+  const el=document.getElementById('map-granular-woj');if(!el||!M.woj_geo)return;
+
+  if(!_wojMap){
+    _wojMap=L.map('map-granular-woj',{
+      zoomControl:false,attributionControl:false,
+      scrollWheelZoom:false,dragging:false,
+      doubleClickZoom:false,boxZoom:false,keyboard:false
+    });
+    MAPS['map-granular-woj']=_wojMap;
+    _wojMap.setView([52.0,19.3],6);
+    _wojMap.invalidateSize();
+  }
+
+  const res=await fetchDim('voivodeship',_gMetric,'desc',16,0);
+  const rows=res.rows||[];
+
+  // Update module-level state so hover + style fns always see current data
+  _wojMetricLive=_gMetric;
+  _wojInverted=(_gSort==='asc');
+  _wojByName=new Map();_wojById=new Map();
+  rows.forEach(r=>{
+    if(r.name)_wojByName.set(r.name.toLowerCase(),r);
+    if(r.geo_id!=null)_wojById.set(String(r.geo_id),r);
+  });
+  const vk=_wVk();
+  const vals=rows.map(r=>r[vk]).filter(v=>v!=null);
+  _wojVmin=Math.min(...vals);_wojVmax=Math.max(...vals);
+
+  // ── Fast path: layers already exist — just update styles + tooltips ────────
+  if(_wojPairs){
+    _wojPairs.forEach(({layer,f})=>{
+      const r=_wFindRow(f);const v=r?r[vk]:null;
+      layer.setStyle(_wStyle(f));
+      layer.unbindTooltip();
+      if(r)layer.bindTooltip(
+        `<div style="font-family:var(--font-display);font-weight:700;font-size:13px;margin-bottom:3px">${r.name}</div>`+
+        `<div style="font-size:12px;color:#93a487">${_wFmtVal(r)}</div>`,
+        {sticky:true,className:'gran-tooltip',opacity:1}
+      );
+    });
+    return;
+  }
+
+  // ── First render: create layers with short fade-in stagger ─────────────────
+  _wojPairs=[];
+  _wojLayer=L.geoJSON(M.woj_geo,{
+    style:f=>_wStyle(f,0),   // start transparent
+    onEachFeature:(f,layer)=>{
+      _wojPairs.push({layer,f});
+      const r=_wFindRow(f);
+      if(r)layer.bindTooltip(
+        `<div style="font-family:var(--font-display);font-weight:700;font-size:13px;margin-bottom:3px">${r.name}</div>`+
+        `<div style="font-size:12px;color:#93a487">${_wFmtVal(r)}</div>`,
+        {sticky:true,className:'gran-tooltip',opacity:1}
+      );
+      layer.on('mouseover',()=>{
+        const rv=_wFindRow(f);const v=rv?rv[_wVk()]:null;
+        layer.setStyle({weight:2.5,color:'rgba(166,232,74,.85)',
+          fillColor:v!=null?wojRamp(Math.min(1,_wNorm(v)+0.18)):'#1c3a1c',fillOpacity:1});
+        layer.bringToFront();
+        const el=layer.getElement&&layer.getElement();
+        if(el){
+          const b=layer.getBounds().getCenter();
+          const pt=_wojMap.latLngToLayerPoint(b);
+          el.style.transformOrigin=`${pt.x}px ${pt.y}px`;
+          el.style.transform='scale(1.06)';
+        }
+      });
+      layer.on('mouseout',()=>{
+        layer.setStyle(_wStyle(f));
+        const el=layer.getElement&&layer.getElement();
+        if(el){el.style.transform='scale(1)';}
+      });
+  }}).addTo(_wojMap);
+
+  // Short stagger: 16 voivodeships × 14ms = ~220ms total
+  _wojPairs.forEach(({layer},i)=>setTimeout(()=>{
+    const svg=layer.getElement&&layer.getElement();
+    if(svg)svg.style.transition='fill-opacity .25s ease,fill .25s ease';
+    layer.setStyle({fillOpacity:0.9});
+  },10+i*14));
+
+  try{_wojMap.fitBounds(L.geoJSON(M.woj_geo).getBounds(),{padding:[6,6]})}catch(e){}
+  setTimeout(()=>_wojMap&&_wojMap.invalidateSize(),60);
+}
+
+function _setActive(group,btn){
+  document.querySelectorAll(`#${group} .gran-btn`).forEach(b=>b.classList.toggle('active',b===btn));
+}
+
+export function wireGranular(){
+  const grp=(id,attr,cb)=>document.querySelectorAll(`#${id} .gran-btn`).forEach(btn=>{
+    if(btn._wired)return;btn._wired=true;
+    btn.addEventListener('click',()=>{if(!btn.classList.contains('is-disabled'))cb(btn.dataset[attr],btn)});
+  });
+  grp('gran-dim','dim',(v,btn)=>{_gDim=v;_setActive('gran-dim',btn);renderGranular(null,{skipMap:true})});
+  grp('gran-metric','metric',(v,btn)=>{
+    _gMetric=v;_setActive('gran-metric',btn);
+    // per-capita / per-km2 have no city data — disable Miasta, bounce off it
+    const noCity=(v==='per1k'||v==='per_km2');
+    const cityBtn=document.querySelector('#gran-dim .gran-btn[data-dim="city"]');
+    if(cityBtn)cityBtn.classList.toggle('is-disabled',noCity);
+    if(noCity&&_gDim==='city'){
+      _gDim='powiat';
+      _setActive('gran-dim',document.querySelector('#gran-dim .gran-btn[data-dim="powiat"]'));
+    }
+    renderGranular();
+  });
+  grp('gran-sort','sort',(v,btn)=>{_gSort=v;_setActive('gran-sort',btn);renderGranular()});
+  const more=document.getElementById('gran-more');
+  if(more&&!more._wired){more._wired=true;more.addEventListener('click',loadMoreGranular)}
+}
+
+/* ---------------- 1.4a clock -> donut "Niedziela handlowa po zabkowemu" ----- */
 
 export function drawClock(){
-  const cv=document.getElementById('canvas-clock');
-  const S=Math.min(cv.offsetWidth||320,320);cv.width=S;cv.height=S;
+  const cv=document.getElementById('canvas-clock');if(!cv)return;
+  const S=220;
+  cv.width=S;cv.height=S;
   const ctx=cv.getContext('2d');
-  const cx=S/2,cy=S/2,R=S/2-12;
-  ctx.fillStyle=C.surface;ctx.fillRect(0,0,S,S);
-  ctx.strokeStyle=C.axis;ctx.lineWidth=1;
-  for(let h=0;h<24;h++){
-    const a=(h/24)*2*Math.PI-Math.PI/2;
-    ctx.beginPath();ctx.moveTo(cx+R*Math.cos(a),cy+R*Math.sin(a));
-    ctx.lineTo(cx+(R-6)*Math.cos(a),cy+(R-6)*Math.sin(a));ctx.stroke();
-    if(h%6===0){
-      ctx.fillStyle=C.muted;ctx.font=`10px '${getFont('mono')}',monospace`;
-      ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText(h===0?'0':h,cx+(R-18)*Math.cos(a),cy+(R-18)*Math.sin(a));
-    }
+  ctx.clearRect(0,0,S,S);
+  const cx=S/2,cy=S/2;
+
+  const sum=M.summary||{};
+  const total=+(sum.total_active||sum.total||0);
+  const sunOpen=+(sum.open_sunday||0);
+  const pctOpen=total>0?Math.min(1,sunOpen/total):0;
+
+  const R0=S/2-10;
+  const r0=Math.round(R0*0.60);
+  const s=cv._clockAnimScale||1;
+  const R=Math.round(R0*s);
+  const r=Math.round(r0*s);
+  const startA=-Math.PI/2;
+  const openEnd=startA+2*Math.PI*pctOpen;
+  const closedEnd=startA+2*Math.PI;
+
+  // Background ring (closed stores grey/dark)
+  ctx.beginPath();
+  ctx.arc(cx,cy,R,openEnd,closedEnd);
+  ctx.arc(cx,cy,r,closedEnd,openEnd,true);
+  ctx.closePath();
+  ctx.fillStyle='#2d3a29';
+  ctx.fill();
+
+  // Open-sunday arc (green, ~95%)
+  ctx.beginPath();
+  ctx.arc(cx,cy,R,startA,openEnd);
+  ctx.arc(cx,cy,r,openEnd,startA,true);
+  ctx.closePath();
+  ctx.fillStyle='#84c341';
+  ctx.fill();
+
+  // Subtle inner highlight on green arc
+  ctx.beginPath();
+  ctx.arc(cx,cy,R-1,startA,openEnd);
+  ctx.arc(cx,cy,r+1,openEnd,startA,true);
+  ctx.closePath();
+  ctx.fillStyle='rgba(166,232,74,0.10)';
+  ctx.fill();
+
+  // Center: percentage + label (stays same size/position when ring scales)
+  const pctStr=`${(pctOpen*100).toFixed(1).replace('.',',')}%`;
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillStyle='#eef3e6';
+  ctx.font=`800 ${Math.round(S*0.145)}px '${getFont('display')}',sans-serif`;
+  ctx.fillText(pctStr,cx,cy-S*0.065);
+  ctx.font=`500 ${Math.round(S*0.063)}px '${getFont('body')}',sans-serif`;
+  ctx.fillStyle='#93a487';
+  ctx.fillText('otwarte',cx,cy+S*0.08);
+
+  // Hover handlers — ring smoothly scales on canvas, text stays
+  if(!cv._clockHoverInit){
+    cv._clockHoverInit=true;
+    cv.addEventListener('mouseenter',()=>ringScaleAnim(cv,1.1,350));
+    cv.addEventListener('mouseleave',()=>ringScaleAnim(cv,1.0,350));
   }
-  const hours=Array.isArray(M.opening_hours)?M.opening_hours:[];
-  hours.forEach(p=>{
-    const pts=p.pattern.split(' - ');if(pts.length<2)return;
-    const[oh,om]=(pts[0]||'06:00').split(':').map(Number);
-    const[ch,cm]=(pts[1]||'23:00').split(':').map(Number);
-    if(isNaN(oh)||isNaN(ch))return;
-    const aO=((oh*60+om)/1440)*2*Math.PI-Math.PI/2;
-    const aC=((ch*60+cm)/1440)*2*Math.PI-Math.PI/2;
-    const reps=Math.ceil(p.cnt/60);
-    for(let k=0;k<reps;k++){
-      ctx.beginPath();ctx.arc(cx,cy,R-14+(Math.random()-.5)*8,aO,aC);
-      ctx.strokeStyle='rgba(0,192,96,0.022)';ctx.lineWidth=2.5;ctx.stroke();
-    }
-  });
-  const h24pts=M.section3_rare&&M.section3_rare.h24_points&&M.section3_rare.h24_points.length?
-    M.section3_rare.h24_points:null;
-  const h24count=(M.opening_hours&&M.opening_hours.h24_count)||35;
-  for(let i=0;i<h24count;i++){
-    let ang,r=R-14;
-    if(h24pts&&h24pts[i]){
-      const[lat,lon]=h24pts[i];
-      ang=((lon-14.1)/(24.2-14.1))*2*Math.PI-Math.PI/2;
-      r=R-14+(lat-52)*4;
-    }else{
-      ang=(i/h24count)*2*Math.PI-Math.PI/2;
-    }
-    ctx.beginPath();ctx.arc(cx+r*Math.cos(ang),cy+r*Math.sin(ang),3.5,0,Math.PI*2);
-    ctx.fillStyle='rgba(245,166,35,0.55)';ctx.fill();
-  }
-  ctx.font=`bold 22px '${getFont('display')}',sans-serif`;
-  ctx.fillStyle=C.green;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('06:00',cx,cy);
-  ctx.font=`10px '${getFont('body')}',sans-serif`;ctx.fillStyle=C.muted;
-  ctx.fillText('91,7% otwiera sie tutaj',cx,cy+18);
 }
 
-export function renderHoursBar(){
-  const data=Array.isArray(M.opening_hours)?M.opening_hours:[];
-  destroyChart('hours');
-  CHARTS['hours']=new Chart(document.getElementById('chart-hours'),{
-    type:'bar',
-    data:{labels:data.map(d=>d.pattern.substring(0,13)),datasets:[{data:data.map(d=>d.cnt),backgroundColor:data.map((_,i)=>i===0?C.green:'rgba(0,192,96,.35)'),borderRadius:2,borderWidth:0}]},
-    options:{
-      indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${fmt(ctx.raw)} sklepow`}}},
-      scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
-    }
-  });
-}
-
-let burstPlayed=false;
-export function initBurstToggle(){
-  const btnSpiral=document.getElementById('view-spiral');
-  const btnBurst=document.getElementById('view-burst');
-  if(!btnSpiral||!btnBurst)return;
-  btnSpiral.addEventListener('click',()=>{
-    btnSpiral.classList.add('active');btnBurst.classList.remove('active');
-    document.querySelector('.spiral-wrap').style.display='flex';
-    document.getElementById('spiral-caveat').style.display='';
-    document.getElementById('burst-wrap').style.display='none';
-  });
-  btnBurst.addEventListener('click',()=>{
-    btnBurst.classList.add('active');btnSpiral.classList.remove('active');
-    document.querySelector('.spiral-wrap').style.display='none';
-    document.getElementById('spiral-caveat').style.display='none';
-    document.getElementById('burst-wrap').style.display='block';
-    if(!burstPlayed)playBurst();
-    document.getElementById('burst-replay').onclick=playBurst;
-  });
-}
-
-function playBurst(){
-  burstPlayed=true;
-  const cv=document.getElementById('canvas-burst');
-  const W=cv.offsetWidth||960;const H=Math.round(W*0.55);
-  cv.width=W;cv.height=H;
-  const ctx=cv.getContext('2d');
-  const stores=M.stores_timeline&&M.stores_timeline.stores||[];
-  const sortedStores=[...stores].sort((a,b)=>a[2]-b[2]);
-  const dots=sortedStores.map(([lat,lon,yr],i)=>{
-    const tx=(lon-14.1)/(24.2-14.1)*W;
-    const ty=(1-(lat-49.0)/(54.9-49.0))*H;
-    return{tx,ty,x:W/2,y:H/2,yr,delay:i/sortedStores.length*1600};
-  });
-  const START=performance.now();const DUR=2500;
-  function frame(now){
-    ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,H);
-    let allDone=true;
-    dots.forEach(d=>{
-      const t=Math.max(0,Math.min(1,(now-START-d.delay)/(DUR-d.delay*0.3)));
-      if(t<1)allDone=false;
-      const ease=1-Math.pow(1-t,3);
-      d.x=W/2+(d.tx-W/2)*ease;
-      d.y=H/2+(d.ty-H/2)*ease;
-      ctx.fillStyle=era(d.yr);ctx.globalAlpha=0.75;
-      ctx.beginPath();ctx.arc(d.x,d.y,1.5,0,Math.PI*2);ctx.fill();
-    });
-    ctx.globalAlpha=1;
-    if(!allDone)requestAnimationFrame(frame);
+function ringScaleAnim(cv,target,dur){
+  if(cv._ringRaf){cancelAnimationFrame(cv._ringRaf);cv._ringRaf=0}
+  const startS=cv._clockAnimScale||1;
+  const t0=performance.now();
+  function tick(){
+    const t=Math.min((performance.now()-t0)/dur,1);
+    const e=1-Math.pow(1-t,3); // easeOutCubic
+    cv._clockAnimScale=startS+(target-startS)*e;
+    drawClock();
+    if(t<1)cv._ringRaf=requestAnimationFrame(tick);
+    else{cv._clockAnimScale=target;cv._ringRaf=0}
   }
-  requestAnimationFrame(frame);
+  tick();
 }

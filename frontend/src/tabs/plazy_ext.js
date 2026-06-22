@@ -43,6 +43,11 @@ export function renderPlazyExt() {
   if (_zzDone) return;
   _zzDone = true;
 
+  // Update scatter caption total from API
+  const totalEl = document.getElementById('zz-scatter-total');
+  if (totalEl && M.summary && M.summary.total_active)
+    totalEl.textContent = M.summary.total_active.toLocaleString('pl-PL');
+
   // Reveal animation for .zz-reveal elements
   const obs = new IntersectionObserver(es => {
     es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); obs.unobserve(e.target); } });
