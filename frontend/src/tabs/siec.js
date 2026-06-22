@@ -121,7 +121,12 @@ export function renderStatStrip(){
   const s=M.summary;
   if(s){
     const ce=document.getElementById('stat-cities');if(ce)ce.textContent=(+s.cities_count).toLocaleString('pl-PL');
-    const me=document.getElementById('stat-mc');if(me)me.innerHTML=`${s.merrychef_pct}<span class="stat-unit">%</span>`;
+    const rEl=document.getElementById('stat-residents');
+    if(rEl&&M.per_capita&&M.per_capita.length&&s.total_active){
+      const totalPop=M.per_capita.reduce((a,r)=>a+(r.population||0),0);
+      const perStore=Math.round(totalPop/(+s.total_active));
+      rEl.innerHTML=`${perStore.toLocaleString('pl-PL')}<span class="stat-unit"> os.</span>`;
+    }
   }
 }
 

@@ -7,8 +7,49 @@ import { setFilter } from '../filter.js';
 import { renderEcon } from './econ.js';
 
 
+function renderSpolecKPIs(){
+  const s=M.summary, pc=M.per_capita||[], dens=M.voivodeship_density||[], iv=M.inpost_vs_zabka||[];
+
+  const set=(id,html)=>{const el=document.getElementById(id);if(el)el.innerHTML=html};
+
+  if(s&&pc.length&&s.total_active){
+    const totalPop=pc.reduce((a,r)=>a+(r.population||0),0);
+    const perStore=Math.round(totalPop/(+s.total_active));
+    set('spol-kpi-residents',`${perStore.toLocaleString('pl-PL')}<span class="stat-unit"> os.</span>`);
+  }
+
+  if(dens.length&&s&&s.total_active){
+    const totalArea=dens.reduce((a,r)=>a+(r.area_km2||0),0);
+    const per100=(+s.total_active)/totalArea*100;
+    set('spol-kpi-density',`${per100.toFixed(2).replace('.',',')}<span class="stat-unit">/100km²</span>`);
+  }
+
+  const powiats=M.section3_rare&&M.section3_rare.powiats_covered;
+  if(powiats){
+    set('spol-kpi-powiats',`${powiats}<span class="stat-unit">/381</span>`);
+  }
+
+  if(iv.length){
+    const totZ=iv.reduce((a,r)=>a+(r.zabki||0),0);
+    const totP=iv.reduce((a,r)=>a+(r.paczkomaty||0),0);
+    if(totZ){
+      const ratio=(totP/totZ).toFixed(2).replace('.',',');
+      set('spol-kpi-inpost',`${ratio}<span class="stat-unit">x</span>`);
+    }
+  }
+
+  if(s&&s.cities_count){
+    set('spol-kpi-cities',(+s.cities_count).toLocaleString('pl-PL'));
+  }
+
+  if(s&&s.merrychef_pct!=null){
+    set('spol-kpi-mc',`${String(s.merrychef_pct).replace('.',',')}<span class="stat-unit">%</span>`);
+  }
+}
+
 export function renderSpoleczenstwo(){
   startTabParticles('particles-spoleczenstwo',[188,224,58],60);
+  renderSpolecKPIs();
   // Update lead paragraph with live totals
   const leadEl=document.getElementById('ec-lead-totals');
   if(leadEl&&M.summary&&M.section3_rare){
