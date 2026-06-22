@@ -78,9 +78,9 @@ function renderInpostMap(){
       fillOpacity:opacity};
   }
   const map=L.map('map-inpost',{
-    zoomControl:false,attributionControl:false,
-    scrollWheelZoom:false,dragging:false,
-    doubleClickZoom:false,boxZoom:false,keyboard:false
+    zoomControl:true,attributionControl:false,
+    scrollWheelZoom:true,dragging:true,
+    doubleClickZoom:true,boxZoom:true,keyboard:true
   });
   MAPS['map-inpost']=map;
   map.setView([52.0,19.3],6);
