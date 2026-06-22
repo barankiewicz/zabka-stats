@@ -134,7 +134,11 @@ function _updateKrDataCounts() {
     if (cnoteEl && top && bot) {
       const hiStr = top.city + ' ' + (Math.round(top.elevation_meters * 10) / 10).toFixed(1).replace('.', ',') + ' m';
       const loStr = bot.city + ' ' + bot.elevation_meters + ' m';
-      cnoteEl.innerHTML = `95% sieci mieści się między 17 a 332 m. Rekordy: <b style="color:#f2a359">${hiStr}</b> i <b style="color:#e8693d">${loStr} (jedyna poniżej morza)</b>.`;
+      const pcts = elev.percentiles;
+      const rangeStr = (pcts && pcts.p5 != null && pcts.p95 != null)
+        ? `między ${pcts.p5} a ${pcts.p95} m`
+        : 'między 17 a 332 m';
+      cnoteEl.innerHTML = `95% sieci mieści się ${rangeStr}. Rekordy: <b style="color:#f2a359">${hiStr}</b> i <b style="color:#e8693d">${loStr} (jedyna poniżej morza)</b>.`;
     }
   }
 

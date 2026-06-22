@@ -133,7 +133,10 @@ export function jumpToParks(){
 
 export function renderElevHist(){
   const hist=(M.elevation.histogram||[]).filter(d=>d.cnt>0);
-  const colors=hist.map(d=>(d.bucket_m>=0&&d.bucket_m<=350)?C.amber+'99':C.amber+'30');
+  const pcts=(M.elevation.percentiles)||{};
+  const p5=pcts.p5!=null?pcts.p5:17;
+  const p95=pcts.p95!=null?pcts.p95:332;
+  const colors=hist.map(d=>(d.bucket_m>=p5&&d.bucket_m<=p95)?C.amber+'99':C.amber+'30');
   destroyChart('elev-hist');
   CHARTS['elev-hist']=new Chart(document.getElementById('chart-elev-hist'),{
     type:'bar',
@@ -143,7 +146,7 @@ export function renderElevHist(){
       plugins:{
         legend:{display:false},
         tooltip:{callbacks:{label:ctx=>`${fmt(ctx.raw)} sklepow`}},
-        annot:{shadedBands:[{x1:17,x2:332,color:'rgba(245,166,35,.07)'}]}
+        annot:{shadedBands:[{x1:p5,x2:p95,color:'rgba(245,166,35,.07)'}]}
       },
       scales:{x:{ticks:{color:C.muted,font:{size:9},maxRotation:45},grid:{display:false}},y:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:9}}}}
     }

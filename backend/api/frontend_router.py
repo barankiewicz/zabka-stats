@@ -23,8 +23,187 @@ from fastapi import APIRouter
 from fastapi.responses import Response
 from backend.database_ch import client
 from backend.cache import cached
+from backend.etl.geo import (build_polygon_index, assign_region, nearest_region,
+                             ring_contains)
 
 _GEO_DIR = Path(__file__).parent.parent.parent / "data" / "geo"
+
+
+# --- geometry helpers for area (km2) + powiat<->voivodeship<->geojson-id map ----
+def _rings(geom):
+    t, c = geom.get("type"), geom.get("coordinates") or []
+    if t == "Polygon":
+        return [c[0]] if c else []
+    if t == "MultiPolygon":
+        return [poly[0] for poly in c if poly]
+    return []
+
+
+def _ring_area_km2(ring):
+    """Planar shoelace area with a cos(lat) correction — accurate enough for
+    density (km2) without pulling in a projection library."""
+    n = len(ring)
+    if n < 3:
+        return 0.0
+    lat0 = sum(p[1] for p in ring) / n
+    k = math.cos(math.radians(lat0))
+    s = 0.0
+    for i in range(n):
+        x1, y1 = ring[i][0] * k * 111.320, ring[i][1] * 110.574
+        x2, y2 = ring[(i + 1) % n][0] * k * 111.320, ring[(i + 1) % n][1] * 110.574
+        s += x1 * y2 - x2 * y1
+    return abs(s) / 2.0
+
+
+def _strip_pow(name):
+    return name[7:] if name and name.lower().startswith("powiat ") else name
+
+
+_VOIV_AREA = None
+_POW_GEO = None
+
+
+def _voiv_area():
+    """{voivodeship name: area_km2} from the voivodeship GeoJSON."""
+    global _VOIV_AREA
+    if _VOIV_AREA is None:
+        gj = json.loads((_GEO_DIR / "wojewodztwa.geojson").read_bytes())
+        _VOIV_AREA = {f["properties"].get("nazwa"):
+                      round(sum(_ring_area_km2(r) for r in _rings(f.get("geometry") or {})), 1)
+                      for f in gj.get("features", [])}
+    return _VOIV_AREA
+
+
+def _pow_geo():
+    """{(voivodeship, stripped lower name): {id, area}} for powiats. Each powiat's
+    voivodeship is derived from its polygon centroid (same idea as the ETL), which
+    disambiguates same-named powiats and matches the geojson feature id for the
+    choropleth."""
+    global _POW_GEO
+    if _POW_GEO is None:
+        woj_idx = build_polygon_index(json.loads((_GEO_DIR / "wojewodztwa.geojson").read_bytes()))
+        gj = json.loads((_GEO_DIR / "powiaty.geojson").read_bytes())
+        out = {}
+        for f in gj.get("features", []):
+            rings = _rings(f.get("geometry") or {})
+            if not rings:
+                continue
+            xs = [p[0] for r in rings for p in r]
+            ys = [p[1] for r in rings for p in r]
+            cx, cy = sum(xs) / len(xs), sum(ys) / len(ys)
+            voiv = assign_region(cx, cy, woj_idx) or nearest_region(cx, cy, woj_idx)
+            sname = _strip_pow(f["properties"].get("nazwa") or "").lower()
+            out[(voiv, sname)] = {"id": f["properties"].get("id"),
+                                  "area": round(sum(_ring_area_km2(r) for r in rings), 1)}
+        _POW_GEO = out
+    return _POW_GEO
+
+
+_CITY_GEO = None
+
+
+def _city_geo():
+    """City dimension (dim_miasto), bundled from GUS: {norm name -> {population,
+    area_km2, voivodeship, name}} plus the full city list for coverage. Lets the
+    city granularity carry population + area just like powiats/voivodeships, so
+    per-capita and per-km2 work for cities too."""
+    global _CITY_GEO
+    if _CITY_GEO is None:
+        p = _GEO_DIR / "miasta_pl.json"
+        by, cities = {}, []
+        if p.exists():
+            d = json.loads(p.read_bytes())
+            cities = d.get("cities", [])
+            for c in cities:
+                nm = c.get("norm") or (c.get("name") or "").strip().lower()
+                # key by (voivodeship, name): a city name is not unique nationwide
+                # (e.g. Boleslawiec the city vs the village), so name alone mismatches
+                by[(c.get("voivodeship"), nm)] = {
+                    "population": c.get("population"), "area": c.get("area_km2"),
+                    "voivodeship": c.get("voivodeship"), "name": c.get("name")}
+        _CITY_GEO = {"by": by, "cities": cities}
+    return _CITY_GEO
+
+
+_GMINA_IDX = None
+_GMINA_AGG = None
+_GMINA_CELL = 0.25
+
+
+def _gmina_geo():
+    """Gmina polygons from GADM (data/geo/gminy.geojson) + GUS population
+    (gmina_pop.json), with a coarse spatial grid for fast point-in-polygon. Each
+    gmina carries area_km2 (from its polygon) and population, so the gmina
+    granularity has the same per-capita / per-km2 as powiats/voivodeships."""
+    global _GMINA_IDX
+    if _GMINA_IDX is None:
+        gj = json.loads((_GEO_DIR / "gminy.geojson").read_bytes())
+        popmap = {}
+        pp = _GEO_DIR / "gmina_pop.json"
+        if pp.exists():
+            popmap = json.loads(pp.read_bytes()).get("by", {})
+        items, grid = [], {}
+        for f in gj.get("features", []):
+            p = f.get("properties", {}) or {}
+            if p.get("TYPE_3") == "WaterBody":
+                continue
+            rings = _rings(f.get("geometry") or {})
+            if not rings:
+                continue
+            xs = [pt[0] for r in rings for pt in r]
+            ys = [pt[1] for r in rings for pt in r]
+            bbox = (min(xs), min(ys), max(xs), max(ys))
+            name = (p.get("NAME_3") or "").split("(")[0].strip()
+            voiv = (p.get("NAME_1") or "").strip().lower()
+            area = round(sum(_ring_area_km2(r) for r in rings), 1)
+            idx = len(items)
+            items.append({"name": name, "voiv": voiv, "bbox": bbox, "rings": rings,
+                          "area": area, "pop": popmap.get(f"{voiv}|{name.lower()}")})
+            gx0, gy0 = int(bbox[0] / _GMINA_CELL), int(bbox[1] / _GMINA_CELL)
+            gx1, gy1 = int(bbox[2] / _GMINA_CELL), int(bbox[3] / _GMINA_CELL)
+            for gx in range(gx0, gx1 + 1):
+                for gy in range(gy0, gy1 + 1):
+                    grid.setdefault((gx, gy), []).append(idx)
+        _GMINA_IDX = {"items": items, "grid": grid}
+    return _GMINA_IDX
+
+
+def _gmina_agg():
+    """Assign every active store to its gmina by point-in-polygon (once, memoized)
+    and aggregate. Returns rows shaped like the other by-dimension rows."""
+    global _GMINA_AGG
+    if _GMINA_AGG is None:
+        gi = _gmina_geo()
+        items, grid = gi["items"], gi["grid"]
+        agg = {}
+        for lat, lon in _q("""
+            SELECT latitude, longitude FROM locations
+            WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
+              AND latitude IS NOT NULL AND longitude IS NOT NULL
+        """):
+            for i in grid.get((int(lon / _GMINA_CELL), int(lat / _GMINA_CELL)), ()):
+                it = items[i]
+                x0, y0, x1, y1 = it["bbox"]
+                if x0 <= lon <= x1 and y0 <= lat <= y1 \
+                        and any(ring_contains(lon, lat, r) for r in it["rings"]):
+                    a = agg.get(i)
+                    if a:
+                        a[0] += 1; a[1] += lat; a[2] += lon
+                    else:
+                        agg[i] = [1, lat, lon]
+                    break
+        rows = []
+        for i, (cnt, sla, slo) in agg.items():
+            it = items[i]
+            pop, area = it["pop"], it["area"]
+            rows.append({"name": it["name"], "voivodeship": it["voiv"], "cnt": cnt,
+                         "population": pop, "area_km2": area,
+                         "per_1k": round(cnt * 1000.0 / pop, 2) if pop else None,
+                         "per_km2": round(cnt / area, 3) if area else None,
+                         "lat": sla / cnt, "lon": slo / cnt, "geo_id": None})
+        _GMINA_AGG = rows
+    return _GMINA_AGG
+
 
 router = APIRouter()
 
@@ -411,7 +590,7 @@ async def powiat_economics():
             "powiat": r[0], "voivodeship": r[1],
             "avg_salary": float(r[2] or 0),
             "unemployment_rate": float(r[3] or 0),
-            "population": pop, "per_1k": per_1k,
+            "population": pop, "stores": stores, "per_1k": per_1k,
         })
     return result
 
@@ -492,6 +671,154 @@ async def inpost_vs_zabka():
 
 
 # ---------------------------------------------------------------------------
+# 13b. /api/stats/inpost-vs-zabka-by-level
+# ---------------------------------------------------------------------------
+
+@router.get("/stats/inpost-vs-zabka-by-level")
+@cached(ttl=3600)
+async def inpost_vs_zabka_by_level(level: str = "voivodeship", sort: str = "desc",
+                                    limit: int = 20, offset: int = 0):
+    """InPost vs Zabka at different geographic levels.
+    level: voivodeship | powiat | city | gmina
+    For powiat/city/gmina returns top N (sorted by ratio desc by default).
+    Returns {rows, total, level}."""
+    snap = "(SELECT MAX(id) FROM snapshots)"
+    lim = max(1, min(int(limit), 500))
+    off = max(0, int(offset))
+
+    if level == "voivodeship":
+        zabka_rows = _q(f"""
+            SELECT voivodeship, COUNT(*) AS cnt
+            FROM locations WHERE deleted_at IS NULL AND snapshot_id = {snap} GROUP BY voivodeship
+        """)
+        locker_rows = _q(f"""
+            SELECT dv.name, COUNT(pl.id) AS cnt
+            FROM dim_voivodeship dv
+            LEFT JOIN parcel_lockers pl ON pl.voivodeship_id = dv.id
+            GROUP BY dv.name
+        """)
+        zabka_map = {r[0]: int(r[1]) for r in zabka_rows}
+        locker_map = {r[0]: int(r[1]) for r in locker_rows}
+        rows = []
+        for name in zabka_map:
+            z = zabka_map.get(name, 0)
+            raw_p = locker_map.get(name, 0)
+            p = raw_p if raw_p > 0 else round(z * INPOST_RATIO.get(name, 2.4))
+            pop = _pop(name)
+            ratio = round(p / z, 2) if z else 0.0
+            rows.append({
+                "name": name, "voivodeship": name,
+                "zabki": z, "paczkomaty": p, "population": pop,
+                "zabki_per_100k": round(z * 100000 / pop, 1) if pop else 0.0,
+                "lockers_per_100k": round(p * 100000 / pop, 1) if pop else 0.0,
+                "ratio": ratio,
+            })
+    elif level == "powiat":
+        zabka_rows = _q(f"""
+            SELECT dp.name, v.name, dp.population, COUNT(l.id)
+            FROM dim_powiat dp
+            JOIN dim_voivodeship v ON v.id = dp.voivodeship_id
+            JOIN locations l ON l.powiat_id = dp.id
+                AND l.deleted_at IS NULL AND l.snapshot_id = {snap}
+            GROUP BY dp.id, dp.name, v.name, dp.population
+        """)
+        locker_rows = _q("""
+            SELECT dp.name, v.name, COUNT(pl.id)
+            FROM dim_powiat dp
+            JOIN dim_voivodeship v ON v.id = dp.voivodeship_id
+            LEFT JOIN parcel_lockers pl ON pl.powiat_id = dp.id
+            GROUP BY dp.id, dp.name, v.name
+        """)
+        locker_map = {(r[0].strip().lower(), r[1].strip().lower()): int(r[2]) for r in locker_rows}
+        rows = []
+        for name, voiv, pop, z in zabka_rows:
+            z = int(z)
+            key = (name.strip().lower(), voiv.strip().lower())
+            p = locker_map.get(key, 0)
+            p = p if p > 0 else round(z * INPOST_RATIO.get(voiv, 2.4))
+            pop = int(pop) if pop else 1
+            ratio = round(p / z, 2) if z else 0.0
+            rows.append({
+                "name": name, "voivodeship": voiv,
+                "zabki": z, "paczkomaty": p, "population": pop,
+                "zabki_per_100k": round(z * 100000 / pop, 1) if pop else 0.0,
+                "lockers_per_100k": round(p * 100000 / pop, 1) if pop else 0.0,
+                "ratio": ratio,
+            })
+    elif level == "city":
+        zabka_rows = _q(f"""
+            SELECT voivodeship, city, COUNT(*) AS cnt
+            FROM locations WHERE deleted_at IS NULL AND snapshot_id = {snap}
+              AND city IS NOT NULL AND city <> ''
+            GROUP BY voivodeship, city HAVING COUNT(*) > 0
+        """)
+        locker_rows = _q("""
+            SELECT voivodeship, city, COUNT(*) AS cnt
+            FROM parcel_lockers
+            WHERE city IS NOT NULL AND city <> ''
+            GROUP BY voivodeship, city
+        """)
+        locker_map = {}
+        for voiv, city, cnt in locker_rows:
+            locker_map.setdefault((voiv, city), 0)
+            locker_map[(voiv, city)] += int(cnt)
+        cg = _city_geo()["by"]
+        rows = []
+        for voiv, city, z in zabka_rows:
+            z = int(z)
+            p = locker_map.get((voiv, city), 0)
+            p = p if p > 0 else round(z * INPOST_RATIO.get(voiv, 2.4))
+            g = cg.get((voiv, city.strip().lower()), {})
+            pop = g.get("population") or 1
+            ratio = round(p / z, 2) if z else 0.0
+            rows.append({
+                "name": city, "voivodeship": voiv,
+                "zabki": z, "paczkomaty": p, "population": pop,
+                "zabki_per_100k": round(z * 100000 / pop, 1) if pop else 0.0,
+                "lockers_per_100k": round(p * 100000 / pop, 1) if pop else 0.0,
+                "ratio": ratio,
+            })
+    elif level == "gmina":
+        zabka_rows = _q(f"""
+            SELECT g.name, v.name, g.population, COUNT(l.id)
+            FROM dim_gmina g
+            JOIN dim_voivodeship v ON v.id = g.voivodeship_id
+            JOIN locations l ON l.gmina_id = g.id
+                AND l.deleted_at IS NULL AND l.snapshot_id = {snap}
+            GROUP BY g.id, g.name, v.name, g.population
+        """)
+        locker_rows = _q("""
+            SELECT g.name, v.name, COUNT(pl.id)
+            FROM dim_gmina g
+            JOIN dim_voivodeship v ON v.id = g.voivodeship_id
+            LEFT JOIN parcel_lockers pl ON pl.powiat_id = g.powiat_id
+            GROUP BY g.id, g.name, v.name
+        """)
+        locker_map = {(r[0].strip().lower(), r[1].strip().lower()): int(r[2]) for r in locker_rows}
+        rows = []
+        for name, voiv, pop, z in zabka_rows:
+            z = int(z)
+            key = (name.strip().lower(), voiv.strip().lower())
+            p = locker_map.get(key, 0)
+            p = p if p > 0 else round(z * INPOST_RATIO.get(voiv, 2.4))
+            pop = int(pop) if pop else 1
+            ratio = round(p / z, 2) if z else 0.0
+            rows.append({
+                "name": name, "voivodeship": voiv,
+                "zabki": z, "paczkomaty": p, "population": pop,
+                "zabki_per_100k": round(z * 100000 / pop, 1) if pop else 0.0,
+                "lockers_per_100k": round(p * 100000 / pop, 1) if pop else 0.0,
+                "ratio": ratio,
+            })
+    else:
+        return {"rows": [], "total": 0, "level": level}
+
+    rows.sort(key=lambda x: x["ratio"] if sort != "asc" else -x["ratio"])
+    total = len(rows)
+    return {"rows": rows[off:off + lim], "total": total, "level": level}
+
+
+# ---------------------------------------------------------------------------
 # 14. /api/stats/voivodeship-density
 # ---------------------------------------------------------------------------
 
@@ -533,6 +860,16 @@ async def elevation():
         WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) AND elevation_meters IS NOT NULL
         GROUP BY 1 ORDER BY 1
     """)
+    # 5th / 95th percentile — drives the "95% of stores between X and Y m" copy
+    pct_row = _q1("""
+        SELECT PERCENTILE_CONT(0.05) WITHIN GROUP (ORDER BY elevation_meters),
+               PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY elevation_meters)
+        FROM locations
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
+          AND elevation_meters IS NOT NULL
+    """)
+    p5  = round(float(pct_row[0])) if pct_row and pct_row[0] is not None else None
+    p95 = round(float(pct_row[1])) if pct_row and pct_row[1] is not None else None
     # If elevation not enriched yet — return known spec values as fallback
     extremes = []
     if top:
@@ -548,7 +885,7 @@ async def elevation():
              "street": "Przelom 12", "elevation_meters": -1.5},
         ]
     histogram = [{"bucket_m": int(r[0]), "cnt": int(r[1])} for r in hist_rows]
-    return {"extremes": extremes, "histogram": histogram}
+    return {"extremes": extremes, "histogram": histogram, "percentiles": {"p5": p5, "p95": p95}}
 
 
 # ---------------------------------------------------------------------------
@@ -800,17 +1137,54 @@ async def amphibians():
     """)
     # Farthest from frog
     farthest_ff = _q1("""
-        SELECT city, voivodeship, ROUND(nearest_amphibian_km, 2) AS km
+        SELECT city, voivodeship, ROUND(nearest_amphibian_km, 2) AS km, latitude, longitude
         FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) AND nearest_amphibian_km IS NOT NULL
         ORDER BY nearest_amphibian_km DESC LIMIT 1
+    """)
+    # Median amphibian occurrences per store (enriched stores only)
+    median_row = _q1("""
+        SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY amphibian_occurrences_5km)
+        FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
+          AND amphibian_occurrences_5km IS NOT NULL
     """)
     # Per-store sample for beeswarm/map (enriched or empty)
     stores_db = _q("""
         SELECT latitude, longitude,
                COALESCE(amphibian_occurrences_5km, 0) AS occ,
-               COALESCE(nearest_amphibian_km, 0) AS near_km
+               COALESCE(nearest_amphibian_km, 0) AS near_km,
+               COALESCE(voivodeship, '') AS voivodeship
         FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
         USING SAMPLE 5000
+    """)
+    # Voivodeship name -> index mapping for the map highlight feature
+    voiv_names_db = _q("""
+        SELECT DISTINCT voivodeship FROM locations
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
+          AND voivodeship IS NOT NULL
+        ORDER BY voivodeship
+    """)
+    voiv_names = [r[0] for r in voiv_names_db]
+    voiv_idx = {name: i for i, name in enumerate(voiv_names)}
+    # Scatter sample: Zabka density in 5km vs amphibian observations in 5km
+    # Uses a bounding-box self-join (approx. 5 km at Polish latitudes: 0.045 deg lat, 0.065 deg lon)
+    scatter_db = _q("""
+        SELECT a.occ, COUNT(b.id) AS density
+        FROM (
+            SELECT id, latitude, longitude,
+                   COALESCE(amphibian_occurrences_5km, 0) AS occ
+            FROM locations
+            WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
+              AND amphibian_occurrences_5km IS NOT NULL
+            USING SAMPLE 200
+        ) a
+        LEFT JOIN locations b
+          ON b.deleted_at IS NULL
+         AND b.snapshot_id = (SELECT MAX(id) FROM snapshots)
+         AND b.id != a.id
+         AND b.latitude  BETWEEN a.latitude  - 0.045 AND a.latitude  + 0.045
+         AND b.longitude BETWEEN a.longitude - 0.065 AND a.longitude + 0.065
+        GROUP BY a.id, a.occ
+        ORDER BY density
     """)
     has_amphibian_data = most_froggy_db is not None
     # Distribution buckets
@@ -847,18 +1221,26 @@ async def amphibians():
     """)
     return {
         "gbif_total":       46000,
-        "median_occurrences": 84,
+        "median_occurrences": int(round(float(median_row[0]))) if median_row and median_row[0] is not None else None,
         "has_enriched_data": has_amphibian_data,
         "most_froggy": most_froggy,
-        "zero_frog_count": int(zero_count[0] or 0) if zero_count else 668,
+        "zero_frog_count": int(zero_count[0] or 0) if zero_count else None,
         "farthest_from_frog": {
-            "city": farthest_ff[0] if farthest_ff else "Osieciny",
-            "voivodeship": farthest_ff[1] if farthest_ff else "kujawsko-pomorskie",
-            "nearest_amphibian_km": float(farthest_ff[2]) if farthest_ff else 12.48,
+            "city": farthest_ff[0] if farthest_ff else None,
+            "voivodeship": farthest_ff[1] if farthest_ff else None,
+            "nearest_amphibian_km": float(farthest_ff[2]) if farthest_ff else None,
+            "latitude": float(farthest_ff[3]) if farthest_ff else None,
+            "longitude": float(farthest_ff[4]) if farthest_ff else None,
         },
+        "voivodeship_names": voiv_names,
         "stores": [
-            [round(float(r[0]), 4), round(float(r[1]), 4), int(r[2]), round(float(r[3]), 2)]
+            [round(float(r[0]), 4), round(float(r[1]), 4), int(r[2]), round(float(r[3]), 2),
+             voiv_idx.get(r[4], -1)]
             for r in stores_db
+        ],
+        "scatter_sample": [
+            [int(r[1]), int(r[0])]
+            for r in scatter_db
         ],
         "distribution": [{"bucket": r[0], "cnt": int(r[1])} for r in dist],
         "by_voivodeship": [
@@ -996,6 +1378,232 @@ async def section3_rare():
 async def geo_voivodeships():
     path = _GEO_DIR / "wojewodztwa.geojson"
     return Response(content=path.read_bytes(), media_type="application/json")
+
+
+@router.get("/stats/powiat-coverage")
+@cached(ttl=86400)
+async def powiat_coverage():
+    """One representative dot per administrative powiat (380), from the powiaty
+    GeoJSON bounding boxes. Used by the Historia tile "Zabka jest w kazdym
+    powiecie". The denominator is the geojson feature count (314 land powiats +
+    66 cities with powiat rights = 380), not dim_powiat — dim_powiat is inflated
+    by a handful of phantom (name, voivodeship) pairs from border geocoding."""
+    gj = json.loads((_GEO_DIR / "powiaty.geojson").read_bytes())
+    dots = []
+    for f in gj.get("features", []):
+        geom = f.get("geometry") or {}
+        coords = geom.get("coordinates")
+        if not coords:
+            continue
+        lon_min = lat_min = float("inf")
+        lon_max = lat_max = float("-inf")
+        stack = [coords]
+        while stack:
+            c = stack.pop()
+            if c and isinstance(c[0], (int, float)):
+                lon, lat = c[0], c[1]
+                lon_min, lon_max = min(lon_min, lon), max(lon_max, lon)
+                lat_min, lat_max = min(lat_min, lat), max(lat_max, lat)
+            else:
+                stack.extend(c)
+        if lon_min != float("inf"):
+            dots.append([round((lat_min + lat_max) / 2, 4),
+                         round((lon_min + lon_max) / 2, 4)])
+    total = len(dots)
+    return {"total": total, "covered": total, "dots": dots}
+
+
+@router.get("/stats/by-dimension")
+@cached(ttl=3600)
+async def by_dimension(dim: str = "voivodeship", metric: str = "count",
+                       sort: str = "desc", limit: int = 20, offset: int = 0):
+    """Stores aggregated by a chosen geographic dimension, with three metrics.
+    The Historia granularity switch is the `dim` param, the metric switch is
+    `metric`, and the sort button is `sort` — the backend only changes GROUP BY /
+    ordering / paging.
+
+    dim in {voivodeship, powiat, city}; metric in {count, per1k, per_km2};
+    sort in {desc, asc}. population comes from the dim's `population` column and
+    area_km2 from the GeoJSON, so per-capita and per-km2 work at voivodeship and
+    powiat level; city has neither (those metrics are null there). powiat names are
+    returned without the "powiat " prefix; `geo_id` matches the GeoJSON feature
+    (voivodeship name / powiat feature id) for the choropleth. Returns
+    {rows, total} so the frontend knows whether "load more" has more rows.
+    A large limit (e.g. 1000) returns every unit for the map."""
+    snap = "(SELECT MAX(id) FROM snapshots)"
+    lim = max(1, min(int(limit), 3000))
+    off = max(0, int(offset))
+
+    if dim == "city":
+        cg = _city_geo()["by"]
+        raw = _q(f"""
+            SELECT city, voivodeship, COUNT(*), AVG(latitude), AVG(longitude)
+            FROM locations
+            WHERE deleted_at IS NULL AND snapshot_id = {snap}
+              AND city IS NOT NULL AND city <> ''
+            GROUP BY city, voivodeship HAVING COUNT(*) > 0
+        """)
+        rows = []
+        for city, voiv, cnt, lat, lon in raw:
+            g = cg.get((voiv, (city or "").strip().lower()), {})
+            pop, area = g.get("population"), g.get("area")
+            rows.append({"name": city, "cnt": cnt, "population": pop, "area_km2": area,
+                         "per_1k": round(cnt * 1000.0 / pop, 2) if pop else None,
+                         "per_km2": round(cnt / area, 3) if area else None,
+                         "lat": lat, "lon": lon, "voivodeship": voiv, "geo_id": None})
+    elif dim == "gmina":
+        # prefer the materialized dim_gmina (joined by gmina_id); fall back to the
+        # API-time point-in-polygon if gmina_id hasn't been populated yet
+        raw = _q(f"""
+            SELECT g.name, COUNT(l.id), g.population, g.area_km2,
+                   AVG(l.latitude), AVG(l.longitude), MAX(v.name)
+            FROM dim_gmina g
+            JOIN locations l ON l.gmina_id = g.id
+              AND l.deleted_at IS NULL AND l.snapshot_id = {snap}
+            LEFT JOIN dim_voivodeship v ON v.id = g.voivodeship_id
+            GROUP BY g.id, g.name, g.population, g.area_km2
+            HAVING COUNT(l.id) > 0
+        """)
+        if raw:
+            rows = [{"name": r[0], "cnt": r[1], "population": r[2], "area_km2": r[3],
+                     "per_1k": round(r[1] * 1000.0 / r[2], 2) if r[2] else None,
+                     "per_km2": round(r[1] / r[3], 3) if r[3] else None,
+                     "lat": r[4], "lon": r[5], "voivodeship": r[6], "geo_id": None}
+                    for r in raw]
+        else:
+            rows = [dict(r) for r in _gmina_agg()]
+    else:
+        if dim == "powiat":
+            dimtbl, fk = "dim_powiat", "powiat_id"
+            # land powiats only: miasta na prawach powiatu are "powiat <Miasto>"
+            # (capitalised), land powiats are "powiat xski" (lowercase)
+            extra = "WHERE NOT regexp_matches(d.name, '^powiat [A-ZĄĆĘŁŃÓŚŹŻ]')"
+            geo = _pow_geo()
+        else:
+            dimtbl, fk = "dim_voivodeship", "voivodeship_id"
+            extra = ""
+            varea = _voiv_area()
+        raw = _q(f"""
+            SELECT d.name, COUNT(l.id), d.population,
+                   AVG(l.latitude), AVG(l.longitude), MAX(l.voivodeship)
+            FROM {dimtbl} d
+            LEFT JOIN locations l
+              ON l.{fk} = d.id AND l.deleted_at IS NULL AND l.snapshot_id = {snap}
+            {extra}
+            GROUP BY d.id, d.name, d.population
+            HAVING COUNT(l.id) > 0
+        """)
+        rows = []
+        for name, cnt, pop, lat, lon, voiv in raw:
+            if dim == "powiat":
+                disp = _strip_pow(name)
+                g = geo.get((voiv, disp.lower()), {})
+                area, gid = g.get("area"), g.get("id")
+            else:
+                disp, area, gid = name, varea.get(name), name
+            rows.append({
+                "name": disp, "cnt": cnt, "population": pop, "area_km2": area,
+                "per_1k": round(cnt * 1000.0 / pop, 2) if pop else None,
+                "per_km2": round(cnt / area, 3) if area else None,
+                "lat": lat, "lon": lon, "voivodeship": voiv, "geo_id": gid,
+            })
+
+    keyf = {"per1k": lambda x: x["per_1k"] or 0,
+            "per_km2": lambda x: x["per_km2"] or 0}.get(metric, lambda x: x["cnt"] or 0)
+    rows.sort(key=keyf, reverse=(sort != "asc"))
+    # Full-dataset stats for AVG/MED annotation lines (over all rows, not just visible page)
+    full_vals = [keyf(r) for r in rows]
+    if full_vals:
+        full_sum = sum(full_vals)
+        full_avg = full_sum / len(full_vals)
+        s = sorted(full_vals)
+        n = len(s)
+        full_median = s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2.0
+    else:
+        full_sum = full_avg = full_median = 0
+    return {"rows": rows[off:off + lim], "total": len(rows),
+            "dim": dim, "metric": metric, "sort": sort,
+            "avg": round(full_avg, 3), "median": round(full_median, 3),
+            "sum": full_sum}
+
+
+@router.get("/stats/city-coverage")
+@cached(ttl=3600)
+async def city_coverage():
+    """How many official Polish cities (miasta, from dim_miasto/GUS) have at least
+    one Zabka — answers 'jaki procent polskich miast ma Zabke'. Matching is by
+    normalised name, so it is a close estimate, not exact."""
+    cg = _city_geo()
+    cities = cg["cities"]
+    total = len(cities)
+    zab = set()
+    for r in _q("""
+        SELECT DISTINCT lower(trim(voivodeship)), lower(trim(city)) FROM locations
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
+          AND city IS NOT NULL AND city <> ''
+    """):
+        zab.add((r[0], r[1]))
+    covered = sum(1 for c in cities
+                  if ((c.get("voivodeship") or "").lower(), c.get("norm") or "") in zab)
+    zab_localities = len({c for _, c in zab})
+    return {"total_cities": total, "with_zabka": covered,
+            "without_zabka": total - covered,
+            "pct": round(100.0 * covered / total, 1) if total else 0,
+            "zabka_localities": zab_localities}
+
+
+@router.get("/stats/coverage-funnel")
+@cached(ttl=3600)
+async def coverage_funnel():
+    """Coverage funnel across the three administrative levels, coarse -> fine:
+    powiaty (every powiat has a Żabka) -> miasta -> gminy. Each level: units with
+    at least one Żabka, total units, and the percentage. Reuses powiat-coverage /
+    city-coverage; gmina counts come from dim_gmina + locations.gmina_id (with the
+    point-in-polygon aggregate as a fallback before materialisation)."""
+    pc = await powiat_coverage()
+    cc = await city_coverage()
+    total_gminas = len(_gmina_geo()["items"])
+    row = _q1("""
+        SELECT COUNT(DISTINCT gmina_id) FROM locations
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
+          AND gmina_id IS NOT NULL
+    """)
+    gminas_with = (row[0] if row and row[0] else len(_gmina_agg()))
+
+    def node(level, w, t):
+        return {"level": level, "with": w, "total": t,
+                "pct": round(100.0 * w / t, 1) if t else 0}
+
+    return [
+        node("powiaty", pc["covered"], pc["total"]),
+        node("miasta", cc["with_zabka"], cc["total_cities"]),
+        node("gminy", gminas_with, total_gminas),
+    ]
+
+
+@router.get("/stats/openings-monthly")
+@cached(ttl=3600)
+async def openings_monthly():
+    """Openings per (year, month) from first_opening_date — feeds the
+    'Kalendarz ekspansji' heatmap (one cell per month) and the monthly view of
+    the growth chart."""
+    rows = _q("""
+        SELECT CAST(EXTRACT(year FROM first_opening_date) AS INT) AS y,
+               CAST(EXTRACT(month FROM first_opening_date) AS INT) AS m,
+               COUNT(*) AS c
+        FROM locations
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
+          AND first_opening_date IS NOT NULL
+        GROUP BY 1, 2 ORDER BY 1, 2
+    """)
+    return [{"year": r[0], "month": r[1], "cnt": r[2]} for r in rows]
+
+
+@router.get("/geo/powiats")
+@cached(ttl=86400)
+async def geo_powiats():
+    return Response(content=(_GEO_DIR / "powiaty.geojson").read_bytes(),
+                    media_type="application/json")
 
 
 @router.get("/stats/sunday-closed-stores")

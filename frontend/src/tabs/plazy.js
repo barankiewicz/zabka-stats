@@ -249,19 +249,23 @@ export function renderPlazyMap() {
     html: `<div style="width:16px;height:16px;border-radius:50%;background:${c};border:2px solid #0a120a;box-shadow:0 0 0 3px rgba(10,18,10,.55),0 0 14px ${c}"></div>`,
     iconSize: [16, 16], iconAnchor: [8, 8],
   });
-  const frogLat = mf.latitude || 52.20651;
-  const frogLon = mf.longitude || 21.06305;
-  const dryLat = 51.22724; // Wielun / Osieciny
-  const dryLon = 18.56216;
+  const frogLat = mf.latitude || null;
+  const frogLon = mf.longitude || null;
+  const dryLat = ff.latitude || null;
+  const dryLon = ff.longitude || null;
 
-  const frogM = L.marker([frogLat, frogLon], { icon: mkIcon('#a6e84a') }).addTo(map)
-    .bindPopup(`<b>Najbardziej zabia Zabka</b><br>${fmt(mf.amphibian_occurrences_5km || 0)} obserwacji<br>${mf.city || ''} · ${mf.street || ''}`, { closeButton: false, maxWidth: 240 });
-  const dryM = L.marker([dryLat, dryLon], { icon: mkIcon('#e8693d') }).addTo(map)
-    .bindPopup(`<b>Najdalej od plaza</b><br>${ff.nearest_amphibian_km ? ff.nearest_amphibian_km.toFixed(2) : '—'} km<br>${ff.city || ''} · ${ff.voivodeship || ''}`, { closeButton: false, maxWidth: 240 });
+  const frogM = frogLat != null
+    ? L.marker([frogLat, frogLon], { icon: mkIcon('#a6e84a') }).addTo(map)
+        .bindPopup(`<b>Najbardziej zabia Zabka</b><br>${fmt(mf.amphibian_occurrences_5km || 0)} obserwacji<br>${mf.city || ''} · ${mf.street || ''}`, { closeButton: false, maxWidth: 240 })
+    : null;
+  const dryM = dryLat != null
+    ? L.marker([dryLat, dryLon], { icon: mkIcon('#e8693d') }).addTo(map)
+        .bindPopup(`<b>Najdalej od plaza</b><br>${ff.nearest_amphibian_km ? ff.nearest_amphibian_km.toFixed(2) : '—'} km<br>${ff.city || ''} · ${ff.voivodeship || ''}`, { closeButton: false, maxWidth: 240 })
+    : null;
 
   const flyBtn = id => document.getElementById(id);
-  if (flyBtn('plazy-fly-frog')) flyBtn('plazy-fly-frog').addEventListener('click', () => { map.flyTo([frogLat, frogLon], 12, { duration: 1.5, easeLinearity: .22 }); setTimeout(() => frogM.openPopup(), 650); });
-  if (flyBtn('plazy-fly-dry')) flyBtn('plazy-fly-dry').addEventListener('click', () => { map.flyTo([dryLat, dryLon], 11, { duration: 1.5, easeLinearity: .22 }); setTimeout(() => dryM.openPopup(), 650); });
+  if (flyBtn('plazy-fly-frog') && frogLat != null) flyBtn('plazy-fly-frog').addEventListener('click', () => { map.flyTo([frogLat, frogLon], 12, { duration: 1.5, easeLinearity: .22 }); if (frogM) setTimeout(() => frogM.openPopup(), 650); });
+  if (flyBtn('plazy-fly-dry') && dryLat != null) flyBtn('plazy-fly-dry').addEventListener('click', () => { map.flyTo([dryLat, dryLon], 11, { duration: 1.5, easeLinearity: .22 }); if (dryM) setTimeout(() => dryM.openPopup(), 650); });
   if (flyBtn('plazy-fly-home')) flyBtn('plazy-fly-home').addEventListener('click', () => { map.closePopup(); map.flyTo([52.05, 19.3], 6, { duration: 1.3 }); });
 
   // Voivodeship select
