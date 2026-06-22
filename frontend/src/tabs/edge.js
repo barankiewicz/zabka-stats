@@ -221,7 +221,8 @@ function renderEdgeKPIs() {
 
   if (s.h24_count != null) set('edge-kpi-h24', String(s.h24_count));
   if (parks.count != null) set('edge-kpi-parks', fmt(parks.count));
-  if (s3.powiats_covered != null) set('edge-kpi-powiats', `${s3.powiats_covered}<span class="stat-unit">/381</span>`);
+  const mf = (M.amphibian_extremes && M.amphibian_extremes.most_froggy) || {};
+  if (mf.amphibian_occurrences_5km != null) set('edge-kpi-frogrecord', fmt(mf.amphibian_occurrences_5km));
   if (s3.frog_streets_count != null) set('edge-kpi-frogstreets', String(s3.frog_streets_count));
 
   // ep-parks-val / ep-parks-note
