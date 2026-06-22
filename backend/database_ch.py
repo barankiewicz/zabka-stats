@@ -228,6 +228,19 @@ def ensure_extra_tables(con):
             population INTEGER
         )
     """)
+    # Wymiar gminy: najnizszy poziom podzialu (gmina -> powiat -> wojewodztwo).
+    # Granice + powierzchnia z GADM (data/geo/gminy.geojson), populacja z GUS BDL.
+    # Fakty lacza sie po gmina_id (nazwa gminy nie jest unikalna w kraju).
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS dim_gmina (
+            id INTEGER PRIMARY KEY,
+            name VARCHAR,
+            voivodeship_id INTEGER,
+            powiat_id INTEGER,
+            population INTEGER,
+            area_km2 DOUBLE
+        )
+    """)
     # Wymiar stacji pomiarowej GIOŚ - locations wskazuje na nia przez gios_station_id.
     con.execute("""
         CREATE TABLE IF NOT EXISTS dim_gios_station (
@@ -250,6 +263,8 @@ def ensure_extra_tables(con):
         "CREATE INDEX IF NOT EXISTS idx_lockers_powiat_id ON parcel_lockers(powiat_id)",
         "CREATE INDEX IF NOT EXISTS idx_lockers_operator ON parcel_lockers(operator)",
         "CREATE INDEX IF NOT EXISTS idx_dim_powiat_voiv_id ON dim_powiat(voivodeship_id)",
+        "CREATE INDEX IF NOT EXISTS idx_dim_gmina_powiat_id ON dim_gmina(powiat_id)",
+        "CREATE INDEX IF NOT EXISTS idx_locations_gmina_id ON locations(gmina_id)",
     ):
         try:
             con.execute(stmt)
@@ -268,6 +283,7 @@ ENRICHMENT_COLUMNS = [
     ("nature_park_id", "INTEGER"),
     ("voivodeship_id", "INTEGER"),
     ("powiat_id", "INTEGER"),
+    ("gmina_id", "INTEGER"),
     ("nearest_neighbor_distance_meters", "INTEGER"),
     ("amphibian_occurrences_5km", "INTEGER"),
     ("nearest_amphibian_km", "DOUBLE"),

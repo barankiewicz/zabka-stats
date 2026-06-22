@@ -5,11 +5,23 @@ import { annotPlugin, barValueLabels, C, STATE } from './config.js';
 import { M, CHARTS, MAPS, RENDERED } from './state.js';
 import { getFont, destroyChart } from './utils.js';
 import { setFilter, clearFilter, registerFilterCallbacks } from './filter.js';
-import { loadData } from './data.js';
-import { renderSiec, renderGranular } from './tabs/siec.js';
-import { renderSpoleczenstwo, renderDumbbellByLevel, wireInpostLevel } from './tabs/spoleczenstwo.js';
-import { renderEdge, jumpToFact, jumpBack, jumpToH24, jumpToParks } from './tabs/edge.js';
-import { renderPlazy } from './tabs/plazy.js';
+import { loadCore, loadTabData } from './data.js';
+
+// Tabs are loaded on demand. Each dynamic import() becomes its own Rollup chunk,
+// so the heavy per-tab libs (echarts in econ/kraniec/plazy_ext, d3 in the siec
+// bubble, leaflet.heat in plazy) stay out of the initial bundle and only ship
+// when their tab is first opened.
+const TAB_LOADERS = {
+  siec:          () => import('./tabs/siec.js'),
+  spoleczenstwo: () => import('./tabs/spoleczenstwo.js'),
+  edge:          () => import('./tabs/edge.js'),
+  plazy:         () => import('./tabs/plazy.js'),
+};
+const _mods = {};
+function tabModule(tab) {
+  if (!_mods[tab]) _mods[tab] = TAB_LOADERS[tab]();
+  return _mods[tab];
+}
 
 Chart.register(annotPlugin);
 Chart.register(barValueLabels);
@@ -41,7 +53,9 @@ export function renderKPI(){
   document.getElementById('kpi-h24').textContent=(+s.h24_count).toLocaleString('pl-PL');
 }
 
-registerFilterCallbacks(renderKPI, renderGranular, renderDumbbellByLevel);
+// renderGranular (siec) and renderDumbbellByLevel (spoleczenstwo) register
+// themselves when their tab module loads; only the KPI callback is local.
+registerFilterCallbacks(renderKPI, null, null);
 
 function revealAll(){document.querySelectorAll('.reveal').forEach((el,i)=>setTimeout(()=>el.classList.add('shown'),80+i*50))}
 setTimeout(revealAll,100);
@@ -60,11 +74,32 @@ function resetTabReveals(tabEl){
   });
 }
 
-function renderTab(tab){
-  if(tab==='siec')renderSiec();
-  if(tab==='spoleczenstwo')renderSpoleczenstwo();
-  if(tab==='edge')renderEdge();
-  if(tab==='plazy')renderPlazy();
+async function renderTab(tab){
+  try {
+    await loadTabData(tab);          // fetch this tab's endpoints (cached after first open)
+    const mod = await tabModule(tab); // download + parse this tab's chunk
+    if(tab==='siec'){
+      registerFilterCallbacks(null, mod.renderGranular, null);
+      mod.renderSiec();
+    } else if(tab==='spoleczenstwo'){
+      registerFilterCallbacks(null, null, mod.renderDumbbellByLevel);
+      mod.renderSpoleczenstwo();
+      mod.wireInpostLevel();
+    } else if(tab==='edge'){
+      // these are invoked from inline onclick handlers inside the edge tab,
+      // which only become reachable once the tab is rendered.
+      window.jumpToFact=mod.jumpToFact;
+      window.jumpBack=mod.jumpBack;
+      window.jumpToH24=mod.jumpToH24;
+      window.jumpToParks=mod.jumpToParks;
+      mod.renderEdge();
+    } else if(tab==='plazy'){
+      mod.renderPlazy();
+    }
+  } catch(err){
+    console.error(`renderTab(${tab}) failed:`, err);
+    return;
+  }
   setTimeout(initIdOverlays,300);
 }
 
@@ -87,13 +122,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   const btn=document.getElementById('filter-clear');if(btn)btn.addEventListener('click',clearFilter);
 });
 
-// expose functions called from inline onclick handlers in HTML
-window.jumpToFact = jumpToFact;
-window.jumpBack = jumpBack;
-window.jumpToH24 = jumpToH24;
-window.jumpToParks = jumpToParks;
-
+// spoleczenstwo is the default tab: load the core data, then render it (its
+// module + wireInpostLevel are handled inside renderTab). Mark it RENDERED so
+// the tab-click handler does not double-render on the first click.
 RENDERED.add('spoleczenstwo');
-loadData()
-  .then(()=>{renderKPI();setTimeout(()=>{renderSpoleczenstwo();wireInpostLevel();setTimeout(initIdOverlays,300)},120)})
-  .catch(err=>console.error('loadData failed:',err));
+loadCore()
+  .then(()=>{renderKPI();setTimeout(()=>renderTab('spoleczenstwo'),120)})
+  .catch(err=>console.error('loadCore failed:',err));

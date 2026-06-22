@@ -3,13 +3,15 @@ import { M, CHARTS, RENDERED } from './state.js';
 import { fmt, macroCol } from './utils.js';
 
 let _renderKPI = null;
-let _renderTopCities = null;
+let _renderGranular = null;
 let _renderDumbbell = null;
 
-export function registerFilterCallbacks(kpi, topCities, dumbbell) {
-  _renderKPI = kpi;
-  _renderTopCities = topCities;
-  _renderDumbbell = dumbbell;
+// Null-safe merge: tab modules load lazily, so each registers its own callback
+// when its chunk arrives without clobbering the ones already set.
+export function registerFilterCallbacks(kpi, granular, dumbbell) {
+  if (kpi) _renderKPI = kpi;
+  if (granular) _renderGranular = granular;
+  if (dumbbell) _renderDumbbell = dumbbell;
 }
 
 export function setFilter(v){
@@ -19,14 +21,16 @@ export function setFilter(v){
   if(v){bar.style.display='flex';chip.textContent='Filtruj: '+v}
   else{bar.style.display='none'}
   refreshKpiFiltered();
-  if(RENDERED.has('siec')&&_renderTopCities)_renderTopCities(true);
-  if(RENDERED.has('spoleczenstwo')){highlightPerCapita();highlightMerrychef();highlightScatter();highlightDumbbell()}
+  if(RENDERED.has('siec')&&_renderGranular)_renderGranular(true);
+  if(RENDERED.has('spoleczenstwo')){highlightMerrychef();highlightDumbbell()}
 }
 
 export function clearFilter(){setFilter(null)}
 
 export function refreshKpiFiltered(){
   if(!STATE.filter){if(_renderKPI)_renderKPI();return}
+  // header KPI tiles were removed; nothing to update here (charts still react)
+  if(!document.getElementById('kpi-stores'))return;
   const v=STATE.filter.toLowerCase();
   const woj=M.voivodeship_merrychef&&M.voivodeship_merrychef.find(d=>d.voivodeship&&d.voivodeship.toLowerCase()===v);
   const pc=M.per_capita&&M.per_capita.find(d=>d.voivodeship&&d.voivodeship.toLowerCase()===v);
@@ -57,22 +61,10 @@ export function highlightMerrychef(){
   const data=ch.data.labels;
   ch.data.datasets[0].backgroundColor=data.map(l=>{
     const woj=M.voivodeship_merrychef.find(d=>d.voivodeship===l);
-    const base=woj&&(woj.voivodeship.toLowerCase().includes('dolno')||woj.mc_pct<93)?'#f5a623':'#00c06099';
+    const base=woj&&(woj.voivodeship.toLowerCase().includes('dolno')||woj.mc_pct<93)?'#f2a359':'#84c34199';
     return(!v||l.toLowerCase()===v.toLowerCase())?base:base+'44';
   });
   ch.update('none');
-}
-
-export function highlightScatter(){
-  ['scatter-salary','scatter-unemp'].forEach(k=>{
-    const ch=CHARTS[k];if(!ch)return;
-    const v=STATE.filter;
-    ch.data.datasets[0].backgroundColor=ch.data.datasets[0].data.map(d=>{
-      const base=macroCol(d.voj||'');
-      return(!v||d.voj&&d.voj.toLowerCase()===v.toLowerCase())?base:base.replace(/rgba\(([^,]+,[^,]+,[^,]+),/,'rgba($1,0.08,');
-    });
-    ch.update('none');
-  });
 }
 
 export function highlightDumbbell(){

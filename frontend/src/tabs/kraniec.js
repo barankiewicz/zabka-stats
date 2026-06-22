@@ -198,12 +198,30 @@ function buildMap() {
     const c = COL[f.g];
     const icon = L.divIcon({ className: '', html: `<div class="mk ${f.id === 'frog' ? 'big' : ''}" style="--c:${c}"></div>`, iconSize: [16, 16], iconAnchor: [8, 8] });
     const m = L.marker([f.lat, f.lon], { icon }).addTo(map);
+    m.bindTooltip(`<div style="font-size:12px"><b style="color:${c}">${f.val}</b><br>${f.city} · ${f.voiv}</div>`, { direction: 'top', offset: [0, -10], opacity: 0.95 });
     m.bindPopup(`<div class="pop" style="--c:${c}"><div class="pk">${f.lab}</div><div class="pv">${f.val}</div><div class="pc">${f.city}</div><div class="ps">${f.voiv} · ${f.street}</div><div class="pd">${f.desc}</div></div>`, { maxWidth: 260, closeButton: false });
     m.on('click', () => select(f.id, true));
     markers[f.id] = m;
   });
 
-  let activeId = null, tourRunning = false;
+  // Frog KPI markers (dynamic, from M.amphibian_extremes)
+  const ae = M.amphibian_extremes || {};
+  if (ae.most_froggy && ae.most_froggy.latitude) {
+    const mf = ae.most_froggy;
+    const icon = L.divIcon({ className: '', html: `<div class="mk" style="--c:#4dd0b1"></div>`, iconSize: [16, 16], iconAnchor: [8, 8] });
+    L.marker([mf.latitude, mf.longitude], { icon }).addTo(map)
+      .bindTooltip(`<div style="font-size:12px"><b style="color:#4dd0b1">${fmt(mf.amphibian_occurrences_5km || 0)} obs. płazów</b><br>${mf.city || ''}</div>`, { direction: 'top', offset: [0, -10], opacity: 0.95 })
+      .bindPopup(`<div class="pop" style="--c:#4dd0b1"><div class="pk">Najbardziej żabia Żabka</div><div class="pv">${fmt(mf.amphibian_occurrences_5km || 0)} obs.</div><div class="pc">${mf.city || ''}</div><div class="ps">${(mf.voivodeship || '')} · ${mf.street || ''}</div></div>`, { maxWidth: 260, closeButton: false });
+  }
+  if (ae.farthest_from_frog && ae.farthest_from_frog.latitude) {
+    const ff = ae.farthest_from_frog;
+    const icon = L.divIcon({ className: '', html: `<div class="mk" style="--c:#e8693d"></div>`, iconSize: [16, 16], iconAnchor: [8, 8] });
+    L.marker([ff.latitude, ff.longitude], { icon }).addTo(map)
+      .bindTooltip(`<div style="font-size:12px"><b style="color:#e8693d">${ff.nearest_amphibian_km ? ff.nearest_amphibian_km.toFixed(2) : '—'} km od płaza</b><br>${ff.city || ''}</div>`, { direction: 'top', offset: [0, -10], opacity: 0.95 })
+      .bindPopup(`<div class="pop" style="--c:#e8693d"><div class="pk">Najdalej od płaza</div><div class="pv">${ff.nearest_amphibian_km ? ff.nearest_amphibian_km.toFixed(2) + ' km' : '—'}</div><div class="pc">${ff.city || ''}</div><div class="ps">${(ff.voivodeship || '')}</div></div>`, { maxWidth: 260, closeButton: false });
+  }
+
+  let activeId = null;
   const cap = document.getElementById('kr-cap');
   const setActiveMarker = id => Object.entries(markers).forEach(([k, m]) => { const el = m.getElement(); if (el) { const d = el.querySelector('.mk'); if (d) d.classList.toggle('active', k === id); } });
   const flyToFact = (f, open) => {
@@ -213,13 +231,14 @@ function buildMap() {
     if (cap) cap.innerHTML = `<b>${f.city}</b> · ${f.val} - ${f.desc}`;
     if (open) { const m = markers[f.id]; setTimeout(() => m.openPopup(), RM ? 0 : 650); }
   };
-  const select = (id, open) => { if (tourRunning) return; activeId = id; flyToFact(FACTS.find(f => f.id === id), open); };
+  const select = (id, open) => { activeId = id; flyToFact(FACTS.find(f => f.id === id), open); };
 
-  document.getElementById('kr-reset').onclick = () => {
-    if (tourRunning) return; activeId = null; setActiveMarker(null); map.closePopup();
+  const resetBtn = document.getElementById('kr-reset');
+  if (resetBtn) resetBtn.onclick = () => {
+    activeId = null; setActiveMarker(null); map.closePopup();
     document.querySelectorAll('#kr-rail .item').forEach(it => it.classList.remove('active'));
     map.flyTo(HOME, HOME_Z, { duration: RM ? 0 : 1.4, easeLinearity: .22 });
-    if (cap) cap.textContent = 'Wskazówka: najedź lub kliknij punkt z panelu obok - mapa doleci tam płynnie i pokaże szczegóły.';
+    if (cap) cap.textContent = 'Wskazówka: kliknij punkt z panelu obok - mapa doleci tam płynnie i pokaże szczegóły.';
   };
 
   // selection rail
@@ -230,33 +249,12 @@ function buildMap() {
     if (f.grp !== lastGrp) { const h = document.createElement('div'); h.className = 'grp-h'; h.style.setProperty('--c', c); h.innerHTML = `<span class="dot"></span>${f.grp}`; rail.appendChild(h); lastGrp = f.grp; }
     const it = document.createElement('div'); it.className = 'item'; it.dataset.id = f.id; it.style.setProperty('--c', c);
     it.innerHTML = `<div class="v">${f.val}</div><div class="meta"><div class="lab">${f.lab}</div><div class="sub">${f.city} · ${f.voiv}</div></div>`;
-    it.onmouseenter = () => { if (!tourRunning && activeId !== f.id) { map.flyTo([f.lat, f.lon], Math.max(f.zoom - 1, 7), { duration: RM ? 0 : 1.2, easeLinearity: .25 }); setActiveMarker(f.id); if (cap) cap.innerHTML = `<b>${f.city}</b> · ${f.val} - ${f.desc}`; } };
+    it.onmouseenter = () => { if (activeId !== f.id) { map.flyTo([f.lat, f.lon], Math.max(f.zoom - 1, 7), { duration: RM ? 0 : 1.2, easeLinearity: .25 }); setActiveMarker(f.id); if (cap) cap.innerHTML = `<b>${f.city}</b> · ${f.val} - ${f.desc}`; } };
     it.onclick = () => select(f.id, true);
     rail.appendChild(it);
   });
 
-  // tour
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
-  const btn = document.getElementById('kr-tour');
-  async function tour() {
-    if (tourRunning) return;
-    tourRunning = true; btn.textContent = '● W trakcie…'; map.closePopup();
-    for (const f of FACTS) {
-      if (!tourRunning) break;
-      map.flyTo([f.lat, f.lon], f.zoom, { duration: RM ? 0 : 1.5, easeLinearity: .22 });
-      setActiveMarker(f.id);
-      document.querySelectorAll('#kr-rail .item').forEach(it => it.classList.toggle('active', it.dataset.id === f.id));
-      if (cap) cap.innerHTML = `<b>${f.city}</b> · ${f.val} - ${f.desc}`;
-      await sleep(RM ? 200 : 1750);
-      markers[f.id].openPopup();
-      await sleep(RM ? 200 : 1500);
-      markers[f.id].closePopup();
-    }
-    tourRunning = false; btn.textContent = '▶ Tournée po krańcach';
-    setActiveMarker(null); document.querySelectorAll('#kr-rail .item').forEach(it => it.classList.remove('active'));
-    map.flyTo(HOME, HOME_Z, { duration: RM ? 0 : 1.4 });
-  }
-  btn.onclick = () => { if (tourRunning) { tourRunning = false; } else { tour(); } };
+  // tournee removed
 
   setTimeout(() => map.invalidateSize(), 300);
   new IntersectionObserver((es) => es.forEach(e => { if (e.isIntersecting) map.invalidateSize(); }), { threshold: .1 }).observe(node);

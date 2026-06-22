@@ -34,6 +34,25 @@ _POWIAT_ALIASES = {
     "jeleniogórski": "karkonoski",   # przemianowany w 2021
 }
 
+# Kod TERYT wojewodztwa = znaki [2:4] identyfikatora jednostki BDL (pierwsze dwa
+# znaki to prefiks agregacji GUS, nie TERYT). Np. powiat '011212001000' -> '12'
+# malopolskie, gmina Wroclaw '030210564011' -> '02' dolnoslaskie. Pozwala rozroznic
+# powiaty o tej samej nazwie w roznych wojewodztwach (np. brzeski opolski vs malopolski).
+_TERYT_VOIV = {
+    "02": "dolnośląskie", "04": "kujawsko-pomorskie", "06": "lubelskie",
+    "08": "lubuskie", "10": "łódzkie", "12": "małopolskie", "14": "mazowieckie",
+    "16": "opolskie", "18": "podkarpackie", "20": "podlaskie", "22": "pomorskie",
+    "24": "śląskie", "26": "świętokrzyskie", "28": "warmińsko-mazurskie",
+    "30": "wielkopolskie", "32": "zachodniopomorskie",
+}
+
+
+def _voiv_from_unit_id(uid: str):
+    """Nazwa wojewodztwa z identyfikatora jednostki BDL (kod TERYT na poz. [2:4])."""
+    if uid and len(uid) >= 4:
+        return _TERYT_VOIV.get(uid[2:4])
+    return None
+
 
 def _norm_powiat(name: str):
     """Ujednolic nazwe powiatu do JOIN: usun prefiks 'powiat'/'m.'/'st.', sufiks
@@ -52,15 +71,16 @@ def _norm_powiat(name: str):
 
 
 def _fetch_gus_variable(var_id: str) -> dict:
-    """{znormalizowany_powiat: wartosc_z_najnowszego_roku} dla zmiennej na poziomie
-    powiatow. Przy kolizji nazw (np. 'Wałbrzych do 2002' vs 'od 2013' -> 'wałbrzych')
-    wygrywa wpis z nowszym rokiem."""
+    """{(wojewodztwo, znormalizowany_powiat): wartosc_z_najnowszego_roku} dla
+    zmiennej na poziomie powiatow. Klucz zawiera wojewodztwo (z TERYT jednostki),
+    bo nazwa powiatu nie jest unikalna w kraju ('powiat brzeski' jest i w opolskim,
+    i w malopolskim). Przy kolizji rocznikow wygrywa wpis z nowszym rokiem."""
     headers = {"User-Agent": USER_AGENT}
     if GUS_BDL_KEY:
         headers["X-ClientId"] = GUS_BDL_KEY
 
     def _fetch():
-        best = {}   # name -> (year, val)
+        best = {}   # (voiv, name) -> (year, val)
         page = 0
         while page < 60:
             if page > 0 and not GUS_BDL_KEY:
@@ -75,16 +95,17 @@ def _fetch_gus_variable(var_id: str) -> dict:
                 name = _norm_powiat(unit.get("name"))
                 if not name:
                     continue
+                key = (_voiv_from_unit_id(unit.get("id")), name)
                 for v in unit.get("values", []):
                     if v.get("val") is None:
                         continue
                     yr = str(v.get("year"))
-                    if name not in best or yr > best[name][0]:
-                        best[name] = (yr, float(v["val"]))
+                    if key not in best or yr > best[key][0]:
+                        best[key] = (yr, float(v["val"]))
             if not (j.get("links", {}) or {}).get("next"):
                 break
             page += 1
-        return {n: val for n, (yr, val) in best.items()}
+        return {k: val for k, (yr, val) in best.items()}
 
     return with_retries(_fetch, f"gus:{var_id}") or {}
 

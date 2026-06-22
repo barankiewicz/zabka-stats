@@ -463,11 +463,21 @@ in `io.py`, one enrichment class per source in `sources/`, orchestration in
 ### 0. Data model (galaxy schema)
 
 Two fact tables (`locations` = Żabki, `parcel_lockers` = InPost parcel lockers)
-share common geographic dimensions (`dim_powiat`, `dim_voivodeship`). This is a
-galaxy / fact-constellation schema. The geography is lightly snowflaked
-(`dim_powiat` -> `dim_voivodeship`). That way "who dominates the public space"
-queries are a JOIN over the dimension instead of proximity columns on the facts.
-GUS economics (salary, unemployment, population) live only in `dim_powiat`.
+share common geographic dimensions (`dim_gmina`, `dim_powiat`, `dim_voivodeship`).
+This is a galaxy / fact-constellation schema. The geography is lightly snowflaked
+(`dim_gmina` -> `dim_powiat` -> `dim_voivodeship`). That way "who dominates the
+public space" queries are a JOIN over the dimension instead of proximity columns
+on the facts. GUS economics (salary, unemployment, population) live only in
+`dim_powiat`.
+
+`dim_gmina` is the lowest geographic level (`locations.gmina_id` -> `dim_gmina.id`):
+gmina boundaries + `area_km2` come from GADM (`data/geo/gminy.geojson`), population
+from GUS BDL (var 72305). It powers the gmina granularity of the Historia chart
+(stores, per 1000 residents, per km²). Stores are assigned to a gmina by
+point-in-polygon. `dim_miasto` (cities) is a separate reference set bundled in
+`data/geo/miasta_pl.json` (GUS units kind 1+4 with population), used for the city
+granularity and the "% of Polish cities with a Żabka" stat — it is read by the API,
+not stored as a DuckDB table.
 
 **Keys are numeric** - no string joins. A powiat name is not unique across
 voivodeships (for example "powiat grodziski"), so facts join to dimensions via
@@ -1007,7 +1017,7 @@ stores). The page is designed to reward exploration - it is not a reporting tool
 
 **Page layout:**
 - Global header (always visible): 5 KPI tiles + four-tab navigation
-- Tab SIEC: the network's anatomy — when, where, and how Żabka grew over 28 years
+- Tab Historia: the network's anatomy — when, where, and how Żabka grew over 28 years
 - Tab SPOLECZENSTWO: correlations with Polish economics and geographic anomalies
 - Tab EDGE CASE'Y: geographic extremes on a hover-driven map + curiosity cards + live data
 - Tab PŁAZY: thematic coda — Żabka vs żabka (store-vs-frog data mini-chapter)
@@ -1027,11 +1037,12 @@ you are 46.5 km from the nearest one. The network is named after a frog and we c
 
 The page follows an SPB arc plus a thematic coda:
 
-**Spark (SIEC):** Numbers first — 13,143 stores, 45.4% of them opened since 2023. Then
-shape: the Archimedes spiral (1.1c) with 28 rings, inner ones barely visible, outer ones
-near-solid neon green. Then direction: the fingerprint (1.1f) shows which compass bearing
-each year favored. Then breadth: 2,156 cities covered, Warsaw alone holds 1,138 stores.
-The section ends with how standardized the network is — 91.7% of stores open at exactly 06:00.
+**Spark (Historia):** Numbers first — a giant glowing count-up of all active stores, then
+a stat strip of fresh history facts (milestone cadence, best year, oldest store). Then
+geography: a big dark vector map of Poland fills in dot by dot as the network grows
+1998->2026. Then direction: the fingerprint (1.1f) shows which compass bearing each year
+favored. Then the merged growth chart, the regions, per-capita, top cities. The section
+ends with how standardized the network is — 91.7% of stores open at exactly 06:00.
 
 **Problem (SPOLECZENSTWO):** The uniform network hides fault lines. Wealthier powiats have
 more stores (r = +0.41 salary correlation). Higher unemployment means fewer (r = -0.35).
@@ -1053,8 +1064,9 @@ weather, air) change on every page load.
 (river valleys glow teal); a bar ranks voivodeships by amphibian density (east wins).
 The most frog-dense store is in Ursynów (2,028 GBIF observations), not any national park.
 
-**Theme:** "Żabka in the dark city." CartoDB dark tiles, `#0d0d14` canvas background,
-Żabka green (`#00c060`) as primary accent, teal `#00b4c8` for the PŁAZY tab.
+**Theme:** "Żabka in the dark city." Near-black green-tinted canvas (`#0a120a`), Żabka
+green (`#84c341`) as primary accent with a brighter lime (`#a6e84a`) for big numbers and
+glows, teal (`#4dd0b1`) for the PŁAZY tab. CartoDB dark tiles on the Leaflet maps.
 
 ---
 
@@ -1076,21 +1088,19 @@ This section is the navigable index — what each component shows and where its 
 When a voivodeship filter is active, T1-T5 re-query with `AND voivodeship = $v` and show
 filtered numbers with "(wojew. X)" subtext.
 
-### Tab SIEC
+### Tab Historia
 
 | Ref | Library | Endpoint | What it shows |
 |---|---|---|---|
-| 1.1 growth chart | Chart.js | `/api/stats/network-growth` | Two stacked charts sharing a single x-axis (years 1998-2026): vertical bars (new stores/year, top, 200px) + cumulative area line (bottom, 120px). 2025 is the best year (1,943 stores). Era background bands: Wczesna siec / Wzrost / Boom. Fixed annotations at milestones (1k/2k/5k/10k). Footnote: data covers only currently active stores; early years underrepresented. |
-| 1.1b origin cards | — | `/api/stats/network-origin` | Two cards below the growth chart: oldest active store (Swarzędz, 17 Oct 1998) and newest, plus count of stores opened this month (130). |
-| 1.1c spiral | Canvas 2D | `/api/stats/stores-timeline` | Archimedes spiral, 28 revolutions (1 per year). Each of 12,925 dated stores is a dot at its opening year. Color by era: near-black 1998-2009, dark green 2010-2019, medium green 2020-2022, neon green 2023-2026. Inner rings sparse, outer rings near-solid — the boom is visible as a shape before any number is read. 720x720px canvas. Hover → highlight revolution + year data panel. Click → pulse matching bar on 1.1. |
-| 1.1d burst animation | Canvas 2D | `/api/stats/stores-timeline` | Toggle alternative to 1.1c. 13,143 dots start at canvas center and fly to their actual geographic coordinates over 2.5s. Oldest stores launch first (they traveled farthest). Era color gradient mid-flight. Plays once on first click, replay button below. Poland's shape emerges from the motion without a map drawn. |
-| 1.1f fingerprint | D3 + Canvas 2D | `/api/stats/stores-timeline` | 28 concentric rings, one per year. Each ring deforms toward the compass direction where that year's openings were concentrated (72 bins at 5deg each). Ring color by era. The shape reads like a tree cross-section — unique to Żabka's expansion story. Hover → highlight ring + dominant direction + leading city. Together with 1.1c carries the "growth as geography" beat. |
-| 1.2a stacked area | Chart.js | `/api/stats/growth-by-voivodeship` | Annual new stores stacked by 4 macro-regions (North/West/Center/South). Shows which regions led early (Mazowieckie, Śląskie) and that post-2020 growth is broadly distributed. Clicking a legend item sets the voivodeship cross-filter. |
-| 1.2b per-capita bar | Chart.js | `/api/stats/per-capita` | 16 voivodeships sorted by stores per 1000 residents (descending). Pomorskie #1 (0.46/1k). Podkarpackie #16 (0.18/1k). National average reference line (0.35/1k). Color by macro-region. Cross-filter selector — click bar to filter the whole page. |
-| 1.3a city coverage | Chart.js | `/api/stats/city-first-opening` | Line chart: cumulative count of cities that gained their first Żabka over time. 2 in 1998, 2,156 by June 2026. 333 new cities in 2025 alone. Low-opacity bars in background show new cities per year. |
-| 1.3b top 20 cities | Chart.js | `/api/stats/top-cities?limit=20` | Horizontal bars, sorted descending. Warsaw (1,138) is in a class of its own — annotated. Bracket: top 20 = 44% of the network. Color by macro-region. Reacts to voivodeship filter. |
-| 1.4a "Zegar Żabki" | Canvas 2D | `/api/stats/opening-hours` + summary | 24-hour clock face, 420x420px. 13,143 semi-transparent arcs accumulate into a near-solid band at 06:00-23:00 (91.7%). 35 h24 stores are amber full circles pulsing softly on top. Stats row below the clock: "97.4% z piecem \| 95.5% w niedzielę \| 35 całą dobę". Success condition: the 06:00 synchronization must be visually obvious at a glance; the 35 h24 dots must read as rare. |
-| 1.4b opening hours bar | Chart.js | `/api/stats/opening-hours` | Top 8 hour patterns sorted by count. First bar (06:00-23:00, 12,055 stores) dwarfs all others. Title states the finding: "91.7% sklepów otwiera się dokładnie o 6:00 rano". |
+| Hero | Canvas 2D | `/api/stats/summary` | Full-bleed opening: mono eyebrow, giant gradient-clipped glowing count-up number (total active stores), drifting green particle field behind it, finding headline + lede. Count-up and particles respect `prefers-reduced-motion`. |
+| Stat strip | — | `/api/stats/network-growth` + `/network-origin` | Four tiles of fresh history facts: milestone cadence ("first 1,000 -> ~11 lat, last 5,000 -> ~4 lata", from cumulative crossings), best year (2025: 1,943, "co ~4.5 h"), oldest store (Swarzędz, 1998), and stores opened in the last month. Replaces the old origin cards. |
+| Big map | Leaflet + Canvas 2D | `/api/geo/voivodeships` + `/api/stats/stores-timeline` | Large dark vector map of Poland (16 voivodeship polygons, no tiles). Store dots are drawn on a canvas overlay and animate in by opening year — a one-time ~2.8s sweep 1998->2026 with a year label and a replay button. Poland fills in as the network grows. Era color ramp on the dots. |
+| 1.1 growth chart | Chart.js | `/api/stats/network-growth` | One chart, one x-axis (years 1998-2026), two y-axes: bars = new stores/year (left), cumulative line = total active (right). 2025 is the best year (1,943). Era background bands. Footnote: data covers only currently active stores; early years underrepresented. |
+| 1.1f fingerprint | Canvas 2D | `/api/stats/stores-timeline` | 28 concentric rings, one per year, each deformed toward the compass direction where that year's openings concentrated (72 bins at 5deg). Dark radial background; rings "breathe" with a subtle pulse; a glowing ball travels along one randomly chosen non-edge ring. Ring color by era. Hover -> ring year + dominant direction. |
+| 1.2a regions | Chart.js | `/api/stats/growth-by-voivodeship` | Annual new stores stacked by 4 Polish regions (Polnoc / Zachod / Centrum / Poludnie). A legend under the chart lists which voivodeships make up each region. Post-2020 growth is broadly distributed. |
+| 1.2b per-capita bar | Chart.js | `/api/stats/per-capita` | 16 voivodeships sorted by stores per 1000 residents (descending). Pomorskie #1. National average reference line (0.35/1k). Color by region. Value labels at bar ends; brighten on hover. No on-click filter. |
+| 1.3b top 20 cities | Chart.js | `/api/stats/top-cities?limit=20` | Horizontal bars, sorted descending. Warsaw (1,138) in a class of its own. Top 20 = 44% of the network. Color by region. Value labels at bar ends; brighten on hover. Still reacts to the header cross-filter. |
+| 1.4a "Zegar Żabki" | Canvas 2D | `/api/stats/opening-hours` + summary | 24-hour clock face. Semi-transparent arcs accumulate into a near-solid band at 06:00-23:00 (91.7%). 35 h24 stores are amber dots on top. Stats row beside the clock: "97.4% z piecem \| 95.5% w niedzielę \| 35 całą dobę". |
 
 ### Tab SPOLECZENSTWO
 
@@ -1144,13 +1154,16 @@ Tab and Section 4 cards ignore the voivodeship cross-filter.
 
 - **Chart.js 4.4.1** — vertical/horizontal bars, line, stacked area, scatter. All tab 1
   and 2 charts except canvas-based and choropleths. Also P3, P4, P7 in PŁAZY.
-- **Leaflet 1.9.4** — Sunday choropleth (2.2a), density choropleth (2.2c), extremes map
-  (3.0), coexistence map (P2). CartoDB dark tiles. `L.CircleMarker` for store points.
+- **Leaflet 1.9.4** — Historia growth map (vector voivodeship polygons, no tiles, with a
+  canvas dot overlay), Sunday choropleth (2.2a), density choropleth (2.2c), extremes map
+  (3.0), coexistence map (P2). CartoDB dark tiles where tiles are used. `L.CircleMarker`
+  for store points.
 - **leaflet.heat 0.2.0** — GBIF observation fog layer in P2 (teal at low opacity).
-- **D3.js** — math processor only, never touches DOM. `d3.scaleLinear` for spiral and
-  fingerprint radius/angle; `d3.areaRadial` for fingerprint deformed rings (1.1f).
-- **Canvas 2D** — spiral (1.1c), burst (1.1d), fingerprint (1.1f), clock (1.4a), h24 mini
-  map (E1), void mini map (E3), beeswarm (P1). Used wherever 13k+ DOM objects would hurt.
+- **D3.js** — math processor only, never touches DOM. `d3.scaleLinear` for the fingerprint
+  radius/angle; `d3.areaRadial` for fingerprint deformed rings (1.1f).
+- **Canvas 2D** — hero particles + count-up, Historia growth-map dot overlay, fingerprint
+  (1.1f), clock (1.4a), h24 mini map (E1), void mini map (E3), beeswarm (P1). Used
+  wherever 13k+ DOM objects would hurt.
 - **Fonts:** one production set — Bricolage Grotesque (display) + IBM Plex Sans (body)
   + JetBrains Mono (mono), loaded from Google Fonts. The mockup carried a live
   five-set switcher (Editorial, Neo-Swiss, Bold Brutalist, Contrast Editorial, Spec);
@@ -1164,18 +1177,19 @@ Tab and Section 4 cards ignore the voivodeship cross-filter.
 
 | Token | Hex | Use |
 |---|---|---|
-| Background | `#0d0d14` | Page background, canvas background |
-| Surface | `#16161f` | Cards, chart containers |
-| Green | `#00c060` | Primary Żabka accent, positive / active state |
-| Amber | `#f5a623` | Surprising facts, outliers, h24 stores |
-| Red-orange | `#e85d2f` | Anomalies (Sunday Wall, merrychef gap, void distance) |
-| Teal | `#00b4c8` | PŁAZY tab accent; ecological / amphibian data |
-| North macro-region | `#4a9eff` | Blue — pomorskie, warmińsko-mazurskie, kujawsko-pomorskie, podlaskie |
-| West macro-region | `#00c8a0` | Teal-green — dolnośląskie, zachodniopomorskie, lubuskie, opolskie |
-| Center macro-region | `#00c060` | Green — mazowieckie, łódzkie, świętokrzyskie, wielkopolskie |
-| South macro-region | `#f5a623` | Amber — śląskie, małopolskie, podkarpackie, lubelskie |
-| Muted text | `#7a7a90` | Secondary labels, caveats, footnotes |
-| Axis lines | `#2a2a3a` | Chart gridlines, tick marks |
+| Background | `#0a120a` | Page background, canvas background |
+| Surface | `#0f1b0e` | Cards, chart containers |
+| Green | `#84c341` | Primary Żabka accent, positive / active state |
+| Green bright | `#a6e84a` | Big numbers, hero count-up, glows, hover highlight |
+| Amber | `#f2a359` | Surprising facts, outliers, h24 stores |
+| Red-orange | `#e8693d` | Anomalies (Sunday Wall, merrychef gap, void distance) |
+| Teal | `#4dd0b1` | PŁAZY tab accent; ecological / amphibian data |
+| North region (Polnoc) | `#4dd0b1` | pomorskie, warmińsko-mazurskie, kujawsko-pomorskie, podlaskie |
+| West region (Zachod) | `#a6e84a` | dolnośląskie, zachodniopomorskie, lubuskie, opolskie |
+| Center region (Centrum) | `#84c341` | mazowieckie, łódzkie, świętokrzyskie, wielkopolskie |
+| South region (Poludnie) | `#f2a359` | śląskie, małopolskie, podkarpackie, lubelskie |
+| Muted text | `#93a487` | Secondary labels, caveats, footnotes |
+| Axis lines | `rgba(140,200,80,.14)` | Chart gridlines, tick marks |
 
 Macro-region colors used consistently across 1.2a, 1.2b, 1.3b, 2.1. PŁAZY tab uses
 sequential teal ramps (density) instead of the green accent.
@@ -1209,23 +1223,23 @@ All 25 API requests fire in parallel on page load (`Promise.all`, 8s `AbortContr
 timeout per request). Each chart must enter a skeleton state immediately and swap to
 rendered content when its own data arrives. Never gate a chart on other charts finishing.
 
-**Skeleton CSS:** `is-loading` class. `background: linear-gradient(90deg, #16161f 25%,
-#1e1e2e 50%, #16161f 75%); background-size: 400%; animation: shimmer 1.4s infinite;`
+**Skeleton CSS:** `is-loading` class. `background: linear-gradient(90deg, #0f1b0e 25%,
+#16261280 50%, #0f1b0e 75%); background-size: 400%; animation: shimmer 1.4s infinite;`
 
 **Reserved heights (prevent layout shift):**
 
 | Component | Height |
 |---|---|
 | T1-T5 hero tiles | 80px each |
-| 1.1 growth chart | 340px |
-| 1.1b origin cards | 140px |
-| 1.1c spiral | 720px |
+| Historia hero | ~360px |
+| Stat strip | 110px |
+| Big growth map | 560px |
 | 1.1f fingerprint | 680px |
-| 1.2a stacked area | 420px |
+| 1.1 growth chart | 340px |
+| 1.2a regions stacked | 420px |
 | 1.2b per-capita bar | 420px |
-| 1.3a city coverage line | 380px |
-| 1.3b top 20 cities bar | 380px |
-| 1.4 clock + hours bar | 260px |
+| 1.3b top 20 cities bar | 420px |
+| 1.4a clock | 260px |
 | 2.1 dual scatter | 400px |
 | 2.2a/2.2c choropleths | 380px |
 | 2.2b merrychef bar | 380px |

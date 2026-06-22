@@ -50,13 +50,31 @@ def _build_geo_dims(rows, lockers, skip_gus):
     salary, unempl, popul = ({}, {}, {}) if skip_gus else fetch_gus_economics()
     if skip_gus:
         print("[gus] pominiete (--skip-gus) - wymiary bez ekonomii")
+
+    # GUS dicts are keyed by (wojewodztwo, znormalizowana_nazwa). Look up the exact
+    # (voiv, name) first so same-named powiats in different voivodeships get their
+    # own figures; fall back to name-only so anything the TERYT map missed still
+    # matches (no regression vs the old name-only join).
+    def _name_only(d):
+        out = {}
+        for (v, n), val in d.items():
+            out.setdefault(n, val)
+        return out
+    sal_fb, une_fb, pop_fb = _name_only(salary), _name_only(unempl), _name_only(popul)
+
+    def _lookup(d, dfb, voiv, key):
+        if (voiv, key) in d:
+            return d[(voiv, key)]
+        return dfb.get(key)
+
     dim_powiat, pop_by_voiv = [], {}
     for (voiv, powiat), pid in sorted(powiat_id.items(), key=lambda kv: kv[1]):
         key = _norm_powiat(powiat)
-        p = popul.get(key)
+        p = _lookup(popul, pop_fb, voiv, key)
         pop_i = int(p) if p is not None else None
         dim_powiat.append((pid, powiat, voiv_id[voiv], pop_i,
-                           salary.get(key), unempl.get(key)))
+                           _lookup(salary, sal_fb, voiv, key),
+                           _lookup(unempl, une_fb, voiv, key)))
         if pop_i is not None:
             pop_by_voiv[voiv] = pop_by_voiv.get(voiv, 0) + pop_i
     dim_voiv = [(voiv_id[n], n, pop_by_voiv.get(n)) for n in voiv_names]

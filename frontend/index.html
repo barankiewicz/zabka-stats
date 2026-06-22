@@ -264,22 +264,28 @@
     </div>
   </div>
 
-  <!-- 2.3 InPost dumbbell -->
+  <!-- 2.3 InPost vs Zabka -->
   <div class="card reveal" style="margin-bottom:16px">
-    <div class="gran-left-head">
+    <div class="card-title" data-debug-id="2.3">Żabka vs InPost</div>
+    <div class="card-sub">Pojedynek dwóch gigantów polskiej przestrzeni publicznej!</div>
+    <div class="gran-split" style="margin-top:16px">
       <div>
-        <div class="card-title" data-debug-id="2.3">InPost vs Żabka - 2,42 paczkomaty na każdą Żabkę w Polsce</div>
-        <div class="card-sub">Zielona kropka = Żabka/100k, bursztyn = InPost/100k - połączone linią. Posortowane alfabetycznie.</div>
+        <div id="map-inpost" style="height:380px;border-radius:8px;overflow:hidden"></div>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <div class="gran-toggle" role="tablist" id="inpost-level">
-          <button class="gran-btn active" data-ilevel="voivodeship">Województwo</button>
-          <button class="gran-btn" data-ilevel="powiat">Powiat</button>
-          <button class="gran-btn" data-ilevel="city">Miasto</button>
+      <div>
+        <div class="gran-left-head" style="margin-bottom:8px">
+          <div class="card-sub" id="inpost-dumbbell-sub">Zielona kropka = Żabka/100k, bursztyn = InPost/100k. Posortowane alfabetycznie.</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <div class="gran-toggle" role="tablist" id="inpost-level">
+              <button class="gran-btn active" data-ilevel="voivodeship">Województwo</button>
+              <button class="gran-btn" data-ilevel="powiat">Powiat</button>
+              <button class="gran-btn" data-ilevel="city">Miasto</button>
+            </div>
+          </div>
         </div>
+        <div id="inpost-dumbbell" style="overflow-x:auto"></div>
       </div>
     </div>
-    <div id="inpost-dumbbell" style="overflow-x:auto"></div>
   </div>
 
   <!-- ================= ZABKA A POLSKA: placa + bezrobocie (infotainment) ================= -->
@@ -289,6 +295,7 @@
     <div class="ec-chapter">
       <div class="ec-reveal">
         <h2>Im wyższe zarobki,<br>tym więcej Żabek.</h2>
+        <p class="lead">Korelacja Spearmana r = +0,41. Każdy punkt to jeden z 381 powiatów - im dalej w prawo, tym zamożniej i tym gęstsza sieć.</p>
       </div>
 
       <div class="card ec-reveal">
@@ -300,11 +307,27 @@
         <div id="scatter1" class="ec-chart"></div>
       </div>
 
-      <div class="facts">
-        <div class="fact ec-reveal d1"><div class="ic">// łącznie</div><div class="num frog" id="ec-fact-total-num" data-count="13154" data-dec="0">0</div><div class="lab">żabek naniesionych na mapę - w 381 powiatach całej Polski.</div></div>
-        <div class="fact ec-reveal d2"><div class="ic">// nożyce zamożności</div><div class="num lime" id="ec-fact-ratio-num" data-count="2.1" data-dec="1" data-suffix="x">0</div><div class="sub">najbogatsza vs najbiedniejsza ćwiartka</div><div class="lab">tak gęstsza jest sieć w najzamożniejszej ćwiartce powiatów niż w najbiedniejszej.</div><div class="bar-mini"><i id="ec-fact-ratio-bar" data-fill="84"></i></div></div>
-        <div class="fact ec-reveal d3"><div class="ic">// rekord gęstości</div><div class="num amber">1 : <span id="ec-fact-record-num" data-count="1008" data-dec="0">0</span></div><div class="sub" id="ec-fact-record-sub">Międzyzdroje (pow. kamieński)</div><div class="lab">jedna Żabka na ~<span id="ec-fact-record-inv">1008</span> osób - niemal 1 na 1000. Kurort liczy turystów, nie meldunki.</div></div>
-        <div class="fact ec-reveal d4"><div class="ic">// województwa</div><div class="num teal" id="ec-fact-voiv-num" data-count="2.5" data-dec="1" data-suffix="x">0</div><div class="sub" id="ec-fact-voiv-sub">Pomorskie 0,46 vs Podkarpackie 0,19</div><div class="lab">różnica między najgęstszym a najrzadszym województwem na mieszkańca.</div></div>
+      <div class="stat-strip ec-reveal" style="grid-template-columns:repeat(4,1fr);margin-top:0;margin-bottom:0">
+        <div class="stat-tile ec-reveal d1">
+          <div class="stat-kicker">Łącznie</div>
+          <div class="stat-big" id="ec-fact-total-num" data-count="13154" data-dec="0">0</div>
+          <div class="stat-sub">żabek w 381 powiatach Polski</div>
+        </div>
+        <div class="stat-tile ec-reveal d2">
+          <div class="stat-kicker">Nożyce zamożności</div>
+          <div class="stat-big" id="ec-fact-ratio-num" data-count="2.1" data-dec="1" data-suffix="x">0</div>
+          <div class="stat-sub">sieć gęstsza w bogatszej ćwiartce niż w biedniejszej<i id="ec-fact-ratio-bar" data-fill="84" style="display:none"></i></div>
+        </div>
+        <div class="stat-tile ec-reveal d3">
+          <div class="stat-kicker">Rekord gęstości</div>
+          <div class="stat-big" style="color:var(--amber)">1 : <span id="ec-fact-record-num" data-count="1008" data-dec="0">0</span></div>
+          <div class="stat-sub" id="ec-fact-record-sub">Międzyzdroje (pow. kamieński)</div>
+        </div>
+        <div class="stat-tile ec-reveal d4">
+          <div class="stat-kicker">Rozpiętość województw</div>
+          <div class="stat-big" id="ec-fact-voiv-num" data-count="2.5" data-dec="1" data-suffix="x" style="color:var(--teal)">0</div>
+          <div class="stat-sub" id="ec-fact-voiv-sub">Pomorskie vs Podkarpackie</div>
+        </div>
       </div>
 
       <div class="card ec-reveal">
@@ -338,11 +361,27 @@
         <div id="scatter2" class="ec-chart"></div>
       </div>
 
-      <div class="facts">
-        <div class="fact ec-reveal d1"><div class="ic">// odwrotna drabina</div><div class="num frog" id="ec-fact-u-ratio-num" data-count="1.8" data-dec="1" data-suffix="x">0</div><div class="sub">najniższe vs najwyższe bezrobocie</div><div class="lab">gęściej w ćwiartce z najniższym bezrobociem niż w tej z najwyższym.</div><div class="bar-mini"><i id="ec-fact-u-ratio-bar" data-fill="71"></i></div></div>
-        <div class="fact ec-reveal d2"><div class="ic">// poniżej mediany</div><div class="num lime" id="ec-fact-u-below-num" data-count="68" data-dec="0" data-suffix="%">0</div><div class="sub">powiaty z najwyższym bezrobociem</div><div class="lab">tylu z nich ma gęstość Żabki poniżej krajowej mediany.</div></div>
-        <div class="fact ec-reveal d3"><div class="ic">// rekord bezrobocia</div><div class="num coral" id="ec-fact-u-max-num" data-count="22.1" data-dec="1" data-suffix="%">0</div><div class="sub" id="ec-fact-u-max-sub">szydłowiecki</div><div class="lab">najwyższe bezrobocie w kraju, a tylko <span id="ec-fact-u-max-density">0,16</span> sklepu / 1000 - niemal pustynia.</div></div>
-        <div class="fact ec-reveal d4"><div class="ic">// kurort wyjątek</div><div class="num amber" id="ec-fact-u-leski-num" data-count="19.7" data-dec="1" data-suffix="%">0</div><div class="sub" id="ec-fact-u-leski-sub">leski - a gęstość 0,32</div><div class="lab">wysokie bezrobocie, a sieć przyzwoita: bieszczadzki kurort przykrywa słaby rynek pracy.</div></div>
+      <div class="stat-strip ec-reveal" style="grid-template-columns:repeat(4,1fr);margin-top:0;margin-bottom:0">
+        <div class="stat-tile ec-reveal d1">
+          <div class="stat-kicker">Odwrotna drabina</div>
+          <div class="stat-big" id="ec-fact-u-ratio-num" data-count="1.8" data-dec="1" data-suffix="x">0</div>
+          <div class="stat-sub">gęstsza sieć przy niskim bezrobociu<i id="ec-fact-u-ratio-bar" data-fill="71" style="display:none"></i></div>
+        </div>
+        <div class="stat-tile ec-reveal d2">
+          <div class="stat-kicker">Poniżej mediany</div>
+          <div class="stat-big" id="ec-fact-u-below-num" data-count="68" data-dec="0" data-suffix="%">0</div>
+          <div class="stat-sub">powiatów z najwyższym bezrobociem ma gęstość poniżej krajowej mediany</div>
+        </div>
+        <div class="stat-tile ec-reveal d3">
+          <div class="stat-kicker">Rekord bezrobocia</div>
+          <div class="stat-big" id="ec-fact-u-max-num" data-count="22.1" data-dec="1" data-suffix="%" style="color:var(--red)">0</div>
+          <div class="stat-sub" id="ec-fact-u-max-sub">szydłowiecki - tylko <span id="ec-fact-u-max-density">0,16</span> skl./1000</div>
+        </div>
+        <div class="stat-tile ec-reveal d4">
+          <div class="stat-kicker">Wyjątek kurortowy</div>
+          <div class="stat-big" id="ec-fact-u-leski-num" data-count="19.7" data-dec="1" data-suffix="%" style="color:var(--amber)">0</div>
+          <div class="stat-sub" id="ec-fact-u-leski-sub">leski - wysokie bezrobocie, przyzwoita sieć</div>
+        </div>
       </div>
 
       <div class="card ec-reveal">
@@ -362,18 +401,6 @@
 
   </section>
 
-   <!-- Merrychef full row -->
-  <div class="card reveal" style="margin-bottom:16px">
-    <div class="card-title" data-debug-id="2.2b">Dolnośląskie: jedyny region poniżej 95% z piecem</div>
-    <div class="card-sub" id="merrychef-card-sub">% sklepów z Merrychef, posortowane rosnąco - średnia krajowa 97,4%</div>
-    <div class="chart-wrap h260"><canvas id="chart-merrychef"></canvas></div>
-  </div>
-
-  <div class="synthesis reveal">
-    <div class="synthesis-tag">Co wiemy na pewno</div>
-    <div class="synthesis-body">Trzy niezależne miary: dochód powiatu, stopa bezrobocia, stosunek paczkomatów do sklepów - wskazują tę samą strukturę: zachodnia i centralna Polska jest lepiej obsługiwana niż wschodnia. Anomalie dolnośląskie (niedziele, piekarniki) pozostają bez wyjaśnienia w dostępnych danych. Sieć wygląda jednorodnie. Nie jest.</div>
-    <div class="synthesis-foot">Dane: snapshot czerwiec 2026. Analiza obejmuje sklepy aktywne.</div>
-  </div>
 </div>
 </div>
 
@@ -393,114 +420,61 @@
     </div>
   </header>
 
-  <!-- =================== SEKCJA: Ciekawostki =================== -->
-  <section class="kr" id="ciek-root">
-
-    <h3 class="sec reveal">Ciekawostki</h3>
-    <p class="subsec reveal">Sieć w liczbach: jak wysoko sięga, jak ciasno stoją sklepy, gdzie ląduje Żabka - i co mówią płazy.</p>
-
-    <!-- KPI bar: odległości + dane o płazach -->
-    <div class="kpis reveal" id="ciek-kpis" style="margin-bottom:24px">
-      <div class="kpi">
-        <div class="n lime" id="ciek-kpi-zero">0 m</div>
-        <div class="l">minimalna odległość między sklepami<br><small style="color:var(--muted);font-size:10px">dwa sklepy pod tym samym adresem</small></div>
-      </div>
-      <div class="kpi">
-        <div class="n teal" id="ciek-kpi-froggy">—</div>
-        <div class="l" id="ciek-kpi-froggy-l">obserwacji płazów w 5 km<br><small style="color:var(--muted);font-size:10px" id="ciek-kpi-froggy-sub">rekord, miasto</small></div>
-      </div>
-      <div class="kpi">
-        <div class="n" style="color:var(--muted)" id="ciek-kpi-dry">—</div>
-        <div class="l">suchych Żabek<br><small style="color:var(--muted);font-size:10px">zero płazów w promieniu 5 km</small></div>
-      </div>
-      <div class="kpi">
-        <div class="n coral" id="ciek-kpi-farthest">— km</div>
-        <div class="l" id="ciek-kpi-farthest-l">najdalej od płaza<br><small style="color:var(--muted);font-size:10px" id="ciek-kpi-farthest-sub">miasto</small></div>
-      </div>
+  <!-- KPI strip -->
+  <div class="stat-strip reveal">
+    <div class="stat-tile">
+      <div class="stat-kicker">Sklepy 24/7</div>
+      <div class="stat-big amber" id="edge-kpi-h24">-</div>
+      <div class="stat-sub">nigdy nie zamkniete</div>
     </div>
-
-    <!-- 2x2 wykresy: Skala i rozkład -->
-    <div class="grid2">
-      <div class="card reveal" id="ciek-c-elev">
-        <div class="chead"><h4>Wysokość nad poziomem morza</h4><span class="cap">kubełki 50 m · n = <span id="ciek-elev-cap-n">13 154</span></span></div>
-        <p class="cnote" id="ciek-elev-cnote">95% sieci mieści się między 17 a 332 m. Rekordy: <b style="color:#f2a359">Kościelisko 962,6 m</b> i <b style="color:#e8693d">Gdańsk −1,5 m</b>.</p>
-        <div class="chart-wrap" style="height:240px"><canvas id="ciek-elevChart"></canvas></div>
-      </div>
-      <div class="card reveal" id="ciek-c-knn">
-        <div class="chead"><h4>Jak daleko do najbliższej sąsiadki?</h4><span class="cap">odległość do najbliższego sklepu (k-NN)</span></div>
-        <p class="cnote">Im bliżej zera, tym gęściej. Ogon rozkładu sięga dziesiątek kilometrów.</p>
-        <div class="chart-wrap" style="height:240px"><canvas id="ciek-knnChart"></canvas></div>
-        <div class="statline" style="margin-top:8px"><span>mediana <b id="ciek-stat-median">—</b></span><span>średnia <b id="ciek-stat-avg">—</b></span><span>maks. <b id="ciek-stat-max">—</b></span></div>
-      </div>
-      <div class="card reveal" id="ciek-c-parks">
-        <div class="chead"><h4>Żabka na łonie natury</h4><span class="cap">parki krajobrazowe i otuliny</span></div>
-        <p class="cnote" id="ciek-parks-cnote">Sklepy w parkach lub ich otulinach.</p>
-        <div class="chart-wrap" style="height:230px"><canvas id="ciek-parksChart"></canvas></div>
-        <div class="statline" id="ciek-parks-statline" style="margin-top:8px"></div>
-      </div>
-      <div class="card reveal" id="ciek-c-streets">
-        <div class="chead"><h4>Ulice z największą liczbą Żabek</h4><span class="cap">konkretna ulica i miasto, nie tylko nazwa</span></div>
-        <p class="cnote">Nie agregaty po nazwie - konkretne miejsca, gdzie Żabki stoją gęsto na tej samej ulicy.</p>
-        <div class="chart-wrap" style="height:320px"><canvas id="ciek-streetsChart"></canvas></div>
-      </div>
+    <div class="stat-tile">
+      <div class="stat-kicker">W parkach</div>
+      <div class="stat-big" id="edge-kpi-parks">-</div>
+      <div class="stat-sub">sklepow w parkach i rezerwatach</div>
     </div>
-
-    <!-- P3 + P4: wykresy z plazow -->
-    <div class="row row-2 reveal" style="margin-bottom:16px;margin-top:24px">
-      <div class="card">
-        <div class="card-title">Najbardziej żabie Żabki są na wschodzie</div>
-        <div class="card-sub">średnia liczba obserwacji płazów na sklep, według województwa</div>
-        <div class="chart-wrap h420"><canvas id="chart-frog-voiv-edge"></canvas></div>
-      </div>
-      <div class="card">
-        <div class="card-title">Gęstość Żabek a obserwacje płazów idą w parze</div>
-        <div class="card-sub">X = liczba Żabek w promieniu 5 km, Y = obserwacje płazów w 5 km (oba log). Wspólna przyczyna: populacja miejska.</div>
-        <div class="chart-wrap h420"><canvas id="chart-frog-scatter-edge"></canvas></div>
-      </div>
+    <div class="stat-tile">
+      <div class="stat-kicker">Powiaty z Zabka</div>
+      <div class="stat-big" id="edge-kpi-powiats">-<span class="stat-unit">/381</span></div>
+      <div class="stat-sub">zaden powiat bez sklepu</div>
     </div>
-
-    <!-- Disclaimer: dane o plazach -->
-    <div class="plazy-twist reveal" style="margin-bottom:40px">
-      <div class="plazy-twist-label">Zastrzeżenie · liczby dotyczące płazów (GBIF)</div>
-      <p>Dane GBIF to obserwacje zgłaszane dobrowolnie przez badaczy i zwykłych przechodniów z aplikacją - nie systematyczne pomiary terenowe. Liczba "obserwacji w 5 km" mówi tyle samo o aktywności obserwatorów, co o faktycznej gęstości żab. Warszawa wygrywa nie dlatego, że ma wyjątkowo dużo płazów, ale dlatego, że ma wyjątkowo dużo ludzi z telefonami. Traktuj te liczby jako wskazówkę i zawsze pytaj: czy widzę płazy, czy widzę ludzi, którym chciało się to zanotować?</p>
+    <div class="stat-tile">
+      <div class="stat-kicker">Pustka Bieszczad</div>
+      <div class="stat-big" id="edge-kpi-void" style="color:#e8693d">46,5<span class="stat-unit"> km</span></div>
+      <div class="stat-sub">od najblizszej Zabki</div>
     </div>
+    <div class="stat-tile">
+      <div class="stat-kicker">Najsamotniejsza</div>
+      <div class="stat-big" id="edge-kpi-isolated" style="color:var(--teal)">27,3<span class="stat-unit"> km</span></div>
+      <div class="stat-sub">do najblizszej sasiadki</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-kicker">Zabie ulice</div>
+      <div class="stat-big" id="edge-kpi-frogstreets">-</div>
+      <div class="stat-sub">sklepow na zabich ulicach</div>
+    </div>
+  </div>
 
-  </section>
-
-  <!-- =================== SEKCJA: Wartości brzegowe =================== -->
+  <!-- Atlas krancow: interaktywna mapa + mini panele -->
   <section class="kr" id="kr-root">
 
-    <h3 class="sec kr-reveal">Wartości brzegowe</h3>
-    <p class="subsec kr-reveal">Gdzie Żabka jest pierwsza, ostatnia, najwyżej, najniżej - i gdzie jej nie ma wcale.</p>
-
-    <!-- KPI -->
-    <div class="kpis kr-reveal">
-      <div class="kpi"><div class="n frog" id="kr-kpi-stores" data-count="13154" data-dec="0">0</div><div class="l">sklepów w całej sieci (migawka)</div></div>
-      <div class="kpi"><div class="n teal" id="kr-kpi-powiats" data-count="381" data-dec="0">0</div><div class="l" id="kr-kpi-powiats-label">powiatów z choć jedną Żabką</div></div>
-      <div class="kpi"><div class="n amber" id="kr-kpi-h24" data-count="35" data-dec="0">0</div><div class="l">sklepów otwartych całą dobę (24/7)</div></div>
-      <div class="kpi"><div class="n frog" id="kr-kpi-parks" data-count="720" data-dec="0">0</div><div class="l" id="kr-kpi-parks-label">w parkach krajobrazowych</div></div>
-      <div class="kpi"><div class="n lime" id="kr-kpi-frogstreets" data-count="20" data-dec="0">0</div><div class="l">sklepów na ulicach ze słowem „żaba"</div></div>
-    </div>
-
-    <!-- ATLAS KRANCOW - mapa bez tournee -->
-    <h3 class="sec kr-reveal">Atlas krańców</h3>
-    <p class="subsec kr-reveal">Dziewięć skrajnych punktów sieci na jednej mapie. Wybierz z panelu po prawej - mapa doleci tam płynnie. Najedź na marker po zbliżeniu, żeby zobaczyć szczegóły.</p>
     <div class="hero kr-reveal">
       <div class="mapcard">
         <div class="maptop">
-          <span class="t">Mapa interaktywna · płynny przelot</span>
+          <span class="t">Atlas krancow - plynny przelot</span>
           <div class="btnrow">
-            <button class="btn" id="kr-reset">Cała Polska</button>
+            <button class="btn" id="kr-layer-parks">Parki</button>
+            <button class="btn" id="kr-layer-west">Sciana zachodnia</button>
+            <button class="btn" id="kr-reset">Cala Polska</button>
           </div>
         </div>
         <div id="kr-map"></div>
-        <div class="mapcap" id="kr-cap">Wskazówka: kliknij punkt z panelu obok - mapa doleci tam płynnie i pokaże szczegóły.</div>
+        <div class="mapcap" id="kr-cap">Najedz na pozycje z listy - mapa doleci. Kliknij - szczegoly.</div>
         <div class="legend">
           <span><i style="background:#84c341"></i>Kompas</span>
-          <span><i style="background:#f2a359"></i>Wysokość</span>
-          <span><i style="background:#4dd0b1"></i>Izolacja / Płazy</span>
+          <span><i style="background:#f2a359"></i>Wysokosc</span>
+          <span><i style="background:#4dd0b1"></i>Izolacja</span>
           <span><i style="background:#e8693d"></i>Pustka</span>
-          <span><i style="background:#a6e84a"></i>Ulice „żabie"</span>
+          <span><i style="background:#a6e84a"></i>Zabie ulice</span>
         </div>
       </div>
       <div class="rail">
@@ -508,161 +482,59 @@
       </div>
     </div>
 
-    <!-- CROWN JEWEL -->
-    <h3 class="sec kr-reveal">Perełki</h3>
-    <div class="jewel kr-reveal">
-      <div class="big">
-        <div class="k">Żabka na Żabiej · korona kolekcji</div>
-        <div class="addr">ul. Zielonej Żabki 7</div>
-        <p id="kr-frogstreets-blurb">Żabia Wola, mazowieckie. Sklep <b>Żabka</b> przy ulicy <b>Zielonej Żabki</b> - marketingowy zbieg okoliczności idealny.</p>
+    <!-- Mini panele pod mapa -->
+    <div class="edge-panels kr-reveal">
+      <div class="edge-panel gem">
+        <div class="ep-eyebrow">Perla kolekcji</div>
+        <div class="ep-addr">ul. Zielonej Zabki 7</div>
+        <div class="ep-city" id="ep-frogstreet-city">Zabia Wola, mazowieckie</div>
+        <div class="ep-note" id="ep-frogstreet-note">Zabka przy ulicy Zielonej Zabki - marketingowy zbieg okolicznosci idealny.</div>
       </div>
-      <div class="sidecards">
-        <div class="mini"><div class="n bright" id="kr-sc-h24" data-count="35" data-dec="0">0</div><div class="l">sklepów 24/7 - skupionych głównie na zachodzie (Wrocław, Kunowice) i w największych miastach.</div></div>
-        <div class="mini"><div class="n teal">1 → <span id="kr-sc-maxpowiat" data-count="1139" data-dec="0">0</span></div><div class="l" id="kr-sc-powiat-label">rozpiętość pokrycia powiatów: od <b style="color:#eef3e6">1</b> sklepu do największego.</div></div>
+      <div class="edge-panel" onclick="jumpToFact('highest')" style="cursor:pointer">
+        <div class="ep-eyebrow">Najwyzej n.p.m.</div>
+        <div class="ep-val amber" id="ep-highest-val">962,6 m</div>
+        <div class="ep-city" id="ep-highest-city">Koscielisko, malopolskie</div>
+        <div class="ep-street" id="ep-highest-street">Nedzy Kubinca 101</div>
+      </div>
+      <div class="edge-panel" onclick="jumpToFact('lowest')" style="cursor:pointer">
+        <div class="ep-eyebrow">Jedyna ponizej morza</div>
+        <div class="ep-val coral" id="ep-lowest-val">-1,5 m</div>
+        <div class="ep-city" id="ep-lowest-city">Gdansk (port), pomorskie</div>
+        <div class="ep-street" id="ep-lowest-street">Przelom 12</div>
+      </div>
+      <div class="edge-panel" onclick="jumpToFact('isolated')" style="cursor:pointer">
+        <div class="ep-eyebrow">Najdalej od sasiadki</div>
+        <div class="ep-val teal" id="ep-isolated-val">27,3 km</div>
+        <div class="ep-city" id="ep-isolated-city">Michalowo, podlaskie</div>
+        <div class="ep-street" id="ep-isolated-street">Bialostocka 2</div>
+      </div>
+      <div class="edge-panel">
+        <div class="ep-eyebrow">W parkach i rezerwatach</div>
+        <div class="ep-val" id="ep-parks-val" style="color:var(--green)">-</div>
+        <div class="ep-note" id="ep-parks-note">sklepow w parkach krajobrazowych i otulinach</div>
       </div>
     </div>
 
   </section>
 
-  <div class="sec-hook reveal">Kliknij kartę - mapa przeskakuje do miejsca.</div>
-
-  <!-- Mapa krancow (card cards drive this map) -->
-  <div class="card reveal" style="margin-bottom:20px;position:relative">
-    <div class="card-title" data-debug-id="3.0">Mapa krańców</div>
-    <div class="card-sub">Kliknij dowolną kartę faktu - mapa przeskakuje do tego miejsca z tooltipem.</div>
-    <button class="back-btn" id="edge-back-btn" onclick="jumpBack()">&#8592; Wróć do widoku Polski</button>
-    <div class="map-container"><div id="map-edge"></div></div>
-  </div>
-
-  <!-- A: Compass in 4 directions -->
-  <div class="compass-grid reveal">
-    <div class="fact-card compass-n" data-fact-id="north" onclick="jumpToFact('north')">
-      <div class="fact-label">N - najdalej na północ</div>
-      <div class="fact-big sm">54,83°N</div>
-      <div class="fact-city">Jastrzębia Góra, pomorskie</div>
-      <div class="fact-street">Różewska 3</div>
-      <div class="jump-hint">Kliknij - przeskocz na mapę</div>
-    </div>
-    <div class="card compass-map" style="padding:0;overflow:hidden">
-      <div style="background:var(--s2);height:100%;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;min-height:120px">Mapa powyżej</div>
-    </div>
-    <div class="fact-card compass-w" data-fact-id="west" onclick="jumpToFact('west')">
-      <div class="fact-label">W - zachód</div>
-      <div class="fact-big sm">14,20°E</div>
-      <div class="fact-city">Cedynia</div>
-      <div class="fact-street">Pl. Wolności 4</div>
-      <div class="jump-hint">Kliknij</div>
-    </div>
-    <div class="fact-card compass-e" data-fact-id="east" onclick="jumpToFact('east')">
-      <div class="fact-label">E - wschód</div>
-      <div class="fact-big sm">23,90°E</div>
-      <div class="fact-city">Hrubieszów</div>
-      <div class="fact-street">Rynek 1</div>
-      <div class="jump-hint">Kliknij</div>
-    </div>
-    <div class="fact-card compass-s" data-fact-id="south" onclick="jumpToFact('south')">
-      <div class="fact-label">S - najdalej na południe</div>
-      <div class="fact-big sm">49,21°N</div>
-      <div class="fact-city">Cisna, podkarpackie</div>
-      <div class="fact-street">Cisna 87</div>
-      <div class="jump-hint">Kliknij - przeskocz na mapę</div>
-    </div>
-  </div>
-
-  <!-- B: Elevation -->
+  <!-- 3 wykresy: dystans do sasiadki, parki, ulice -->
   <div class="row row-3 reveal" style="margin-bottom:16px">
-    <div class="fact-card" data-fact-id="highest" onclick="jumpToFact('highest')">
-      <div class="fact-label">Najwyżej n.p.m.</div>
-      <div class="fact-big amber">962,6 m</div>
-      <div class="fact-city">Kościelisko, małopolskie</div>
-      <div class="fact-street">Nędzy Kubińca 101</div>
-      <div class="fact-oneliner">Wyżej niż większość ośrodków narciarskich.</div>
-      <div class="jump-hint">Kliknij - przeskocz na mapę</div>
-    </div>
-    <div class="fact-card" data-fact-id="lowest" onclick="jumpToFact('lowest')">
-      <div class="fact-label">Jedyna Żabka poniżej poziomu morza</div>
-      <div class="fact-big amber">-1,5 m</div>
-      <div class="fact-city">Gdańsk (port), pomorskie</div>
-      <div class="fact-street">Przełom 12</div>
-      <div class="fact-oneliner">Technicznie pod wodą.</div>
-      <div class="jump-hint">Kliknij - przeskocz na mapę</div>
+    <div class="card">
+      <div class="card-title">Polowa sieci ma sasiadke blizej niz 300 m</div>
+      <div class="card-sub">Rozklad odleglosci do najblizszego sklepu (k-NN).</div>
+      <div class="chart-wrap" style="height:240px"><canvas id="ciek-knnChart"></canvas></div>
+      <div class="statline" style="margin-top:8px"><span>mediana <b id="ciek-stat-median">-</b></span><span>srednia <b id="ciek-stat-avg">-</b></span><span>maks. <b id="ciek-stat-max">-</b></span></div>
     </div>
     <div class="card">
-      <div class="card-title" data-debug-id="B3">95% sieci między 17 a 332 m n.p.m.</div>
-      <div class="chart-wrap h180"><canvas id="chart-elev-hist"></canvas></div>
-      <div class="caveat">Obszar zaznaczony na wykresie.</div>
-    </div>
-  </div>
-
-  <!-- C: Isolation -->
-  <div class="row row-2 reveal" style="margin-bottom:16px">
-    <div class="fact-card" data-fact-id="isolated" onclick="jumpToFact('isolated')">
-      <div class="fact-label">Najbardziej izolowana Żabka w Polsce</div>
-      <div class="fact-big teal">27,3 km</div>
-      <div class="fact-city">Michałowo, podlaskie</div>
-      <div class="fact-street">Białostocka 2</div>
-      <div class="fact-oneliner">Zanim dojdziesz do kolejnej, możesz przejść maraton.</div>
-      <div class="jump-hint">Kliknij - przeskocz na mapę</div>
+      <div class="card-title">Zabka na lonie natury</div>
+      <div class="card-sub" id="ciek-parks-cnote">Sklepy w granicach parkow krajobrazowych i otulin.</div>
+      <div class="chart-wrap" style="height:240px"><canvas id="ciek-parksChart"></canvas></div>
+      <div id="ciek-parks-statline" style="margin-top:8px"></div>
     </div>
     <div class="card">
-      <div class="card-title" id="c2-card-title" data-debug-id="C2">Połowa sieci ma sąsiada bliżej niż 300 m - ogon sięga 27 km</div>
-      <div class="chart-wrap h180"><canvas id="chart-neighbor-dist"></canvas></div>
-      <div style="display:flex;gap:20px;margin-top:8px;font-family:var(--font-mono);font-size:12px">
-        <span><span style="color:var(--muted)">mediana</span> <span id="c2-stat-med" style="color:var(--ink)">299 m</span></span>
-        <span><span style="color:var(--muted)">średnia</span> <span id="c2-stat-avg" style="color:var(--ink)">942 m</span></span>
-        <span><span style="color:var(--muted)">max</span> <span id="c2-stat-max" style="color:var(--ink)">27 321 m</span></span>
-      </div>
-    </div>
-  </div>
-
-  <!-- E: Rare ones -->
-  <div class="row row-3 reveal" style="margin-bottom:16px">
-    <div class="card" style="cursor:pointer" onclick="jumpToH24()">
-      <div class="fact-label" data-debug-id="E1">Sklepy otwarte całą dobę</div>
-      <div class="fact-big amber">35</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">0,27% sieci - kliknij by zobaczyć na mapie</div>
-      <canvas id="canvas-h24-mini" width="200" height="100" style="display:block"></canvas>
-      <div id="h24-cities-list" style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.8"></div>
-      <div class="jump-hint">Nie dla nocnych marków - dla tirów na A2.</div>
-    </div>
-    <div class="card" onclick="jumpToParks()" style="cursor:pointer">
-      <div class="fact-label" data-debug-id="E2">W parkach i rezerwatach</div>
-      <div class="fact-big" id="kr-e2-parks-count" style="font-size:36px;color:var(--green)">719</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">5,5% sieci - kliknij by zobaczyć na mapie</div>
-      <canvas id="canvas-parks-donut" width="100" height="100" style="display:block;margin:0 auto 8px"></canvas>
-      <div id="parks-top3" style="font-size:11px;color:var(--muted);line-height:1.8"></div>
-    </div>
-    <div class="fact-card" data-fact-id="void" onclick="jumpToFact('void')">
-      <div class="fact-label" data-debug-id="E3">Największa pustka bez Żabki</div>
-      <div class="fact-big red" id="kr-e3-void">46,5 km</div>
-      <canvas id="canvas-void-mini" width="200" height="100" style="display:block;margin-top:8px"></canvas>
-      <div class="fact-city" style="margin-top:6px">Bieszczady, podkarpackie</div>
-      <div class="fact-oneliner">Tam, gdzie kończy się sieć.</div>
-      <div class="jump-hint">Kliknij - przeskocz na mapę</div>
-    </div>
-  </div>
-
-  <!-- Parks mini map -->
-  <div class="card reveal" style="margin-bottom:16px" id="parks-map-card">
-    <div class="card-title" data-debug-id="E2 mapa">Parki i obszary chronione z Żabkami</div>
-    <div class="card-sub">Kolor = typ ochrony: zielony = parki krajobrazowe, bursztyn = parki narodowe i bufory</div>
-    <div class="map-container"><div id="map-parks"></div></div>
-  </div>
-
-  <!-- F + G -->
-  <div class="row row-2 reveal" style="margin-bottom:16px">
-    <div class="fact-card" data-fact-id="frogstreet" onclick="jumpToFact('frogstreet')">
-      <div class="fact-label" data-debug-id="F1">Żabka na ulicy Żabki</div>
-      <div style="font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--teal);margin:8px 0">ul. Zielonej Żabki 7</div>
-      <div class="fact-city">Żabia Wola, mazowieckie</div>
-      <div class="fact-oneliner" id="kr-f1-oneliner">Sklepy na ulicach o wodnych i płazich nazwach.</div>
-      <div id="frog-streets-list" style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.9"></div>
-      <div class="jump-hint">Kliknij - przeskocz na mapę</div>
-    </div>
-    <div class="card">
-      <div class="fact-big" id="kr-g1-text" style="font-size:26px;color:var(--green)" data-debug-id="G1/G2">Powiaty. Żaden bez Żabki.</div>
-      <div class="caveat" id="kr-g1-caveat"></div>
-      <div style="font-size:12px;color:var(--muted);margin-top:8px">Pełna mapa ulic w sekcji Ciekawostki powyżej.</div>
+      <div class="card-title">Ulice z najwieksza liczba Zabek</div>
+      <div class="card-sub">Konkretna ulica i miasto - nie tylko nazwa.</div>
+      <div class="chart-wrap" style="height:240px"><canvas id="ciek-streetsChart"></canvas></div>
     </div>
   </div>
 </div>

@@ -12,6 +12,7 @@
   "dependencies": {
     "chart.js": "^4.4.1",
     "d3": "^7.9.0",
+    "echarts": "^5.5.0",
     "leaflet": "^1.9.4",
     "leaflet.heat": "^0.2.0"
   }

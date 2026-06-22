@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Metodyka -- Zabka Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#0a120a; --surface:#0f1b0e; --s2:#0c160b;
+      --green:#84c341; --green-bright:#a6e84a; --amber:#f2a359; --red:#e8693d; --teal:#4dd0b1;
+      --muted:#93a487; --muted2:#5d6c52; --axis:rgba(140,200,80,.14); --ink:#eef3e6;
+      --font-display:'Bricolage Grotesque',sans-serif;
+      --font-body:'IBM Plex Sans',sans-serif;
+      --font-mono:'JetBrains Mono',monospace;
+      --r:10px;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
+    body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+    body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+      background:radial-gradient(ellipse 900px 700px at 10% 15%,rgba(0,192,96,.07) 0%,transparent 60%),
+                 radial-gradient(ellipse 700px 600px at 90% 85%,rgba(0,180,200,.05) 0%,transparent 55%)}
+
+    nav{position:sticky;top:0;z-index:100;background:rgba(13,13,20,.9);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.06)}
+    .nav-inner{max-width:720px;margin:0 auto;padding:0 24px;display:flex;align-items:center;gap:16px;height:52px}
+    .brand{display:flex;align-items:center;gap:8px;font-family:var(--font-display);font-weight:700;font-size:15px;letter-spacing:-.02em;white-space:nowrap;cursor:pointer;text-decoration:none;color:var(--ink)}
+    .brand:hover .brand-dot{box-shadow:0 0 18px var(--green)}
+    .brand-dot{width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);flex-shrink:0;transition:box-shadow .3s}
+    .nav-link{color:var(--muted);text-decoration:none;font-size:13px;margin-left:auto;border-bottom:1px solid rgba(147,164,135,.3);transition:color .2s,border-color .2s}
+    .nav-link:hover{color:var(--green);border-bottom-color:var(--green)}
+
+    .page{max-width:720px;margin:0 auto;padding:56px 24px 80px;position:relative;z-index:1}
+
+    h1{font-family:var(--font-display);font-size:36px;font-weight:800;color:var(--green);letter-spacing:-.03em;margin-bottom:8px}
+    h1+p{font-size:16px;color:var(--muted);margin-bottom:48px;line-height:1.7}
+
+    h2{font-family:var(--font-display);font-size:20px;font-weight:700;color:var(--ink);margin-top:48px;margin-bottom:16px;letter-spacing:-.02em;padding-bottom:8px;border-bottom:1px solid var(--axis)}
+    h2:first-of-type{margin-top:0}
+
+    h3{font-family:var(--font-display);font-size:15px;font-weight:600;color:var(--ink);margin-top:32px;margin-bottom:8px}
+
+    p{color:rgba(238,243,230,.85);margin-bottom:16px;line-height:1.75}
+    p:last-child{margin-bottom:0}
+
+    code{font-family:var(--font-mono);font-size:12.5px;background:rgba(140,200,80,.1);padding:1px 5px;border-radius:4px;color:var(--green-bright)}
+
+    ul{margin:0 0 16px 0;padding-left:24px}
+    li{color:rgba(238,243,230,.85);margin-bottom:6px;line-height:1.7}
+
+    ol{margin:0 0 16px 0;padding-left:24px}
+    ol li{color:rgba(238,243,230,.85);margin-bottom:10px;line-height:1.7}
+    ol li strong{color:var(--ink)}
+
+    .warn-box{background:rgba(242,163,89,.06);border:1px solid rgba(242,163,89,.2);border-left:3px solid var(--amber);border-radius:0 var(--r) var(--r) 0;padding:20px 24px;margin-top:32px;margin-bottom:24px}
+    .warn-box h3{color:var(--amber);margin-top:0}
+    .warn-box p,.warn-box li{color:var(--muted)}
+    .warn-box p:last-child{margin-bottom:0}
+
+    footer{position:relative;z-index:1;border-top:1px solid var(--axis)}
+    .foot-inner{max-width:720px;margin:0 auto;padding:20px 24px 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+    .foot-text{font-size:12px;color:var(--muted2)}
+    .foot-link{color:var(--muted);text-decoration:none;border-bottom:1px solid rgba(147,164,135,.3);transition:color .2s,border-color .2s}
+    .foot-link:hover{color:var(--green);border-bottom-color:var(--green)}
+
+    @media(max-width:600px){
+      h1{font-size:28px}
+      .page{padding:36px 18px 60px}
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="brand">
+      <span class="brand-dot"></span>
+      Zabka Dashboard
+    </a>
+    <a href="/" class="nav-link">Powrot na dashboard</a>
+  </div>
+</nav>
+
+<div class="page">
+
+<h1>Metodyka</h1>
+<p>Skad bierzemy dane, co z nimi robimy i czego nie wiemy. Zrodla, ograniczenia i caly pipeline krok po kroku.</p>
+
+<h2>Zrodla danych</h2>
+
+<h3>Zabka -- glowne zrodlo</h3>
+<p>Lokalizacje sklepow pochodza z publicznego pliku JSON na <code>zabka.pl</code> -- to ten sam plik, z ktorego korzysta sklepowa wyszukiwarka na ich stronie. Plik ma okolo 13 200 sklepow, kazdy ze wspolrzednymi GPS, adresem, godzinami otwarcia i flagami (piec Merrychef, otwarte w niedziele, 24/7). Z pliku wyrzucamy dane osobowe dyrektorow, stale pola (kraj, aktywnosc) i marketingowe URLe. Zostaja same dane analityczne.</p>
+
+<h3>Granice administracyjne</h3>
+<p>Wojewodztwa i powiaty bierzemy z GeoJSON z repozytorium <code>ppatrzyk/polska-geojson</code>. Kazdy sklep przypisujemy do wojewodztwa i powiatu przez punkt-w-poligon -- sprawdzamy, w ktorym wielokacie lezy, i tyle. Gminy i ich powierzchnie z GADM. Miasta (dla statystyki "% polskich miast z Zabka") z GUS BDL. Okolo 3 sklepy na granicach trafiaja do najblizszego regionu zamiast do wlasciwego -- to efekt uproszczonych granic i nie da sie z tym nic zrobic bez pelnej bazy adresowej.</p>
+
+<h3>Gospodarka -- GUS BDL</h3>
+<p>Zarobki, bezrobocie i populacja na poziomie powiatow pochodza z Banku Danych Lokalnych (zmienne 64428, 60270, 72305). Pobieramy je raz w roku. Nazwy powiatow trzeba normalizowac -- GUS lubi dodawac prefiksy (<code>Powiat m.</code>), przyrostki czasowe (<code>od 2023</code>) i zmieniac nazwy (<code>jeleniogorski</code> staje sie <code>karkonoski</code> w 2021). Wszystko to czyscimy przed zmatchowaniem. Dokladnosc: dane pochodza z roku, w ktorym GUS je opublikowal, nie z biezacego miesiaca.</p>
+
+<h3>Jakosc powietrza -- GIOS</h3>
+<p>Kazdy sklep ma przypisana najblizsza stacje pomiarowa GIOS. Obliczamy odleglosc w kilometrach (haversine) i zapisujemy referencje. Na tej podstawie karty na dashboardie pokazuja aktualny indeks jakosci powietrza -- dane live, nie wypieczone do snapshota. Stacje pobieramy od nowa przy kazdym uruchomieniu ETL.</p>
+
+<h3>Parki narodowe i krajobrazowe -- GDOS</h3>
+<p>Granice parkow i ich otulin pobieramy z WFS GDOS (warstwy <code>ParkiNarodowe</code> + <code>ParkiKrajobrazowe</code>). Mamy 259 obiektow: 46 parkow narodowych z otulinami i 213 krajobrazowych. Kazdy sklep sprawdzamy punkt-w-poligon -- jesli trafil do parku lub otuliny, dostaje flage.</p>
+
+<h3>Wysokosc terenu -- GUGiK NMT</h3>
+<p>Wysokosc n.p.m. z Numerycznego Modelu Terenu GUGiK (<code>GetHByXY</code>, wspolrzedne PL-1992). To jest opt-in (flaga <code>--elevation</code>), bo ponad 13 tysiecy zapytan HTTP. Wyniki trafiaja do lokalnego cache (<code>elevation_cache.json</code>) -- ponowne odpalenie ETL nie odpytuje punktow, ktore juz mamy. Uwaga: serwis GUGiK przyjmuje tylko wspolrzedne PL-1992, nie WGS84, wiec w ETL jest konwersja wlasnym kodem (bez pyproj).</p>
+
+<h3>Paczkomaty InPost</h3>
+<p>Punkty paczkowe z publicznego API InPost ShipX (typ <code>parcel_locker</code>). Kazdego paczkomatu przypisujemy do wojewodztwa i powiatu tym samym punktem-w-poligon co sklepy. To jest jednorazowe pobranie -- siec paczkomatow rosnie wolno, mamy okolo 31 800 punktow. Porownanie Zabek vs paczkomaty -- z przelacznikiem poziomu (wojewodztwo / powiat / miasto / gmina) -- jest na dashboardzie.</p>
+
+<h3>Plazy -- GBIF</h3>
+<p>Obserwacje plazow z Global Biodiversity Information Facility (klasa Amphibia, <code>taxonKey=131</code>) w Polsce. Mamy okolo 46 000 rekordow ze wspolrzednymi. BallTree (haversine) zlicza obserwacje w promieniu 5 km od kazdego sklepu. Najbardziej "zabia" Zabka ma 2 028 obserwacji -- i to jest w Ursynowie, nie w zadnym parku narodowym. Caly rozdzial PLAZY na dashboardzie jest nawiazaniem do nazwy sieci.</p>
+
+<h3>Sasiedztwo -- obliczenia lokalne</h3>
+<p>Odleglosc do najblizszej innej Zabki obliczamy lokalnie przez BallTree (haversine, k=2). Najbardziej odosobniony sklep ma 27 km do najblizszego sasiada (Michalowo, podlaskie). Punkt najdalszy od jakiejkolwiek Zabki -- pusta przestrzen w Bieszczadach -- to okolo 46,5 km. Zero zapytan sieciowych, czysta geometria na danych juz wczytanych.</p>
+
+<h3>Pogoda i niebo -- Open-Meteo, OpenLightMap</h3>
+<p>Aktualne dane pogodowe z darmowego API Open-Meteo (temperatura, zachmurzenie) dla najzimniejszej i najcieplejszej lokalizacji Zabki. Podobnie najciemniejsze i najjasniejsze niebo z OpenLightMap. Dane live, pobierane przy otwarciu strony. Nie wypiekamy ich do bazy -- pogoda z wczoraj nikomu nie potrzebna.</p>
+
+<h2>Potok ETL</h2>
+
+<p>Mamy codzienny potok, ktory pobiera dane, czysci, wzbogaca i zapisuje do bazy. Wyglada tak:</p>
+
+<ol>
+  <li><strong>Pobranie.</strong> Pobieramy publiczny plik JSON z lokalizacjami sklepow. Jak API niedostepne, bierzemy z lokalnego pliku fallback z <code>data/input/</code>.</li>
+  <li><strong>Oczyszczenie.</strong> Deduplikacja po <code>storeId</code> (okolo 32 duplikaty w zrodlach), normalizacja nazw miast (<code>LEGNICA</code> staje sie <code>Legnica</code>), usuwanie <code>&lt;br&gt;</code> i kodow pocztowych z ulic, wyrzucenie danych osobowych i stalych pol.</li>
+  <li><strong>Wzbogacenie.</strong> Kazde zrodlo niezaleznie: regiony, GIOS, sasiedztwo, plazy, parki, elewacja, GUS, paczkomaty. Bled jednego zrodla nie przerywa potoku -- kolumna zostaje NULL i ETL idzie dalej. Kazde zapytanie sieciowe ma retry: 3 proby z odstępem 60 sekund.</li>
+  <li><strong>Diff.</strong> Porownujemy z poprzednim snapshota: nowe <code>store_id</code> to sklep otwarty, znikniete -- zamkniety. Wynik zapisujemy jako historia zmian.</li>
+  <li><strong>Zapis do bazy.</strong> Zapis do DuckDB. Nowe kolumny dodajemy przez <code>ALTER TABLE ADD COLUMN IF NOT EXISTS</code> (bez DEFAULT, bo DuckDB nie obsluguje DEFAULT w ALTER). Baza przechowuje ostatnie 6 miesiecy snapshota -- starsze usuwamy.</li>
+  <li><strong>Czyszczenie cache.</strong> Po udanym ETL czyscimy cache Redis. Backend odbudowuje odpowiedzi na nastepnym zapytaniu. Redis jest opcjonalny -- jak niedostepny, backend dziala bez niego.</li>
+</ol>
+
+<h2>Czego nie gwarantujemy</h2>
+
+<div class="warn-box">
+  <h3>Ograniczenia danych</h3>
+  <ul>
+    <li>Okolo 218 sklepow nie ma daty otwarcia w zrodlach -- nie pojawiaja sie na wykresie historii wzrostu.</li>
+    <li>Populacje powiatow to dane roczne z GUS, nie biezace szacunki.</li>
+    <li>Sklepy na granicach uproszczonych poligonow moga trafic do sasiedniego wojewodztwa (dotyczy okolo 3 punktow).</li>
+    <li>Godziny otwarcia pochodza ze zrodla Zabki, nie z weryfikacji terenowej.</li>
+    <li>Dane GIOS (jakosc powietrza) i pogodowe sa live -- moga roznic sie od off-line bazy.</li>
+    <li>Obserwacje GBIF zaleza od aktywnosci obserwatorow -- mniej zamieszkane regiony maja mniej rekordow nie dlatego, ze jest mniej plazow, tylko dlatego, ze mniej osob tam patrzy.</li>
+    <li>Brakujace zrodlo wzbogacenia zostawia kolumne NULL -- tabela jest spojna, ale niekompletna.</li>
+    <li>Soft delete: sklepy, ktore zniknely z zrodla, dostaja <code>deleted_at</code> w bazie. Zapytania domyslnie filtruja <code>deleted_at IS NULL</code>, wiec zamkniete sklepy nie psuja statystyk.</li>
+  </ul>
+</div>
+
+</div>
+
+<footer>
+  <div class="foot-inner">
+    <span class="foot-text">Zbudowane z danych publicznych. <a href="/" class="foot-link">Powrot na dashboard</a></span>
+    <a href="https://github.com/barankiewicz" target="_blank" rel="noopener" class="foot-link">GitHub</a>
+  </div>
+</footer>
+
+</body>
+</html>

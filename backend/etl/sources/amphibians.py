@@ -3,6 +3,7 @@
 import os
 import json
 import time
+import datetime
 from concurrent.futures import ThreadPoolExecutor
 
 import requests
@@ -23,9 +24,16 @@ GBIF_OFFSET_CAP = 100000          # twardy limit offsetu w GBIF search
 GBIF_WORKERS = int(os.getenv("GBIF_WORKERS", "8"))
 
 
+def _year_range() -> str:
+    """Zakres lat: od 1998 (poczatek sieci Zabka) do biezacego."""
+    cur = datetime.date.today().year
+    return f"1998,{cur}"
+
+
 def _gbif_params(offset: int, limit: int) -> dict:
     return {"country": "PL", "taxonKey": GBIF_AMPHIBIA_TAXON,
-            "hasCoordinate": "true", "limit": limit, "offset": offset}
+            "hasCoordinate": "true", "year": _year_range(),
+            "limit": limit, "offset": offset}
 
 
 def _fetch_page(offset: int) -> list:
@@ -38,8 +46,9 @@ def _fetch_page(offset: int) -> list:
             out = []
             for rec in r.json().get("results", []):
                 la, lo = rec.get("decimalLatitude"), rec.get("decimalLongitude")
+                yr = rec.get("year")
                 if la is not None and lo is not None:
-                    out.append([la, lo])
+                    out.append([la, lo, yr])
             return out
         except Exception:
             time.sleep(0.5 * (attempt + 1))
@@ -47,13 +56,18 @@ def _fetch_page(offset: int) -> list:
 
 
 def _load_amphibian_points() -> list:
-    """Punkty [lat, lon] obserwacji plazow w PL z GBIF. Cache lokalny.
+    """Punkty [lat, lon, year] obserwacji plazow w PL z GBIF (ostatnie 3 lata). Cache lokalny.
     Strony rownolegle (GBIF dlawi sekwencyjne); pobranie ponawiane wg with_retries,
     [] gdy sie nie uda (best-effort)."""
     if os.path.exists(AMPHIBIAN_CACHE):
         try:
             with open(AMPHIBIAN_CACHE, encoding="utf-8") as f:
-                return json.load(f)
+                cached = json.load(f)
+            # stary format [lat, lon] bez roku — wymusz ponowne pobranie
+            if cached and len(cached[0]) == 2:
+                print("[amphibians] stary cache bez roku — odswiezam")
+            else:
+                return cached
         except Exception:
             pass
 
@@ -104,7 +118,8 @@ class AmphibiansEnricher(Enricher):
             print("[amphibians] brak obserwacji - pomijam")
             return
         from sklearn.neighbors import BallTree
-        tree = BallTree(np.radians(pts), metric="haversine")
+        coords = [[p[0], p[1]] for p in pts]
+        tree = BallTree(np.radians(coords), metric="haversine")
         q = np.radians([[r["latitude"], r["longitude"]] for r in rows])
         counts = tree.query_radius(q, r=AMPHIBIAN_RADIUS_KM / EARTH_KM, count_only=True)
         dist, _idx = tree.query(q, k=1)

@@ -1361,14 +1361,25 @@ async def section3_rare():
             SUM(CASE WHEN LOWER(street) LIKE '%jana paw%a%'      THEN 1 ELSE 0 END)
         FROM locations WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
     """)
-    # Physical streets: top (street, city) pairs by store count
+    # Physical streets: top streets by store count, grouped by street NAME (number stripped)
     physical_streets = _q("""
-        SELECT street, city, COUNT(*) AS cnt
-        FROM locations
-        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
-          AND street IS NOT NULL AND street != '' AND street != 'nieokreslona'
-          AND LOWER(street) NOT LIKE '%nieokresl%'
-        GROUP BY street, city
+        WITH cleaned AS (
+            SELECT
+                TRIM(REGEXP_REPLACE(
+                    REGEXP_REPLACE(TRIM(street), '^[a-zA-Z]{2,4}\\.\s*', ''),
+                    '\s+\d[\dA-Za-z/\\-,\\.\\s]*$',
+                    ''
+                )) AS street_name,
+                city
+            FROM locations
+            WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
+              AND street IS NOT NULL AND street != '' AND street != 'nieokreslona'
+              AND LOWER(street) NOT LIKE '%nieokresl%'
+        )
+        SELECT street_name, city, COUNT(*) AS cnt
+        FROM cleaned
+        WHERE street_name != '' AND LENGTH(street_name) > 1
+        GROUP BY street_name, city
         HAVING COUNT(*) >= 2
         ORDER BY cnt DESC
         LIMIT 15
@@ -1415,6 +1426,21 @@ async def section3_rare():
             for r in physical_streets
         ],
     }
+
+
+# ---------------------------------------------------------------------------
+# Parks stores: lat/lon of stores inside nature parks
+# ---------------------------------------------------------------------------
+
+@router.get("/stats/parks-stores")
+@cached(ttl=3600)
+async def parks_stores():
+    rows = client().execute("""
+        SELECT latitude, longitude
+        FROM locations
+        WHERE is_in_nature_park = TRUE AND deleted_at IS NULL
+    """).fetchall()
+    return [[round(float(r[0]), 6), round(float(r[1]), 6)] for r in rows]
 
 
 # ---------------------------------------------------------------------------

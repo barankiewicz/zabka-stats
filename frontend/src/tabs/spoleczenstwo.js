@@ -1,7 +1,7 @@
 import Chart from 'chart.js/auto';
 import L from 'leaflet';
 import { C, STATE } from '../config.js';
-import { M, CHARTS } from '../state.js';
+import { M, CHARTS, MAPS } from '../state.js';
 import { fmt, macroCol, getFont, destroyChart, leafletDark, startTabParticles } from '../utils.js';
 import { setFilter } from '../filter.js';
 import { renderEcon } from './econ.js';
@@ -47,9 +47,42 @@ function renderSpolecKPIs(){
   }
 }
 
+function renderInpostMap(){
+  const data=M.inpost_vs_zabka||[];
+  if(!data.length||!M.woj_geo)return;
+  const el=document.getElementById('map-inpost');if(!el||el._leaflet_id)return;
+  const byName={};
+  data.forEach(d=>{byName[d.voivodeship||d.name||'']=d});
+  const ratios=data.map(d=>(d.lockers_per_100k||0)/(d.zabki_per_100k||1));
+  const maxR=Math.max(...ratios,1);
+  const map=leafletDark('map-inpost');map.setView([52,19.4],5.5);
+  MAPS['map-inpost']=map;
+  L.geoJSON(M.woj_geo,{
+    style(f){
+      const d=byName[f.properties.name];
+      if(!d)return{fillColor:'#1a2a1a',fillOpacity:0.5,color:'#2a2a3a',weight:1};
+      const r=(d.lockers_per_100k||0)/(d.zabki_per_100k||1);
+      const t=Math.min(r/maxR,1);
+      const rc=Math.round(132+(242-132)*t);
+      const gc=Math.round(195-(195-163)*t);
+      const bc=Math.round(65-65*t);
+      return{fillColor:`rgb(${rc},${gc},${bc})`,fillOpacity:0.7,color:'#2a2a3a',weight:1};
+    },
+    onEachFeature(f,l){
+      const d=byName[f.properties.name];
+      if(!d)return;
+      const z=(d.zabki_per_100k||0).toFixed(1);
+      const p=(d.lockers_per_100k||0).toFixed(1);
+      const r=d.ratio||(d.lockers_per_100k&&d.zabki_per_100k?(d.lockers_per_100k/d.zabki_per_100k).toFixed(2):'—');
+      l.bindTooltip(`<b>${f.properties.name}</b><br>Żabka: ${z}/100k<br>InPost: ${p}/100k<br>stosunek: ${r}x`,{sticky:true});
+    }
+  }).addTo(map);
+}
+
 export function renderSpoleczenstwo(){
   startTabParticles('particles-spoleczenstwo',[188,224,58],60);
   renderSpolecKPIs();
+  renderInpostMap();
   // Update lead paragraph with live totals
   const leadEl=document.getElementById('ec-lead-totals');
   if(leadEl&&M.summary&&M.section3_rare){
@@ -77,7 +110,6 @@ export function renderSpoleczenstwo(){
     }
   }
   renderEcon();
-  renderMerrychef();
   renderDumbbellByLevel();
 }
 
@@ -276,10 +308,16 @@ export function renderDumbbell(data){
     const cz=document.createElementNS('http://www.w3.org/2000/svg','circle');
     cz.setAttribute('cx',xz);cz.setAttribute('cy',y);cz.setAttribute('r',DOT_R);
     cz.setAttribute('fill','#84c341');cz.setAttribute('opacity',alpha);
+    const tz=document.createElementNS('http://www.w3.org/2000/svg','title');
+    tz.textContent=`${d.name||d.voivodeship||''}: Zabka ${(d.zabki_per_100k||0).toFixed(1)}/100k`;
+    cz.appendChild(tz);
     svg.appendChild(cz);
     const ci=document.createElementNS('http://www.w3.org/2000/svg','circle');
     ci.setAttribute('cx',xi);ci.setAttribute('cy',y);ci.setAttribute('r',DOT_R);
     ci.setAttribute('fill','#f2a359');ci.setAttribute('opacity',alpha);
+    const ti=document.createElementNS('http://www.w3.org/2000/svg','title');
+    ti.textContent=`${d.name||d.voivodeship||''}: InPost ${(d.lockers_per_100k||0).toFixed(1)}/100k`;
+    ci.appendChild(ti);
     svg.appendChild(ci);
     const lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
     lbl.setAttribute('x',PAD_L-6);lbl.setAttribute('y',y+3.5);lbl.setAttribute('text-anchor','end');
