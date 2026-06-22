@@ -28,6 +28,20 @@ from backend.etl.geo import (build_polygon_index, assign_region, nearest_region,
 
 _GEO_DIR = Path(__file__).parent.parent.parent / "data" / "geo"
 
+_gbif_total_cache: int | None = None
+
+def _gbif_total() -> int | None:
+    global _gbif_total_cache
+    if _gbif_total_cache is not None:
+        return _gbif_total_cache
+    p = _GEO_DIR / "amphibians_pl.json"
+    try:
+        data = json.loads(p.read_text())
+        _gbif_total_cache = len(data) if isinstance(data, list) else None
+    except Exception:
+        _gbif_total_cache = None
+    return _gbif_total_cache
+
 
 # --- geometry helpers for area (km2) + powiat<->voivodeship<->geojson-id map ----
 def _rings(geom):
@@ -1220,7 +1234,7 @@ async def amphibians():
         ORDER BY total_occ DESC LIMIT 10
     """)
     return {
-        "gbif_total":       46000,
+        "gbif_total":       _gbif_total(),
         "median_occurrences": int(round(float(median_row[0]))) if median_row and median_row[0] is not None else None,
         "has_enriched_data": has_amphibian_data,
         "most_froggy": most_froggy,
