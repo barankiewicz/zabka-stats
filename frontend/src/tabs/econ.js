@@ -211,9 +211,6 @@ export function renderEcon() {
   root.querySelectorAll('[data-count]').forEach(el => obsC.observe(el));
   const obsF = new IntersectionObserver((es) => es.forEach(e => { if (e.isIntersecting) { e.target.style.width = e.target.dataset.fill + '%'; obsF.unobserve(e.target); } }), { threshold: .6 });
   root.querySelectorAll('[data-fill]').forEach(el => obsF.observe(el));
-  const obsD = new IntersectionObserver((es) => es.forEach(e => { if (e.isIntersecting) { e.target.style.left = ((parseFloat(e.target.dataset.r) + 1) / 2 * 100) + '%'; obsD.unobserve(e.target); } }), { threshold: .6 });
-  root.querySelectorAll('.ec-rmeter-dot').forEach(el => obsD.observe(el));
-
   if (_econDone) return;   // charts only once
   _econDone = true;
 
@@ -226,13 +223,6 @@ export function renderEcon() {
   const reg1 = linreg(rowsS.map(d => d.avg_salary), rowsS.map(d => d.per_1k));
   const r2 = pearson(rowsU.map(d => d.unemployment_rate), rowsU.map(d => d.per_1k));
   const reg2 = linreg(rowsU.map(d => d.unemployment_rate), rowsU.map(d => d.per_1k));
-  const setR = (id, r) => {
-    const e = document.getElementById(id + '-r'); if (e) e.textContent = 'r = ' + plr(r);
-    const sq = document.getElementById(id + '-sq'); if (sq) sq.textContent = Math.round(r * r * 100) + '%';
-    const dot = document.getElementById(id + '-dot'); if (dot) dot.dataset.r = r.toFixed(2);
-  };
-  setR('ec1', r1); setR('ec2', r2);
-
   const ymax = Math.min(1.05, Math.max(...all.map(d => d.per_1k || 0)) * 1.08);
   const sMin = Math.min(...rowsS.map(d => d.avg_salary));
   const sMax = Math.max(...rowsS.map(d => d.avg_salary));

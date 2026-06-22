@@ -336,15 +336,6 @@ canvas{display:block}
 .ec-chart.bar{height:380px}
 @media(max-width:560px){.ec-chart{height:440px}.ec-chart.bar{height:340px}}
 
-.ec .rmeter{background:var(--surface);border:1px solid var(--axis);border-radius:14px;padding:18px 20px;margin-top:22px}
-.ec .rmeter-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:12px}
-.ec .rmeter-r{font-family:var(--font-display);font-weight:800;font-size:26px;letter-spacing:-.02em}
-.ec .rmeter-tag{font-family:var(--font-mono);font-size:12px;color:var(--muted);letter-spacing:.02em}
-.ec .rmeter-track{position:relative;height:8px;border-radius:99px;margin:16px 0 6px;background:linear-gradient(90deg,#e8693d,rgba(147,164,135,.35) 50%,var(--green))}
-.ec .rmeter-track .zero{position:absolute;left:50%;top:-4px;width:1px;height:16px;background:rgba(238,243,230,.35)}
-.ec .rmeter-dot{position:absolute;top:50%;left:50%;width:16px;height:16px;border-radius:99px;background:var(--ink);border:3px solid var(--bg,#0a120a);box-shadow:0 0 0 2px currentColor,0 0 16px currentColor;transform:translate(-50%,-50%);transition:left 1.2s cubic-bezier(.2,.7,.2,1)}
-.ec .rmeter-scale{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:10.5px;color:var(--muted2);letter-spacing:.04em}
-.ec .rmeter-note{color:var(--muted);font-size:13.5px;line-height:1.6;margin:12px 0 0;max-width:84ch}
 
 .ec .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:16px;margin-top:18px}
 .ec .fact{position:relative;overflow:hidden;background:var(--surface);border:1px solid var(--axis);border-radius:16px;padding:22px;transition:transform .35s cubic-bezier(.2,.7,.2,1),border-color .35s}
