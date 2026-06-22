@@ -189,6 +189,14 @@ function buildMap() {
     rail.appendChild(it);
   });
 
+  // Mouse leaves the whole rail → return to national overview (unless user clicked to lock a selection)
+  rail.addEventListener('mouseleave', () => {
+    if (activeId !== null) return;
+    setActiveMarker(null);
+    map.flyTo(HOME, HOME_Z, { duration: RM ? 0 : 1.3, easeLinearity: .25 });
+    if (cap) cap.textContent = 'Najedz na pozycje z listy - mapa doleci. Kliknij - szczegoly.';
+  });
+
   // tournee removed
 
   setTimeout(() => map.invalidateSize(), 300);
