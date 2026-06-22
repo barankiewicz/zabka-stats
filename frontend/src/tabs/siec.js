@@ -20,6 +20,11 @@ export function renderSiec(){
   wireGranular();
   renderGranular();
   renderPowiatCoverage();
+  const root=document.getElementById('tab-siec');
+  if(root){
+    const obs=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');obs.unobserve(e.target);}}),{threshold:.12});
+    root.querySelectorAll('.si-reveal').forEach(r=>obs.observe(r));
+  }
 }
 
 /* ---------------- HERO: glowing count-up + particle field ---------------- */
