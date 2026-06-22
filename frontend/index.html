@@ -16,7 +16,7 @@
     <div class="tab-nav" role="tablist">
       <button class="tab-btn" data-tab="siec">Sieć</button>
       <button class="tab-btn active" data-tab="spoleczenstwo">Żabka a Polska</button>
-      <button class="tab-btn" data-tab="edge">Wartości brzegowe</button>
+      <button class="tab-btn" data-tab="edge">Ciekawostki</button>
       <button class="tab-btn" data-tab="plazy">Żabka a żabki</button>
     </div>
   </div>
@@ -242,7 +242,6 @@
           <button class="gran-btn active" data-ilevel="voivodeship">Województwo</button>
           <button class="gran-btn" data-ilevel="powiat">Powiat</button>
           <button class="gran-btn" data-ilevel="city">Miasto</button>
-          <button class="gran-btn" data-ilevel="gmina">Gmina</button>
         </div>
       </div>
     </div>
@@ -252,18 +251,10 @@
   <!-- ================= ZABKA A POLSKA: placa + bezrobocie (infotainment) ================= -->
   <section class="ec" id="ec-root">
 
-    <div class="ec-reveal" style="margin-bottom:6px">
-      <div class="eyebrow">Żabka w liczbach · per capita</div>
-      <h2 style="max-width:18ch">Co przyciąga Żabkę?</h2>
-      <p class="lead" id="ec-lead-totals">W dwóch rozdziałach sprawdzamy, czy gęstość sieci idzie za <b>pieniędzmi</b> i za <b>pracą</b> - i co tak naprawdę mówią o tym liczby.</p>
-    </div>
-
     <!-- ROZDZIAL 1: PLACA -->
     <div class="ec-chapter">
       <div class="ec-reveal">
-        <div class="eyebrow"><span class="no">Rozdział 01</span> · Płaca</div>
-        <h2>Im bogaciej,<br>tym gęściej.</h2>
-        <p class="lead">Żabka kojarzy się z tanim sklepem na rogu - a najgęstszą sieć ma tam, gdzie zarobki są najwyższe. Im więcej pieniędzy w powiecie, tym więcej Żabek na mieszkańca.</p>
+        <h2>Im wyższe zarobki,<br>tym więcej Żabek.</h2>
       </div>
 
       <div class="card ec-reveal">
@@ -300,7 +291,6 @@
     <!-- ROZDZIAL 2: BEZROBOCIE -->
     <div class="ec-chapter">
       <div class="ec-reveal">
-        <div class="eyebrow"><span class="no">Rozdział 02</span> · Bezrobocie</div>
         <h2>Gdzie brak pracy,<br>tam brak Żabki.</h2>
         <p class="lead">Druga strona medalu. Tam, gdzie bezrobocie jest wysokie, sieć rzednie. To ta sama historia co przy płacy, tylko widziana od strony rynku pracy.</p>
       </div>
@@ -353,15 +343,15 @@
 </div>
 </div>
 
-<!-- ============ EDGE CASE'Y ============ -->
+<!-- ============ CIEKAWOSTKI (dawniej: Wartości brzegowe) ============ -->
 <div id="tab-edge" class="tab-panel">
 <div class="section-wrap">
 
-  <!-- HERO edge -->
+  <!-- HERO -->
   <header class="tab-hero reveal" id="hero-edge">
     <canvas class="hero-particles" id="particles-edge"></canvas>
     <div class="hero-inner">
-      <div class="hero-eyebrow">Wartości brzegowe · sieć na granicy</div>
+      <div class="hero-eyebrow">Ciekawostki · sieć w liczbach</div>
       <div class="hero-number tab-hero-num" id="hero-num-edge">46,5</div>
       <div class="hero-number-label">km od najbliższej Żabki - rekord pustki w Bieszczadach</div>
       <h1 class="hero-h1">Na krańcach sieć przestaje być siecią.</h1>
@@ -369,8 +359,85 @@
     </div>
   </header>
 
-  <!-- ================= ATLAS KRANCOW (interaktywna mapa + rail + wykresy) ================= -->
+  <!-- =================== SEKCJA: Ciekawostki =================== -->
+  <section class="kr" id="ciek-root">
+
+    <h3 class="sec reveal">Ciekawostki</h3>
+    <p class="subsec reveal">Sieć w liczbach: jak wysoko sięga, jak ciasno stoją sklepy, gdzie ląduje Żabka - i co mówią płazy.</p>
+
+    <!-- KPI bar: odległości + dane o płazach -->
+    <div class="kpis reveal" id="ciek-kpis" style="margin-bottom:24px">
+      <div class="kpi">
+        <div class="n lime" id="ciek-kpi-zero">0 m</div>
+        <div class="l">minimalna odległość między sklepami<br><small style="color:var(--muted);font-size:10px">dwa sklepy pod tym samym adresem</small></div>
+      </div>
+      <div class="kpi">
+        <div class="n teal" id="ciek-kpi-froggy">—</div>
+        <div class="l" id="ciek-kpi-froggy-l">obserwacji płazów w 5 km<br><small style="color:var(--muted);font-size:10px" id="ciek-kpi-froggy-sub">rekord, miasto</small></div>
+      </div>
+      <div class="kpi">
+        <div class="n" style="color:var(--muted)" id="ciek-kpi-dry">—</div>
+        <div class="l">suchych Żabek<br><small style="color:var(--muted);font-size:10px">zero płazów w promieniu 5 km</small></div>
+      </div>
+      <div class="kpi">
+        <div class="n coral" id="ciek-kpi-farthest">— km</div>
+        <div class="l" id="ciek-kpi-farthest-l">najdalej od płaza<br><small style="color:var(--muted);font-size:10px" id="ciek-kpi-farthest-sub">miasto</small></div>
+      </div>
+    </div>
+
+    <!-- 2x2 wykresy: Skala i rozkład -->
+    <div class="grid2">
+      <div class="card reveal" id="ciek-c-elev">
+        <div class="chead"><h4>Wysokość nad poziomem morza</h4><span class="cap">kubełki 50 m · n = <span id="ciek-elev-cap-n">13 154</span></span></div>
+        <p class="cnote" id="ciek-elev-cnote">95% sieci mieści się między 17 a 332 m. Rekordy: <b style="color:#f2a359">Kościelisko 962,6 m</b> i <b style="color:#e8693d">Gdańsk −1,5 m</b>.</p>
+        <div class="chart-wrap" style="height:240px"><canvas id="ciek-elevChart"></canvas></div>
+      </div>
+      <div class="card reveal" id="ciek-c-knn">
+        <div class="chead"><h4>Jak daleko do najbliższej sąsiadki?</h4><span class="cap">odległość do najbliższego sklepu (k-NN)</span></div>
+        <p class="cnote">Im bliżej zera, tym gęściej. Ogon rozkładu sięga dziesiątek kilometrów.</p>
+        <div class="chart-wrap" style="height:240px"><canvas id="ciek-knnChart"></canvas></div>
+        <div class="statline" style="margin-top:8px"><span>mediana <b id="ciek-stat-median">—</b></span><span>średnia <b id="ciek-stat-avg">—</b></span><span>maks. <b id="ciek-stat-max">—</b></span></div>
+      </div>
+      <div class="card reveal" id="ciek-c-parks">
+        <div class="chead"><h4>Żabka na łonie natury</h4><span class="cap">parki krajobrazowe i otuliny</span></div>
+        <p class="cnote" id="ciek-parks-cnote">Sklepy w parkach lub ich otulinach.</p>
+        <div class="chart-wrap" style="height:240px"><canvas id="ciek-parksChart"></canvas></div>
+        <div class="statline" id="ciek-parks-statline" style="margin-top:8px"></div>
+      </div>
+      <div class="card reveal" id="ciek-c-streets">
+        <div class="chead"><h4>Ulice z największą liczbą Żabek</h4><span class="cap">konkretna ulica i miasto, nie tylko nazwa</span></div>
+        <p class="cnote">Nie agregaty po nazwie - konkretne miejsca, gdzie Żabki stoją gęsto na tej samej ulicy.</p>
+        <div class="chart-wrap" style="height:320px"><canvas id="ciek-streetsChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- P3 + P4: wykresy z plazow -->
+    <div class="row row-2 reveal" style="margin-bottom:16px;margin-top:24px">
+      <div class="card">
+        <div class="card-title">Najbardziej żabie Żabki są na wschodzie</div>
+        <div class="card-sub">średnia liczba obserwacji płazów na sklep, według województwa</div>
+        <div class="chart-wrap h420"><canvas id="chart-frog-voiv-edge"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Gęstość Żabek a obserwacje płazów idą w parze</div>
+        <div class="card-sub">X = liczba Żabek w promieniu 5 km, Y = obserwacje płazów w 5 km (oba log). Wspólna przyczyna: populacja miejska.</div>
+        <div class="chart-wrap h420"><canvas id="chart-frog-scatter-edge"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Disclaimer: dane o plazach -->
+    <div class="plazy-twist reveal" style="margin-bottom:40px">
+      <div class="plazy-twist-label">Zastrzeżenie · liczby dotyczące płazów (GBIF)</div>
+      <p>Dane GBIF to obserwacje zgłaszane dobrowolnie przez badaczy i zwykłych przechodniów z aplikacją - nie systematyczne pomiary terenowe. Liczba "obserwacji w 5 km" mówi tyle samo o aktywności obserwatorów, co o faktycznej gęstości żab. Warszawa wygrywa nie dlatego, że ma wyjątkowo dużo płazów, ale dlatego, że ma wyjątkowo dużo ludzi z telefonami. Traktuj te liczby jako wskazówkę i zawsze pytaj: czy widzę płazy, czy widzę ludzi, którym chciało się to zanotować?</p>
+    </div>
+
+  </section>
+
+  <!-- =================== SEKCJA: Wartości brzegowe =================== -->
   <section class="kr" id="kr-root">
+
+    <h3 class="sec kr-reveal">Wartości brzegowe</h3>
+    <p class="subsec kr-reveal">Gdzie Żabka jest pierwsza, ostatnia, najwyżej, najniżej - i gdzie jej nie ma wcale.</p>
 
     <!-- KPI -->
     <div class="kpis kr-reveal">
@@ -381,58 +448,29 @@
       <div class="kpi"><div class="n lime" id="kr-kpi-frogstreets" data-count="20" data-dec="0">0</div><div class="l">sklepów na ulicach ze słowem „żaba"</div></div>
     </div>
 
-    <!-- HERO MAP -->
+    <!-- ATLAS KRANCOW - mapa bez tournee -->
     <h3 class="sec kr-reveal">Atlas krańców</h3>
-    <p class="subsec kr-reveal">Dziewięć skrajnych punktów sieci na jednej mapie. Wybierz z panelu po prawej albo puść „tournée", żeby przelecieć przez wszystkie po kolei.</p>
+    <p class="subsec kr-reveal">Dziewięć skrajnych punktów sieci na jednej mapie. Wybierz z panelu po prawej - mapa doleci tam płynnie. Najedź na marker po zbliżeniu, żeby zobaczyć szczegóły.</p>
     <div class="hero kr-reveal">
       <div class="mapcard">
         <div class="maptop">
           <span class="t">Mapa interaktywna · płynny przelot</span>
           <div class="btnrow">
-            <button class="btn go" id="kr-tour">▶ Tournée po krańcach</button>
             <button class="btn" id="kr-reset">Cała Polska</button>
           </div>
         </div>
         <div id="kr-map"></div>
-        <div class="mapcap" id="kr-cap">Wskazówka: najedź lub kliknij punkt z panelu obok - mapa doleci tam płynnie i pokaże szczegóły.</div>
+        <div class="mapcap" id="kr-cap">Wskazówka: kliknij punkt z panelu obok - mapa doleci tam płynnie i pokaże szczegóły.</div>
         <div class="legend">
           <span><i style="background:#84c341"></i>Kompas</span>
           <span><i style="background:#f2a359"></i>Wysokość</span>
-          <span><i style="background:#4dd0b1"></i>Izolacja</span>
+          <span><i style="background:#4dd0b1"></i>Izolacja / Płazy</span>
           <span><i style="background:#e8693d"></i>Pustka</span>
           <span><i style="background:#a6e84a"></i>Ulice „żabie"</span>
         </div>
       </div>
       <div class="rail">
         <div class="rail-scroll" id="kr-rail"></div>
-      </div>
-    </div>
-
-    <!-- CHARTS -->
-    <h3 class="sec kr-reveal">Skala i rozkład</h3>
-    <p class="subsec kr-reveal">Te same krańce, ale w liczbach: jak wysoko sięga sieć, jak ciasno stoją sklepy i gdzie najchętniej lądują.</p>
-    <div class="grid2">
-      <div class="card kr-reveal" id="kr-c-elev">
-        <div class="chead"><h4>Wysokość nad poziomem morza</h4><span class="cap">kubełki 50 m · n = <span id="kr-elev-cap-n">13 154</span></span></div>
-        <p class="cnote" id="kr-elev-cnote">95% sieci mieści się między 17 a 332 m. Rekordy: <b style="color:#f2a359">Kościelisko 962,6 m</b> i <b style="color:#e8693d">Gdańsk −1,5 m</b> (jedyna poniżej morza).</p>
-        <div id="kr-elevChart" class="chart"></div>
-      </div>
-      <div class="card kr-reveal" id="kr-c-knn">
-        <div class="chead"><h4>Jak daleko do najbliższej sąsiadki?</h4><span class="cap">odległość do najbliższego sklepu (k-NN)</span></div>
-        <p class="cnote">Większość Żabek stoi ramię w ramię - ale ogon rozkładu sięga kilometrów.</p>
-        <div id="kr-knnChart" class="chart"></div>
-        <div class="statline"><span>mediana <b id="kr-stat-median">299 m</b></span><span>średnia <b id="kr-stat-avg">941 m</b></span><span>maks. <b id="kr-stat-max">27,8 km</b></span></div>
-      </div>
-      <div class="card kr-reveal" id="kr-c-parks">
-        <div class="chead"><h4>Żabka na łonie natury</h4><span class="cap">parki krajobrazowe i otuliny</span></div>
-        <p class="cnote" id="kr-parks-cnote">Sklepy w parkach lub ich otulinach.</p>
-        <div id="kr-parksChart" class="chart"></div>
-        <div class="statline" id="kr-parks-statline"></div>
-      </div>
-      <div class="card kr-reveal" id="kr-c-civic">
-        <div class="chead"><h4>Najbardziej „polskie" adresy</h4><span class="cap">liczba Żabek wg nazwy ulicy</span></div>
-        <p class="cnote">Gdzie Rynek, Kościuszko i Piłsudski - tam i Żabka.</p>
-        <div id="kr-civicChart" class="chart"></div>
       </div>
     </div>
 
@@ -452,9 +490,9 @@
 
   </section>
 
-  <div class="sec-hook reveal">Reszta. Która też jest prawda. Kliknij kartę - mapa przeskakuje do miejsca.</div>
+  <div class="sec-hook reveal">Kliknij kartę - mapa przeskakuje do miejsca.</div>
 
-  <!-- 3.0 Extremes map -->
+  <!-- Mapa krancow (card cards drive this map) -->
   <div class="card reveal" style="margin-bottom:20px;position:relative">
     <div class="card-title" data-debug-id="3.0">Mapa krańców</div>
     <div class="card-sub">Kliknij dowolną kartę faktu - mapa przeskakuje do tego miejsca z tooltipem.</div>
@@ -590,8 +628,7 @@
     <div class="card">
       <div class="fact-big" id="kr-g1-text" style="font-size:26px;color:var(--green)" data-debug-id="G1/G2">Powiaty. Żaden bez Żabki.</div>
       <div class="caveat" id="kr-g1-caveat"></div>
-      <div class="chart-wrap h180" style="margin-top:12px"><canvas id="chart-civic-streets"></canvas></div>
-      <div style="font-size:12px;color:var(--muted);margin-top:8px">Żabka osiedliła się na Rynku, przy Kościuszkim, Piłsudskim i Mickiewiczu.</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:8px">Pełna mapa ulic w sekcji Ciekawostki powyżej.</div>
     </div>
   </div>
 </div>
