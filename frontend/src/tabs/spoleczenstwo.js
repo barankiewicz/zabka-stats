@@ -376,16 +376,6 @@ export function renderDumbbell(data){
     rb.setAttribute('fill','#5a5a6a');rb.setAttribute('font-size',FONT_RATIO);
     rb.textContent=d.ratio+'x';svg.appendChild(rb);
   });
-  const LEG_Y=H-6;
-  [['#84c341','Zabka/100k'],['#f2a359','InPost/100k']].forEach(([col,lbl],i)=>{
-    const cx2=PAD_L+40+i*100;
-    const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
-    c.setAttribute('cx',cx2);c.setAttribute('cy',LEG_Y);c.setAttribute('r','4');c.setAttribute('fill',col);
-    svg.appendChild(c);
-    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
-    t.setAttribute('x',cx2+7);t.setAttribute('y',LEG_Y+3);t.setAttribute('fill','#5a5a6a');t.setAttribute('font-size','8');
-    t.textContent=lbl;svg.appendChild(t);
-  });
   if(!_dbTip){
     _dbTip=document.createElement('div');
     _dbTip.style.cssText='position:fixed;pointer-events:none;opacity:0;transition:opacity .12s;background:rgba(12,22,11,.95);border:1px solid rgba(140,200,80,.3);border-radius:8px;padding:8px 12px;font-size:12px;color:#eef3e6;white-space:nowrap;z-index:9999;line-height:1.6';

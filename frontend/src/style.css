@@ -327,7 +327,7 @@ canvas{display:block}
 .ec .eyebrow{font-family:var(--font-mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--green);display:flex;align-items:center;gap:10px}
 .ec .eyebrow .no{color:var(--muted2)}
 .ec .lead{color:var(--muted);margin:0;font-size:16px;line-height:1.6;max-width:64ch}
-.ec-chapter{padding-top:46px;margin-top:30px}
+.ec-chapter{padding-top:0;margin-top:26px}
 .ec .card{background:var(--surface);border:1px solid var(--axis);border-radius:var(--r);padding:20px;margin-top:22px;overflow:visible}
 .ec .chead{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:4px}
 .ec .cap{font-size:12px;color:var(--muted)}
