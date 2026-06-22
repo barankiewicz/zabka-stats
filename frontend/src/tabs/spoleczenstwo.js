@@ -163,13 +163,12 @@ export function renderMerrychef(){
   });
 }
 
+const _DB_LIMIT=20;
 let _dbLevel='voivodeship';
-let _dbTopN=20;
-let _dbSort='desc';
 let _dbDataCache={};
 
-const _DB_LEVEL_MAP={'wojewodztwo':'voivodeship','powiat':'powiat','miasto':'city','gmina':'gmina'};
-const _DB_LEVEL_LABEL_PL={'voivodeship':'Wojewodztwo','powiat':'Powiat','city':'Miasto','gmina':'Gmina'};
+const _DB_LEVEL_MAP={'voivodeship':'voivodeship','powiat':'powiat','city':'city','gmina':'gmina'};
+const _DB_LEVEL_LABEL_PL={'voivodeship':'województw','powiat':'powiatów','city':'miast','gmina':'gmin'};
 
 async function fetchDumbbellLevel(level,limit){
   const key=`${level}_${limit}`;
@@ -186,25 +185,27 @@ async function fetchDumbbellLevel(level,limit){
 
 export function renderDumbbell(data){
   if(!data)data=M.inpost_vs_zabka;
-  // always sort by ratio; _dbSort flips largest-first (default) vs smallest-first
-  const arr=[...(data||[])].sort((a,b)=>_dbSort==='asc'?(a.ratio-b.ratio):(b.ratio-a.ratio));
+  // sort alphabetically by name (administrative order)
+  const arr=[...(data||[])].sort((a,b)=>{
+    const na=(a.name||a.voivodeship||'').toLowerCase();
+    const nb=(b.name||b.voivodeship||'').toLowerCase();
+    return na.localeCompare(nb,'pl');
+  });
   const el=document.getElementById('inpost-dumbbell');if(!el)return;
   const allVals=arr.flatMap(d=>[d.zabki_per_100k||0,d.lockers_per_100k||0]);
   const maxV=Math.max(...allVals,1);
-  const ROW=arr.length<=20?24:arr.length<=50?17:13;
-  const PAD_L=arr.length<=20?130:100;
+  const ROW=24;
+  const PAD_L=130;
   const PAD_R=55;
   const W_CHART=420;
-  const DOT_R=arr.length<=20?5:arr.length<=50?4:3;
-  const FONT_LABEL=arr.length<=20?10:arr.length<=50?8.5:7.5;
-  const FONT_RATIO=arr.length<=20?9:7.5;
-  const FONT_GRID=arr.length<=20?8:7;
+  const DOT_R=5;
+  const FONT_LABEL=10;
+  const FONT_RATIO=9;
+  const FONT_GRID=8;
   const H=arr.length*ROW+30;
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
   const VBW=PAD_L+W_CHART+PAD_R;
   svg.setAttribute('viewBox',`0 0 ${VBW} ${H}`);
-  // cap the rendered width to the viewBox so the chart can't scale up (and get
-  // huge) on a full-width card; keep aspect, center it
   svg.style.cssText=`display:block;margin:0 auto;width:100%;max-width:${VBW}px;height:auto`;
   function px(v){return PAD_L+v/maxV*W_CHART}
   [0.25,0.5,0.75,1.0].forEach(f=>{
@@ -229,17 +230,17 @@ export function renderDumbbell(data){
     svg.appendChild(ln);
     const cz=document.createElementNS('http://www.w3.org/2000/svg','circle');
     cz.setAttribute('cx',xz);cz.setAttribute('cy',y);cz.setAttribute('r',DOT_R);
-    cz.setAttribute('fill','#3d7a12');cz.setAttribute('opacity',alpha);
+    cz.setAttribute('fill','#84c341');cz.setAttribute('opacity',alpha);
     svg.appendChild(cz);
     const ci=document.createElementNS('http://www.w3.org/2000/svg','circle');
     ci.setAttribute('cx',xi);ci.setAttribute('cy',y);ci.setAttribute('r',DOT_R);
-    ci.setAttribute('fill','#5a9e2f');ci.setAttribute('opacity',alpha);
+    ci.setAttribute('fill','#f2a359');ci.setAttribute('opacity',alpha);
     svg.appendChild(ci);
     const lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
     lbl.setAttribute('x',PAD_L-6);lbl.setAttribute('y',y+3.5);lbl.setAttribute('text-anchor','end');
     lbl.setAttribute('fill',isFiltered?'#3a3a5a':'#c8c8d8');lbl.setAttribute('font-size',FONT_LABEL);
     const name=d.name||d.voivodeship||'';
-    lbl.textContent=name.length>18&&arr.length>20?name.slice(0,17)+'..':name;
+    lbl.textContent=name;
     svg.appendChild(lbl);
     const rb=document.createElementNS('http://www.w3.org/2000/svg','text');
     rb.setAttribute('x',PAD_L+W_CHART+4);rb.setAttribute('y',y+3);
@@ -247,7 +248,7 @@ export function renderDumbbell(data){
     rb.textContent=d.ratio+'x';svg.appendChild(rb);
   });
   const LEG_Y=H-6;
-  [['#3d7a12','Zabka/100k'],['#5a9e2f','InPost/100k']].forEach(([col,lbl],i)=>{
+  [['#84c341','Zabka/100k'],['#f2a359','InPost/100k']].forEach(([col,lbl],i)=>{
     const cx2=PAD_L+40+i*100;
     const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
     c.setAttribute('cx',cx2);c.setAttribute('cy',LEG_Y);c.setAttribute('r','4');c.setAttribute('fill',col);
@@ -260,9 +261,7 @@ export function renderDumbbell(data){
 }
 
 export async function renderDumbbellByLevel(){
-  const topNWrap=document.getElementById('inpost-topn-wrap');
   if(_dbLevel==='voivodeship'){
-    if(topNWrap)topNWrap.style.display='none';
     renderDumbbell(M.inpost_vs_zabka);
     const title=document.querySelector('[data-debug-id="2.3"]');
     if(title){
@@ -274,12 +273,11 @@ export async function renderDumbbellByLevel(){
     }
     return;
   }
-  if(topNWrap)topNWrap.style.display='flex';
-  const d=await fetchDumbbellLevel(_dbLevel,_dbTopN);
+  const d=await fetchDumbbellLevel(_dbLevel,_DB_LIMIT);
   if(!d){renderDumbbell(M.inpost_vs_zabka);return}
   const label=_DB_LEVEL_LABEL_PL[_dbLevel]||_dbLevel;
   const title=document.querySelector('[data-debug-id="2.3"]');
-  if(title)title.textContent=`InPost vs Żabka - top ${d.rows.length} ${label} (${d.total} łącznie)`;
+  if(title)title.textContent=`InPost vs Żabka - top ${d.rows.length} ${label} alfabetycznie (${d.total} łącznie)`;
   renderDumbbell(d.rows);
 }
 
@@ -289,19 +287,6 @@ function wireInpostLevel(){
     btn.addEventListener('click',()=>{
       _dbLevel=btn.dataset.ilevel;
       document.querySelectorAll('#inpost-level .gran-btn').forEach(b=>b.classList.toggle('active',b===btn));
-      renderDumbbellByLevel();
-    });
-  });
-  const sel=document.getElementById('inpost-topn');
-  if(sel&&!sel._wired){
-    sel._wired=true;
-    sel.addEventListener('change',()=>{_dbTopN=parseInt(sel.value);renderDumbbellByLevel()});
-  }
-  document.querySelectorAll('#inpost-sort .gran-btn').forEach(btn=>{
-    if(btn._wired)return;btn._wired=true;
-    btn.addEventListener('click',()=>{
-      _dbSort=btn.dataset.isort;
-      document.querySelectorAll('#inpost-sort .gran-btn').forEach(b=>b.classList.toggle('active',b===btn));
       renderDumbbellByLevel();
     });
   });

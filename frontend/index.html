@@ -230,7 +230,24 @@
     </div>
   </header>
 
-  
+  <!-- 2.3 InPost dumbbell -->
+  <div class="card reveal" style="margin-bottom:16px">
+    <div class="gran-left-head">
+      <div>
+        <div class="card-title" data-debug-id="2.3">InPost vs Żabka - 2,42 paczkomaty na każdą Żabkę w Polsce</div>
+        <div class="card-sub">Zielona kropka = Żabka/100k, bursztyn = InPost/100k - połączone linią. Posortowane alfabetycznie.</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div class="gran-toggle" role="tablist" id="inpost-level">
+          <button class="gran-btn active" data-ilevel="voivodeship">Województwo</button>
+          <button class="gran-btn" data-ilevel="powiat">Powiat</button>
+          <button class="gran-btn" data-ilevel="city">Miasto</button>
+          <button class="gran-btn" data-ilevel="gmina">Gmina</button>
+        </div>
+      </div>
+    </div>
+    <div id="inpost-dumbbell" style="overflow-x:auto"></div>
+  </div>
 
   <!-- ================= ZABKA A POLSKA: placa + bezrobocie (infotainment) ================= -->
   <section class="ec" id="ec-root">
@@ -346,32 +363,6 @@
     <div class="card-title" data-debug-id="2.2b">Dolnośląskie: jedyny region poniżej 95% z piecem</div>
     <div class="card-sub" id="merrychef-card-sub">% sklepów z Merrychef, posortowane rosnąco - średnia krajowa 97,4%</div>
     <div class="chart-wrap h260"><canvas id="chart-merrychef"></canvas></div>
-  </div>
-
-  <!-- 2.3 InPost dumbbell -->
-  <div class="card reveal" style="margin-bottom:16px">
-    <div class="gran-left-head">
-      <div>
-        <div class="card-title" data-debug-id="2.3">InPost vs Żabka - 2,42 paczkomaty na każdą Żabkę w Polsce</div>
-        <div class="card-sub">Zielona kropka = Żabka/100k, bursztyn = InPost/100k - połączone linią. Posortowane stosunkiem.</div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <div class="gran-toggle" role="tablist" id="inpost-level">
-          <button class="gran-btn active" data-ilevel="voivodeship">Wojewodztwo</button>
-          <button class="gran-btn" data-ilevel="powiat">Powiat</button>
-          <button class="gran-btn" data-ilevel="city">Miasto</button>
-          <button class="gran-btn" data-ilevel="gmina">Gmina</button>
-        </div>
-        <label class="inpost-topn-label" id="inpost-topn-wrap" style="display:none">Top <select id="inpost-topn" class="inpost-topn-select">
-          <option value="10">10</option><option value="20" selected>20</option><option value="50">50</option><option value="100">100</option>
-        </select></label>
-        <div class="gran-toggle" role="tablist" id="inpost-sort">
-          <button class="gran-btn active" data-isort="desc">Najwięcej</button>
-          <button class="gran-btn" data-isort="asc">Najmniej</button>
-        </div>
-      </div>
-    </div>
-    <div id="inpost-dumbbell" style="overflow-x:auto"></div>
   </div>
 
   <div class="synthesis reveal">
