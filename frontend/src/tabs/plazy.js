@@ -60,6 +60,16 @@ function updatePlazyStats() {
     el('plazy-zero-count').textContent = fmt(ae.zero_frog_count);
   if (el('plazy-farthest-km') && ae.farthest_from_frog)
     el('plazy-farthest-km').textContent = ae.farthest_from_frog.nearest_amphibian_km.toFixed(2).replace('.', ',') + ' km';
+  // 6th band stat: most-froggy voivodeship (avg observations per store)
+  const byV = ae.by_voivodeship || [];
+  if (el('plazy-topvoiv') && byV.length) {
+    const top = byV.reduce((b, r) => (r.avg_occurrences || 0) > (b ? b.avg_occurrences : -1) ? r : b, null);
+    if (top) {
+      el('plazy-topvoiv').textContent = fmt(top.avg_occurrences);
+      const desc = el('plazy-topvoiv-desc');
+      if (desc) desc.textContent = top.voivodeship + ' - najwięcej obserwacji na sklep (mapa ludzi, nie mokradeł)';
+    }
+  }
 
   // P5 most froggy card
   if (ae.most_froggy) {

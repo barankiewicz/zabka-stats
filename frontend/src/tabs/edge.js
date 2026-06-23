@@ -288,7 +288,30 @@ export function renderEdge(){
   renderCiekawostkiFrogs();
   renderCiekawostkiFarthestFrog();
   renderCiekawostkiStreets();
+  renderTwins();
   renderKraniec();
+}
+
+// ===== CIEKAWOSTKI: blizniaki - druga skrajnosc wobec samotnika =====
+function renderTwins(){
+  const tw=M.twins||{};
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v};
+  if(tw.within_50m!=null)set('twins-50',(+tw.within_50m).toLocaleString('pl-PL'));
+  if(tw.within_100m!=null)set('twins-100',(+tw.within_100m).toLocaleString('pl-PL'));
+  if(tw.within_200m!=null)set('twins-200',(+tw.within_200m).toLocaleString('pl-PL'));
+
+  const sameUl=document.getElementById('twins-sameaddr');
+  if(sameUl){
+    sameUl.innerHTML=(tw.same_address||[]).map(d=>
+      `<li><span class="tw-where">${d.city}, ${d.street}</span><span class="tw-badge">${d.n} sklepy</span></li>`).join('')
+      || '<li class="tw-empty">brak danych</li>';
+  }
+  const closeUl=document.getElementById('twins-closest');
+  if(closeUl){
+    closeUl.innerHTML=(tw.closest_pairs||[]).map(d=>
+      `<li><span class="tw-where">${d.city}, ${d.street}</span><span class="tw-badge">${d.distance_m} m</span></li>`).join('')
+      || '<li class="tw-empty">brak danych</li>';
+  }
 }
 
 export function jumpToFact(id) { selectFact(id); }

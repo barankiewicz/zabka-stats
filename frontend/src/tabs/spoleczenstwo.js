@@ -83,7 +83,7 @@ function renderInpostMap(){
     doubleClickZoom:true,boxZoom:true,keyboard:true
   });
   MAPS['map-inpost']=map;
-  map.setView([52.0,19.3],6);
+  map.setView([52.0,19.3],6.5);
   map.invalidateSize();
   const pairs=[];
   L.geoJSON(M.woj_geo,{
@@ -161,6 +161,150 @@ export function renderSpoleczenstwo(){
   }
   renderEcon();
   renderDumbbellByLevel();
+  renderStreets();
+  renderGminaLeaders();
+  renderNbl();
+  wireStreetsAndGmina();
+  wireNbl();
+}
+
+// ---- common-streets bar (Zabka stoi tam, gdzie Polska stawia pomniki) ----
+export function renderStreets(){
+  const cs=M.common_streets||{streets:[]};
+  const rows=(cs.streets||[]).slice(0,15);
+  if(!rows.length)return;
+  const distEl=document.getElementById('streets-distinct');
+  if(distEl&&cs.distinct)distEl.textContent=(+cs.distinct).toLocaleString('pl-PL');
+  destroyChart('streets');
+  CHARTS['streets']=new Chart(document.getElementById('chart-streets'),{
+    type:'bar',
+    data:{labels:rows.map(d=>d.name),datasets:[{
+      data:rows.map(d=>d.cnt),
+      backgroundColor:rows.map((_,i)=>i===0?C.greenBright:C.green+'aa'),
+      borderRadius:2,borderWidth:0
+    }]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>`${ctx.raw} Żabek na ul. ${ctx.label}`}},
+        barLabels:{thousands:true,color:C.muted}},
+      scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},
+        y:{grid:{display:false},ticks:{color:C.muted,font:{size:11}}}}
+    }
+  });
+}
+
+// ---- gmina leaders (kurorty) per_1k / per_km2 ----
+let _gminaMetric='per_1k';
+export function renderGminaLeaders(){
+  const gl=M.gmina_leaders||{};
+  const rows=(_gminaMetric==='per_1k'?gl.per_1k:gl.per_km2)||[];
+  if(!rows.length)return;
+  const r12=rows.slice(0,12);
+  const per1k=_gminaMetric==='per_1k';
+  const sub=document.getElementById('gmina-lead-sub');
+  if(sub)sub.textContent=per1k
+    ? 'gminy wg sklepów na 1000 zameldowanych - morze i góry biją resztę kraju'
+    : 'gminy wg sklepów na km² - tu wygrywają wielkie miasta';
+  const cav=document.getElementById('gmina-lead-caveat');
+  if(cav)cav.style.display=per1k?'':'none';
+  const natRef=per1k&&gl.national_per_1k?[{value:gl.national_per_1k,axis:'x',color:'rgba(255,255,255,.3)',label:'śr. kraj '+String(gl.national_per_1k).replace('.',',')}]:[];
+  destroyChart('gmina-lead');
+  CHARTS['gmina-lead']=new Chart(document.getElementById('chart-gmina-lead'),{
+    type:'bar',
+    data:{labels:r12.map(d=>d.name),datasets:[{
+      data:r12.map(d=>per1k?d.per_1k:d.per_km2),
+      backgroundColor:r12.map((_,i)=>i===0?C.greenBright:macroCol(r12[i].voivodeship)+'cc'),
+      borderRadius:2,borderWidth:0
+    }]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>{const d=r12[ctx.dataIndex];return [
+          per1k?`${d.per_1k} skl./1000 mieszk.`:`${d.per_km2} skl./km²`,
+          `${d.cnt} Żabek · ${(d.population||0).toLocaleString('pl-PL')} mieszk.`]}}},
+        barLabels:{decimals:2,color:C.muted},
+        annot:{refLines:natRef}},
+      scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},
+        y:{grid:{display:false},ticks:{color:C.muted,font:{size:11}}}}
+    }
+  });
+}
+
+function wireStreetsAndGmina(){
+  document.querySelectorAll('#gmina-metric .gran-btn').forEach(btn=>{
+    if(btn._wired)return;btn._wired=true;
+    btn.addEventListener('click',()=>{
+      _gminaMetric=btn.dataset.gmetric;
+      document.querySelectorAll('#gmina-metric .gran-btn').forEach(b=>b.classList.toggle('active',b===btn));
+      renderGminaLeaders();
+    });
+  });
+}
+
+// ---- neighbor-by-level ranking (median/avg, level, sort) ----
+let _nblLevel='voivodeship', _nblMetric='median_m', _nblSort='desc';
+const _nblCache={};
+const _NBL_LABEL={voivodeship:'województw',powiat:'powiatów',city:'miast'};
+
+async function _fetchNbl(level,metric,sort){
+  const key=`${level}_${metric}_${sort}`;
+  if(_nblCache[key])return _nblCache[key];
+  try{
+    const r=await fetch(`/api/stats/neighbor-by-level?level=${level}&metric=${metric}&sort=${sort}&limit=20`);
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const d=await r.json();_nblCache[key]=d;return d;
+  }catch(e){console.error('nbl fetch',e);return null}
+}
+
+function _drawNbl(data){
+  const rows=(data&&data.rows||[]).slice(0,20);
+  if(!rows.length)return;
+  const metric=_nblMetric;
+  const sub=document.getElementById('nbl-sub');
+  if(sub)sub.textContent=`${metric==='median_m'?'Mediana':'Średnia'} odległości do najbliższej Żabki, według ${_NBL_LABEL[_nblLevel]}`;
+  destroyChart('nbl');
+  CHARTS['nbl']=new Chart(document.getElementById('chart-nbl'),{
+    type:'bar',
+    data:{labels:rows.map(d=>d.name),datasets:[{
+      data:rows.map(d=>d[metric]),
+      backgroundColor:rows.map(d=>macroCol(d.voivodeship)+'cc'),
+      borderRadius:2,borderWidth:0
+    }]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>{const d=rows[ctx.dataIndex];return [
+          `mediana ${d.median_m.toLocaleString('pl-PL')} m`,
+          `średnia ${d.avg_m.toLocaleString('pl-PL')} m`,
+          `${d.n} sklepów`]}}},
+        barLabels:{thousands:true,color:C.muted}},
+      scales:{x:{grid:{color:C.axis},title:{display:true,text:'metry do najbliższej Żabki',color:C.muted,font:{size:11}},ticks:{color:C.muted,font:{size:10}}},
+        y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
+    }
+  });
+}
+
+export async function renderNbl(){
+  let data;
+  if(_nblLevel==='voivodeship'&&_nblMetric==='median_m'&&_nblSort==='desc'
+     &&M.neighbor_by_level&&(M.neighbor_by_level.rows||[]).length){
+    data=M.neighbor_by_level;
+  }else{
+    data=await _fetchNbl(_nblLevel,_nblMetric,_nblSort)||M.neighbor_by_level;
+  }
+  _drawNbl(data);
+}
+
+function wireNbl(){
+  const wire=(sel,attr,set)=>document.querySelectorAll(sel+' .gran-btn').forEach(btn=>{
+    if(btn._wired)return;btn._wired=true;
+    btn.addEventListener('click',()=>{
+      set(btn.dataset[attr]);
+      document.querySelectorAll(sel+' .gran-btn').forEach(b=>b.classList.toggle('active',b===btn));
+      renderNbl();
+    });
+  });
+  wire('#nbl-level','nlevel',v=>_nblLevel=v);
+  wire('#nbl-metric','nmetric',v=>_nblMetric=v);
+  wire('#nbl-sort','nsort',v=>_nblSort=v);
 }
 
 export function renderScatters(){
@@ -324,7 +468,7 @@ export function renderDumbbell(data){
   const maxV=Math.max(...allVals,1);
   const ROW=24;
   const PAD_L=130;
-  const PAD_R=55;
+  const PAD_R=80;
   const W_CHART=420;
   const DOT_R=5;
   const FONT_LABEL=10;

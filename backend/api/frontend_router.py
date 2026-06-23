@@ -18,6 +18,8 @@ Graceful degradation for columns not yet enriched by the ETL:
 
 import json
 import math
+import re
+from collections import Counter, defaultdict
 from pathlib import Path
 from fastapi import APIRouter
 from fastapi.responses import Response
@@ -1435,7 +1437,7 @@ async def section3_rare():
 @router.get("/stats/parks-stores")
 @cached(ttl=3600)
 async def parks_stores():
-    rows = client().execute("""
+    rows = client.execute("""
         SELECT latitude, longitude
         FROM locations
         WHERE is_in_nature_park = TRUE AND deleted_at IS NULL
@@ -1447,6 +1449,157 @@ async def parks_stores():
 # ---------------------------------------------------------------------------
 # On-demand: Sunday drilldown (not cached — fires only on choropleth click)
 # ---------------------------------------------------------------------------
+
+_STREET_NUM_RE = re.compile(r"\s+\d.*$")
+_STREET_UL_RE = re.compile(r"^ul\.?\s*", re.IGNORECASE)
+
+
+def _norm_street(s: str) -> str:
+    """Strip the 'ul.' prefix and the house number, keep the bare street name."""
+    s = _STREET_UL_RE.sub("", (s or "").strip())
+    s = _STREET_NUM_RE.sub("", s)
+    return s.strip()
+
+
+@router.get("/stats/common-streets")
+@cached(ttl=3600)
+async def common_streets(limit: int = 15):
+    """Most common street names a Zabka sits on, across the whole country.
+    Names are normalized (drop 'ul.' + house number, merge case variants) and the
+    most frequent original casing is kept for display. Story: Zabka stands where
+    Poland names its squares and heroes - Rynek, Kosciuszki, Pilsudskiego."""
+    rows = _q("""
+        SELECT street FROM locations
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
+          AND street IS NOT NULL AND street <> '' AND street <> 'nieokreślona'
+    """)
+    counts: Counter = Counter()
+    forms: dict[str, Counter] = defaultdict(Counter)
+    for (st,) in rows:
+        raw = _norm_street(st)
+        if not raw or raw.isdigit():
+            continue
+        key = raw.lower()
+        counts[key] += 1
+        forms[key][raw] += 1
+    lim = max(1, min(int(limit), 50))
+    streets = [{"name": forms[k].most_common(1)[0][0], "cnt": int(c)}
+               for k, c in counts.most_common(lim)]
+    return {"streets": streets, "distinct": len(counts)}
+
+
+@router.get("/stats/gmina-leaders")
+@cached(ttl=3600)
+async def gmina_leaders(limit: int = 12):
+    """Gmina-level density leaders. The per-1000-residents ranking is dominated by
+    seaside and mountain resorts (Rewal, Dziwnow, Leba, Karpacz, Zakopane): the
+    network follows tourist traffic, not the registered population. Voivodeship-level
+    per-capita averages hide this entirely. Caveat: 'population' is registered
+    residents, so resort towns are overstated in summer - that overstatement IS the
+    story. per_km2 leaders are the big cities (Warszawa, Wroclaw)."""
+    rows = _gmina_agg()
+    per1k = sorted((r for r in rows if r.get("per_1k") and r.get("cnt", 0) >= 3),
+                   key=lambda x: -x["per_1k"])[:max(1, min(int(limit), 30))]
+    per_km2 = sorted((r for r in rows if r.get("per_km2") and r.get("cnt", 0) >= 5),
+                     key=lambda x: -x["per_km2"])[:max(1, min(int(limit), 30))]
+
+    def shape(r):
+        return {"name": r["name"], "voivodeship": r["voivodeship"], "cnt": r["cnt"],
+                "population": r["population"], "area_km2": r["area_km2"],
+                "per_1k": r["per_1k"], "per_km2": r["per_km2"]}
+
+    # national per-1000 baseline (active stores / sum of voivodeship populations)
+    total = _q1("""SELECT COUNT(*) FROM locations WHERE deleted_at IS NULL
+                   AND snapshot_id = (SELECT MAX(id) FROM snapshots)""")
+    nat_pop = sum(_pop(n) for n in VOIV_AREA_KM2)  # canonical names -> GUS pop
+    nat_per_1k = round((total[0] or 0) * 1000.0 / nat_pop, 3) if nat_pop else None
+    return {"per_1k": [shape(r) for r in per1k],
+            "per_km2": [shape(r) for r in per_km2],
+            "national_per_1k": nat_per_1k}
+
+
+@router.get("/stats/twins")
+@cached(ttl=3600)
+async def twins():
+    """The opposite of the 'loner': how often a Zabka sits right next to another
+    Zabka. Counts within 50/100/200 m and the closest pairs (some share one
+    address). Counterpart to /stats/neighbor-stats."""
+    snap = "(SELECT MAX(id) FROM snapshots)"
+    base = (f"FROM locations WHERE deleted_at IS NULL AND snapshot_id = {snap} "
+            "AND nearest_neighbor_distance_meters IS NOT NULL")
+    agg = _q1(f"""
+        SELECT
+            SUM(CASE WHEN nearest_neighbor_distance_meters <= 50  THEN 1 ELSE 0 END),
+            SUM(CASE WHEN nearest_neighbor_distance_meters <= 100 THEN 1 ELSE 0 END),
+            SUM(CASE WHEN nearest_neighbor_distance_meters <= 200 THEN 1 ELSE 0 END),
+            COUNT(*)
+        {base}
+    """)
+    # closest distinct addresses with a non-zero gap (exact-0 pairs are the
+    # same-building clusters, surfaced separately below)
+    closest = _q(f"""
+        SELECT city, street, MIN(nearest_neighbor_distance_meters) AS d
+        FROM locations
+        WHERE deleted_at IS NULL AND snapshot_id = {snap}
+          AND nearest_neighbor_distance_meters IS NOT NULL
+          AND nearest_neighbor_distance_meters > 0
+        GROUP BY city, street
+        ORDER BY d ASC, city
+        LIMIT 8
+    """)
+    clusters = _q(f"""
+        SELECT city, street, COUNT(*) AS n
+        FROM locations
+        WHERE deleted_at IS NULL AND snapshot_id = {snap}
+        GROUP BY city, street, ROUND(latitude, 5), ROUND(longitude, 5)
+        HAVING COUNT(*) > 1
+        ORDER BY n DESC, city
+        LIMIT 8
+    """)
+    within50 = int(agg[0] or 0) if agg else 0
+    return {
+        "within_50m": within50,
+        "within_100m": int(agg[1] or 0) if agg else 0,
+        "within_200m": int(agg[2] or 0) if agg else 0,
+        "total": int(agg[3] or 0) if agg else 0,
+        "closest_pairs": [{"city": r[0], "street": r[1],
+                           "distance_m": int(r[2])} for r in closest],
+        "same_address": [{"city": r[0], "street": r[1], "n": int(r[2])}
+                         for r in clusters],
+    }
+
+
+@router.get("/stats/neighbor-by-level")
+@cached(ttl=3600)
+async def neighbor_by_level(level: str = "voivodeship", sort: str = "desc",
+                            metric: str = "median_m", limit: int = 20):
+    """Rank voivodeships / powiats / cities by the typical distance between
+    neighbouring Zabki (median and average of nearest_neighbor_distance_meters).
+    High = a spread-out network (podkarpackie 459 m), low = a packed one
+    (mazowieckie, dolnoslaskie ~240 m). Inverse density, read from the stores
+    themselves rather than from area. Returns both metrics; the frontend toggles."""
+    col = {"voivodeship": "voivodeship", "powiat": "powiat", "city": "city"}.get(level)
+    if not col:
+        return {"rows": [], "total": 0, "level": level}
+    min_n = {"voivodeship": 20, "powiat": 15, "city": 10}[level]
+    rows = _q(f"""
+        SELECT {col} AS name, ANY_VALUE(voivodeship) AS voiv, COUNT(*) AS n,
+               ROUND(MEDIAN(nearest_neighbor_distance_meters)) AS med,
+               ROUND(AVG(nearest_neighbor_distance_meters))    AS avg
+        FROM locations
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
+          AND nearest_neighbor_distance_meters IS NOT NULL
+          AND {col} IS NOT NULL AND {col} <> ''
+        GROUP BY {col}
+        HAVING COUNT(*) >= {min_n}
+    """)
+    out = [{"name": r[0], "voivodeship": r[1], "n": int(r[2]),
+            "median_m": int(r[3] or 0), "avg_m": int(r[4] or 0)} for r in rows]
+    sort_key = "avg_m" if metric == "avg_m" else "median_m"
+    out.sort(key=lambda x: x[sort_key], reverse=(sort != "asc"))
+    lim = max(1, min(int(limit), 100))
+    return {"rows": out[:lim], "total": len(out), "level": level, "metric": sort_key}
+
 
 @router.get("/geo/voivodeships")
 @cached(ttl=86400)

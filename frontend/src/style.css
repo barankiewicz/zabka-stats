@@ -354,7 +354,7 @@ canvas{display:block}
 
 .ec-reveal{opacity:0;transform:translateY(26px);transition:opacity .7s ease,transform .7s cubic-bezier(.2,.7,.2,1)}
 .ec-reveal.in{opacity:1;transform:none}
-.ec-reveal.d1{transition-delay:.06s}.ec-reveal.d2{transition-delay:.12s}.ec-reveal.d3{transition-delay:.18s}.ec-reveal.d4{transition-delay:.24s}
+.ec-reveal.d1{transition-delay:.06s}.ec-reveal.d2{transition-delay:.12s}.ec-reveal.d3{transition-delay:.18s}.ec-reveal.d4{transition-delay:.24s}.ec-reveal.d5{transition-delay:.30s}.ec-reveal.d6{transition-delay:.36s}
 @media(prefers-reduced-motion:reduce){.ec-reveal{opacity:1;transform:none;transition:none}.ec .bar-mini i,.ec .rmeter-dot{transition:none}}
 
 /* ===== "Wartosci brzegowe" Atlas krancow, scoped to .kr ===== */
@@ -430,6 +430,8 @@ canvas{display:block}
 .kr .leaflet-popup-content-wrapper{background:#0c160b;color:var(--ink);border:1px solid rgba(140,200,80,.3);border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.5)}
 .kr .leaflet-popup-tip{background:#0c160b;border:1px solid rgba(140,200,80,.3)}
 .kr .leaflet-popup-content{margin:12px 14px;font-family:var(--font-body)}
+.leaflet-tooltip.kr-tip{background:#0c160b;color:#eef3e6;border:1px solid rgba(140,200,80,.3);border-radius:9px;box-shadow:0 6px 26px rgba(0,0,0,.55);padding:9px 12px;max-width:260px;white-space:normal;word-wrap:break-word;overflow-wrap:anywhere;font-family:IBM Plex Sans,sans-serif;font-size:12px}
+.leaflet-tooltip.kr-tip.leaflet-tooltip-top:before{border-top-color:#0c160b;border-top-width:7px}
 .kr .pop .pk{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--c)}
 .kr .pop .pv{font-family:var(--font-display);font-weight:800;font-size:22px;color:var(--c);margin:3px 0 2px;letter-spacing:-.01em}
 .kr .pop .pc{font-size:14px;color:var(--ink);font-weight:600}
@@ -479,6 +481,10 @@ canvas{display:block}
 .hero-band-5{grid-template-columns:repeat(5,1fr)}
 @media(max-width:1100px){.hero-band-5{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:700px){.hero-band-5{grid-template-columns:repeat(2,1fr)}}
+/* 6-column hero band for PLAZY */
+.hero-band-6{grid-template-columns:repeat(6,1fr)}
+@media(max-width:1100px){.hero-band-6{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){.hero-band-6{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:900px){#map-plazy-main{height:420px}#map-plazy-choro{height:380px}}
 
 /* ===== Punkt po punkcie: ECharts scatter section (.zz-*) ===== */
@@ -517,3 +523,19 @@ canvas{display:block}
 .ep-note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:4px}
 @media(max-width:1100px){.edge-panels{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:700px){.edge-panels{grid-template-columns:1fr 1fr}}
+
+/* blizniaki (twins) card */
+.twins-grid{display:grid;grid-template-columns:minmax(180px,1fr) 2fr;gap:24px;margin-top:8px}
+.twins-stats{display:flex;flex-direction:column;gap:14px;justify-content:center}
+.twins-stat{display:flex;flex-direction:column;gap:2px}
+.twins-num{font-family:var(--font-display);font-weight:800;font-size:34px;line-height:1;color:var(--teal);letter-spacing:-.02em}
+.twins-lab{font-size:12.5px;color:var(--muted);line-height:1.4}
+.twins-lab b{color:var(--ink)}
+.twins-lists{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.twins-col-head{font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:600}
+.twins-ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.twins-ul li{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:12.5px;color:var(--ink);border-bottom:1px solid var(--axis);padding-bottom:5px}
+.tw-where{font-family:var(--font-mono);font-size:11.5px;color:var(--ink);line-height:1.35}
+.tw-badge{flex-shrink:0;font-family:var(--font-mono);font-size:11px;color:var(--teal);font-weight:600;white-space:nowrap}
+.tw-empty{color:var(--muted);border-bottom:none}
+@media(max-width:900px){.twins-grid{grid-template-columns:1fr}.twins-stats{flex-direction:row;flex-wrap:wrap;gap:18px}.twins-lists{grid-template-columns:1fr}}

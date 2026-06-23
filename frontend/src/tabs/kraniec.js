@@ -98,7 +98,6 @@ function buildMap() {
     const c = COL[f.g];
     const icon = L.divIcon({ className: '', html: `<div class="mk ${f.id === 'frog' ? 'big' : ''}" style="--c:${c}"></div>`, iconSize: [16, 16], iconAnchor: [8, 8] });
     const m = L.marker([f.lat, f.lon], { icon }).addTo(map);
-    m.bindTooltip(`<div style="font-size:12px;line-height:1.5"><b style="color:${c}">${f.lab}</b><br>${f.val}<br><span style="color:#93a487;font-size:11px">${f.city} · ${f.street}</span></div>`, { direction: 'top', offset: [0, -10], opacity: 0.95 });
     m.bindPopup(`<div class="pop" style="--c:${c}"><div class="pk">${f.lab}</div><div class="pv">${f.val}</div><div class="pc">${f.city}</div><div class="ps">${f.voiv} · ${f.street}</div><div class="pd">${f.desc}</div></div>`, { maxWidth: 260, closeButton: false });
     m.on('click', () => select(f.id, true));
     markers[f.id] = m;
@@ -110,15 +109,13 @@ function buildMap() {
     const mf = ae.most_froggy;
     const icon = L.divIcon({ className: '', html: `<div class="mk" style="--c:#4dd0b1"></div>`, iconSize: [16, 16], iconAnchor: [8, 8] });
     L.marker([mf.latitude, mf.longitude], { icon }).addTo(map)
-      .bindTooltip(`<div style="font-size:12px"><b style="color:#4dd0b1">${fmt(mf.amphibian_occurrences_5km || 0)} obs. płazów</b><br>${mf.city || ''}</div>`, { direction: 'top', offset: [0, -10], opacity: 0.95 })
-      .bindPopup(`<div class="pop" style="--c:#4dd0b1"><div class="pk">Najbardziej żabia Żabka</div><div class="pv">${fmt(mf.amphibian_occurrences_5km || 0)} obs.</div><div class="pc">${mf.city || ''}</div><div class="ps">${(mf.voivodeship || '')} · ${mf.street || ''}</div></div>`, { maxWidth: 260, closeButton: false });
+      .bindPopup(`<div class="pop" style="--c:#4dd0b1"><div class="pk">Najbardziej żabia Żabka</div><div class="pv">${fmt(mf.amphibian_occurrences_5km || 0)} obs.</div><div class="pc">${mf.city || ''}</div><div class="ps">${(mf.voivodeship || '')} · ${mf.street || ''}</div><div class="pd">Wiecej obserwacji płazów w promieniu 5 km niz w jakimkolwiek innym sklepie sieci.</div></div>`, { maxWidth: 260, closeButton: false });
   }
   if (ae.farthest_from_frog && ae.farthest_from_frog.latitude) {
     const ff = ae.farthest_from_frog;
     const icon = L.divIcon({ className: '', html: `<div class="mk" style="--c:#e8693d"></div>`, iconSize: [16, 16], iconAnchor: [8, 8] });
     L.marker([ff.latitude, ff.longitude], { icon }).addTo(map)
-      .bindTooltip(`<div style="font-size:12px"><b style="color:#e8693d">${ff.nearest_amphibian_km ? ff.nearest_amphibian_km.toFixed(2) : '—'} km od płaza</b><br>${ff.city || ''}</div>`, { direction: 'top', offset: [0, -10], opacity: 0.95 })
-      .bindPopup(`<div class="pop" style="--c:#e8693d"><div class="pk">Najdalej od płaza</div><div class="pv">${ff.nearest_amphibian_km ? ff.nearest_amphibian_km.toFixed(2) + ' km' : '—'}</div><div class="pc">${ff.city || ''}</div><div class="ps">${(ff.voivodeship || '')}</div></div>`, { maxWidth: 260, closeButton: false });
+      .bindPopup(`<div class="pop" style="--c:#e8693d"><div class="pk">Najdalej od płaza</div><div class="pv">${ff.nearest_amphibian_km ? ff.nearest_amphibian_km.toFixed(2) + ' km' : '—'}</div><div class="pc">${ff.city || ''}</div><div class="ps">${(ff.voivodeship || '')}</div><div class="pd">Zabka bez zab w zasiegu - najizolowany pod wzgledem płazów sklep w sieci.</div></div>`, { maxWidth: 260, closeButton: false });
   }
 
   let activeId = null;
@@ -183,8 +180,8 @@ function buildMap() {
     if (f.grp !== lastGrp) { const h = document.createElement('div'); h.className = 'grp-h'; h.style.setProperty('--c', c); h.innerHTML = `<span class="dot"></span>${f.grp}`; rail.appendChild(h); lastGrp = f.grp; }
     const it = document.createElement('div'); it.className = 'item'; it.dataset.id = f.id; it.style.setProperty('--c', c);
     it.innerHTML = `<div class="v">${f.val}</div><div class="meta"><div class="lab">${f.lab}</div><div class="sub">${f.city} · ${f.voiv}</div></div>`;
-    it.onmouseenter = () => { map.flyTo([f.lat, f.lon], Math.max(f.zoom - 1, 7), { duration: RM ? 0 : 1.2, easeLinearity: .25 }); setActiveMarker(f.id); if (cap) cap.innerHTML = `<b>${f.city}</b> · ${f.val} - ${f.desc}`; const mk = markers[f.id]; if (mk) setTimeout(() => mk.openTooltip(), RM ? 0 : 700); };
-    it.onmouseleave = () => { const mk = markers[f.id]; if (mk) mk.closeTooltip(); };
+    it.onmouseenter = () => { map.flyTo([f.lat, f.lon], Math.max(f.zoom - 1, 7), { duration: RM ? 0 : 1.2, easeLinearity: .25 }); setActiveMarker(f.id); if (cap) cap.innerHTML = `<b>${f.city}</b> · ${f.val} - ${f.desc}`; const mk = markers[f.id]; if (mk) setTimeout(() => mk.openPopup(), RM ? 0 : 400); };
+    it.onmouseleave = () => { const mk = markers[f.id]; if (mk) setTimeout(() => mk.closePopup(), 500); };
     it.onclick = () => select(f.id, true);
     rail.appendChild(it);
   });

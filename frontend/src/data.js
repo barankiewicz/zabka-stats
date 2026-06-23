@@ -35,6 +35,7 @@ export async function loadCore() {
   applySkel();
   const [
     summary, wojGeo, economics, sunday, density, merrychef, inpost, perCapita, section3, openingHours,
+    commonStreets, gminaLeaders, neighborByLevel,
   ] = await Promise.allSettled([
     fetchJSON(`${BASE}/stats/summary`),
     fetchJSON(`${BASE}/geo/voivodeships`),
@@ -46,6 +47,9 @@ export async function loadCore() {
     fetchJSON(`${BASE}/stats/per-capita`),
     fetchJSON(`${BASE}/stats/section3-rare`),
     fetchJSON(`${BASE}/stats/opening-hours`),
+    fetchJSON(`${BASE}/stats/common-streets?limit=15`),
+    fetchJSON(`${BASE}/stats/gmina-leaders?limit=12`),
+    fetchJSON(`${BASE}/stats/neighbor-by-level?level=voivodeship`),
   ]);
   Object.assign(M, {
     summary:               val(summary, {total_active:0, cities_count:0, merrychef_pct:0, sunday_pct:0, h24_count:0}),
@@ -58,6 +62,9 @@ export async function loadCore() {
     per_capita:            val(perCapita, []),
     section3_rare:         val(section3, {}),
     opening_hours:         val(openingHours, []),
+    common_streets:        val(commonStreets, {streets:[], distinct:0}),
+    gmina_leaders:         val(gminaLeaders, {per_1k:[], per_km2:[], national_per_1k:null}),
+    neighbor_by_level:     val(neighborByLevel, {rows:[], total:0, level:'voivodeship'}),
     timeline_monthly:      [],
   });
   clearSkel();
@@ -105,11 +112,12 @@ async function loadSiec() {
 }
 
 async function loadEdge() {
-  const [kraniec, elevation, neighborStats, parksStores] = await Promise.allSettled([
+  const [kraniec, elevation, neighborStats, parksStores, twins] = await Promise.allSettled([
     fetchJSON(`${BASE}/stats/kraniec-facts`),
     fetchJSON(`${BASE}/stats/elevation`),
     fetchJSON(`${BASE}/stats/neighbor-stats`),
     fetchJSON(`${BASE}/stats/parks-stores`),
+    fetchJSON(`${BASE}/stats/twins`),
   ]);
   const kf = val(kraniec, {facts:[], backdrop:[]});
   Object.assign(M, {
@@ -118,6 +126,7 @@ async function loadEdge() {
     elevation:      val(elevation, {}),
     neighbor_stats: val(neighborStats, {}),
     parks_stores:   val(parksStores, []),
+    twins:          val(twins, {within_50m:0, within_100m:0, within_200m:0, total:0, closest_pairs:[], same_address:[]}),
   });
 }
 

@@ -169,6 +169,17 @@ function _updateEconFacts() {
     }
   }
 
+  // Salary chapter: correlation + richest powiat (fill strip to 6)
+  if (rowsS.length >= 8) {
+    const rS = pearson(rowsS.map(d => d.avg_salary), rowsS.map(d => d.per_1k));
+    _setTxt('ec-fact-r-salary', plr(rS));
+    const richRow = rowsS.reduce((b, r) => r.avg_salary > (b ? b.avg_salary : 0) ? r : b, null);
+    if (richRow) {
+      _setDC('ec-fact-rich-num', richRow.per_1k.toFixed(2));
+      _setTxt('ec-fact-rich-sub', cleanPow(richRow.powiat) + ' (' + Math.round(richRow.avg_salary).toLocaleString('pl-PL') + ' zł) - skl./1000');
+    }
+  }
+
   // Unemployment chapter facts
   const rowsU = all.filter(d => d.unemployment_rate != null && d.unemployment_rate > 0 && d.per_1k > 0);
   if (rowsU.length >= 8) {
@@ -205,6 +216,19 @@ function _updateEconFacts() {
     _setDC('ec-fact-u-median-num', uMedian.toFixed(1));
     const uHigh10 = rowsU.filter(r => r.unemployment_rate > 10).length;
     _setDC('ec-fact-u-high10-num', uHigh10);
+
+    // strip fillers to 6
+    const rU = pearson(rowsU.map(d => d.unemployment_rate), rowsU.map(d => d.per_1k));
+    _setTxt('ec-fact-r-unemp', plr(rU));
+    const minURow = su[0];
+    if (minURow) {
+      _setDC('ec-fact-u-min-num', minURow.unemployment_rate.toFixed(1));
+      _setTxt('ec-fact-u-min-sub', cleanPow(minURow.powiat) + ' - najniższy w kraju');
+    }
+    _setDC('ec-fact-u-below3-num', rowsU.filter(r => r.unemployment_rate < 3).length);
+    _setDC('ec-fact-u-high15-num', rowsU.filter(r => r.unemployment_rate > 15).length);
+    if (lowAvg > 0) _setDC('ec-fact-u-q1dens-num', lowAvg.toFixed(2));
+    if (highAvg > 0) _setDC('ec-fact-u-q4dens-num', highAvg.toFixed(2));
   }
 }
 
@@ -245,13 +269,13 @@ export function renderEcon() {
   const uMin = Math.min(...rowsU.map(d => d.unemployment_rate));
   const uMax = Math.max(...rowsU.map(d => d.unemployment_rate));
   const heroSpecsS = [
-    { match: 'kamieńsk', label: 'kamienski · kurort (Miedzyzdrojé)', color: '#a6e84a', pos: 'right' },
-    { match: 'tatrza',   label: 'tatrzanski · Zakopane',             color: '#a6e84a', pos: 'right' },
-    { match: 'warszawa', label: 'Warszawa',                          color: '#eef3e6', pos: 'right' },
-    { match: 'lubińsk',  label: 'lubinski · najbogatszy, a rzadki',  color: '#f2a359', pos: 'left', off: [-6, 0] },
+    { match: 'kamieńsk', label: 'kamienski · kurort',  color: '#a6e84a', pos: 'top', off: [0, -10] },
+    { match: 'tatrza',   label: 'tatrzanski · Zakopane', color: '#a6e84a', pos: 'bottom', off: [0, 8] },
+    { match: 'warszawa', label: 'Warszawa',              color: '#eef3e6', pos: 'right' },
+    { match: 'lubińsk',  label: 'lubinski · najbogatszy', color: '#f2a359', pos: 'top', off: [-20, -10] },
   ];
   const heroSpecsU = [
-    { match: 'szydłowieck', label: 'szydłowiecki', color: '#e8693d', pos: 'top', off: [0, -8] },
+    { match: 'szydłowieck', label: 'szydłowiecki', color: '#e8693d', pos: 'top', off: [0, -10] },
     { match: 'poznański',   label: 'poznański',    color: '#84c341', pos: 'right' },
   ];
   const ptsS = sampleWithHeroes(rowsS, 30, 'avg_salary',        heroSpecsS);

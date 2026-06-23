@@ -293,6 +293,56 @@
     </div>
   </div>
 
+  <!-- RANKING: typowy dystans miedzy Zabkami (mediana/srednia, poziom) -->
+  <div class="card reveal" style="margin-bottom:16px">
+    <div class="gran-left-head">
+      <div>
+        <div class="card-title" id="nbl-title" data-debug-id="NBL">Jak gęsto stoją Żabki - typowy dystans do sąsiadki</div>
+        <div class="card-sub" id="nbl-sub">mediana odległości do najbliższej Żabki, według województwa</div>
+      </div>
+      <div class="gran-toggles">
+        <div class="gran-toggle" role="tablist" id="nbl-level">
+          <button class="gran-btn active" data-nlevel="voivodeship">Woj.</button>
+          <button class="gran-btn" data-nlevel="powiat">Powiaty</button>
+          <button class="gran-btn" data-nlevel="city">Miasta</button>
+        </div>
+        <div class="gran-toggle" role="tablist" id="nbl-metric">
+          <button class="gran-btn active" data-nmetric="median_m">Mediana</button>
+          <button class="gran-btn" data-nmetric="avg_m">Średnia</button>
+        </div>
+        <div class="gran-toggle" role="tablist" id="nbl-sort">
+          <button class="gran-btn active" data-nsort="desc">Najrzadsze</button>
+          <button class="gran-btn" data-nsort="asc">Najgęstsze</button>
+        </div>
+      </div>
+    </div>
+    <div class="chart-wrap" id="nbl-chart-wrap" style="height:440px"><canvas id="chart-nbl"></canvas></div>
+    <div class="caveat" id="nbl-caveat">Mediana jest odporna na pojedyncze samotne sklepy; średnią podbijają outliery (w podkarpackiem średnia to ~1,8 km, mediana 459 m).</div>
+  </div>
+
+  <!-- row: ulice + gminy-kurorty -->
+  <div class="row row-2 reveal" style="margin-bottom:16px">
+    <div class="card">
+      <div class="card-title" data-debug-id="STREETS">Żabka stoi tam, gdzie Polska stawia pomniki</div>
+      <div class="card-sub" id="streets-sub">najczęstsze nazwy ulic pod adresem Żabki - <span id="streets-distinct">4 850</span> różnych ulic w bazie</div>
+      <div class="chart-wrap" style="height:420px"><canvas id="chart-streets"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="gran-left-head">
+        <div>
+          <div class="card-title" data-debug-id="GMINA-LEAD">Najwięcej Żabek na mieszkańca? Kurorty.</div>
+          <div class="card-sub" id="gmina-lead-sub">gminy wg sklepów na 1000 zameldowanych - morze i góry biją resztę kraju</div>
+        </div>
+        <div class="gran-toggle" role="tablist" id="gmina-metric">
+          <button class="gran-btn active" data-gmetric="per_1k">Na 1000 mieszk.</button>
+          <button class="gran-btn" data-gmetric="per_km2">Na km²</button>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:420px"><canvas id="chart-gmina-lead"></canvas></div>
+      <div class="caveat" id="gmina-lead-caveat">Liczba mieszkańców to zameldowani - latem w kurortach jest ich wielokrotnie więcej. To zniekształcenie jest właśnie sednem: sieć idzie za turystą, nie za meldunkiem.</div>
+    </div>
+  </div>
+
   <!-- ================= ZABKA A POLSKA: placa + bezrobocie (infotainment) ================= -->
   <section class="ec" id="ec-root">
 
@@ -312,7 +362,7 @@
         <div id="scatter1" class="ec-chart"></div>
       </div>
 
-      <div class="stat-strip ec-reveal" style="grid-template-columns:repeat(4,1fr);margin-top:16px;margin-bottom:0">
+      <div class="stat-strip ec-reveal" style="grid-template-columns:repeat(6,1fr);margin-top:16px;margin-bottom:0">
         <div class="stat-tile ec-reveal d1">
           <div class="stat-kicker">Łącznie</div>
           <div class="stat-big" id="ec-fact-total-num" data-count="13154" data-dec="0">0</div>
@@ -324,11 +374,21 @@
           <div class="stat-sub">sieć gęstsza w bogatszej ćwiartce niż w biedniejszej<i id="ec-fact-ratio-bar" data-fill="84" style="display:none"></i></div>
         </div>
         <div class="stat-tile ec-reveal d3">
+          <div class="stat-kicker">Korelacja z płacą</div>
+          <div class="stat-big" id="ec-fact-r-salary">-</div>
+          <div class="stat-sub">współczynnik r: płaca kontra gęstość sieci</div>
+        </div>
+        <div class="stat-tile ec-reveal d4">
           <div class="stat-kicker">Rekord gęstości</div>
           <div class="stat-big">1 : <span id="ec-fact-record-num" data-count="1008" data-dec="0">0</span></div>
           <div class="stat-sub" id="ec-fact-record-sub">Międzyzdroje (pow. kamieński)</div>
         </div>
-        <div class="stat-tile ec-reveal d4">
+        <div class="stat-tile ec-reveal d5">
+          <div class="stat-kicker">Najbogatszy powiat</div>
+          <div class="stat-big" id="ec-fact-rich-num" data-count="0.42" data-dec="2">0</div>
+          <div class="stat-sub" id="ec-fact-rich-sub">skl./1000 - a sieć rzadka</div>
+        </div>
+        <div class="stat-tile ec-reveal d6">
           <div class="stat-kicker">Rozpiętość województw</div>
           <div class="stat-big" id="ec-fact-voiv-num" data-count="2.5" data-dec="1" data-suffix="x">0</div>
           <div class="stat-sub" id="ec-fact-voiv-sub">Pomorskie vs Podkarpackie</div>
@@ -357,7 +417,7 @@
         <p class="lead">Druga strona medalu. Tam, gdzie bezrobocie jest wysokie, sieć rzednie. To ta sama historia co przy płacy, tylko widziana od strony rynku pracy.</p>
       </div>
 
-      <div class="stat-strip ec-reveal" style="grid-template-columns:repeat(2,1fr);margin-top:16px;margin-bottom:0">
+      <div class="stat-strip ec-reveal" style="grid-template-columns:repeat(6,1fr);margin-top:16px;margin-bottom:0">
         <div class="stat-tile ec-reveal d1">
           <div class="stat-kicker">Mediana bezrobocia</div>
           <div class="stat-big" id="ec-fact-u-median-num" data-count="4.6" data-dec="1" data-suffix="%">0</div>
@@ -368,6 +428,26 @@
           <div class="stat-big" id="ec-fact-u-high10-num" data-count="48" data-dec="0">0</div>
           <div class="stat-sub" id="ec-fact-u-high10-sub">powiatów przekracza 10% - większość poniżej mediany gęstości sieci</div>
         </div>
+        <div class="stat-tile ec-reveal d3">
+          <div class="stat-kicker">Korelacja z bezrobociem</div>
+          <div class="stat-big" id="ec-fact-r-unemp">-</div>
+          <div class="stat-sub">współczynnik r: bezrobocie kontra gęstość sieci</div>
+        </div>
+        <div class="stat-tile ec-reveal d4">
+          <div class="stat-kicker">Najniższe bezrobocie</div>
+          <div class="stat-big" id="ec-fact-u-min-num" data-count="1.5" data-dec="1" data-suffix="%">0</div>
+          <div class="stat-sub" id="ec-fact-u-min-sub">najniższy wynik w kraju</div>
+        </div>
+        <div class="stat-tile ec-reveal d5">
+          <div class="stat-kicker">Spokojny rynek pracy</div>
+          <div class="stat-big" id="ec-fact-u-below3-num" data-count="0" data-dec="0">0</div>
+          <div class="stat-sub">powiatów ma bezrobocie poniżej 3%</div>
+        </div>
+        <div class="stat-tile ec-reveal d6">
+          <div class="stat-kicker">Gęstość przy niskim bezrobociu</div>
+          <div class="stat-big" id="ec-fact-u-q1dens-num" data-count="0" data-dec="2">0</div>
+          <div class="stat-sub">średnia skl./1000 w ćwiartce o najniższym bezrobociu</div>
+        </div>
       </div>
 
       <div class="card ec-reveal">
@@ -377,7 +457,7 @@
         <div id="scatter2" class="ec-chart"></div>
       </div>
 
-      <div class="stat-strip ec-reveal" style="grid-template-columns:repeat(4,1fr);margin-top:16px;margin-bottom:0">
+      <div class="stat-strip ec-reveal" style="grid-template-columns:repeat(6,1fr);margin-top:16px;margin-bottom:0">
         <div class="stat-tile ec-reveal d1">
           <div class="stat-kicker">Odwrotna drabina</div>
           <div class="stat-big" id="ec-fact-u-ratio-num" data-count="1.8" data-dec="1" data-suffix="x">0</div>
@@ -394,6 +474,16 @@
           <div class="stat-sub" id="ec-fact-u-max-sub">szydłowiecki - tylko <span id="ec-fact-u-max-density">0,16</span> skl./1000</div>
         </div>
         <div class="stat-tile ec-reveal d4">
+          <div class="stat-kicker">Gęstość przy wysokim bezrobociu</div>
+          <div class="stat-big" id="ec-fact-u-q4dens-num" data-count="0" data-dec="2">0</div>
+          <div class="stat-sub">średnia skl./1000 w ćwiartce o najwyższym bezrobociu</div>
+        </div>
+        <div class="stat-tile ec-reveal d5">
+          <div class="stat-kicker">Trudny rynek pracy</div>
+          <div class="stat-big" id="ec-fact-u-high15-num" data-count="0" data-dec="0">0</div>
+          <div class="stat-sub">powiatów z bezrobociem powyżej 15%</div>
+        </div>
+        <div class="stat-tile ec-reveal d6">
           <div class="stat-kicker">Wyjątek kurortowy</div>
           <div class="stat-big" id="ec-fact-u-leski-num" data-count="19.7" data-dec="1" data-suffix="%">0</div>
           <div class="stat-sub" id="ec-fact-u-leski-sub">leski - wysokie bezrobocie, przyzwoita sieć</div>
@@ -480,14 +570,6 @@
           </div>
         </div>
         <div id="kr-map"></div>
-        <div class="mapcap" id="kr-cap">Najedz na pozycje z listy - mapa doleci. Kliknij - szczegoly.</div>
-        <div class="legend">
-          <span><i style="background:#84c341"></i>Kompas</span>
-          <span><i style="background:#f2a359"></i>Wysokosc</span>
-          <span><i style="background:#4dd0b1"></i>Izolacja</span>
-          <span><i style="background:#e8693d"></i>Pustka</span>
-          <span><i style="background:#a6e84a"></i>Zabie ulice</span>
-        </div>
       </div>
       <div class="rail">
         <div class="rail-scroll" id="kr-rail"></div>
@@ -554,6 +636,29 @@
     </div>
   </div>
 
+  <!-- blizniaki: kontra do samotnika -->
+  <div class="card reveal twins-card" style="margin-bottom:16px">
+    <div class="card-title" data-debug-id="TWINS">Druga skrajność: Żabka tuż obok Żabki</div>
+    <div class="card-sub">Samotnik z mapy ma 27 km do najbliższej sąsiadki. Na drugim biegunie sieć się zagęszcza - a czasem wręcz dubluje pod jednym adresem.</div>
+    <div class="twins-grid">
+      <div class="twins-stats">
+        <div class="twins-stat"><span class="twins-num" id="twins-50">-</span><span class="twins-lab">sklepów ma inną Żabkę bliżej niż <b>50 m</b></span></div>
+        <div class="twins-stat"><span class="twins-num" id="twins-100">-</span><span class="twins-lab">w promieniu <b>100 m</b></span></div>
+        <div class="twins-stat"><span class="twins-num" id="twins-200">-</span><span class="twins-lab">w promieniu <b>200 m</b></span></div>
+      </div>
+      <div class="twins-lists">
+        <div class="twins-col">
+          <div class="twins-col-head">Pod jednym adresem (dwie, a bywa że trzy)</div>
+          <ul class="twins-ul" id="twins-sameaddr"></ul>
+        </div>
+        <div class="twins-col">
+          <div class="twins-col-head">Najbliższe pary - rzut beretem</div>
+          <ul class="twins-ul" id="twins-closest"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- wiersz 2: najdalej od zaby + ulice -->
   <div class="row row-2 reveal" style="margin-bottom:16px">
     <div class="card">
@@ -589,12 +694,13 @@
 
   <div class="sec-hook teal reveal">Sieć nazwana od płaza. Sprawdziliśmy, gdzie Żabka naprawdę spotyka żabkę - i gdzie nie spotyka jej wcale.</div>
 
-  <div class="hero-band hero-band-5 reveal">
+  <div class="hero-band hero-band-6 reveal">
     <div class="hero-stat"><div class="hero-num" id="plazy-gbif-total">46 000</div><div class="hero-desc">obserwacji płazów w Polsce (GBIF, klasa Amphibia)</div></div>
     <div class="hero-stat"><div class="hero-num" id="plazy-median">84</div><div class="hero-desc">mediana obserwacji w promieniu 5 km od sklepu</div></div>
     <div class="hero-stat"><div class="hero-num" id="plazy-record">2 028</div><div class="hero-desc">rekord: jeden sklep, Ursynów - nie park narodowy</div></div>
     <div class="hero-stat"><div class="hero-num" id="plazy-zero-count">668</div><div class="hero-desc">suchych Żabek - zero płazów w 5 km</div></div>
     <div class="hero-stat"><div class="hero-num" id="plazy-farthest-km">14,91 km</div><div class="hero-desc">najdalej do płaza (Wieluń / Osięciny)</div></div>
+    <div class="hero-stat"><div class="hero-num" id="plazy-topvoiv">-</div><div class="hero-desc" id="plazy-topvoiv-desc">najwięcej obserwacji płazów na sklep (województwo)</div></div>
   </div>
 
   <!-- P1 Beeswarm -->
