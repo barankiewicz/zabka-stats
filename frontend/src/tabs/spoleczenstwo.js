@@ -252,7 +252,7 @@ function wireStreetsAndGmina(){
 }
 
 // ---- neighbor-by-level ranking (median/avg, level, sort) ----
-let _nblLevel='voivodeship', _nblMetric='median_m', _nblSort='desc';
+let _nblLevel='voivodeship', _nblMetric='median_m', _nblSort='asc';
 const _nblCache={};
 const _NBL_LABEL={voivodeship:'województw',powiat:'powiatów',city:'miast'};
 
@@ -295,7 +295,7 @@ function _drawNbl(data){
 
 export async function renderNbl(){
   let data;
-  if(_nblLevel==='voivodeship'&&_nblMetric==='median_m'&&_nblSort==='desc'
+  if(_nblLevel==='voivodeship'&&_nblMetric==='median_m'&&_nblSort==='asc'
      &&M.neighbor_by_level&&(M.neighbor_by_level.rows||[]).length){
     data=M.neighbor_by_level;
   }else{

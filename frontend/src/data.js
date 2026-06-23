@@ -49,7 +49,7 @@ export async function loadCore() {
     fetchJSON(`${BASE}/stats/opening-hours`),
     fetchJSON(`${BASE}/stats/common-streets?limit=15`),
     fetchJSON(`${BASE}/stats/gmina-leaders?limit=12`),
-    fetchJSON(`${BASE}/stats/neighbor-by-level?level=voivodeship`),
+    fetchJSON(`${BASE}/stats/neighbor-by-level?level=voivodeship&sort=asc`),
   ]);
   Object.assign(M, {
     summary:               val(summary, {total_active:0, cities_count:0, merrychef_pct:0, sunday_pct:0, h24_count:0}),
