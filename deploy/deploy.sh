@@ -87,6 +87,30 @@ fi
 say "Shipping frontend/dist to $SSH_HOST"
 ( cd frontend && tar czf - dist ) | ssh "$SSH_HOST" "cd '$REMOTE_DIR/frontend' && rm -rf dist && tar xzf -"
 
+# --- 6b. sync large geo data files (gitignored, must be kept in sync manually) --
+# These files are too big / too static to live in git, so we compare checksums
+# and only ship what changed. data/geo/*.geojson and *.json.
+GEO_FILES=(
+  data/geo/gminy.geojson
+  data/geo/gmina_pop.json
+  data/geo/miasta_pl.json
+)
+NEED_SYNC=()
+for f in "${GEO_FILES[@]}"; do
+  [ -f "$ROOT/$f" ] || continue
+  LOCAL_MD5=$(md5sum "$ROOT/$f" | cut -d' ' -f1)
+  REMOTE_MD5=$(ssh "$SSH_HOST" "md5sum '$REMOTE_DIR/$f' 2>/dev/null | cut -d' ' -f1" || true)
+  if [ "$LOCAL_MD5" != "$REMOTE_MD5" ]; then
+    NEED_SYNC+=("$f")
+  fi
+done
+if [ ${#NEED_SYNC[@]} -gt 0 ]; then
+  say "Syncing geo files: ${NEED_SYNC[*]}"
+  tar czf - "${NEED_SYNC[@]}" | ssh "$SSH_HOST" "cd '$REMOTE_DIR' && tar xzf -"
+else
+  say "Geo files up to date, skipping"
+fi
+
 # --- 7. restart the backend -------------------------------------------------
 say "Restarting $SERVICE"
 ssh "$SSH_HOST" "sudo -n systemctl restart '$SERVICE'"
