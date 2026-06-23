@@ -228,6 +228,14 @@ the Resend API. Secrets (`RESEND_API_KEY`, `MAIL_TO`) live in `/home/zabka/.cron
 The status email is the only run-status channel - there is no GitHub Actions step
 in the daily loop. Code reaches the VPS by `git pull`, not by CI deploy.
 
+**Analytics: GoatCounter.** A systemd unit `goatcounter.service` runs
+`/usr/local/bin/goatcounter serve` (SQLite at `/home/zabka/goatcounter/goatcounter.sqlite3`,
+listening on `127.0.0.1:8081`). nginx proxies `/gc/` to it; GoatCounter is told about
+the path prefix via `-base-path /gc`. No cookies, no GDPR banner required. Dashboard:
+`https://zabka-stats.rejewska.pl/gc/` (login: `alicja.barankiewicz@formula5.com`,
+password in `/home/zabka/goatcounter/.gc_env`). The tracking script is inlined in
+`<head>` of both HTML pages and fires on every page load automatically.
+
 ## Data format (JSON)
 
 A snapshot JSON must contain:
@@ -999,6 +1007,16 @@ Single-page dashboard (`frontend/index.html`), dark theme, served by FastAPI. St
 pulling from `/api/*`, rendered via Chart.js + Leaflet + Canvas 2D. Full specification
 with exact SQL, pixel dimensions, animations, and endpoint register:
 `.claude/analysis/DASHBOARD_SPEC.md`.
+
+**SEO.** Both HTML pages (`index.html`, `methodology.html`) carry a full `<head>` stack:
+unique `<title>` and `<meta name="description">`, `<link rel="canonical">`, Open Graph
+(`og:title`, `og:description`, `og:image`, `og:type`), Twitter Card (`summary_large_image`),
+and JSON-LD structured data (`WebSite` + `Dataset` schema — original data is a real
+candidate for Google rich results). The OG image (`/og.png`, 1200x630, dark theme) lives
+in `frontend/public/` and is copied to `dist/` by Vite. `robots.txt` and `sitemap.xml`
+also live in `frontend/public/` (Vite copies both to dist root). Google Search Console
+is not yet wired up — verification is manual (OAuth in browser); the sitemap is ready
+to submit once a GSC property is created.
 
 **Data loading:** `frontend/index.html` fires all 20 API endpoints in parallel via
 `Promise.allSettled` on page load (`loadData()`, bottom of the script block). Each
