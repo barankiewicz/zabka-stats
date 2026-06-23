@@ -80,7 +80,8 @@ function renderInpostMap(){
   const map=L.map('map-inpost',{
     zoomControl:false,attributionControl:false,
     scrollWheelZoom:true,dragging:true,
-    doubleClickZoom:true,boxZoom:true,keyboard:true
+    doubleClickZoom:true,boxZoom:true,keyboard:true,
+    zoomSnap:0  // allow fractional zoom so fitBounds fills the canvas tightly
   });
   MAPS['map-inpost']=map;
   map.setView([52.0,19.3],6.5);
@@ -120,13 +121,23 @@ function renderInpostMap(){
       });
     }
   }).addTo(map);
-  try{map.fitBounds(L.geoJSON(M.woj_geo).getBounds(),{padding:[6,6]})}catch(e){}
+  // Fit Poland to the canvas. invalidateSize first so fitBounds sees the real
+  // container size; re-fit after the flex/reveal layout settles so the map
+  // fills the whole canvas instead of leaving margins.
+  const _bounds=L.geoJSON(M.woj_geo).getBounds();
+  function fitInpost(){
+    if(!map)return;
+    map.invalidateSize();
+    try{map.fitBounds(_bounds,{padding:[4,4]})}catch(e){}
+  }
+  fitInpost();
+  setTimeout(fitInpost,80);
+  setTimeout(fitInpost,320);
   pairs.forEach(({layer},i)=>setTimeout(()=>{
     const svg=layer.getElement&&layer.getElement();
     if(svg)svg.style.transition='fill-opacity .25s ease,fill .25s ease,transform .2s ease';
     layer.setStyle({fillOpacity:0.9});
   },10+i*14));
-  setTimeout(()=>map&&map.invalidateSize(),60);
 }
 
 export function renderSpoleczenstwo(){
