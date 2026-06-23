@@ -122,9 +122,9 @@ ACTIVE=$(ssh "$SSH_HOST" "systemctl is-active '$SERVICE'" || true)
 echo "service: $ACTIVE"
 LOOPBACK=$(ssh "$SSH_HOST" "curl -s http://127.0.0.1:8000/health" || true)
 echo "loopback health: $LOOPBACK"
-PUBLIC_BUNDLE=$(curl -s "$PUBLIC_URL/" | grep -o 'index-[A-Za-z0-9_]*\.js' | head -1 || true)
+PUBLIC_BUNDLE=$(curl -s "$PUBLIC_URL/" | grep -o 'assets/[A-Za-z0-9_-]*\.js' | head -1 || true)
 echo "public bundle: $PUBLIC_BUNDLE"
-LOCAL_BUNDLE=$(grep -o 'index-[A-Za-z0-9_]*\.js' frontend/dist/index.html | head -1 || true)
+LOCAL_BUNDLE=$(grep -o 'assets/[A-Za-z0-9_-]*\.js' frontend/dist/index.html | head -1 || true)
 echo "local bundle:  $LOCAL_BUNDLE"
 
 if [ "$ACTIVE" = "active" ] && [ "$PUBLIC_BUNDLE" = "$LOCAL_BUNDLE" ] && [ -n "$PUBLIC_BUNDLE" ]; then
