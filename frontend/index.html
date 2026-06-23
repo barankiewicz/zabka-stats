@@ -3,7 +3,61 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Żabka w liczbach</title>
+<title>Żabka w liczbach – atlas ponad 12 tys. sklepów w Polsce</title>
+<meta name="description" content="Interaktywny atlas sieci Żabka: gdzie, kiedy i jak urosła do ponad 12 tysięcy sklepów. Mapy, rankingi i ciekawostki na danych publicznych.">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="https://zabka-stats.rejewska.pl/">
+<meta name="theme-color" content="#0a120a">
+
+<!-- Analityka: Umami (self-hosted). Po postawieniu instancji odkomentuj i wstaw host + website-id. -->
+<!-- <script defer src="https://stats-umami.rejewska.pl/script.js" data-website-id="WSTAW-WEBSITE-ID"></script> -->
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Żabka w liczbach">
+<meta property="og:locale" content="pl_PL">
+<meta property="og:url" content="https://zabka-stats.rejewska.pl/">
+<meta property="og:title" content="Żabka w liczbach – atlas ponad 12 tys. sklepów w Polsce">
+<meta property="og:description" content="Gdzie, kiedy i jak sieć Żabka urosła do ponad 12 tysięcy sklepów. Mapy, rankingi i ciekawostki na danych publicznych.">
+<meta property="og:image" content="https://zabka-stats.rejewska.pl/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+
+<!-- Twitter / X -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Żabka w liczbach – atlas ponad 12 tys. sklepów w Polsce">
+<meta name="twitter:description" content="Gdzie, kiedy i jak sieć Żabka urosła do ponad 12 tysięcy sklepów. Mapy, rankingi i ciekawostki na danych publicznych.">
+<meta name="twitter:image" content="https://zabka-stats.rejewska.pl/og.png">
+
+<!-- Structured data: strona + zbiór danych (oryginalne dane = szansa na rich result) -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://zabka-stats.rejewska.pl/#website",
+      "name": "Żabka w liczbach",
+      "url": "https://zabka-stats.rejewska.pl/",
+      "description": "Interaktywny atlas sieci Żabka w Polsce na danych publicznych.",
+      "inLanguage": "pl-PL"
+    },
+    {
+      "@type": "Dataset",
+      "name": "Sieć Żabka w Polsce – lokalizacje i statystyki",
+      "description": "Dane o ponad 12 tysiącach sklepów Żabka w Polsce: lokalizacje, daty otwarcia, gęstość, godziny otwarcia oraz korelacje z danymi GUS, GBIF, InPost i GUGiK.",
+      "url": "https://zabka-stats.rejewska.pl/",
+      "inLanguage": "pl-PL",
+      "isAccessibleForFree": true,
+      "keywords": ["Żabka", "sklepy convenience", "Polska", "mapa sklepów", "statystyki", "dane otwarte"],
+      "temporalCoverage": "1998/2026",
+      "spatialCoverage": { "@type": "Place", "name": "Polska" },
+      "isPartOf": { "@id": "https://zabka-stats.rejewska.pl/#website" }
+    }
+  ]
+}
+</script>
+
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -54,7 +108,7 @@
     <div class="stat-tile">
       <div class="stat-kicker">Przyspieszenie</div>
       <div class="stat-big fast" id="stat-last5k">-<span class="stat-unit">lat</span></div>
-      <div class="stat-sub">zajęły ostatnie <b>5 000</b> - tempo wystrzeliło</div>
+      <div class="stat-sub">zajęły ostatnie <b>5 000</b> – tempo wystrzeliło</div>
     </div>
     <div class="stat-tile">
       <div class="stat-kicker">Rekord</div>
@@ -80,8 +134,8 @@
 
   <!-- BIG MAP + KALENDARZ EKSPANSJI (one shared slider drives both) -->
   <div class="card si-reveal" style="margin-bottom:16px">
-    <div class="card-title" data-debug-id="MAPA">Tak rosła sieć: 1998 - 2026</div>
-    <div class="card-sub">Każda kropka to sklep, pojawia się w roku otwarcia. Obok: kalendarz otwarć miesiąc po miesiącu - suwak prowadzi oba.</div>
+    <div class="card-title" data-debug-id="MAPA">Tak rosła sieć: 1998–2026</div>
+    <div class="card-sub">Każda kropka to sklep, pojawia się w roku otwarcia. Obok kalendarz otwarć miesiąc po miesiącu – suwak prowadzi oba.</div>
     <div class="growth-split">
       <div class="growth-map-wrap">
         <div id="map-growth" class="growth-map"></div>
@@ -119,7 +173,7 @@
         <div class="stat-kicker slow">Najstarsza (wciąż działa)</div>
         <div class="origin-year slow" id="origin-old-year">1998</div>
         <div class="origin-place"><span id="origin-old-city">Swarzędz</span>, <span id="origin-old-street">Rynek 4/5</span></div>
-        <div class="origin-note">otwarta <span id="origin-old-date">-</span> - i nadal na mapie</div>
+        <div class="origin-note">otwarta <span id="origin-old-date">-</span> – i nadal na mapie</div>
       </div>
     </div>
     <div class="card origin-card">
@@ -130,15 +184,15 @@
         <div class="stat-kicker fast">Najnowsza Żabka</div>
         <div class="origin-year fast" id="origin-new-year">2026</div>
         <div class="origin-place"><span id="origin-new-city">Warszawa</span>, <span id="origin-new-street">Żytnia 64</span></div>
-        <div class="origin-note">otwarta <span id="origin-new-date">-</span> - najświeższy punkt na mapie</div>
+        <div class="origin-note">otwarta <span id="origin-new-date">-</span> – najświeższy punkt na mapie</div>
       </div>
     </div>
   </div>
 
-  <!-- 1.1f-flat: fingerprint unrolled — X = direction, Y = year -->
+  <!-- 1.1f-flat: fingerprint unrolled - X = direction, Y = year -->
   <div class="card fp-card si-reveal" style="margin-bottom:16px">
-    <div class="card-title" data-debug-id="1.1f-flat">Odcisk wyprostowany - słoje lat od N do N</div>
-    <div class="card-sub">Te same dane, rozwinięte z układu biegunowego: oś X to kierunek (N - E - S - W - N), oś Y to rok. Każdy słój to jeden rok, wybrzuszenie = dominujący kierunek ekspansji. Najedź na słój po szczegóły.</div>
+    <div class="card-title" data-debug-id="1.1f-flat">Odcisk wyprostowany – słoje lat od N do N</div>
+    <div class="card-sub">Te same dane, rozwinięte z układu biegunowego: oś X to kierunek (N–E–S–W–N), oś Y to rok. Każdy słój to jeden rok, a wybrzuszenie to dominujący kierunek ekspansji. Najedź na słój po szczegóły.</div>
     <div class="fingerprint-wrap" style="display:block">
       <canvas id="canvas-fingerprint-flat" style="display:block;width:100%;height:520px;cursor:crosshair"></canvas>
       <div id="fpf-tooltip" style="display:none;position:absolute;background:var(--s2);border:1px solid var(--axis);border-radius:8px;padding:10px 14px;font-size:12px;pointer-events:none;z-index:10;min-width:180px"></div>
@@ -152,7 +206,7 @@
       <div class="gran-left">
         <div class="gran-left-head">
           <div>
-            <div class="card-title" id="gran-title" data-debug-id="GRAN">Najwięcej Żabek - powiaty</div>
+            <div class="card-title" id="gran-title" data-debug-id="GRAN">Najwięcej Żabek – powiaty</div>
             <div class="card-sub" id="gran-sub">liczba aktywnych sklepów</div>
           </div>
           <div class="gran-toggles">
@@ -167,7 +221,7 @@
               <button class="gran-btn" data-metric="per_km2">Na km²</button>
             </div>
             <div class="gran-toggle" role="tablist" id="gran-sort">
-              <button class="gran-btn active" data-sort="desc">Najwiękse</button>
+              <button class="gran-btn active" data-sort="desc">Największe</button>
               <button class="gran-btn" data-sort="asc">Najmniejsze</button>
             </div>
           </div>
@@ -188,7 +242,7 @@
       <div class="gran-left-head">
         <div>
           <div class="card-title" data-debug-id="POWIATY">Żabka jest niemal wszędzie</div>
-          <div class="card-sub">odsetek jednostek z Żabką - zielone = pokryte, czerwone = bez</div>
+          <div class="card-sub">odsetek jednostek z Żabką – zielone: pokryte, czerwone: bez</div>
         </div>
         <div class="gran-toggle" role="tablist" id="powiat-level">
           <button class="gran-btn active" data-plevel="powiaty">Powiaty</button>
@@ -207,10 +261,10 @@
     </div>
     <div class="card">
       <div>
-        <div class="card-title" data-debug-id="BUBBLE">Z czego sklada sie siec - miasta</div>
-        <div class="card-sub">Wielkosc babla = liczba sklepow. Przeciagnij; Ctrl+scroll przybliza. Male jednostki w „Pozostale".</div>
+        <div class="card-title" data-debug-id="BUBBLE">Z czego składa się sieć – miasta</div>
+        <div class="card-sub">Wielkość bąbla to liczba sklepów. Przeciągnij; Ctrl + scroll przybliża. Małe jednostki trafiają do „Pozostałych".</div>
       </div>
-      <div id="bubble-stage"><div class="bubble-zoom-hint">ctrl + scroll to zoom</div></div>
+      <div id="bubble-stage"><div class="bubble-zoom-hint">ctrl + scroll przybliża</div></div>
     </div>
   </div>
 </div>
@@ -227,8 +281,8 @@
       <div class="hero-eyebrow">Żabka a Polska · Kultura i naród</div>
       <div class="hero-number tab-hero-num" id="hero-num-spoleczenstwo">95,5<span class="stat-unit">%</span></div>
       <div class="hero-number-label">Żabek jest otwartych w niedziele</div>
-      <h1 class="hero-h1">Prawo swojem, Żabka swojem.</h1>
-      <p class="hero-lede">W świecie ograniczeń narzucanych przez państwo Żabka radzi sobie doskonale. Zobaczmy, gdzie jeszcze Żabka wpisuje (lub nadpisuje?) się w polską kulturę.</p>
+      <h1 class="hero-h1">Prawo swoje, Żabka swoje.</h1>
+      <p class="hero-lede">W świecie ograniczeń narzucanych przez państwo Żabka radzi sobie doskonale. Zobaczmy, gdzie jeszcze wpisuje się w polską kulturę. A może ją nadpisuje?</p>
     </div>
   </header>
 
@@ -245,9 +299,9 @@
       <div class="stat-sub">Żabek na każde 100 km² kraju</div>
     </div>
     <div class="stat-tile">
-      <div class="stat-kicker">Pokrycie powiatów</div>
-      <div class="stat-big" id="spol-kpi-powiats">-<span class="stat-unit">/381</span></div>
-      <div class="stat-sub">żaden powiat bez Żabki</div>
+      <div class="stat-kicker">Pokrycie gmin</div>
+      <div class="stat-big" id="spol-kpi-gminy">-<span class="stat-unit">%</span></div>
+      <div class="stat-sub">gmin ma co najmniej jedną Żabkę</div>
     </div>
     <div class="stat-tile">
       <div class="stat-kicker">InPost na Żabkę</div>
@@ -268,8 +322,8 @@
 
   <!-- 2.3 InPost vs Zabka -->
   <div class="card reveal" style="margin-bottom:16px">
-    <div class="card-title" data-debug-id="2.3">Żabka vs InPost</div>
-    <div class="card-sub">Pojedynek dwóch gigantów polskiej przestrzeni publicznej!</div>
+    <div class="card-title" data-debug-id="2.3">Żabka kontra InPost</div>
+    <div class="card-sub">Pojedynek dwóch gigantów polskiej przestrzeni publicznej.</div>
     <div class="gran-split" style="margin-top:16px">
       <div style="display:flex;flex-direction:column;height:440px">
         <div class="map-container" style="flex:1">
@@ -299,7 +353,7 @@
   <div class="card reveal" style="margin-bottom:16px">
     <div class="gran-left-head">
       <div>
-        <div class="card-title" id="nbl-title" data-debug-id="NBL">Jak gęsto stoją Żabki - typowy dystans do sąsiadki</div>
+        <div class="card-title" id="nbl-title" data-debug-id="NBL">Jak gęsto stoją Żabki – typowy dystans do sąsiadki</div>
         <div class="card-sub" id="nbl-sub">mediana odległości do najbliższej Żabki, według województwa</div>
       </div>
       <div class="gran-toggles">
@@ -319,21 +373,21 @@
       </div>
     </div>
     <div class="chart-wrap" id="nbl-chart-wrap" style="height:440px"><canvas id="chart-nbl"></canvas></div>
-    <div class="caveat" id="nbl-caveat">Mediana jest odporna na pojedyncze samotne sklepy; średnią podbijają outliery (w podkarpackiem średnia to ~1,8 km, mediana 459 m).</div>
+    <div class="caveat" id="nbl-caveat">Mediana jest odporna na pojedyncze samotne sklepy; średnią zawyżają wartości skrajne (w podkarpackiem średnia to ~1,8 km, a mediana 459 m).</div>
   </div>
 
   <!-- row: ulice + gminy-kurorty -->
   <div class="row row-2 reveal" style="margin-bottom:16px">
     <div class="card">
       <div class="card-title" data-debug-id="STREETS">Żabka stoi tam, gdzie Polska stawia pomniki</div>
-      <div class="card-sub" id="streets-sub">najczęstsze nazwy ulic pod adresem Żabki - <span id="streets-distinct">4 850</span> różnych ulic w bazie</div>
+      <div class="card-sub" id="streets-sub">najczęstsze nazwy ulic w adresach Żabek – <span id="streets-distinct">4 850</span> różnych ulic w bazie</div>
       <div class="chart-wrap" style="height:420px"><canvas id="chart-streets"></canvas></div>
     </div>
     <div class="card">
       <div class="gran-left-head">
         <div>
           <div class="card-title" data-debug-id="GMINA-LEAD">Najwięcej Żabek na mieszkańca? Kurorty.</div>
-          <div class="card-sub" id="gmina-lead-sub">gminy wg sklepów na 1000 zameldowanych - morze i góry biją resztę kraju</div>
+          <div class="card-sub" id="gmina-lead-sub">gminy wg sklepów na 1000 zameldowanych – morze i góry biją resztę kraju</div>
         </div>
         <div class="gran-toggle" role="tablist" id="gmina-metric">
           <button class="gran-btn active" data-gmetric="per_1k">Na 1000 mieszk.</button>
@@ -341,7 +395,7 @@
         </div>
       </div>
       <div class="chart-wrap" style="height:420px"><canvas id="chart-gmina-lead"></canvas></div>
-      <div class="caveat" id="gmina-lead-caveat">Liczba mieszkańców to zameldowani - latem w kurortach jest ich wielokrotnie więcej. To zniekształcenie jest właśnie sednem: sieć idzie za turystą, nie za meldunkiem.</div>
+      <div class="caveat" id="gmina-lead-caveat">Liczba mieszkańców to zameldowani, a latem w kurortach jest ich wielokrotnie więcej. I o to właśnie chodzi: sieć idzie za turystą, nie za meldunkiem.</div>
     </div>
   </div>
 
@@ -366,9 +420,9 @@
 
       <div class="stat-strip ec-reveal" style="grid-template-columns:repeat(6,1fr);margin-top:16px;margin-bottom:0">
         <div class="stat-tile ec-reveal d1">
-          <div class="stat-kicker">Łącznie</div>
-          <div class="stat-big" id="ec-fact-total-num" data-count="13154" data-dec="0">0</div>
-          <div class="stat-sub">żabek w 381 powiatach Polski</div>
+          <div class="stat-kicker">Najbogatsza ćwiartka</div>
+          <div class="stat-big" id="ec-fact-rich-share-num" data-count="58" data-dec="0" data-suffix="%">0</div>
+          <div class="stat-sub">sieci stoi w najbogatszej ćwiartce powiatów - najuboższa ma 10%</div>
         </div>
         <div class="stat-tile ec-reveal d2">
           <div class="stat-kicker">Nożyce zamożności</div>
@@ -441,9 +495,9 @@
           <div class="stat-sub" id="ec-fact-u-min-sub">najniższy wynik w kraju</div>
         </div>
         <div class="stat-tile ec-reveal d5">
-          <div class="stat-kicker">Spokojny rynek pracy</div>
-          <div class="stat-big" id="ec-fact-u-below3-num" data-count="0" data-dec="0">0</div>
-          <div class="stat-sub">powiatów ma bezrobocie poniżej 3%</div>
+          <div class="stat-kicker">Sieć a spokojny rynek</div>
+          <div class="stat-big" id="ec-fact-u-lowshare-num" data-count="0" data-dec="0" data-suffix="%">0</div>
+          <div class="stat-sub">sieci stoi w ćwiartce powiatów o najniższym bezrobociu</div>
         </div>
         <div class="stat-tile ec-reveal d6">
           <div class="stat-kicker">Gęstość przy niskim bezrobociu</div>
@@ -481,9 +535,9 @@
           <div class="stat-sub">średnia skl./1000 w ćwiartce o najwyższym bezrobociu</div>
         </div>
         <div class="stat-tile ec-reveal d5">
-          <div class="stat-kicker">Trudny rynek pracy</div>
-          <div class="stat-big" id="ec-fact-u-high15-num" data-count="0" data-dec="0">0</div>
-          <div class="stat-sub">powiatów z bezrobociem powyżej 15%</div>
+          <div class="stat-kicker">Sieć a trudny rynek</div>
+          <div class="stat-big" id="ec-fact-u-highshare-num" data-count="0" data-dec="0" data-suffix="%">0</div>
+          <div class="stat-sub">sieci stoi w ćwiartce powiatów o najwyższym bezrobociu</div>
         </div>
         <div class="stat-tile ec-reveal d6">
           <div class="stat-kicker">Wyjątek kurortowy</div>
@@ -547,7 +601,7 @@
       <div class="stat-sub">od najblizszej Zabki</div>
     </div>
     <div class="stat-tile">
-      <div class="stat-kicker">Najsamotniejsza</div>
+      <div class="stat-kicker">Najdalej od Zabki</div>
       <div class="stat-big" id="edge-kpi-isolated" style="color:var(--teal)">27,3<span class="stat-unit"> km</span></div>
       <div class="stat-sub">do najblizszej sasiadki</div>
     </div>
