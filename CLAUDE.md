@@ -1014,9 +1014,7 @@ unique `<title>` and `<meta name="description">`, `<link rel="canonical">`, Open
 and JSON-LD structured data (`WebSite` + `Dataset` schema — original data is a real
 candidate for Google rich results). The OG image (`/og.png`, 1200x630, dark theme) lives
 in `frontend/public/` and is copied to `dist/` by Vite. `robots.txt` and `sitemap.xml`
-also live in `frontend/public/` (Vite copies both to dist root). Google Search Console
-is not yet wired up — verification is manual (OAuth in browser); the sitemap is ready
-to submit once a GSC property is created.
+also live in `frontend/public/` (Vite copies both to dist root).
 
 **Data loading:** `frontend/index.html` fires all 20 API endpoints in parallel via
 `Promise.allSettled` on page load (`loadData()`, bottom of the script block). Each
