@@ -24,9 +24,9 @@ function renderSpolecKPIs(){
     set('spol-kpi-density',`${per100.toFixed(2).replace('.',',')}<span class="stat-unit">/100km²</span>`);
   }
 
-  const powiats=M.section3_rare&&M.section3_rare.powiats_covered;
-  if(powiats){
-    set('spol-kpi-powiats',`${powiats}<span class="stat-unit">/381</span>`);
+  const gminy=(M.coverage_funnel||[]).find(r=>r.level==='gminy');
+  if(gminy&&gminy.pct!=null){
+    set('spol-kpi-gminy',`${String(gminy.pct).replace('.',',')}<span class="stat-unit">%</span>`);
   }
 
   if(iv.length){
@@ -69,12 +69,15 @@ function renderInpostMap(){
   const el=document.getElementById('map-inpost');if(!el)return;
   const byName={};
   data.forEach(d=>{byName[(d.voivodeship||'').toLowerCase()]=d});
-  const vals=data.map(d=>d.zabki_per_100k||0);
+  // Color the map by the InPost / Żabka ratio - that's the story of section 2.3.
+  // Inverted scale: highest ratio = darkest, lowest ratio = brightest. Reads as
+  // "where InPost dominates the public space, the map goes dim".
+  const vals=data.map(d=>+d.ratio||0);
   const vmin=Math.min(...vals),vmax=Math.max(...vals,vmin+0.01);
-  function norm(v){return(v-vmin)/(vmax-vmin);}
+  function norm(v){return 1 - (v-vmin)/(vmax-vmin);}
   function wStyle(d,opacity=0.9){
     return{weight:1,color:'#08110a',
-      fillColor:d?_ipRamp(norm(d.zabki_per_100k||0)):'#0e1e0c',
+      fillColor:d?_ipRamp(norm(+d.ratio||0)):'#0e1e0c',
       fillOpacity:opacity};
   }
   const map=L.map('map-inpost',{
@@ -106,7 +109,7 @@ function renderInpostMap(){
         );
       }
       layer.on('mouseover',()=>{
-        const v=d?norm(d.zabki_per_100k||0):null;
+        const v=d?norm(+d.ratio||0):null;
         layer.setStyle({weight:2.5,color:'rgba(166,232,74,.85)',
           fillColor:v!=null?_ipRamp(Math.min(1,v+0.18)):'#1c3a1c',fillOpacity:1});
         layer.bringToFront();
@@ -138,6 +141,22 @@ function renderInpostMap(){
     if(svg)svg.style.transition='fill-opacity .25s ease,fill .25s ease,transform .2s ease';
     layer.setStyle({fillOpacity:0.9});
   },10+i*14));
+
+  // Small vertical color legend in the bottom-left of the map.
+  // Vertical gradient bar = stosunek paczkomaty / Żabka. Bar runs bright (bottom)
+  // -> dark (top) to match the inverted _ipRamp gradient. Max above, min below.
+  const container=el.parentElement;
+  if(container&&!container.querySelector('.map-legend')){
+    const leg=document.createElement('div');
+    leg.className='map-legend';
+    const fmtN=v=>String(Math.round(v*100)/100).replace('.',',');
+    leg.innerHTML=`
+      <div class="map-legend-axis map-legend-axis--vert">${fmtN(vmax)}x</div>
+      <div class="map-legend-bar"></div>
+      <div class="map-legend-axis map-legend-axis--vert">${fmtN(vmin)}x</div>
+    `;
+    container.appendChild(leg);
+  }
 }
 
 export function renderSpoleczenstwo(){
@@ -150,28 +169,30 @@ export function renderSpoleczenstwo(){
     const total=M.summary.total_active?(+M.summary.total_active).toLocaleString('pl-PL'):null;
     const powiats=M.section3_rare.powiats_covered||null;
     if(total&&powiats){
-      leadEl.innerHTML=`<b>${total}</b> sklepów w <b>${powiats}</b> powiatach. W dwóch rozdziałach sprawdzamy, czy gęstość sieci idzie za <b>pieniędzmi</b> i za <b>pracą</b> - i co tak naprawdę mówią o tym liczby.`;
+      leadEl.innerHTML=`<b>${total}</b> sklepów w <b>${powiats}</b> powiatach. W dwóch rozdziałach sprawdzamy, czy gęstość sieci idzie za <b>pieniędzmi</b> i za <b>pracą</b> – i co tak naprawdę mówią o tym liczby.`;
     }
   }
   const hEl=document.getElementById('hero-num-spoleczenstwo');
-  if(hEl&&M.summary&&M.summary.sunday_pct!=null){
-    const target=M.summary.sunday_pct;
+  if(hEl){
+    const voidData=(M.section3_rare&&M.section3_rare.void)||null;
+    const target=voidData&&voidData.value!=null?+voidData.value:46.52;
     const prefersReduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if(prefersReduced){
-      hEl.innerHTML=`${String(target).replace('.',',')}<span class="stat-unit">%</span>`;
+      hEl.innerHTML=`${String(target).replace('.',',')}<span class="stat-unit"> km</span>`;
     }else{
-      const from=70,dur=1800,start=performance.now();
+      const from=0,dur=1800,start=performance.now();
       (function step(now){
         const t=Math.min(1,(now-start)/dur);
         const e=t>=1?1:1-Math.pow(2,-14*t);
         const v=from+(target-from)*e;
-        hEl.innerHTML=`${String(Math.round(v*10)/10).replace('.',',')}<span class="stat-unit">%</span>`;
+        hEl.innerHTML=`${String(Math.round(v*100)/100).replace('.',',')}<span class="stat-unit"> km</span>`;
         if(t<1)requestAnimationFrame(step);
       })(performance.now());
     }
   }
   renderEcon();
   renderDumbbellByLevel();
+  renderSpolKnn();
   renderStreets();
   renderGminaLeaders();
   renderNbl();
@@ -181,26 +202,63 @@ export function renderSpoleczenstwo(){
 
 // ---- common-streets bar (Zabka stoi tam, gdzie Polska stawia pomniki) ----
 export function renderStreets(){
-  const cs=M.common_streets||{streets:[]};
-  const rows=(cs.streets||[]).slice(0,15);
+  const ps=M.section3_rare&&M.section3_rare.physical_streets;
+  const rows=(ps||[]).slice(0,15);
   if(!rows.length)return;
   const distEl=document.getElementById('streets-distinct');
-  if(distEl&&cs.distinct)distEl.textContent=(+cs.distinct).toLocaleString('pl-PL');
+  if(distEl){
+    const total=(M.summary&&M.summary.total_active)||0;
+    if(total) distEl.textContent=fmt(total);
+  }
   destroyChart('streets');
+  const monoFont=getFont('mono');
+  // Plugin: rysuj tick labels z ulica duzym fontem + miasto mniejszym
+  const streetsData=rows;
+  const dualLabelPlugin={
+    id:'dualLabelSpoleczenstwo',
+    afterDatasetsDraw(chart){
+      const yScale=chart.scales.y;
+      const ctx=chart.ctx;
+      ctx.save();
+      ctx.textAlign='right';
+      ctx.textBaseline='middle';
+      const items=(yScale._labelItems&&yScale._labelItems.length)?yScale._labelItems:null;
+      const drawOne=(y,i)=>{
+        const s=streetsData[i];if(!s)return;
+        const x=yScale.left-8;
+        ctx.font=`800 15px '${getFont('display')}',sans-serif`;
+        ctx.fillStyle='#eef3e6';
+        const st=s.street.replace(/^ul\.\s*/i,'').trim();
+        ctx.fillText(st.length>28?st.slice(0,27)+'…':st, x, y-4);
+        ctx.font=`500 10px '${getFont('body')}',sans-serif`;
+        ctx.fillStyle='#93a487';
+        ctx.fillText(s.city, x, y+10);
+      };
+      if(items){items.forEach((it,i)=>drawOne(it.y,i));}
+      else{const m=chart.getDatasetMeta(0);if(m&&m.data)m.data.forEach((b,i)=>drawOne(b.y,i));}
+      ctx.restore();
+    }
+  };
   CHARTS['streets']=new Chart(document.getElementById('chart-streets'),{
     type:'bar',
-    data:{labels:rows.map(d=>d.name),datasets:[{
+    data:{labels:rows.map((s,i)=>i),datasets:[{
       data:rows.map(d=>d.cnt),
       backgroundColor:rows.map((_,i)=>i===0?C.greenBright:C.green+'aa'),
-      borderRadius:2,borderWidth:0
+      borderWidth:0,borderRadius:2,barThickness:18
     }]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      layout:{padding:{right:60,left:180,top:4,bottom:4}},
       plugins:{legend:{display:false},
-        tooltip:{callbacks:{label:ctx=>`${ctx.raw} Żabek na ul. ${ctx.label}`}},
-        barLabels:{thousands:true,color:C.muted}},
+        tooltip:{callbacks:{
+          title:ctx=>`${rows[ctx[0].dataIndex].street}`,
+          beforeBody:ctx=>`${rows[ctx[0].dataIndex].city}`,
+          label:ctx=>`${ctx.raw} ${ctx.raw===1?'sklep':'sklepy'} pod tym adresem`,
+        }},
+        barLabels:{thousands:true,color:C.muted},
+        dualLabelSpoleczenstwo:{}},
       scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},
-        y:{grid:{display:false},ticks:{color:C.muted,font:{size:11}}}}
-    }
+        y:{grid:{display:false},ticks:{display:false}}}},
+    plugins:[dualLabelPlugin],
   });
 }
 
@@ -214,8 +272,8 @@ export function renderGminaLeaders(){
   const per1k=_gminaMetric==='per_1k';
   const sub=document.getElementById('gmina-lead-sub');
   if(sub)sub.textContent=per1k
-    ? 'gminy wg sklepów na 1000 zameldowanych - morze i góry biją resztę kraju'
-    : 'gminy wg sklepów na km² - tu wygrywają wielkie miasta';
+    ? 'gminy wg sklepów na 1000 zameldowanych – morze i góry biją resztę kraju'
+    : 'gminy wg sklepów na km² – tu wygrywają wielkie miasta';
   const cav=document.getElementById('gmina-lead-caveat');
   if(cav)cav.style.display=per1k?'':'none';
   const natRef=per1k&&gl.national_per_1k?[{value:gl.national_per_1k,axis:'x',color:'rgba(255,255,255,.3)',label:'śr. kraj '+String(gl.national_per_1k).replace('.',',')}]:[];
@@ -235,7 +293,7 @@ export function renderGminaLeaders(){
         barLabels:{decimals:2,color:C.muted},
         annot:{refLines:natRef}},
       scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},
-        y:{grid:{display:false},ticks:{color:C.muted,font:{size:11}}}}
+        y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
     }
   });
 }
@@ -286,7 +344,7 @@ function _drawNbl(data){
           `mediana ${d.median_m.toLocaleString('pl-PL')} m`,
           `średnia ${d.avg_m.toLocaleString('pl-PL')} m`,
           `${d.n} sklepów`]}}},
-        barLabels:{thousands:true,color:C.muted}},
+        barLabels:{thousands:true,color:C.muted,suffix:' m'}},
       scales:{x:{grid:{color:C.axis},title:{display:true,text:'metry do najbliższej Żabki',color:C.muted,font:{size:11}},ticks:{color:C.muted,font:{size:10}}},
         y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
     }
@@ -338,7 +396,7 @@ export function renderScatters(){
   CHARTS['scatter-salary']=new Chart(document.getElementById('chart-scatter-salary'),{
     type:'scatter',
     data:{datasets:[{data:data.map(d=>({x:d.avg_salary,y:d.per_1k,label:d.powiat,voj:d.voivodeship})),backgroundColor:data.map(ptColor),pointRadius:data.map(ptSize),pointHoverRadius:7}]},
-    options:scatterOpts('srednia pensja (PLN)')
+    options:scatterOpts('średnia pensja (PLN)')
   });
   destroyChart('scatter-unemp');
   CHARTS['scatter-unemp']=new Chart(document.getElementById('chart-scatter-unemp'),{
@@ -354,7 +412,7 @@ export function renderSundayChoropleth(){
   L.geoJSON(M.woj_geo,{
     style(f){const p=byName[f.properties.nazwa]||0;const t=Math.min(p/12,1);return{fillColor:`rgba(${Math.round(232*t)},${Math.round(90*(1-t))},${Math.round(47*t)},${0.25+t*.5})`,fillOpacity:.7,color:'#2a2a3a',weight:1}},
     onEachFeature(f,l){
-      l.bindTooltip(`<b>${f.properties.nazwa}</b><br>${byName[f.properties.nazwa]||0}% zamknietych w niedziele`,{sticky:true});
+      l.bindTooltip(`<b>${f.properties.nazwa}</b><br>${byName[f.properties.nazwa]||0}% zamkniętych w niedzielę`,{sticky:true});
       l.on('click',()=>{
         const v=f.properties.nazwa;
         setFilter(STATE.filter===v?null:v);
@@ -376,19 +434,19 @@ async function openSundayDrawer(voivodeship){
   const body=document.getElementById('sunday-drawer-body');
   if(!drawer)return;
   title.textContent=voivodeship;
-  count.textContent='ladowanie...';
+  count.textContent='ładowanie...';
   body.innerHTML='';
   drawer.hidden=false;
   try{
     const data=await fetch(`/api/stats/sunday-closed-stores?voivodeship=${encodeURIComponent(voivodeship)}`).then(r=>r.json());
-    count.textContent=`${data.length} zamknietych`;
+    count.textContent=`${data.length} zamkniętych`;
     if(!data.length){
-      body.innerHTML='<div class="drawer-row" style="color:var(--muted)">Brak zamknietych sklepow w tej woj.</div>';
+      body.innerHTML='<div class="drawer-row" style="color:var(--muted)">Brak zamkniętych sklepów w tym województwie.</div>';
       return;
     }
     body.innerHTML=data.map(s=>`<div class="drawer-row"><span class="drawer-city">${s.city}</span><span class="drawer-street">${s.street}</span>${s.has_merrychef?'<span class="drawer-mc">piec</span>':''}</div>`).join('');
   }catch(e){
-    body.innerHTML='<div class="drawer-row" style="color:var(--muted)">Blad ladowania.</div>';
+    body.innerHTML='<div class="drawer-row" style="color:var(--muted)">Błąd ładowania.</div>';
   }
 }
 
@@ -425,10 +483,10 @@ export function renderMerrychef(){
   if(titleEl){
     titleEl.textContent=low
       ? `${low.voivodeship.charAt(0).toUpperCase()+low.voivodeship.slice(1)}: jedyny region poniżej ${natAvg}% z piecem`
-      : `Merrychef — rozkład województw (śr. krajowa ${natAvg}%)`;
+      : `Merrychef – rozkład województw (śr. krajowa ${natAvg}%)`;
   }
   const subEl=titleEl&&titleEl.closest('.card')&&titleEl.closest('.card').querySelector('.card-sub');
-  if(subEl)subEl.textContent=`% sklepów z Merrychef, posortowane rosnąco — średnia krajowa ${String(natAvg).replace('.',',')}%`;
+  if(subEl)subEl.textContent=`% sklepów z Merrychef, posortowane rosnąco – średnia krajowa ${String(natAvg).replace('.',',')}%`;
   destroyChart('merrychef');
   CHARTS['merrychef']=new Chart(document.getElementById('chart-merrychef'),{
     type:'bar',
@@ -546,7 +604,7 @@ export function renderDumbbell(data){
       const name=d.name||d.voivodeship||'';
       const z=(d.zabki_per_100k||0).toFixed(1);
       const p=(d.lockers_per_100k||0).toFixed(1);
-      const ratio=typeof d.ratio==='number'?d.ratio.toFixed(2):String(d.ratio||'—');
+      const ratio=typeof d.ratio==='number'?d.ratio.toFixed(2):String(d.ratio||'–');
       _dbTip.innerHTML=`<div style="font-weight:700;margin-bottom:2px">${name}</div>`+
         `<span style="color:#84c341">Żabka: ${z}/100k</span>&nbsp;&nbsp;`+
         `<span style="color:#f2a359">InPost: ${p}/100k</span>`+
@@ -571,7 +629,7 @@ export async function renderDumbbellByLevel(){
       const sumZ=inpostRows.reduce((s,d)=>s+(d.zabki_per_100k||0),0);
       const sumI=inpostRows.reduce((s,d)=>s+(d.lockers_per_100k||0),0);
       const ratio=sumZ>0?sumI/sumZ:null;
-      title.textContent='InPost vs Żabka'+(ratio?' - '+ratio.toFixed(2).replace('.',',')+' paczkomaty na każdą Żabkę w Polsce':'');
+      title.textContent='Żabka vs InPost'+(ratio?' – '+ratio.toFixed(2).replace('.',',')+' paczkomaty na każdą Żabkę w Polsce':'');
     }
     return;
   }
@@ -579,7 +637,7 @@ export async function renderDumbbellByLevel(){
   if(!d){renderDumbbell(M.inpost_vs_zabka);return}
   const label=_DB_LEVEL_LABEL_PL[_dbLevel]||_dbLevel;
   const title=document.querySelector('[data-debug-id="2.3"]');
-  if(title)title.textContent=`InPost vs Żabka - top ${d.rows.length} ${label} alfabetycznie (${d.total} łącznie)`;
+  if(title)title.textContent=`Żabka vs InPost – top ${d.rows.length} ${label} alfabetycznie (${d.total} łącznie)`;
   renderDumbbell(d.rows);
 }
 
@@ -592,6 +650,70 @@ function wireInpostLevel(){
       renderDumbbellByLevel();
     });
   });
+}
+
+// ---- kNN histogram (Żabka a Polska) ----
+function renderSpolKnn(){
+  const ns=M.neighbor_stats||{};
+  const dist=(ns.distribution||{buckets:[]}).buckets;
+  if(!dist.length)return;
+  const loner=ns.loner||{};
+  const d=ns.distribution||{};
+
+  // Gradient zieleni - najkrotsze dystanse najjasniejsze
+  const n=dist.length||1;
+  const bgs=dist.map((_,i)=>{
+    const t=i/Math.max(n-1,1);
+    const r=Math.round(132+(166-132)*(1-t));
+    const g=Math.round(195+(232-195)*(1-t));
+    const bl=Math.round(65+(74-65)*(1-t));
+    return `rgba(${r},${g},${bl},0.85)`;
+  });
+
+  const med=d.median_m!=null?d.median_m:null;
+  const avg=d.avg_m!=null?d.avg_m:null;
+  const refLines=[];
+  if(med!=null) refLines.push({value:med,axis:'y',color:'#86a86a',lineWidth:2});
+  if(avg!=null) refLines.push({value:avg,axis:'y',color:'#c79257',lineWidth:2});
+
+  const legEl=document.getElementById('spol-knn-legend');
+  if(legEl){
+    const parts=[];
+    if(med!=null) parts.push(`<span class="lg-item" style="color:#86a86a"><span class="lg-line"></span>MED ${Math.round(med)} m</span>`);
+    if(avg!=null) parts.push(`<span class="lg-item" style="color:#c79257"><span class="lg-line"></span>AVG ${Math.round(avg)} m</span>`);
+    legEl.innerHTML=parts.join('');
+  }
+
+  destroyChart('spol-knn');
+  CHARTS['spol-knn']=new Chart(document.getElementById('spol-knnChart'),{
+    type:'bar',
+    data:{
+      labels:dist.map(d=>d.bucket),
+      datasets:[{
+        data:dist.map(d=>d.cnt),
+        backgroundColor:bgs,
+        borderWidth:0,borderRadius:[4,4,0,0]
+      }]
+    },
+    options:{
+      indexAxis:'x',responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{enabled:false},
+        annot:{refLines},
+        barLabels:{thousands:true,color:C.muted},
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}},
+        y:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}}
+      }
+    }
+  });
+
+  const maxKm=loner.nearest_neighbor_distance_meters
+    ?(loner.nearest_neighbor_distance_meters/1000).toFixed(1).replace('.',',')+' km'
+    :(d.max_m?(d.max_m/1000).toFixed(1).replace('.',',')+' km':'–');
+  const maxEl=document.getElementById('spol-knn-stat-max');if(maxEl)maxEl.textContent=maxKm;
 }
 
 export {wireInpostLevel};

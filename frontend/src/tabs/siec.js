@@ -5,6 +5,8 @@ import { M, CHARTS, MAPS } from '../state.js';
 import { era, fmt, getFont, destroyChart } from '../utils.js';
 import { fetchJSON } from '../data.js';
 import { renderBubble } from './bubble.js';
+import { renderKraniec } from './kraniec.js';
+import { renderEdgeKPIs } from './edge.js';
 
 const prefersReduced = () =>
   window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -19,6 +21,8 @@ export function renderSiec(){
   renderGrowthChart();
   wireGranular();
   renderGranular();
+  renderEdgeKPIs();
+  renderKraniec();
   renderPowiatCoverage();
   const root=document.getElementById('tab-siec');
   if(root){
@@ -33,7 +37,7 @@ let heroRaf=null;
 export function renderHero(){
   const el=document.getElementById('hero-number');if(!el)return;
   const total=(M.summary&&+M.summary.total_active)||0;
-  if(!total){el.textContent='—';return;}
+  if(!total){el.textContent='–';return;}
   if(prefersReduced()){
     el.textContent=fmt(total);
   }else{
@@ -89,9 +93,9 @@ function startHeroParticles(){
 
 /* ---------------- STAT STRIP: milestone cadence + origins ---------------- */
 
-const PL_MONTHS=['stycznia','lutego','marca','kwietnia','maja','czerwca','lipca','sierpnia','wrzesnia','pazdziernika','listopada','grudnia'];
+const PL_MONTHS=['stycznia','lutego','marca','kwietnia','maja','czerwca','lipca','sierpnia','września','października','listopada','grudnia'];
 function plYears(n){const u=n%10,t=n%100;if(n===1)return'rok';if(u>=2&&u<=4&&(t<12||t>14))return'lata';return'lat'}
-function plDate(s){if(!s)return'—';const[y,m,d]=s.split('-').map(Number);return`${d} ${PL_MONTHS[m-1]||''} ${y}`}
+function plDate(s){if(!s)return'–';const[y,m,d]=s.split('-').map(Number);return`${d} ${PL_MONTHS[m-1]||''} ${y}`}
 
 export function renderStatStrip(){
   const ng=M.network_growth||[];
@@ -110,12 +114,13 @@ export function renderStatStrip(){
     const bv=document.getElementById('stat-bestyear');if(bv)bv.textContent=fmt(best.new_stores);
     const perH=best.new_stores>0?8760/best.new_stores:0;
     const sub=document.getElementById('stat-bestyear-sub');
-    if(sub)sub.textContent=`nowych w ${best.year} — co ~${perH.toFixed(1).replace('.',',')} h`;
+    if(sub)sub.textContent=`nowych w ${best.year} – co ~${perH.toFixed(1).replace('.',',')} h`;
   }
 
-  const o=M.network_origin;
-  if(o&&o.new_this_month!=null){
-    const nm=document.getElementById('stat-newmonth');if(nm)nm.textContent=fmt(o.new_this_month);
+  const ns=M.neighbor_stats;
+  if(ns&&ns.distribution&&ns.distribution.median_m!=null){
+    const el=document.getElementById('stat-neighmed');
+    if(el)el.innerHTML=`${fmt(Math.round(ns.distribution.median_m))}<span class="stat-unit"> m</span>`;
   }
 
   const s=M.summary;
@@ -280,7 +285,7 @@ export function renderGrowthMap(){
     if(!el.querySelector('.map-zoom-hint')){
       const hint=document.createElement('div');
       hint.className='map-zoom-hint';
-      hint.textContent='ctrl + scroll to zoom';
+      hint.textContent='ctrl + scroll przybliża';
       el.appendChild(hint);
     }
   }
@@ -626,7 +631,7 @@ export function renderGrowthChart(){
     type:'bar',
     data:{labels,datasets:[
       {type:'bar',label:'nowych/rok',data:vals,backgroundColor:barColors,borderRadius:2,borderWidth:0,yAxisID:'y',order:2},
-      {type:'line',label:'lacznie aktywnych',data:data.map(d=>d.cumulative),borderColor:C.amber,backgroundColor:'rgba(242,163,89,.06)',fill:true,borderWidth:2,pointRadius:0,tension:.4,yAxisID:'y1',order:1}
+      {type:'line',label:'łącznie aktywnych',data:data.map(d=>d.cumulative),borderColor:C.amber,backgroundColor:'rgba(242,163,89,.06)',fill:true,borderWidth:2,pointRadius:0,tension:.4,yAxisID:'y1',order:1}
     ]},
     options:{
       responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
@@ -639,7 +644,7 @@ export function renderGrowthChart(){
       scales:{
         x:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}},
         y:{position:'left',grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}},title:{display:true,text:'nowych/rok',color:C.muted,font:{size:9}}},
-        y1:{position:'right',grid:{display:false},ticks:{color:C.amber,font:{size:10}},title:{display:true,text:'lacznie aktywnych',color:C.amber,font:{size:9}}}
+        y1:{position:'right',grid:{display:false},ticks:{color:C.amber,font:{size:10}},title:{display:true,text:'łącznie aktywnych',color:C.amber,font:{size:9}}}
       }
     }
   });
@@ -776,7 +781,7 @@ function wirePowiatLevel(){
 
 /* ---------------- 1.2/1.3 bars (left) + voivodeship choropleth (right) ----- */
 
-const GRAN_WORD={voivodeship:'wojewodztwa',powiat:'powiaty',city:'miasta'};
+const GRAN_WORD={voivodeship:'województwa',powiat:'powiaty',city:'miasta'};
 const PAGE=20;
 // Default dim is powiat (not voivodeship) per design spec
 let _gDim='powiat',_gMetric='count',_gSort='desc',_gRows=[],_gTotal=0,_gOffset=0;
@@ -821,7 +826,7 @@ function updateMoreBtn(){
   const b=document.getElementById('gran-more');if(!b)return;
   const more=_gDim!=='voivodeship'&&_gRows.length<_gTotal;
   b.hidden=!more;
-  if(more)b.textContent=`Zaladuj wiecej (${_gRows.length}/${_gTotal})`;
+  if(more)b.textContent=`Załaduj więcej (${_gRows.length}/${_gTotal})`;
 }
 
 function drawGranularChart(){
@@ -835,11 +840,11 @@ function drawGranularChart(){
     return fpRamp(n>1?1-i/(n-1):1);
   });
   const word=GRAN_WORD[_gDim];
-  const mlabel=_gMetric==='per1k'?'sklepy na 1000 mieszkancow':_gMetric==='per_km2'?'sklepy na km2':'liczba aktywnych sklepow';
+  const mlabel=_gMetric==='per1k'?'sklepy na 1000 mieszkańców':_gMetric==='per_km2'?'sklepy na km²':'liczba aktywnych sklepów';
   const tEl=document.getElementById('gran-title');
-  if(tEl)tEl.textContent=`${_gSort==='asc'?'Najmniej':'Najwiecej'} Zabek — ${word}`;
+  if(tEl)tEl.textContent=`${_gSort==='asc'?'Najmniej':'Najwięcej'} Żabek – ${word}`;
   const sEl=document.getElementById('gran-sub');
-  if(sEl)sEl.textContent=mlabel+(f&&_gDim!=='voivodeship'?` — ${STATE.filter}`:'');
+  if(sEl)sEl.textContent=mlabel+(f&&_gDim!=='voivodeship'?` – ${STATE.filter}`:'');
   // grow the chart with the row count so load-more rows are not squished
   const wrap=document.getElementById('gran-chart-wrap');
   if(wrap)wrap.style.height=Math.max(320,n*22+44)+'px';
@@ -856,7 +861,7 @@ function drawGranularChart(){
     const remainingCount=_gTotal-_gRows.length;
     if(pozostale>0&&remainingCount>0){
       const avgPozostale=Math.round(pozostale/remainingCount);
-      labels=labels.concat('Pozostałe (avg)');
+      labels=labels.concat('Pozostałe (śr.)');
       data=data.concat(avgPozostale);
       colors.push('rgba(132,195,65,.15)');
       _hasPozostale=true;
@@ -867,12 +872,12 @@ function drawGranularChart(){
   const refLines=[];
   let avgLabel='',medLabel='';
   if(_gAvg!=null){
-    if(_gDim!=='city') refLines.push({value:_gAvg,axis:'x',color:'#4a5a3e',lineWidth:2.5});
-    avgLabel=`AVG ${_isCount()?fmt(Math.round(_gAvg)):_gAvg}`;
+    if(_gDim!=='city') refLines.push({value:_gAvg,axis:'x',color:'#86a86a',lineWidth:2});
+    avgLabel=`śr. ${_isCount()?fmt(Math.round(_gAvg)):_gAvg}`;
   }
   if(_gMedian!=null){
-    if(_gDim!=='city') refLines.push({value:_gMedian,axis:'x',color:'#7a4a20',lineWidth:2.5});
-    medLabel=`MED ${_isCount()?fmt(Math.round(_gMedian)):_gMedian.toFixed(_gMetric==='per_km2'?3:2)}`;
+    if(_gDim!=='city') refLines.push({value:_gMedian,axis:'x',color:'#c79257',lineWidth:2});
+    medLabel=`mediana ${_isCount()?fmt(Math.round(_gMedian)):_gMedian.toFixed(_gMetric==='per_km2'?3:2)}`;
   }
   const legEl=document.getElementById('gran-ref-legend');
   if(legEl){

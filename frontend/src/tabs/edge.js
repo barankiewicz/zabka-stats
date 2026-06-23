@@ -2,7 +2,7 @@ import Chart from 'chart.js/auto';
 import { C } from '../config.js';
 import { M, CHARTS } from '../state.js';
 import { fmt, getFont, destroyChart, startTabParticles } from '../utils.js';
-import { renderKraniec, selectFact } from './kraniec.js';
+import { selectFact } from './kraniec.js';
 
 function _updateEdgeHeroLede(){
   const ledeEl=document.getElementById('hero-lede-edge');if(!ledeEl)return;
@@ -38,8 +38,8 @@ function renderCiekawostkiKNN(){
   const med=d.median_m!=null?d.median_m:null;
   const avg=d.avg_m!=null?d.avg_m:null;
   const refLines=[];
-  if(med!=null) refLines.push({value:med,axis:'x',color:'#4a5a3e',lineWidth:2});
-  if(avg!=null) refLines.push({value:avg,axis:'x',color:'#7a4a20',lineWidth:2});
+  if(med!=null) refLines.push({value:med,axis:'y',color:'#86a86a',lineWidth:2});
+  if(avg!=null) refLines.push({value:avg,axis:'y',color:'#c79257',lineWidth:2});
 
   // Legend below (gran-ref-legend style)
   const legEl=document.getElementById('ciek-knn-legend');
@@ -58,83 +58,31 @@ function renderCiekawostkiKNN(){
       datasets:[{
         data:dist.map(d=>d.cnt),
         backgroundColor:bgs,
-        borderWidth:0,borderRadius:[0,4,4,0]
+        borderWidth:0,borderRadius:[4,4,0,0]
       }]
     },
     options:{
-      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      indexAxis:'x',responsive:true,maintainAspectRatio:false,
       plugins:{
         legend:{display:false},
-        tooltip:{callbacks:{label:ctx=>`${fmt(ctx.raw)} sklepow`}},
+        tooltip:{callbacks:{label:ctx=>`${fmt(ctx.raw)} sklepów`}},
         annot:{refLines},
         barLabels:{thousands:true,color:C.muted},
       },
       scales:{
-        x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:9}}},
-        y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}
+        x:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}},
+        y:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:9}}}
       }
     }
   });
 
   const maxKm=loner.nearest_neighbor_distance_meters
     ?(loner.nearest_neighbor_distance_meters/1000).toFixed(1).replace('.',',')+' km'
-    :(d.max_m?(d.max_m/1000).toFixed(1).replace('.',',')+' km':'—');
+    :(d.max_m?(d.max_m/1000).toFixed(1).replace('.',',')+' km':'–');
   const maxEl=document.getElementById('ciek-stat-max');if(maxEl)maxEl.textContent=maxKm;
 }
 
-// Shared helper: draw a small corner donut (120×120 canvas)
-function _drawCornerDonut(canvas, frac, pctStr, color, trackColor){
-  const W=canvas.width||120,H=canvas.height||120;
-  const ctx=canvas.getContext('2d');
-  const cx=W/2,cy=H/2,rr=Math.min(W,H)/2-10;
-  ctx.clearRect(0,0,W,H);
-  ctx.lineCap='round';
-  ctx.lineWidth=10;
-  ctx.strokeStyle=trackColor;
-  ctx.beginPath();ctx.arc(cx,cy,rr,0,Math.PI*2);ctx.stroke();
-  ctx.strokeStyle=color;
-  ctx.beginPath();ctx.arc(cx,cy,rr,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.max(0,Math.min(1,frac)));ctx.stroke();
-  ctx.fillStyle=color;
-  ctx.textAlign='center';
-  ctx.textBaseline='middle';
-  ctx.font=`800 ${Math.round(W*0.2)}px '${getFont('display')}',sans-serif`;
-  ctx.fillText(pctStr+'%',cx,cy);
-}
-
-// ===== CIEKAWOSTKI: Parks donut (Siec-style ring — canvas arc + HTML fraction) =====
-function renderCiekawostkiParks(){
-  const parks=(M.section3_rare&&M.section3_rare.parks)||{};
-  const inPark=parks.count||0;
-  const total=parks.total||(M.summary&&M.summary.total_active)||0;
-  if(!total)return;
-  const pctRaw=inPark/total*100;
-  const pctStr=(Math.abs(pctRaw-Math.round(pctRaw))<0.05
-    ?Math.round(pctRaw)
-    :pctRaw.toFixed(1)
-  ).toString().replace('.',',');
-
-  const canvas=document.getElementById('ciek-parksDonut');
-  if(!canvas)return;
-  _drawCornerDonut(canvas, pctRaw/100, pctStr, C.greenBright, 'rgba(132,195,65,.12)');
-}
-
-// ===== CIEKAWOSTKI: Zero-frog donut =====
-function renderCiekawostkiFrogs(){
-  const ae=M.amphibian_extremes||{};
-  const zeroCount=ae.zero_frog_count;
-  if(zeroCount==null)return;
-  const total=(M.summary&&M.summary.total_active)||0;
-  if(!total)return;
-  const pctRaw=zeroCount/total*100;
-  const pctStr=(Math.abs(pctRaw-Math.round(pctRaw))<0.05
-    ?Math.round(pctRaw)
-    :pctRaw.toFixed(1)
-  ).toString().replace('.',',');
-
-  const canvas=document.getElementById('ciek-frogsDonut');
-  if(!canvas)return;
-  _drawCornerDonut(canvas, pctRaw/100, pctStr, '#4dd0b1', 'rgba(77,208,177,.12)');
-}
+// Donuty usuniete - logika kart 720/668 przeniesiona lub zbedna
 
 // ===== CIEKAWOSTKI: Farthest-from-frog info card =====
 function renderCiekawostkiFarthestFrog(){
@@ -157,62 +105,139 @@ function renderCiekawostkiStreets(){
   if(!streets.length)return;
 
   const top=streets.slice(0,14);
+  const canvas=document.getElementById('ciek-streetsChart');
+  if(!canvas)return;
+  destroyChart('ciek-streets');
+  CHARTS['ciek-streets']=null;
 
-  // Strip "ul." prefix, basic normalization for all-caps names
-  const cleanStreet=s=>{
+  // Canvas 2D: rysujemy recznie (ulica duzym fontem, miasto mniejszym)
+  const dpr=window.devicePixelRatio||1;
+  const rowGap=12;  // px miedzy wierszami
+  function fit(){
+    const w=canvas.parentElement.clientWidth;
+    const h=Math.max(420, top.length*36 + 60);  // rosnie z liczba wierszy
+    canvas.width=w*dpr;
+    canvas.height=h*dpr;
+    canvas.style.width=w+'px';
+    canvas.style.height=h+'px';
+  }
+  fit();
+
+  const displayFont=getFont('display');
+  const monoFont=getFont('mono');
+  const padL=200, padR=64, padT=8, padB=24;
+  const streetFont=s=>{
     let st=s.replace(/^ul\.\s*/i,'').trim();
     if(st===st.toUpperCase()&&st.length>2) st=st[0]+st.slice(1).toLowerCase();
     return st.length>28?st.slice(0,27)+'…':st;
   };
 
-  // Lime -> green gradient, brightest at top
-  const bgs=top.map((_,i)=>{
-    const t=i/Math.max(top.length-1,1);
-    return `rgba(166,232,74,${0.88-t*0.48})`;
-  });
+  const maxCnt=Math.max(...top.map(s=>s.cnt));
+  const niceMax=Math.ceil(maxCnt/5)*5;
+  const yAxisVals=[0, Math.round(niceMax*0.25), Math.round(niceMax*0.5), Math.round(niceMax*0.75), niceMax];
 
-  destroyChart('ciek-streets');
-  CHARTS['ciek-streets']=new Chart(document.getElementById('ciek-streetsChart'),{
-    type:'bar',
-    data:{
-      labels:top.map(s=>[cleanStreet(s.street),s.city]),
-      datasets:[{
-        data:top.map(s=>s.cnt),
-        backgroundColor:bgs,
-        borderWidth:0,
-        borderRadius:[0,4,4,0],
-        barThickness:16,
-      }]
-    },
-    options:{
-      indexAxis:'y',
-      responsive:true,
-      maintainAspectRatio:false,
-      layout:{padding:{right:52}},
-      plugins:{
-        legend:{display:false},
-        barLabels:{thousands:false,color:C.muted},
-        tooltip:{callbacks:{
-          title:ctx=>`${top[ctx[0].dataIndex].street}, ${top[ctx[0].dataIndex].city}`,
-          label:ctx=>`${ctx.raw} ${ctx.raw===1?'sklep':'sklepy'} pod tym adresem`,
-        }}
-      },
-      scales:{
-        x:{
-          grid:{color:C.axis},
-          min:0,
-          ticks:{color:C.muted,font:{size:9},stepSize:1,precision:0},
-        },
-        y:{
-          grid:{display:false},
-          ticks:{color:C.muted,font:{size:9},crossAlign:'far'},
-        }
-      }
-    }
+  function draw(){
+    fit();
+    const w=canvas.width/dpr, h=canvas.height/dpr;
+    const ctx=canvas.getContext('2d');
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,w,h);
+
+    const chartL=padL, chartR=w-padR, chartT=padT, chartB=h-padB;
+    const chartW=chartR-chartL, chartH=chartB-chartT;
+    const totalGap=rowGap*(top.length-1);
+    const rowH=(chartH-totalGap)/top.length;
+    const barH=Math.min(26, rowH*0.55);
+
+    // os X (dol)
+    ctx.strokeStyle='rgba(140,200,80,.06)';
+    ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(chartL,chartB);ctx.lineTo(chartR,chartB);ctx.stroke();
+    // os X labels
+    ctx.fillStyle='#93a487';
+    ctx.textAlign='center';
+    ctx.textBaseline='top';
+    ctx.font=`400 10px 'JetBrains Mono',monospace`;
+    yAxisVals.forEach(v=>{
+      const x=chartL+chartW*(v/niceMax);
+      ctx.fillText(v,x,chartB+5);
+      ctx.strokeStyle='rgba(140,200,80,.06)';
+      ctx.beginPath();ctx.moveTo(x,chartT);ctx.lineTo(x,chartB);ctx.stroke();
+    });
+
+    // bary + labels
+    top.forEach((s,i)=>{
+      const rowY=chartT+(rowH+rowGap)*i+rowH/2;
+      // Label ulica (duzy)
+      ctx.fillStyle='#eef3e6';
+      ctx.font=`800 15px '${displayFont}',sans-serif`;
+      ctx.textAlign='right';
+      ctx.textBaseline='middle';
+      ctx.fillText(streetFont(s.street), chartL-12, rowY-4);
+      // Label miasto (maly)
+      ctx.fillStyle='#93a487';
+      ctx.font=`500 11px '${monoFont}',monospace`;
+      ctx.fillText(s.city, chartL-12, rowY+10);
+
+      // Poziomy słupek: rośnie w prawo od chartL
+      const barW=chartW*(s.cnt/niceMax);
+      const barH=Math.min(22, rowH*0.55);
+      const barY=rowY-barH/2;
+      const t=i/Math.max(top.length-1,1);
+      const alpha=0.88-t*0.48;
+      ctx.fillStyle=`rgba(166,232,74,${alpha})`;
+      ctx.beginPath();
+      const r=Math.min(4,barH/2);
+      ctx.moveTo(chartL+r,barY);
+      ctx.lineTo(chartL+barW-r,barY);
+      ctx.arcTo(chartL+barW,barY,chartL+barW,barY+r,r);
+      ctx.lineTo(chartL+barW,barY+barH-r);
+      ctx.arcTo(chartL+barW,barY+barH,chartL+barW-r,barY+barH,r);
+      ctx.lineTo(chartL+r,barY+barH);
+      ctx.arcTo(chartL,barY+barH,chartL,barY+barH-r,r);
+      ctx.lineTo(chartL,barY+r);
+      ctx.arcTo(chartL,barY,chartL+r,barY,r);
+      ctx.closePath();
+      ctx.fill();
+
+      // value label za slupkiem
+      ctx.fillStyle='#93a487';
+      ctx.font=`400 11px 'JetBrains Mono',monospace`;
+      ctx.textAlign='left';
+      ctx.textBaseline='middle';
+      ctx.fillText(s.cnt, chartL+barW+6, rowY);
+    });
+  }
+
+  draw();
+  // Tooltip - delegujemy na canvas
+  const tip=document.createElement('div');
+  tip.className='kr-tip-canvas';
+  tip.style.cssText='position:absolute;background:#0c160b;color:#eef3e6;border:1px solid rgba(140,200,80,.3);border-radius:9px;box-shadow:0 6px 26px rgba(0,0,0,.55);padding:8px 11px;font-family:IBM Plex Sans,sans-serif;font-size:12px;pointer-events:none;opacity:0;transition:opacity .15s ease;z-index:50;white-space:nowrap';
+  canvas.parentElement.style.position='relative';
+  canvas.parentElement.appendChild(tip);
+  canvas.addEventListener('mousemove',(e)=>{
+    const r=canvas.getBoundingClientRect();
+    const x=e.clientX-r.left, y=e.clientY-r.top;
+    const w=r.width, h=r.height;
+    const chartL=padL, chartR=w-padR, chartT=padT, chartB=h-padB;
+    const chartH=chartB-chartT;
+    const totalGap=rowGap*(top.length-1);
+    const rowH=(chartH-totalGap)/top.length;
+    if(x<chartL||x>chartR){tip.style.opacity='0';return;}
+    const i=Math.floor((y-chartT)/(rowH+rowGap));
+    if(i<0||i>=top.length){tip.style.opacity='0';return;}
+    const s=top[i];
+    tip.innerHTML=`<b>${streetFont(s.street)}</b><br>${s.city}<br><span style="color:#93a487">${s.cnt} ${s.cnt===1?'sklep':'sklepy'} pod tym adresem</span>`;
+    tip.style.left=(x+12)+'px';
+    tip.style.top=(y+12)+'px';
+    tip.style.opacity='1';
   });
+  canvas.addEventListener('mouseleave',()=>{tip.style.opacity='0';});
+  window.addEventListener('resize',()=>{draw();});
 }
 
-function renderEdgeKPIs() {
+export function renderEdgeKPIs() {
   const s = M.summary || {};
   const s3 = M.section3_rare || {};
   const parks = s3.parks || {};
@@ -224,12 +249,13 @@ function renderEdgeKPIs() {
   const mf = (M.amphibian_extremes && M.amphibian_extremes.most_froggy) || {};
   if (mf.amphibian_occurrences_5km != null) set('edge-kpi-frogrecord', fmt(mf.amphibian_occurrences_5km));
 
-  // ep-parks-val / ep-parks-note
-  if (parks.count != null) {
-    set('ep-parks-val', fmt(parks.count));
+  // ep-zerofrog-val / ep-zerofrog-note (panel "Bez żadnej żaby w pobliżu")
+  const ae = M.amphibian_extremes || {};
+  if (ae.zero_frog_count != null) {
+    set('ep-zerofrog-val', fmt(ae.zero_frog_count));
     if (s.total_active) {
-      const pct = ((parks.count / s.total_active) * 100).toFixed(1).replace('.', ',');
-      set('ep-parks-note', `sklepow (${pct}%) w parkach krajobrazowych i otulinach`);
+      const pct = ((ae.zero_frog_count / s.total_active) * 100).toFixed(1).replace('.', ',');
+      set('ep-zerofrog-note', `sklepów (${pct}%) bez ani jednej obserwacji płaza w 5 km`);
     }
   }
 
@@ -274,43 +300,24 @@ function renderEdgeKPIs() {
     const crown = frogStreets[0];
     if (crown.city) set('ep-frogstreet-city', `${crown.city}${crown.voivodeship ? ', ' + crown.voivodeship : ''}`);
     const cnt = s3.frog_streets_count || frogStreets.length;
-    set('ep-frogstreet-note', `Zabka przy ulicy Zielonej Zabki - jeden z ${cnt} sklepow na ulicach z zabim motywem.`);
+    set('ep-frogstreet-note', `Żabka przy ulicy Zielonej Żabki – jeden z ${cnt} sklepów na ulicach z żabim motywem.`);
+  }
+
+  // Farthest from any amphibian observation
+  const ff = (M.amphibian_extremes && M.amphibian_extremes.farthest_from_frog) || {};
+  if (ff.city && ff.nearest_amphibian_km != null) {
+    const km = (Math.round(ff.nearest_amphibian_km * 100) / 100).toFixed(2).replace('.', ',');
+    set('edge-kpi-farthestfrog', km + '<span class="stat-unit"> km</span>');
+    const subEl = document.getElementById('edge-kpi-farthestfrog-sub');
+    if (subEl) subEl.textContent = ff.city + (ff.voivodeship ? ', ' + ff.voivodeship : '');
   }
 }
 
 export function renderEdge(){
   startTabParticles('particles-edge',[96,200,148],42);
   _updateEdgeHeroLede();
-  renderEdgeKPIs();
   renderCiekawostkiKNN();
-  renderCiekawostkiParks();
-  renderCiekawostkiFrogs();
-  renderCiekawostkiFarthestFrog();
   renderCiekawostkiStreets();
-  renderTwins();
-  renderKraniec();
-}
-
-// ===== CIEKAWOSTKI: blizniaki - druga skrajnosc wobec samotnika =====
-function renderTwins(){
-  const tw=M.twins||{};
-  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v};
-  if(tw.within_50m!=null)set('twins-50',(+tw.within_50m).toLocaleString('pl-PL'));
-  if(tw.within_100m!=null)set('twins-100',(+tw.within_100m).toLocaleString('pl-PL'));
-  if(tw.within_200m!=null)set('twins-200',(+tw.within_200m).toLocaleString('pl-PL'));
-
-  const sameUl=document.getElementById('twins-sameaddr');
-  if(sameUl){
-    sameUl.innerHTML=(tw.same_address||[]).map(d=>
-      `<li><span class="tw-where">${d.city}, ${d.street}</span><span class="tw-badge">${d.n} sklepy</span></li>`).join('')
-      || '<li class="tw-empty">brak danych</li>';
-  }
-  const closeUl=document.getElementById('twins-closest');
-  if(closeUl){
-    closeUl.innerHTML=(tw.closest_pairs||[]).map(d=>
-      `<li><span class="tw-where">${d.city}, ${d.street}</span><span class="tw-badge">${d.distance_m} m</span></li>`).join('')
-      || '<li class="tw-empty">brak danych</li>';
-  }
 }
 
 export function jumpToFact(id) { selectFact(id); }

@@ -8,14 +8,12 @@ import { setFilter, clearFilter, registerFilterCallbacks } from './filter.js';
 import { loadCore, loadTabData } from './data.js';
 
 // Tabs are loaded on demand. Each dynamic import() becomes its own Rollup chunk,
-// so the heavy per-tab libs (echarts in econ/kraniec/plazy_ext, d3 in the siec
-// bubble, leaflet.heat in plazy) stay out of the initial bundle and only ship
+// so the heavy per-tab libs (echarts in econ/kraniec, d3 in the siec
+// bubble) stay out of the initial bundle and only ship
 // when their tab is first opened.
 const TAB_LOADERS = {
   siec:          () => import('./tabs/siec.js'),
   spoleczenstwo: () => import('./tabs/spoleczenstwo.js'),
-  edge:          () => import('./tabs/edge.js'),
-  plazy:         () => import('./tabs/plazy.js'),
 };
 const _mods = {};
 function tabModule(tab) {
@@ -85,16 +83,6 @@ async function renderTab(tab){
       registerFilterCallbacks(null, null, mod.renderDumbbellByLevel);
       mod.renderSpoleczenstwo();
       mod.wireInpostLevel();
-    } else if(tab==='edge'){
-      // these are invoked from inline onclick handlers inside the edge tab,
-      // which only become reachable once the tab is rendered.
-      window.jumpToFact=mod.jumpToFact;
-      window.jumpBack=mod.jumpBack;
-      window.jumpToH24=mod.jumpToH24;
-      window.jumpToParks=mod.jumpToParks;
-      mod.renderEdge();
-    } else if(tab==='plazy'){
-      mod.renderPlazy();
     }
   } catch(err){
     console.error(`renderTab(${tab}) failed:`, err);

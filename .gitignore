@@ -33,6 +33,7 @@ wheels/
 *.swp
 *.swo
 *~
+.agents/
 
 # Environment & Credentials
 .env

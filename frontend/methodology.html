@@ -128,7 +128,7 @@
 <p>Punkty paczkowe z publicznego API InPost ShipX (typ <code>parcel_locker</code>). Kazdego paczkomatu przypisujemy do wojewodztwa i powiatu tym samym punktem-w-poligon co sklepy. To jest jednorazowe pobranie -- siec paczkomatow rosnie wolno, mamy okolo 31 800 punktow. Porownanie Zabek vs paczkomaty -- z przelacznikiem poziomu (wojewodztwo / powiat / miasto / gmina) -- jest na dashboardzie.</p>
 
 <h3>Plazy -- GBIF</h3>
-<p>Obserwacje plazow z Global Biodiversity Information Facility (klasa Amphibia, <code>taxonKey=131</code>) w Polsce. Mamy okolo 46 000 rekordow ze wspolrzednymi. BallTree (haversine) zlicza obserwacje w promieniu 5 km od kazdego sklepu. Najbardziej "zabia" Zabka ma 2 028 obserwacji -- i to jest w Ursynowie, nie w zadnym parku narodowym. Caly rozdzial PLAZY na dashboardzie jest nawiazaniem do nazwy sieci.</p>
+<p>Obserwacje plazow z Global Biodiversity Information Facility (klasa Amphibia, <code>taxonKey=131</code>) w Polsce. Mamy okolo 46 000 rekordow ze wspolrzednymi. BallTree (haversine) zlicza obserwacje w promieniu 5 km od kazdego sklepu. Najbardziej "zabia" Zabka ma 2 028 obserwacji -- i to jest w Ursynowie, nie w zadnym parku narodowym.</p>
 
 <h3>Sasiedztwo -- obliczenia lokalne</h3>
 <p>Odleglosc do najblizszej innej Zabki obliczamy lokalnie przez BallTree (haversine, k=2). Najbardziej odosobniony sklep ma 27 km do najblizszego sasiada (Michalowo, podlaskie). Punkt najdalszy od jakiejkolwiek Zabki -- pusta przestrzen w Bieszczadach -- to okolo 46,5 km. Zero zapytan sieciowych, czysta geometria na danych juz wczytanych.</p>

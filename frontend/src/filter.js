@@ -36,10 +36,10 @@ export function refreshKpiFiltered(){
   const pc=M.per_capita&&M.per_capita.find(d=>d.voivodeship&&d.voivodeship.toLowerCase()===v);
   const total=pc?pc.count:(woj?woj.total:0);
   document.getElementById('kpi-stores').textContent=fmt(total);
-  document.getElementById('kpi-cities').textContent='—';
+  document.getElementById('kpi-cities').textContent='–';
   if(woj){
     document.getElementById('kpi-mc').textContent=woj.mc_pct+'%';
-    const sunPct=woj.open_sunday&&woj.total?Math.round(woj.open_sunday/woj.total*1000)/10:'—';
+    const sunPct=woj.open_sunday&&woj.total?Math.round(woj.open_sunday/woj.total*1000)/10:'–';
     document.getElementById('kpi-sun').textContent=typeof sunPct==='number'?sunPct+'%':sunPct;
     document.getElementById('kpi-h24').textContent=woj.h24||0;
   }

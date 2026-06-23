@@ -35,7 +35,7 @@ export async function loadCore() {
   applySkel();
   const [
     summary, wojGeo, economics, sunday, density, merrychef, inpost, perCapita, section3, openingHours,
-    commonStreets, gminaLeaders, neighborByLevel,
+    commonStreets, gminaLeaders, neighborByLevel, coverageFunnel, neighborStats,
   ] = await Promise.allSettled([
     fetchJSON(`${BASE}/stats/summary`),
     fetchJSON(`${BASE}/geo/voivodeships`),
@@ -50,6 +50,8 @@ export async function loadCore() {
     fetchJSON(`${BASE}/stats/common-streets?limit=15`),
     fetchJSON(`${BASE}/stats/gmina-leaders?limit=12`),
     fetchJSON(`${BASE}/stats/neighbor-by-level?level=voivodeship&sort=asc`),
+    fetchJSON(`${BASE}/stats/coverage-funnel`),
+    fetchJSON(`${BASE}/stats/neighbor-stats`),
   ]);
   Object.assign(M, {
     summary:               val(summary, {total_active:0, cities_count:0, merrychef_pct:0, sunday_pct:0, h24_count:0}),
@@ -65,6 +67,8 @@ export async function loadCore() {
     common_streets:        val(commonStreets, {streets:[], distinct:0}),
     gmina_leaders:         val(gminaLeaders, {per_1k:[], per_km2:[], national_per_1k:null}),
     neighbor_by_level:     val(neighborByLevel, {rows:[], total:0, level:'voivodeship'}),
+    coverage_funnel:       val(coverageFunnel, []),
+    neighbor_stats:        val(neighborStats, {}),
     timeline_monthly:      [],
   });
   clearSkel();
@@ -76,15 +80,15 @@ export async function loadTabData(tab) {
   if (_tabLoaded.has(tab)) return;
   _tabLoaded.add(tab);
   if (tab === 'siec')  await loadSiec();
-  else if (tab === 'edge')  await Promise.all([loadEdge(), loadPlazy()]);
-  else if (tab === 'plazy') await loadPlazy();
+  else if (tab === 'edge')  await loadEdge();
   // 'spoleczenstwo' is fully covered by the core bucket.
 }
 
 async function loadSiec() {
   const [
     networkGrowth, networkOrigin, storesTimeline, openingHours, growthByVoiv,
-    cityFirst, topCities, openingsMonthly, coverageFunnel, powiatCoverage,
+    cityFirst, topCities, openingsMonthly, coverageFunnel, powiatCoverage, neighborStats,
+    kraniec, elevation, parksStores, twins, amphibians,
   ] = await Promise.allSettled([
     fetchJSON(`${BASE}/stats/network-growth`),
     fetchJSON(`${BASE}/stats/network-origin`),
@@ -96,7 +100,14 @@ async function loadSiec() {
     fetchJSON(`${BASE}/stats/openings-monthly`),
     fetchJSON(`${BASE}/stats/coverage-funnel`),
     fetchJSON(`${BASE}/stats/powiat-coverage`),
+    fetchJSON(`${BASE}/stats/neighbor-stats`),
+    fetchJSON(`${BASE}/stats/kraniec-facts`),
+    fetchJSON(`${BASE}/stats/elevation`),
+    fetchJSON(`${BASE}/stats/parks-stores`),
+    fetchJSON(`${BASE}/stats/twins`),
+    fetchJSON(`${BASE}/stats/amphibians`),
   ]);
+  const kf = val(kraniec, {facts:[], backdrop:[]});
   Object.assign(M, {
     network_growth:        val(networkGrowth, []),
     network_origin:        val(networkOrigin, {}),
@@ -108,33 +119,33 @@ async function loadSiec() {
     openings_monthly:      val(openingsMonthly, []),
     coverage_funnel:       val(coverageFunnel, []),
     powiat_coverage:       val(powiatCoverage, {total:0, covered:0, dots:[]}),
+    neighbor_stats:        val(neighborStats, {}),
+    kraniec_facts:         kf.facts || [],
+    points_sample:         kf.backdrop || [],
+    elevation:             val(elevation, {}),
+    parks_stores:          val(parksStores, []),
+    twins:                 val(twins, {within_50m:0, within_100m:0, within_200m:0, total:0, closest_pairs:[], same_address:[], points:[], points_50:[]}),
+    amphibian_extremes:    val(amphibians, {}),
   });
 }
 
 async function loadEdge() {
-  const [kraniec, elevation, neighborStats, parksStores, twins] = await Promise.allSettled([
+  const [kraniec, elevation, neighborStats, parksStores, twins, amphibians] = await Promise.allSettled([
     fetchJSON(`${BASE}/stats/kraniec-facts`),
     fetchJSON(`${BASE}/stats/elevation`),
     fetchJSON(`${BASE}/stats/neighbor-stats`),
     fetchJSON(`${BASE}/stats/parks-stores`),
     fetchJSON(`${BASE}/stats/twins`),
+    fetchJSON(`${BASE}/stats/amphibians`),
   ]);
   const kf = val(kraniec, {facts:[], backdrop:[]});
   Object.assign(M, {
-    kraniec_facts:  kf.facts || [],
-    points_sample:  kf.backdrop || [],
-    elevation:      val(elevation, {}),
-    neighbor_stats: val(neighborStats, {}),
-    parks_stores:   val(parksStores, []),
-    twins:          val(twins, {within_50m:0, within_100m:0, within_200m:0, total:0, closest_pairs:[], same_address:[]}),
-  });
-}
-
-async function loadPlazy() {
-  const [amphibians] = await Promise.allSettled([
-    fetchJSON(`${BASE}/stats/amphibians`),
-  ]);
-  Object.assign(M, {
+    kraniec_facts:      kf.facts || [],
+    points_sample:      kf.backdrop || [],
+    elevation:          val(elevation, {}),
+    neighbor_stats:     val(neighborStats, {}),
+    parks_stores:       val(parksStores, []),
+    twins:              val(twins, {within_50m:0, within_100m:0, within_200m:0, total:0, closest_pairs:[], same_address:[], points:[], points_50:[]}),
     amphibian_extremes: val(amphibians, {}),
   });
 }

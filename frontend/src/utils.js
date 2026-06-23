@@ -22,10 +22,10 @@ export function showNoData(id, msg){
   // If it's a canvas, hide it and add a sibling; if it's a div, replace innerHTML
   if(el.tagName==='CANVAS'){el.style.display='none';}
   const existing=target.querySelector('.no-data-msg');
-  if(existing){existing.textContent=msg||'Brak danych — uruchom ETL z pelnym wzbogacaniem.';return;}
+  if(existing){existing.textContent=msg||'Brak danych – uruchom ETL z pełnym wzbogacaniem.';return;}
   const div=document.createElement('div');
   div.className='no-data-msg';
-  div.textContent=msg||'Brak danych — uruchom ETL z pelnym wzbogacaniem.';
+  div.textContent=msg||'Brak danych – uruchom ETL z pełnym wzbogacaniem.';
   div.style.cssText='display:flex;align-items:center;justify-content:center;height:100%;min-height:80px;color:var(--muted);font-family:var(--font-mono);font-size:12px;text-align:center;padding:16px;';
   target.appendChild(div);
 }

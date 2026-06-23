@@ -33,9 +33,12 @@ export const barValueLabels = {
     const horizontal=chart.options.indexAxis==='y';
     const format=v=>{
       if(typeof v!=='number'||isNaN(v))return'';
-      if(opt.decimals!=null)return v.toFixed(opt.decimals).replace('.',',');
-      if(opt.thousands)return v.toLocaleString('pl-PL');
-      return String(v);
+      let s;
+      if(opt.decimals!=null) s=v.toFixed(opt.decimals).replace('.',',');
+      else if(opt.thousands) s=v.toLocaleString('pl-PL');
+      else s=String(v);
+      if(opt.suffix) s+=opt.suffix;
+      return s;
     };
     ctx.save();
     ctx.fillStyle=opt.color||C.muted;

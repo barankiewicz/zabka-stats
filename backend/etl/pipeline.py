@@ -9,6 +9,7 @@ neutralne (None/False), zeby ksztalt danych byl staly.
 
 import time
 from datetime import datetime, date
+from typing import Any
 
 import numpy as np
 import duckdb
@@ -30,7 +31,7 @@ from backend.etl.sources.light_pollution import LightPollutionEnricher
 from backend.etl.sources.parcel_lockers import fetch_parcel_lockers
 
 
-def _build_geo_dims(rows, lockers, skip_gus):
+def _build_geo_dims(rows: list[dict], lockers: list[dict], skip_gus: bool) -> tuple[list, list]:
     """Nadaj klucze numeryczne wymiarom i faktom (bez JOIN-ow po stringach).
 
     Zbiera wojewodztwa i pary (wojewodztwo, powiat) z obu faktow, nadaje im id,
@@ -82,7 +83,7 @@ def _build_geo_dims(rows, lockers, skip_gus):
     return dim_powiat, dim_voiv
 
 
-def _skip(rows, columns, neutral, msg):
+def _skip(rows: list[dict], columns: list[str], neutral: dict[str, Any], msg: str) -> None:
     """Pominiety krok: ustaw kolumny zrodla na wartosci neutralne, wypisz powod."""
     print(msg)
     for r in rows:
@@ -90,9 +91,10 @@ def _skip(rows, columns, neutral, msg):
             r.setdefault(col, neutral.get(col))
 
 
-def run(no_geocode=False, limit=None, skip_gios=False, fallback=None,
-        skip_parks=False, skip_gus=False, elevation=False,
-        skip_amphibians=False, skip_paczkomaty=False):
+def run(no_geocode: bool = False, limit: int | None = None, skip_gios: bool = False,
+        fallback: str | None = None, skip_parks: bool = False, skip_gus: bool = False,
+        elevation: bool = False, skip_amphibians: bool = False,
+        skip_paczkomaty: bool = False) -> None:
     t0 = time.time()
     print(f"=== Dzienny ETL Żabki  {datetime.now().isoformat(timespec='seconds')} ===")
 

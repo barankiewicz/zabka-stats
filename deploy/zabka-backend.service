@@ -17,7 +17,7 @@ Requires=redis-server.service
 Type=exec
 User=zabka
 Group=zabka
-WorkingDirectory=/home/zabka/zabka-dashboard
+WorkingDirectory=/home/zabka/zabka-stats
 
 # Environment - secrets live in /home/zabka/.env (chmod 600, not in repo)
 EnvironmentFile=-/home/zabka/.env
@@ -30,7 +30,7 @@ Environment=REDIS_SOCKET=/run/redis/redis-server.sock
 # 4 workers for a 2-4 vCPU VPS. Each worker is a separate process,
 # each opens its own read-only DuckDB connection (safe because the ETL
 # stops this service before writing to the database).
-ExecStart=/home/zabka/venv/bin/uvicorn backend.main:app \
+ExecStart=/home/zabka/zabka-stats/venv/bin/uvicorn backend.main:app \
     --host 127.0.0.1 \
     --port 8000 \
     --workers 4 \

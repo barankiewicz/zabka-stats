@@ -113,8 +113,8 @@ function buildBar(cfg) {
     grid: { left: cfg.left || 158, right: 54, top: 6, bottom: 24 },
     tooltip: { backgroundColor: '#0c160b', borderColor: 'rgba(140,200,80,.3)', borderWidth: 1, textStyle: { color: '#eef3e6', fontFamily: 'IBM Plex Sans' }, formatter: p => p.name + '<br><b>' + p.value.toFixed(3) + '</b> sklepu / 1000 mieszk.' },
     xAxis: { type: 'value', max: 0.45, axisLabel: { color: '#93a487', fontFamily: 'JetBrains Mono', fontSize: 10 }, axisLine: { show: false }, splitLine: { lineStyle: { color: 'rgba(140,200,80,.06)' } } },
-    yAxis: { type: 'category', data: cfg.cats, inverse: true, axisLabel: { color: '#eef3e6', fontFamily: 'IBM Plex Sans', fontSize: 11 }, axisLine: { lineStyle: { color: 'rgba(140,200,80,.2)' } }, axisTick: { show: false } },
-    series: [{ type: 'bar', barWidth: '48%', data: cfg.vals.map((v, i) => ({ value: v, itemStyle: { color: cfg.cols[i], borderRadius: [0, 6, 6, 0] } })), label: { show: true, position: 'right', color: '#eef3e6', fontFamily: 'JetBrains Mono', fontSize: 11, fontWeight: 500, formatter: p => p.value.toFixed(3) } }]
+    yAxis: { type: 'category', data: cfg.cats, inverse: true, axisLabel: { color: '#eef3e6', fontFamily: 'IBM Plex Sans', fontSize: 10 }, axisLine: { lineStyle: { color: 'rgba(140,200,80,.2)' } }, axisTick: { show: false } },
+    series: [{ type: 'bar', barWidth: '48%', data: cfg.vals.map((v, i) => ({ value: v, itemStyle: { color: cfg.cols[i], borderRadius: [0, 4, 4, 0] } })), label: { show: true, position: 'right', color: '#eef3e6', fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 500, formatter: p => p.value.toFixed(3) } }]
   });
   window.addEventListener('resize', () => chart.resize());
 }
@@ -125,11 +125,10 @@ function _setTxt(id, t) { const el = document.getElementById(id); if (el) el.tex
 function _updateEconFacts() {
   const all = M.powiat_economics || [];
   const pc = M.per_capita || [];
-  const totalActive = M.summary && M.summary.total_active;
+  const allStores = all.reduce((s, r) => s + (r.stores || 0), 0);
 
   // Salary chapter facts
   const rowsS = all.filter(d => d.avg_salary > 0 && d.per_1k > 0);
-  if (totalActive) _setDC('ec-fact-total-num', totalActive);
 
   if (rowsS.length >= 8) {
     const ss = [...rowsS].sort((a, b) => a.avg_salary - b.avg_salary);
@@ -137,6 +136,11 @@ function _updateEconFacts() {
     const q1avg = ss.slice(0, q).reduce((s, r) => s + r.per_1k, 0) / q;
     const q4avg = ss.slice(ss.length - q).reduce((s, r) => s + r.per_1k, 0) / q;
     if (q1avg > 0) _setDC('ec-fact-ratio-num', (q4avg / q1avg).toFixed(1));
+    // share of the whole network that sits in the richest salary quartile
+    if (allStores > 0) {
+      const richShare = ss.slice(ss.length - q).reduce((s, r) => s + (r.stores || 0), 0) / allStores * 100;
+      _setDC('ec-fact-rich-share-num', Math.round(richShare));
+    }
 
     const maxRow = rowsS.reduce((b, r) => r.per_1k > (b ? b.per_1k : 0) ? r : b, null);
     if (maxRow && maxRow.per_1k > 0) {
@@ -176,7 +180,7 @@ function _updateEconFacts() {
     const richRow = rowsS.reduce((b, r) => r.avg_salary > (b ? b.avg_salary : 0) ? r : b, null);
     if (richRow) {
       _setDC('ec-fact-rich-num', richRow.per_1k.toFixed(2));
-      _setTxt('ec-fact-rich-sub', cleanPow(richRow.powiat) + ' (' + Math.round(richRow.avg_salary).toLocaleString('pl-PL') + ' zł) - skl./1000');
+      _setTxt('ec-fact-rich-sub', cleanPow(richRow.powiat) + ' (' + Math.round(richRow.avg_salary).toLocaleString('pl-PL') + ' zł) – skl./1000');
     }
   }
 
@@ -210,7 +214,7 @@ function _updateEconFacts() {
     const leski = rowsU.find(r => r.powiat && r.powiat.toLowerCase().includes('leski'));
     if (leski) {
       _setDC('ec-fact-u-leski-num', leski.unemployment_rate.toFixed(1));
-      _setTxt('ec-fact-u-leski-sub', (leski.powiat || '').replace(/^powiat\s+/i, '') + ' - a gestość ' + leski.per_1k.toFixed(2));
+      _setTxt('ec-fact-u-leski-sub', (leski.powiat || '').replace(/^powiat\s+/i, '') + ' – a gęstość ' + leski.per_1k.toFixed(2));
     }
     const uMedian = su[Math.floor(su.length / 2)].unemployment_rate;
     _setDC('ec-fact-u-median-num', uMedian.toFixed(1));
@@ -223,10 +227,13 @@ function _updateEconFacts() {
     const minURow = su[0];
     if (minURow) {
       _setDC('ec-fact-u-min-num', minURow.unemployment_rate.toFixed(1));
-      _setTxt('ec-fact-u-min-sub', cleanPow(minURow.powiat) + ' - najniższy w kraju');
+      _setTxt('ec-fact-u-min-sub', cleanPow(minURow.powiat) + ' – najniższy w kraju');
     }
-    _setDC('ec-fact-u-below3-num', rowsU.filter(r => r.unemployment_rate < 3).length);
-    _setDC('ec-fact-u-high15-num', rowsU.filter(r => r.unemployment_rate > 15).length);
+    // share of the whole network sitting in the calmest / toughest labour-market quartile
+    if (allStores > 0) {
+      _setDC('ec-fact-u-lowshare-num', Math.round(su.slice(0, qu).reduce((s, r) => s + (r.stores || 0), 0) / allStores * 100));
+      _setDC('ec-fact-u-highshare-num', Math.round(su.slice(su.length - qu).reduce((s, r) => s + (r.stores || 0), 0) / allStores * 100));
+    }
     if (lowAvg > 0) _setDC('ec-fact-u-q1dens-num', lowAvg.toFixed(2));
     if (highAvg > 0) _setDC('ec-fact-u-q4dens-num', highAvg.toFixed(2));
   }
@@ -300,7 +307,7 @@ export function renderEcon() {
 
   // ---- quartile bars from real data ----
   const q1 = quartileMeans(rowsS, 'avg_salary', 'per_1k');
-  buildBar({ el: 'bar1', left: 155, cats: ['Q1 - najniższe zarobki', 'Q2 - niższe zarobki', 'Q3 - wyższe zarobki', 'Q4 - najwyższe zarobki'], vals: q1, cols: ['#4dd0b1', '#84c341', '#a6e84a', '#f2a359'] });
+  buildBar({ el: 'bar1', left: 155, cats: ['Q1 – najniższe zarobki', 'Q2 – niższe zarobki', 'Q3 – wyższe zarobki', 'Q4 – najwyższe zarobki'], vals: q1, cols: ['#4dd0b1', '#84c341', '#a6e84a', '#f2a359'] });
   const q2 = quartileMeans(rowsU, 'unemployment_rate', 'per_1k');
-  buildBar({ el: 'bar2', left: 155, cats: ['Q1 - niskie bezrobocie', 'Q2 - umiarkowane', 'Q3 - podwyższone', 'Q4 - wysokie bezrobocie'], vals: q2, cols: ['#84c341', '#a6e84a', '#f2a359', '#e8693d'] });
+  buildBar({ el: 'bar2', left: 155, cats: ['Q1 – niskie bezrobocie', 'Q2 – umiarkowane', 'Q3 – podwyższone', 'Q4 – wysokie bezrobocie'], vals: q2, cols: ['#84c341', '#a6e84a', '#f2a359', '#e8693d'] });
 }

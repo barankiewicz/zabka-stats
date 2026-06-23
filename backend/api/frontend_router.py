@@ -1352,6 +1352,15 @@ async def section3_rare():
         UNION ALL
         SELECT * FROM (SELECT 'max', p, v, cnt FROM pc ORDER BY cnt DESC LIMIT 1)
     """)
+    # West wall (dolnoslaskie + zachodniopomorskie + lubuskie) — sampled points
+    west_wall = _q("""
+        SELECT latitude, longitude
+        FROM locations
+        WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
+          AND voivodeship IN ('dolnoslaskie', 'zachodniopomorskie', 'lubuskie')
+        ORDER BY hash(id)
+        LIMIT 240
+    """)
     # Civic streets (LIKE aggregation — one pass)
     civic = _q1("""
         SELECT
@@ -1410,6 +1419,9 @@ async def section3_rare():
             for r in frog_streets
         ],
         "frog_streets_count": len(frog_streets),
+        "west_wall_points": [
+            [round(float(r[0]), 4), round(float(r[1]), 4)] for r in west_wall
+        ],
         "powiats_covered": int(powiat_count[0] or 0) if powiat_count else 0,
         "powiat_range": [
             {"which": r[0], "powiat": r[1], "voivodeship": r[2], "cnt": int(r[3])}
@@ -1556,16 +1568,84 @@ async def twins():
         ORDER BY n DESC, city
         LIMIT 8
     """)
+    # Sampled points: stratified by distance bucket (50m / 50-100 / 100-200)
+    # so the dot map mirrors real proportions. Total cap 360.
+    # Dodatkowo: points_50 = WSZYSTKIE sklepy w promieniu 50m (do 200),
+    # bo 181 < 360 i sampling daje tylko ~17 z nich.
     within50 = int(agg[0] or 0) if agg else 0
+    within100 = int(agg[1] or 0) if agg else 0
+    within200 = int(agg[2] or 0) if agg else 0
+    total = int(agg[3] or 0) if agg else 0
+    bucket_a = within50
+    bucket_b = max(0, within100 - within50)
+    bucket_c = max(0, within200 - within100)
+    if total > 0 and (bucket_a + bucket_b + bucket_c) > 0:
+        cap = 360
+        wa = max(1, round(cap * bucket_a / within200)) if within200 else 0
+        wb = max(1, round(cap * bucket_b / within200)) if within200 else 0
+        wc = max(0, cap - wa - wb)
+        if (wa + wb + wc) > cap:
+            wc = max(0, cap - wa - wb)
+        sampled = _q(f"""
+            SELECT latitude, longitude, nearest_neighbor_distance_meters AS d,
+                   city, street,
+                   CASE
+                     WHEN nearest_neighbor_distance_meters <= 50  THEN 'a'
+                     WHEN nearest_neighbor_distance_meters <= 100 THEN 'b'
+                     ELSE 'c'
+                   END AS bucket
+            FROM locations
+            WHERE deleted_at IS NULL AND snapshot_id = {snap}
+              AND nearest_neighbor_distance_meters IS NOT NULL
+              AND nearest_neighbor_distance_meters <= 200
+            ORDER BY hash(id)
+        """)
+        out_pts = []
+        cnt_a = cnt_b = cnt_c = 0
+        for r in sampled:
+            b = r[5]
+            if b == 'a' and cnt_a >= wa: continue
+            if b == 'b' and cnt_b >= wb: continue
+            if b == 'c' and cnt_c >= wc: continue
+            out_pts.append({
+                "lat": r[0], "lon": r[1],
+                "distance_m": int(r[2]),
+                "city": r[3], "street": r[4],
+                "bucket": b,
+            })
+            if b == 'a': cnt_a += 1
+            elif b == 'b': cnt_b += 1
+            else: cnt_c += 1
+            if cnt_a + cnt_b + cnt_c >= cap: break
+    else:
+        out_pts = []
+    # Wszystkie 50m: hard cap 200
+    pts_50 = _q(f"""
+        SELECT latitude, longitude, nearest_neighbor_distance_meters AS d,
+               city, street
+        FROM locations
+        WHERE deleted_at IS NULL AND snapshot_id = {snap}
+          AND nearest_neighbor_distance_meters IS NOT NULL
+          AND nearest_neighbor_distance_meters <= 50
+        ORDER BY hash(id)
+        LIMIT 200
+    """)
     return {
         "within_50m": within50,
-        "within_100m": int(agg[1] or 0) if agg else 0,
-        "within_200m": int(agg[2] or 0) if agg else 0,
-        "total": int(agg[3] or 0) if agg else 0,
+        "within_100m": within100,
+        "within_200m": within200,
+        "total": total,
         "closest_pairs": [{"city": r[0], "street": r[1],
                            "distance_m": int(r[2])} for r in closest],
         "same_address": [{"city": r[0], "street": r[1], "n": int(r[2])}
                          for r in clusters],
+        "points": out_pts,
+        "points_50": [
+            {"lat": float(r[0]), "lon": float(r[1]),
+             "distance_m": int(r[2]), "city": r[3], "street": r[4],
+             "bucket": "a"}
+            for r in pts_50
+        ],
     }
 
 
@@ -1577,11 +1657,16 @@ async def neighbor_by_level(level: str = "voivodeship", sort: str = "desc",
     neighbouring Zabki (median and average of nearest_neighbor_distance_meters).
     High = a spread-out network (podkarpackie 459 m), low = a packed one
     (mazowieckie, dolnoslaskie ~240 m). Inverse density, read from the stores
-    themselves rather than from area. Returns both metrics; the frontend toggles."""
+    themselves rather than from area. Returns both metrics; the frontend toggles.
+    At powiat level, miasta na prawach powiatu are excluded (they are "powiat
+    <Miasto>" with a capital letter; land powiats are lowercase)."""
     col = {"voivodeship": "voivodeship", "powiat": "powiat", "city": "city"}.get(level)
     if not col:
         return {"rows": [], "total": 0, "level": level}
     min_n = {"voivodeship": 20, "powiat": 15, "city": 10}[level]
+    powiat_filter = ""
+    if col == "powiat":
+        powiat_filter = "AND NOT regexp_matches(powiat, '^powiat [A-ZĄĆĘŁŃÓŚŹŻ]')"
     rows = _q(f"""
         SELECT {col} AS name, ANY_VALUE(voivodeship) AS voiv, COUNT(*) AS n,
                ROUND(MEDIAN(nearest_neighbor_distance_meters)) AS med,
@@ -1590,6 +1675,7 @@ async def neighbor_by_level(level: str = "voivodeship", sort: str = "desc",
         WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots)
           AND nearest_neighbor_distance_meters IS NOT NULL
           AND {col} IS NOT NULL AND {col} <> ''
+          {powiat_filter}
         GROUP BY {col}
         HAVING COUNT(*) >= {min_n}
     """)
