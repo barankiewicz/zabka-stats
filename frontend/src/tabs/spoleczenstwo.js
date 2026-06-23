@@ -224,7 +224,7 @@ export function renderGminaLeaders(){
     type:'bar',
     data:{labels:r12.map(d=>d.name),datasets:[{
       data:r12.map(d=>per1k?d.per_1k:d.per_km2),
-      backgroundColor:r12.map((_,i)=>i===0?C.greenBright:macroCol(r12[i].voivodeship)+'cc'),
+      backgroundColor:r12.map((_,i)=>_ipRamp(1-i/Math.max(r12.length-1,1))),
       borderRadius:2,borderWidth:0
     }]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
@@ -277,7 +277,7 @@ function _drawNbl(data){
     type:'bar',
     data:{labels:rows.map(d=>d.name),datasets:[{
       data:rows.map(d=>d[metric]),
-      backgroundColor:rows.map(d=>macroCol(d.voivodeship)+'cc'),
+      backgroundColor:rows.map((_,i)=>_ipRamp(1-i/Math.max(rows.length-1,1))),
       borderRadius:2,borderWidth:0
     }]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
