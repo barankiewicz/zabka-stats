@@ -68,6 +68,31 @@ The default target is the live OVH deployment. Some ground rules:
   traffic). Early morning or weekend is safer.
 - Stop the test if real users start seeing 5xx.
 
+### About the nginx rate limit (30 req/s per IP)
+
+Production has `limit_req_zone $binary_remote_addr zone=api_limit:10m
+rate=30r/s;` with `burst=50 nodelay`. Locust runs from one IP, so a
+"power user" (page load = 14 requests back-to-back) plus spawn rate
+triggers 503s **before the backend is anywhere near overloaded**. This
+is the rate limit doing its job, not a backend failure.
+
+To measure real backend throughput, temporarily raise the rate limit
+on the VPS:
+
+```bash
+ssh zabka-vps 'sudo cp /etc/nginx/sites-available/zabka /tmp/zabka.normal && \
+  sudo sed -i "s/rate=30r\/s/rate=500r\/s/; s/burst=50/burst=200/g" \
+  /etc/nginx/sites-available/zabka && \
+  sudo nginx -t && sudo systemctl reload nginx'
+# run the test...
+ssh zabka-vps 'sudo cp /tmp/zabka.normal /etc/nginx/sites-available/zabka && \
+  sudo nginx -t && sudo systemctl reload nginx'
+```
+
+Tested at 10 power users with the raised limit: 2489 requests, 0
+failures, ~90 RPS, p95 under 200 ms. Restore the limit after the test -
+real users from different IPs won't hit it.
+
 ## What it tests
 
 `SMOKE_ENDPOINTS` in `locustfile.py` lists 9 paths, mixing:
