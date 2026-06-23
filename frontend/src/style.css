@@ -22,6 +22,14 @@ nav{position:sticky;top:0;z-index:100;background:rgba(13,13,20,.9);backdrop-filt
 .brand{display:flex;align-items:center;gap:8px;font-family:var(--font-display);font-weight:700;font-size:15px;letter-spacing:-.02em;white-space:nowrap;cursor:pointer;text-decoration:none;color:var(--ink)}
 .brand:hover .brand-dot{box-shadow:0 0 18px var(--green)}
 .brand-dot{width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);flex-shrink:0;transition:box-shadow .3s}
+
+/* reusable green-dot tooltip: <span class="info-dot" data-tip="..."></span> */
+.info-dot{position:relative;display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 8px rgba(132,195,65,.6);flex-shrink:0;cursor:help;vertical-align:middle;animation:infoPulse 2.6s ease-out infinite}
+.info-dot::after{content:attr(data-tip);position:absolute;left:0;top:calc(100% + 10px);background:var(--s2);color:var(--ink);border:1px solid var(--axis);border-radius:10px;padding:9px 12px;font-family:var(--font-body);font-weight:400;font-size:12px;line-height:1.5;letter-spacing:0;width:max-content;max-width:280px;white-space:normal;text-align:left;opacity:0;transform:translateY(4px);pointer-events:none;transition:opacity .16s ease,transform .16s ease;z-index:200;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.info-dot::before{content:'';position:absolute;left:3px;top:calc(100% + 4px);border:5px solid transparent;border-bottom-color:var(--axis);opacity:0;transition:opacity .16s ease;z-index:200}
+.info-dot:hover::after,.info-dot:focus::after{opacity:1;transform:translateY(0)}
+.info-dot:hover::before,.info-dot:focus::before{opacity:1}
+@keyframes infoPulse{0%{box-shadow:0 0 0 0 rgba(132,195,65,.45)}70%{box-shadow:0 0 0 7px rgba(132,195,65,0)}100%{box-shadow:0 0 0 0 rgba(132,195,65,0)}}
 .tab-nav{display:flex;gap:2px;flex:1}
 .tab-btn{border:0;background:transparent;color:var(--muted);font-family:var(--font-body);font-size:12.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;padding:6px 14px;border-radius:99px;cursor:pointer;transition:color .2s,background .2s;white-space:nowrap}
 .tab-btn:hover{color:var(--ink);background:rgba(255,255,255,.05)}
