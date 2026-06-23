@@ -135,9 +135,15 @@ export function renderStatStrip(){
     const nmEl=document.getElementById('stat-new-month');
     if(nmEl)nmEl.textContent=fmt(no.new_this_month);
   }
+  const citiesFunnel=M.coverage_funnel&&M.coverage_funnel.find(f=>f.level==='miasta');
+  if(citiesFunnel){
+    const ce=document.getElementById('stat-cities');
+    const sub=document.getElementById('stat-cities-sub');
+    if(ce)ce.innerHTML=`${citiesFunnel.pct!=null?citiesFunnel.pct.toFixed(1).replace('.',','):'?'}<span class="stat-unit">%</span>`;
+    if(sub)sub.textContent=`z ${(citiesFunnel.total||0).toLocaleString('pl-PL')} polskich miast ma Żabkę`;
+  }
   const s=M.summary;
   if(s){
-    const ce=document.getElementById('stat-cities');if(ce)ce.textContent=(+s.cities_count).toLocaleString('pl-PL');
     const rEl=document.getElementById('stat-residents');
     if(rEl&&M.per_capita&&M.per_capita.length&&s.total_active){
       const totalPop=M.per_capita.reduce((a,r)=>a+(r.population||0),0);

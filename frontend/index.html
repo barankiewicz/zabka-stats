@@ -141,9 +141,9 @@
       <div class="stat-sub">mediana odległości do najbliższej Żabki</div>
     </div>
     <div class="stat-tile">
-      <div class="stat-kicker">Gmin</div>
-      <div class="stat-big" id="stat-cities">-</div>
-      <div class="stat-sub">gmin z co najmniej jedną Żabką</div>
+      <div class="stat-kicker">Miast z Żabką</div>
+      <div class="stat-big" id="stat-cities">-<span class="stat-unit">%</span></div>
+      <div class="stat-sub" id="stat-cities-sub">polskich miast ma Żabkę</div>
     </div>
     <div class="stat-tile">
       <div class="stat-kicker">Nowe w tym miesiącu</div>
@@ -182,9 +182,9 @@
         <div class="card-title" data-debug-id="1.1">Kiedy otwarto sklepy, które wciąż działają</div>
         <div class="card-sub">Słupki: nowe sklepy w roku (lewa oś). Linia: łącznie aktywnych (prawa oś).</div>
       </div>
-      <div class="gran-toggle" role="group" id="growth-mode">
-        <button class="gran-btn active" data-gmode="abs">Liczba</button>
-        <button class="gran-btn" data-gmode="yoy">Tempo wzrostu %</button>
+      <div class="gran-toggle" role="group" aria-label="Tryb wykresu" id="growth-mode">
+        <button aria-pressed="true" class="gran-btn active" data-gmode="abs">Liczba</button>
+        <button aria-pressed="false" class="gran-btn" data-gmode="yoy">Tempo wzrostu %</button>
       </div>
     </div>
     <div class="survival-note">Uwaga na bias przeżywalności: wykres pokazuje tylko sklepy <em>aktualnie aktywne</em>. Zamknięte nie istnieją w datasecie, przez co wczesne lata (1998–2010) są systematycznie niedoszacowane — część ówczesnych otwarć już dawno zniknęła z mapy. 218 sklepów bez daty otwarcia nie zostało uwzględnionych.</div>
@@ -244,19 +244,19 @@
             <div class="card-sub" id="gran-sub">liczba aktywnych sklepów</div>
           </div>
           <div class="gran-toggles">
-            <div class="gran-toggle" role="group" id="gran-dim">
-              <button class="gran-btn" data-dim="voivodeship">Woj.</button>
-              <button class="gran-btn active" data-dim="powiat">Powiaty</button>
-              <button class="gran-btn" data-dim="city">Miasta</button>
+            <div class="gran-toggle" role="group" aria-label="Poziom administracyjny" id="gran-dim">
+              <button aria-pressed="false" class="gran-btn" data-dim="voivodeship">Woj.</button>
+              <button aria-pressed="true" class="gran-btn active" data-dim="powiat">Powiaty</button>
+              <button aria-pressed="false" class="gran-btn" data-dim="city">Miasta</button>
             </div>
-            <div class="gran-toggle" role="group" id="gran-metric">
-              <button class="gran-btn active" data-metric="count">Liczba</button>
-              <button class="gran-btn" data-metric="per1k">1000 mieszk.</button>
-              <button class="gran-btn" data-metric="per_km2">Na km²</button>
+            <div class="gran-toggle" role="group" aria-label="Metryka" id="gran-metric">
+              <button aria-pressed="true" class="gran-btn active" data-metric="count">Liczba</button>
+              <button aria-pressed="false" class="gran-btn" data-metric="per1k">1000 mieszk.</button>
+              <button aria-pressed="false" class="gran-btn" data-metric="per_km2">Na km²</button>
             </div>
-            <div class="gran-toggle" role="group" id="gran-sort">
-              <button class="gran-btn active" data-sort="desc">Największe</button>
-              <button class="gran-btn" data-sort="asc">Najmniejsze</button>
+            <div class="gran-toggle" role="group" aria-label="Sortowanie" id="gran-sort">
+              <button aria-pressed="true" class="gran-btn active" data-sort="desc">Największe</button>
+              <button aria-pressed="false" class="gran-btn" data-sort="asc">Najmniejsze</button>
             </div>
           </div>
         </div>
@@ -278,10 +278,10 @@
           <div class="card-title" data-debug-id="POWIATY">Żabka jest niemal wszędzie</div>
           <div class="card-sub">odsetek jednostek z Żabką – zielone: pokryte, czerwone: bez</div>
         </div>
-        <div class="gran-toggle" role="group" id="powiat-level">
-          <button class="gran-btn active" data-plevel="powiaty">Powiaty</button>
-          <button class="gran-btn" data-plevel="miasta">Miasta</button>
-          <button class="gran-btn" data-plevel="gminy">Gminy</button>
+        <div class="gran-toggle" role="group" aria-label="Poziom pokrycia" id="powiat-level">
+          <button aria-pressed="true" class="gran-btn active" data-plevel="powiaty">Powiaty</button>
+          <button aria-pressed="false" class="gran-btn" data-plevel="miasta">Miasta</button>
+          <button aria-pressed="false" class="gran-btn" data-plevel="gminy">Gminy</button>
         </div>
       </div>
       <div class="powiat-cover">
@@ -472,10 +472,10 @@
       <div style="display:flex;flex-direction:column;height:440px">
         <div class="gran-left-head" style="margin-bottom:8px;flex-shrink:0">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <div class="gran-toggle" role="group" id="inpost-level">
-              <button class="gran-btn active" data-ilevel="voivodeship">Województwo</button>
-              <button class="gran-btn" data-ilevel="powiat">Powiat</button>
-              <button class="gran-btn" data-ilevel="city">Miasto</button>
+            <div class="gran-toggle" role="group" aria-label="Poziom geograficzny" id="inpost-level">
+              <button aria-pressed="true" class="gran-btn active" data-ilevel="voivodeship">Województwo</button>
+              <button aria-pressed="false" class="gran-btn" data-ilevel="powiat">Powiat</button>
+              <button aria-pressed="false" class="gran-btn" data-ilevel="city">Miasto</button>
             </div>
           </div>
         </div>
@@ -497,18 +497,18 @@
           <div class="card-sub" id="nbl-sub">mediana odległości do najbliższej Żabki, według województwa</div>
         </div>
         <div class="gran-toggles">
-          <div class="gran-toggle" role="group" id="nbl-level">
-            <button class="gran-btn active" data-nlevel="voivodeship">Woj.</button>
-            <button class="gran-btn" data-nlevel="powiat">Powiaty</button>
-            <button class="gran-btn" data-nlevel="city">Miasta</button>
+          <div class="gran-toggle" role="group" aria-label="Poziom geograficzny" id="nbl-level">
+            <button aria-pressed="true" class="gran-btn active" data-nlevel="voivodeship">Woj.</button>
+            <button aria-pressed="false" class="gran-btn" data-nlevel="powiat">Powiaty</button>
+            <button aria-pressed="false" class="gran-btn" data-nlevel="city">Miasta</button>
           </div>
-          <div class="gran-toggle" role="group" id="nbl-metric">
-            <button class="gran-btn active" data-nmetric="median_m">Mediana</button>
-            <button class="gran-btn" data-nmetric="avg_m">Średnia</button>
+          <div class="gran-toggle" role="group" aria-label="Metryka dystansu" id="nbl-metric">
+            <button aria-pressed="true" class="gran-btn active" data-nmetric="median_m">Mediana</button>
+            <button aria-pressed="false" class="gran-btn" data-nmetric="avg_m">Średnia</button>
           </div>
-          <div class="gran-toggle" role="group" id="nbl-sort">
-            <button class="gran-btn" data-nsort="desc">Najrzadsze</button>
-          <button class="gran-btn active" data-nsort="asc">Najgęstsze</button>
+          <div class="gran-toggle" role="group" aria-label="Sortowanie wynikow" id="nbl-sort">
+            <button aria-pressed="false" class="gran-btn" data-nsort="desc">Najrzadsze</button>
+          <button aria-pressed="true" class="gran-btn active" data-nsort="asc">Najgęstsze</button>
         </div>
       </div>
     </div>
@@ -539,9 +539,9 @@
           <div class="card-title" data-debug-id="GMINA-LEAD">Najwięcej Żabek na mieszkańca? Kurorty.</div>
           <div class="card-sub" id="gmina-lead-sub">gminy wg sklepów na 1000 zameldowanych – morze i góry biją resztę kraju</div>
         </div>
-        <div class="gran-toggle" role="group" id="gmina-metric">
-          <button class="gran-btn active" data-gmetric="per_1k">Na 1000 mieszk.</button>
-          <button class="gran-btn" data-gmetric="per_km2">Na km²</button>
+        <div class="gran-toggle" role="group" aria-label="Metryka gminy" id="gmina-metric">
+          <button aria-pressed="true" class="gran-btn active" data-gmetric="per_1k">Na 1000 mieszk.</button>
+          <button aria-pressed="false" class="gran-btn" data-gmetric="per_km2">Na km²</button>
         </div>
       </div>
       <div class="chart-wrap" style="height:420px"><canvas id="chart-gmina-lead"></canvas></div>
