@@ -62,9 +62,9 @@
       <div class="stat-sub" id="stat-bestyear-sub">nowych w najlepszym roku</div>
     </div>
     <div class="stat-tile">
-      <div class="stat-kicker">Wciąż rośnie</div>
-      <div class="stat-big" id="stat-newmonth">-</div>
-      <div class="stat-sub">nowych w ostatnim miesiącu</div>
+      <div class="stat-kicker">Najbliższy sąsiad</div>
+      <div class="stat-big" id="stat-neighmed">-<span class="stat-unit"> m</span></div>
+      <div class="stat-sub">mediana odległości do najbliższej Żabki</div>
     </div>
     <div class="stat-tile">
       <div class="stat-kicker">Gmin</div>
@@ -552,9 +552,9 @@
       <div class="stat-sub">do najblizszej sasiadki</div>
     </div>
     <div class="stat-tile">
-      <div class="stat-kicker">Zabie ulice</div>
-      <div class="stat-big" id="edge-kpi-frogstreets">-</div>
-      <div class="stat-sub">sklepow na zabich ulicach</div>
+      <div class="stat-kicker">Najdalej od zaby</div>
+      <div class="stat-big" style="color:var(--teal)" id="edge-kpi-farthestfrog">-</div>
+      <div class="stat-sub" id="edge-kpi-farthestfrog-sub">do najblizszej obserwacji plaza</div>
     </div>
   </div>
 
@@ -638,36 +638,24 @@
     </div>
   </div>
 
-  <!-- blizniaki: kontra do samotnika -->
-  <div class="card reveal twins-card" style="margin-bottom:16px">
-    <div class="card-title" data-debug-id="TWINS">Druga skrajność: Żabka tuż obok Żabki</div>
-    <div class="card-sub">Samotnik z mapy ma 27 km do najbliższej sąsiadki. Na drugim biegunie sieć się zagęszcza - a czasem wręcz dubluje pod jednym adresem.</div>
-    <div class="twins-grid">
-      <div class="twins-stats">
-        <div class="twins-stat"><span class="twins-num" id="twins-50">-</span><span class="twins-lab">sklepów ma inną Żabkę bliżej niż <b>50 m</b></span></div>
-        <div class="twins-stat"><span class="twins-num" id="twins-100">-</span><span class="twins-lab">w promieniu <b>100 m</b></span></div>
-        <div class="twins-stat"><span class="twins-num" id="twins-200">-</span><span class="twins-lab">w promieniu <b>200 m</b></span></div>
-      </div>
-      <div class="twins-lists">
-        <div class="twins-col">
-          <div class="twins-col-head">Pod jednym adresem (dwie, a bywa że trzy)</div>
-          <ul class="twins-ul" id="twins-sameaddr"></ul>
+  <!-- blizniaki (wezsze) obok ulic z najwieksza liczba zabek -->
+  <div class="row reveal" style="grid-template-columns:5fr 6fr;margin-bottom:16px">
+    <div class="card twins-card">
+      <div class="card-title" data-debug-id="TWINS">Druga skrajność: Żabka tuż obok Żabki</div>
+      <div class="card-sub">Samotnik z mapy ma 27 km do najbliższej sąsiadki. Na drugim biegunie sieć się zagęszcza - a czasem wręcz dubluje pod jednym adresem.</div>
+      <div class="twins-grid">
+        <div class="twins-stats">
+          <div class="twins-stat"><span class="twins-num" id="twins-50">-</span><span class="twins-lab">sklepów ma inną Żabkę bliżej niż <b>50 m</b></span></div>
+          <div class="twins-stat"><span class="twins-num" id="twins-100">-</span><span class="twins-lab">w promieniu <b>100 m</b></span></div>
+          <div class="twins-stat"><span class="twins-num" id="twins-200">-</span><span class="twins-lab">w promieniu <b>200 m</b></span></div>
         </div>
-        <div class="twins-col">
-          <div class="twins-col-head">Najbliższe pary - rzut beretem</div>
-          <ul class="twins-ul" id="twins-closest"></ul>
+        <div class="twins-lists" style="grid-template-columns:1fr">
+          <div class="twins-col">
+            <div class="twins-col-head">Pod jednym adresem (dwie, a bywa że trzy)</div>
+            <ul class="twins-ul" id="twins-sameaddr"></ul>
+          </div>
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- wiersz 2: najdalej od zaby + ulice -->
-  <div class="row row-2 reveal" style="margin-bottom:16px">
-    <div class="card">
-      <div class="card-title">Najdalej od zaby w poblizu</div>
-      <div class="card-sub">Sklep z najdluzszym dystansem do najblizszej obserwacji plaza (GBIF, klasa Amphibia).</div>
-      <div class="stat-big slow" id="ciek-farthest-val" style="margin-top:20px">-</div>
-      <div id="ciek-farthest-city" style="font-family:var(--font-mono);font-size:13px;color:var(--muted);margin-top:6px">-</div>
     </div>
     <div class="card">
       <div class="card-title">Ulice z najwieksza liczba Zabek</div>

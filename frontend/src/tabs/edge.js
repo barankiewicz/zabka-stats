@@ -141,14 +141,14 @@ function renderCiekawostkiFarthestFrog(){
   const ae=M.amphibian_extremes||{};
   const ff=ae.farthest_from_frog||{};
   if(!ff.city)return;
-  const valEl=document.getElementById('ciek-farthest-val');
+  const valEl=document.getElementById('edge-kpi-farthestfrog');
   if(valEl&&ff.nearest_amphibian_km!=null){
     const km=(Math.round(ff.nearest_amphibian_km*100)/100).toFixed(2).replace('.',',');
-    valEl.textContent=km+' km';
+    valEl.innerHTML=km+'<span class="stat-unit"> km</span>';
   }
-  const cityEl=document.getElementById('ciek-farthest-city');
-  if(cityEl)
-    cityEl.textContent=ff.city+(ff.voivodeship?', '+ff.voivodeship:'');
+  const subEl=document.getElementById('edge-kpi-farthestfrog-sub');
+  if(subEl)
+    subEl.textContent=ff.city+(ff.voivodeship?', '+ff.voivodeship:'');
 }
 
 // ===== CIEKAWOSTKI: Physical streets (top street+city pairs) =====
@@ -223,7 +223,6 @@ function renderEdgeKPIs() {
   if (parks.count != null) set('edge-kpi-parks', fmt(parks.count));
   const mf = (M.amphibian_extremes && M.amphibian_extremes.most_froggy) || {};
   if (mf.amphibian_occurrences_5km != null) set('edge-kpi-frogrecord', fmt(mf.amphibian_occurrences_5km));
-  if (s3.frog_streets_count != null) set('edge-kpi-frogstreets', String(s3.frog_streets_count));
 
   // ep-parks-val / ep-parks-note
   if (parks.count != null) {
