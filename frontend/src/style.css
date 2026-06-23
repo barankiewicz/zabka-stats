@@ -1,7 +1,7 @@
 :root {
   --bg:#0a120a; --surface:#0f1b0e; --s2:#0c160b;
   --green:#84c341; --green-bright:#a6e84a; --amber:#f2a359; --red:#e8693d; --teal:#4dd0b1;
-  --muted:#93a487; --muted2:#5d6c52; --axis:rgba(140,200,80,.14); --ink:#eef3e6;
+  --muted:#93a487; --muted2:#7a8f6e; --axis:rgba(140,200,80,.14); --ink:#eef3e6;
   --north:#4dd0b1; --west:#a6e84a; --center:#84c341; --south:#f2a359;
   --glow:0 0 60px rgba(132,195,65,.22);
   --font-display:'Bricolage Grotesque',sans-serif;
@@ -156,7 +156,8 @@ canvas{display:block}
 
 /* GROWTH SLIDER */
 .growth-slider-wrap{padding:16px 4px 8px;display:flex;align-items:center;gap:12px}
-.growth-slider{flex:1;-webkit-appearance:none;appearance:none;height:6px;background:var(--axis);border-radius:3px;outline:none;cursor:pointer}
+.growth-slider{flex:1;-webkit-appearance:none;appearance:none;height:6px;background:var(--axis);border-radius:3px;cursor:pointer}
+.growth-slider:focus-visible{outline:2px solid var(--green-bright);outline-offset:4px;border-radius:3px}
 .growth-slider::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--green-bright);box-shadow:0 0 10px rgba(166,232,74,.7);cursor:grab;transition:transform .15s,box-shadow .15s}
 .growth-slider::-webkit-slider-thumb:hover{transform:scale(1.15);box-shadow:0 0 16px rgba(166,232,74,.9)}
 .growth-slider::-webkit-slider-thumb:active{cursor:grabbing;transform:scale(1.05)}
@@ -491,6 +492,7 @@ canvas{display:block}
 .edge-panels{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:14px;margin-bottom:20px}
 .edge-panel{background:var(--surface);border:1px solid var(--axis);border-radius:var(--r);padding:14px 16px;cursor:default;transition:border-color .2s}
 .edge-panel[style*="cursor:pointer"]:hover,.edge-panel.gem{border-color:rgba(140,200,80,.35)}
+.stat-tile[role="button"]:focus-visible,.edge-panel[role="button"]:focus-visible{outline:2px solid var(--green-bright);outline-offset:2px;border-radius:var(--r)}
 .edge-panel.gem{border-left:3px solid var(--green-bright)}
 .ep-eyebrow{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
 .ep-val{font-family:var(--font-display);font-weight:800;font-size:28px;line-height:1;letter-spacing:-.02em;color:var(--green);margin:4px 0 6px}
@@ -519,3 +521,31 @@ canvas{display:block}
 .tw-badge{flex-shrink:0;font-family:var(--font-mono);font-size:11px;color:var(--teal);font-weight:600;white-space:nowrap}
 .tw-empty{color:var(--muted);border-bottom:none}
 @media(max-width:900px){.twins-grid{grid-template-columns:1fr}.twins-stats{flex-direction:row;flex-wrap:wrap;gap:18px}.twins-lists{grid-template-columns:1fr}}
+
+/* SR-ONLY: visually hidden but accessible to screen readers */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* SURVIVAL-NOTE: prominent caveat inside growth chart card */
+.survival-note{font-size:12.5px;color:var(--amber);background:rgba(242,163,89,.07);border-left:2px solid var(--amber);border-radius:0 4px 4px 0;padding:8px 12px;margin-bottom:12px;line-height:1.55}
+.survival-note em{font-style:normal;font-weight:600;color:var(--amber)}
+
+/* BRIDGE-CARD: atmospheric text between fingerprint and gran chart */
+.bridge-card{padding:16px 20px;color:var(--muted2);font-size:14px;line-height:1.7;font-style:italic;border-left:2px solid var(--axis);margin-bottom:16px}
+
+/* TAB-BRIDGE: teaser at end of Siec tab */
+.tab-bridge{background:var(--surface);border:1px solid var(--axis);border-top:2px solid var(--green);border-radius:var(--r);padding:28px 32px;margin-top:24px;margin-bottom:8px}
+.tab-bridge-inner{max-width:560px}
+.tab-bridge-text{font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--green-bright);letter-spacing:-.02em;margin-bottom:10px;line-height:1.2}
+.tab-bridge-sub{font-size:14px;color:var(--muted);line-height:1.65;margin-bottom:18px}
+.tab-bridge-btn{display:inline-block;background:rgba(132,195,65,.12);border:1px solid rgba(132,195,65,.35);color:var(--green);font-family:var(--font-body);font-size:13px;font-weight:600;padding:9px 20px;border-radius:99px;cursor:pointer;transition:background .2s,border-color .2s,color .2s}
+.tab-bridge-btn:hover{background:rgba(132,195,65,.22);border-color:var(--green);color:var(--green-bright)}
+.tab-bridge-btn:focus-visible{outline:2px solid var(--green-bright);outline-offset:3px}
+
+/* FPF-HINT: fingerprint onboarding nudge, fades on first hover */
+.fpf-hint{font-size:12px;color:var(--muted);text-align:center;padding:6px 0 0;letter-spacing:.03em;pointer-events:none;transition:opacity .4s}
+.fpf-hint.hidden{opacity:0}
+
+/* SPOL-CONCLUSION: text conclusion at end of Zabka a Polska */
+.spol-conclusion{border-top:1px solid var(--axis);margin-top:32px;padding:28px 0 8px}
+.spol-conclusion-head{font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--ink);letter-spacing:-.01em;margin-bottom:12px}
+.spol-conclusion p{font-size:14px;color:var(--muted);line-height:1.75;max-width:720px}

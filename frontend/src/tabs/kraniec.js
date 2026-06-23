@@ -635,5 +635,8 @@ function wirePanels() {
     const el = document.getElementById(id);
     if (!el) return;
     el.onclick = (e) => { e.stopPropagation(); selectFact(fact); };
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectFact(fact); }
+    });
   });
 }

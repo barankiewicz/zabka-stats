@@ -88,7 +88,7 @@ async function loadSiec() {
   const [
     networkGrowth, networkOrigin, storesTimeline, openingHours, growthByVoiv,
     cityFirst, topCities, openingsMonthly, coverageFunnel, powiatCoverage, neighborStats,
-    kraniec, elevation, parksStores, twins, amphibians,
+    kraniec, elevation, parksStores, twins, amphibians, openingSeasonality,
   ] = await Promise.allSettled([
     fetchJSON(`${BASE}/stats/network-growth`),
     fetchJSON(`${BASE}/stats/network-origin`),
@@ -106,6 +106,7 @@ async function loadSiec() {
     fetchJSON(`${BASE}/stats/parks-stores`),
     fetchJSON(`${BASE}/stats/twins`),
     fetchJSON(`${BASE}/stats/amphibians`),
+    fetchJSON(`${BASE}/stats/opening-seasonality`),
   ]);
   const kf = val(kraniec, {facts:[], backdrop:[]});
   Object.assign(M, {
@@ -126,6 +127,7 @@ async function loadSiec() {
     parks_stores:          val(parksStores, []),
     twins:                 val(twins, {within_50m:0, within_100m:0, within_200m:0, total:0, closest_pairs:[], same_address:[], points:[], points_50:[]}),
     amphibian_extremes:    val(amphibians, {}),
+    opening_seasonality:   val(openingSeasonality, []),
   });
 }
 

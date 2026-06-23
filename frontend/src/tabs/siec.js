@@ -24,11 +24,18 @@ export function renderSiec(){
   renderEdgeKPIs();
   renderKraniec();
   renderPowiatCoverage();
+  renderSeasonality();
   const root=document.getElementById('tab-siec');
   if(root){
     const obs=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');obs.unobserve(e.target);}}),{threshold:.12});
     root.querySelectorAll('.si-reveal').forEach(r=>obs.observe(r));
   }
+  document.querySelectorAll('.tab-bridge-btn[data-goto]').forEach(btn=>{
+    if(btn._wired)return;btn._wired=true;
+    btn.addEventListener('click',()=>{
+      document.querySelector(`.tab-btn[data-tab="${btn.dataset.goto}"]`)?.click();
+    });
+  });
 }
 
 /* ---------------- HERO: glowing count-up + particle field ---------------- */
@@ -123,6 +130,11 @@ export function renderStatStrip(){
     if(el)el.innerHTML=`${fmt(Math.round(ns.distribution.median_m))}<span class="stat-unit"> m</span>`;
   }
 
+  const no=M.network_origin;
+  if(no&&no.new_this_month!=null){
+    const nmEl=document.getElementById('stat-new-month');
+    if(nmEl)nmEl.textContent=fmt(no.new_this_month);
+  }
   const s=M.summary;
   if(s){
     const ce=document.getElementById('stat-cities');if(ce)ce.textContent=(+s.cities_count).toLocaleString('pl-PL');
@@ -556,6 +568,8 @@ export function drawFingerprintFlat(){
       }else tt.style.display='none';
     });
     cv.addEventListener('mouseleave',()=>{tt.style.display='none';if(fpfData){fpfData.hoverX=null;renderFpFlat(ctx)}});
+    const hint=document.getElementById('fpf-hint');
+    if(hint)cv.addEventListener('mousemove',()=>hint.classList.add('hidden'),{once:true});
   }
   if(!cv._fpfResize){cv._fpfResize=true;window.addEventListener('resize',()=>drawFingerprintFlat())}
 }
@@ -615,11 +629,27 @@ function renderFpFlat(ctx){
 
 /* ---------------- 1.1 merged growth chart (bars + cumulative, dual axis) ----- */
 
+let _growthMode='abs';
+
 export function renderGrowthChart(){
+  _wireGrowthMode();
+  _drawGrowthChart(_growthMode);
+}
+
+function _wireGrowthMode(){
+  document.querySelectorAll('#growth-mode .gran-btn').forEach(btn=>{
+    if(btn._wired)return;btn._wired=true;
+    btn.addEventListener('click',()=>{
+      _growthMode=btn.dataset.gmode;
+      _setActive('growth-mode',btn);
+      _drawGrowthChart(_growthMode);
+    });
+  });
+}
+
+function _drawGrowthChart(mode){
   const data=M.network_growth||[];
-  const vals=data.map(d=>d.new_stores);
   const labels=data.map(d=>d.year);
-  const barColors=data.map(d=>{if(d.year>=2023)return C.green;if(d.year>=2010)return C.green+'88';return C.green+'44'});
   const ERAS=[
     {x1:1998,x2:2009,color:'rgba(31,61,18,.25)'},
     {x1:2010,x2:2019,color:'rgba(53,102,21,.18)'},
@@ -627,24 +657,84 @@ export function renderGrowthChart(){
     {x1:2023,x2:2026,color:'rgba(166,232,74,.10)'}
   ];
   destroyChart('growth');
-  CHARTS['growth']=new Chart(document.getElementById('chart-growth'),{
+
+  if(mode==='yoy'){
+    const yoyVals=data.map((d,i)=>{
+      if(i===0||!d.cumulative||d.cumulative===d.new_stores)return null;
+      const prev=d.cumulative-d.new_stores;
+      return Math.round(d.new_stores/prev*1000)/10;
+    });
+    const barColors=data.map(d=>d.year>=2023?C.green:d.year>=2010?C.green+'88':C.green+'44');
+    CHARTS['growth']=new Chart(document.getElementById('chart-growth'),{
+      type:'bar',
+      data:{labels,datasets:[{label:'wzrost r/r %',data:yoyVals,backgroundColor:barColors,borderRadius:2,borderWidth:0}]},
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{
+          legend:{display:false},
+          tooltip:{enabled:false},
+          barLabels:{color:C.green,onlyBars:true,inside:true,suffix:'%'},
+          annot:{shadedBands:ERAS}
+        },
+        scales:{
+          x:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}},
+          y:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10},callback:v=>v+'%'},title:{display:true,text:'wzrost sieci rok do roku',color:C.muted,font:{size:9}}}
+        }
+      }
+    });
+  }else{
+    const vals=data.map(d=>d.new_stores);
+    const barColors=data.map(d=>d.year>=2023?C.green:d.year>=2010?C.green+'88':C.green+'44');
+    CHARTS['growth']=new Chart(document.getElementById('chart-growth'),{
+      type:'bar',
+      data:{labels,datasets:[
+        {type:'bar',label:'nowych/rok',data:vals,backgroundColor:barColors,borderRadius:2,borderWidth:0,yAxisID:'y',order:2},
+        {type:'line',label:'łącznie aktywnych',data:data.map(d=>d.cumulative),borderColor:C.amber,backgroundColor:'rgba(242,163,89,.06)',fill:true,borderWidth:2,pointRadius:0,tension:.4,yAxisID:'y1',order:1}
+      ]},
+      options:{
+        responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+        plugins:{
+          legend:{display:true,labels:{color:C.muted,usePointStyle:true,font:{size:11}}},
+          tooltip:{enabled:false},
+          barLabels:{thousands:true,color:C.green,onlyBars:true,inside:true},
+          annot:{shadedBands:ERAS}
+        },
+        scales:{
+          x:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}},
+          y:{position:'left',grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}},title:{display:true,text:'nowych/rok',color:C.muted,font:{size:9}}},
+          y1:{position:'right',grid:{display:false},ticks:{color:C.amber,font:{size:10}},title:{display:true,text:'łącznie aktywnych',color:C.amber,font:{size:9}}}
+        }
+      }
+    });
+  }
+}
+
+/* ---------------- seasonality of openings (month-of-year histogram) ---------- */
+
+function renderSeasonality(){
+  const data=M.opening_seasonality||[];
+  if(!data.length)return;
+  const peak=data.reduce((a,b)=>b.cnt>a.cnt?b:a,data[0]);
+  const titleEl=document.getElementById('seasonality-title');
+  if(titleEl&&peak)titleEl.textContent=`Szczyt otwarć: ${peak.label} (${fmt(peak.cnt)} sklepów)`;
+  const barColors=data.map(d=>d.month===peak.month?C.green:C.green+'55');
+  destroyChart('seasonality');
+  CHARTS['seasonality']=new Chart(document.getElementById('chart-seasonality'),{
     type:'bar',
-    data:{labels,datasets:[
-      {type:'bar',label:'nowych/rok',data:vals,backgroundColor:barColors,borderRadius:2,borderWidth:0,yAxisID:'y',order:2},
-      {type:'line',label:'łącznie aktywnych',data:data.map(d=>d.cumulative),borderColor:C.amber,backgroundColor:'rgba(242,163,89,.06)',fill:true,borderWidth:2,pointRadius:0,tension:.4,yAxisID:'y1',order:1}
-    ]},
+    data:{
+      labels:data.map(d=>d.label),
+      datasets:[{data:data.map(d=>d.cnt),backgroundColor:barColors,borderRadius:2,borderWidth:0}]
+    },
     options:{
-      responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      responsive:true,maintainAspectRatio:false,
       plugins:{
-        legend:{display:true,labels:{color:C.muted,usePointStyle:true,font:{size:11}}},
+        legend:{display:false},
         tooltip:{enabled:false},
-        barLabels:{thousands:true,color:C.green,onlyBars:true,inside:true},
-        annot:{shadedBands:ERAS}
+        barLabels:{thousands:true,color:C.green,inside:true}
       },
       scales:{
-        x:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}},
-        y:{position:'left',grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}},title:{display:true,text:'nowych/rok',color:C.muted,font:{size:9}}},
-        y1:{position:'right',grid:{display:false},ticks:{color:C.amber,font:{size:10}},title:{display:true,text:'łącznie aktywnych',color:C.amber,font:{size:9}}}
+        x:{grid:{display:false},ticks:{color:C.muted,font:{size:11}}},
+        y:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}}
       }
     }
   });
@@ -1034,7 +1124,10 @@ async function renderWojMap(){
 }
 
 function _setActive(group,btn){
-  document.querySelectorAll(`#${group} .gran-btn`).forEach(b=>b.classList.toggle('active',b===btn));
+  document.querySelectorAll(`#${group} .gran-btn`).forEach(b=>{
+    b.classList.toggle('active',b===btn);
+    b.setAttribute('aria-pressed',b===btn?'true':'false');
+  });
 }
 
 export function wireGranular(){

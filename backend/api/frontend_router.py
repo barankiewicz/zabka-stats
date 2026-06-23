@@ -541,6 +541,24 @@ async def top_cities(limit: int = 20):
 # 9. /api/stats/opening-hours
 # ---------------------------------------------------------------------------
 
+@router.get("/stats/opening-seasonality")
+@cached(ttl=3600)
+async def opening_seasonality():
+    rows = _q("""
+        SELECT
+            MONTH(first_opening_date) AS month,
+            COUNT(*) AS cnt
+        FROM locations
+        WHERE deleted_at IS NULL
+          AND snapshot_id = (SELECT MAX(id) FROM snapshots)
+          AND first_opening_date IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+    """)
+    months_pl = ['Sty', 'Lut', 'Mar', 'Kwi', 'Maj', 'Cze', 'Lip', 'Sie', 'Wrz', 'Paz', 'Lis', 'Gru']
+    return [{"month": int(r[0]), "label": months_pl[int(r[0]) - 1], "cnt": int(r[1])} for r in rows]
+
+
 @router.get("/stats/opening-hours")
 @cached(ttl=3600)
 async def opening_hours():

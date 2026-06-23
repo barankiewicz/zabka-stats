@@ -160,7 +160,9 @@ function renderInpostMap(){
 }
 
 export function renderSpoleczenstwo(){
-  startTabParticles('particles-spoleczenstwo',[188,224,58],60);
+  if(!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)){
+    startTabParticles('particles-spoleczenstwo',[188,224,58],60);
+  }
   renderSpolecKPIs();
   renderInpostMap();
   // Update lead paragraph with live totals
@@ -303,7 +305,7 @@ function wireStreetsAndGmina(){
     if(btn._wired)return;btn._wired=true;
     btn.addEventListener('click',()=>{
       _gminaMetric=btn.dataset.gmetric;
-      document.querySelectorAll('#gmina-metric .gran-btn').forEach(b=>b.classList.toggle('active',b===btn));
+      _setActiveSpol('#gmina-metric',btn);
       renderGminaLeaders();
     });
   });
@@ -362,12 +364,19 @@ export async function renderNbl(){
   _drawNbl(data);
 }
 
+function _setActiveSpol(sel,btn){
+  document.querySelectorAll(sel+' .gran-btn').forEach(b=>{
+    b.classList.toggle('active',b===btn);
+    b.setAttribute('aria-pressed',b===btn?'true':'false');
+  });
+}
+
 function wireNbl(){
   const wire=(sel,attr,set)=>document.querySelectorAll(sel+' .gran-btn').forEach(btn=>{
     if(btn._wired)return;btn._wired=true;
     btn.addEventListener('click',()=>{
       set(btn.dataset[attr]);
-      document.querySelectorAll(sel+' .gran-btn').forEach(b=>b.classList.toggle('active',b===btn));
+      _setActiveSpol(sel,btn);
       renderNbl();
     });
   });
@@ -646,7 +655,7 @@ function wireInpostLevel(){
     if(btn._wired)return;btn._wired=true;
     btn.addEventListener('click',()=>{
       _dbLevel=btn.dataset.ilevel;
-      document.querySelectorAll('#inpost-level .gran-btn').forEach(b=>b.classList.toggle('active',b===btn));
+      _setActiveSpol('#inpost-level',btn);
       renderDumbbellByLevel();
     });
   });
