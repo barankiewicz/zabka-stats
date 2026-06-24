@@ -295,27 +295,56 @@ router so it takes precedence on overlapping paths:
 
 ```
 GET /api/geo/voivodeships              -> GeoJSON for choropleth maps
+GET /api/geo/powiats                   -> GeoJSON powiat boundaries (24h cache)
 
+# network history / growth (SIEC tab)
 GET /api/stats/network-growth          -> [{year, new_stores, cumulative}]
 GET /api/stats/network-origin          -> {oldest, newest, new_this_month}
 GET /api/stats/stores-timeline         -> {stores[[lat,lon,year]], undated, year_range, milestones}
-GET /api/stats/opening-hours           -> {patterns, h24_count, clock_arcs}
-GET /api/stats/per-capita              -> [{voivodeship, per_1k, total, macro_region}]
-GET /api/stats/growth-by-voivodeship   -> [{voivodeship, year, new_stores, macro_region}]
-GET /api/stats/city-first-opening      -> [{year, cumulative_cities, new_cities}]
-GET /api/stats/top-cities?limit=N      -> [{city, voivodeship, total, macro_region}]
-GET /api/stats/powiat-economics        -> [{powiat, voivodeship, per_1k, avg_salary, unemployment_rate, population}]
+GET /api/stats/openings-monthly        -> [{year, month, cnt}]  (calendar grid)
+GET /api/stats/opening-hours           -> [{pattern, cnt}]  (top patterns)
+GET /api/stats/opening-seasonality     -> [{month, label, cnt}]
+GET /api/stats/growth-by-voivodeship   -> [{voivodeship, yr, new_stores}]
+GET /api/stats/city-first-opening      -> [{yr, new_cities, cumulative_cities}]
+GET /api/stats/top-cities?limit=N      -> [{city, cnt, voivodeship}]
+
+# ranking by administrative level (GRAN/NBL/coverage switchers)
+GET /api/stats/by-dimension?dim=&metric=&sort=&limit=&offset=
+                                       -> {rows, total, dim, metric, sort, avg, median, sum}
+                                          dim: voivodeship|powiat|city|gmina; metric: count|per1k|per_km2
+GET /api/stats/neighbor-by-level?level=&metric=&sort=&limit=
+                                       -> {rows[{name,voivodeship,n,median_m,avg_m}], total, level, metric}
+                                          level: voivodeship|powiat|city
+GET /api/stats/inpost-vs-zabka-by-level?level=&sort=&limit=&offset=
+                                       -> {rows, total, level}  (level: voivodeship|powiat|city|gmina)
+GET /api/stats/coverage-funnel         -> [{level, with, total, pct}]  (powiaty/miasta/gminy)
+GET /api/stats/powiat-coverage         -> {total, covered, dots[[lat,lon]]}  (24h cache)
+GET /api/stats/city-coverage           -> {total_cities, with_zabka, without_zabka, pct, zabka_localities}
+GET /api/stats/common-streets?limit=N  -> {streets[{name, cnt}], distinct}
+GET /api/stats/gmina-leaders?limit=N   -> {per_1k[], per_km2[], national_per_1k}
+
+# Poland-through-a-frog (ZABKA A POLSKA tab)
+GET /api/stats/per-capita              -> [{voivodeship, stores, population, per_1k}]
+GET /api/stats/powiat-economics        -> [{powiat, voivodeship, avg_salary, unemployment_rate, population, stores, per_1k}]
 GET /api/stats/sunday-by-voivodeship   -> [{voivodeship, closed_pct, closed_count, total}]
-GET /api/stats/voivodeship-density     -> [{voivodeship, density_per_100km2, total, area_km2}]
-GET /api/stats/inpost-vs-zabka         -> [{voivodeship, zabka_per_100k, inpost_per_100k, ratio}]
+GET /api/stats/voivodeship             -> [{voivodeship, total, mc_count, mc_pct}]  (merrychef)
+GET /api/stats/voivodeship-density     -> [{voivodeship, stores, area_km2}]
+GET /api/stats/inpost-vs-zabka         -> [{voivodeship, zabki, paczkomaty, population, zabki_per_100k, lockers_per_100k, ratio}]
+
+# extremes / Atlas krańców / amphibians (folded into SIEC tab)
 GET /api/stats/kraniec-facts           -> {facts[{id,group,label,value,lat,lon,zoom,type}], backdrop[[lat,lon]]}
-GET /api/stats/elevation               -> {extremes, histogram}
-GET /api/stats/neighbor-stats          -> {loner, distribution}
-GET /api/stats/section3-rare           -> {h24_cities, h24_points, parks, void, frog_streets, powiats_covered, powiat_range, civic_streets}
-GET /api/stats/amphibians              -> {gbif_total, median_occurrences, most_froggy, zero_frog_count, farthest_from_frog, stores, distribution, by_voivodeship, top10, gbif_obs}
+GET /api/stats/elevation               -> {extremes, histogram, percentiles}
+GET /api/stats/neighbor-stats          -> {loner, distribution, zero_distance_count}
+GET /api/stats/twins                   -> {within_50m, within_100m, within_200m, total, closest_pairs, same_address, points, points_50}
+GET /api/stats/parks-stores            -> [[lat,lon]]
+GET /api/stats/section3-rare           -> {h24_cities, h24_points, parks, void, frog_streets, frog_streets_count, west_wall_points, powiats_covered, powiat_range, civic_streets, physical_streets}
+GET /api/stats/amphibians              -> {gbif_total, median_occurrences, most_froggy, zero_frog_count, farthest_from_frog, stores, scatter_sample, distribution, by_voivodeship, top10, gbif_obs}
 
 GET /api/stats/sunday-closed-stores?voivodeship=X  -> drilldown, not cached
 ```
+
+All `/api/stats/*` here are cached 1h (geo + powiat-coverage 24h). `frontend_router`
+shadows the legacy `aggregates_router` versions of summary/voivodeship/top-cities/per-capita.
 
 ### Protected (token required)
 
@@ -327,11 +356,18 @@ POST /api/snapshot?token=YOUR_TOKEN
 
 ## Database
 
-DuckDB `data/zabka.duckdb` contains:
+DuckDB `data/zabka.duckdb` contains (full schema with types: chapter 3):
 
+Facts:
 - **snapshots** - snapshots with metadata (total, visible, towns, etc.)
-- **locations** - locations (name, city, voivodeship, street, lat, lon, flags)
+- **locations** - stores (city, voivodeship, street, lat, lon, flags, enrichment)
 - **histories** - store births and deaths (created/deleted per snapshot)
+- **parcel_lockers** - InPost parcel lockers (second fact entity)
+
+Dimensions: **dim_voivodeship**, **dim_powiat** (GUS economics), **dim_gmina**
+(population + area_km2), **dim_gios_station**, **dim_park**; plus **fun_facts**.
+Cities (`dim_miasto`) are a bundled JSON (`data/geo/miasta_pl.json`) read by the API,
+not a DuckDB table.
 
 Locations support soft delete via the `deleted_at` timestamp.
 
@@ -346,9 +382,16 @@ backend/                 - code + API (chapter 2)
   etl/                   - ETL pipeline: geo.py, io.py, pipeline.py, sources/ (one class per source)
   api/                   - routers (locations, history, aggregates, admin, frontend_router)
 
-frontend/                - Chart.js + Leaflet + D3 SPA (chapter 4)
-  index.html             - production SPA (fetches from /api/* on load)
-  mock-data.js           - dev reference snapshot (700KB, 26 keys, shape matches API)
+frontend/                - Vite SPA, modular ES + Chart.js + Leaflet + D3 + ECharts (chapter 4)
+  index.html             - DOM scaffold + <head> (SEO, fonts); loads /src/main.js
+  methodology.html       - methodology page
+  src/                   - main.js (tab router, lazy chunks), data.js (fetch buckets),
+                           config.js (colors/plugins), filter.js, state.js, utils.js, style.css
+  src/tabs/              - one module per tab: siec.js + spoleczenstwo.js (lazy-loaded),
+                           plus econ.js, edge.js, kraniec.js, bubble.js (bundled into their parent)
+  public/                - og.png, robots.txt, sitemap.xml (copied to dist/ by Vite)
+  dist/                  - built bundle shipped to prod
+  mock-data.js           - dev reference snapshot (700KB, shape matches API; not loaded in prod)
 
 data/                    - data + data documentation (chapter 3)
   input/                 - snapshot JSON
@@ -553,7 +596,8 @@ The flow (`python -m backend.daily_etl`, orchestrated in
    names, derive flags (h24, Sunday, merrychef).
 3. **Enrich Żabki** - each source enriches the stores independently (best-effort:
    a missing source does not abort the ETL, the column just stays empty). Order:
-   regions, gios, neighbor, amphibians, parks, elevation. Details in section 4.
+   regions, gios, neighbor, amphibians, parks, elevation, light pollution. Details in
+   section 4. (Light pollution / Bortle is a neighbor-distance proxy, not a measurement.)
 4. **Parcel lockers** - InPost parcel lockers loaded as a separate entity
    (voivodeship/powiat geocoding by the same point-in-polygon as the stores).
 5. **Build dimensions** - assemble the dimensions with numeric keys, then attach
@@ -640,11 +684,14 @@ Origin legend:
 | gios_station_id | INTEGER | GIOŚ | FK -> `dim_gios_station.id` (nearest air-quality station) |
 | gios_distance_km | DOUBLE | GIOŚ | distance to that station (haversine, km) |
 | elevation_meters | DOUBLE | ELEVATION | elevation above sea level from GUGiK NMT (`GetHByXY`, PL-1992/EPSG:2180 coordinates); NULL when the service did not answer |
+| light_pollution_brightness | DOUBLE | derived | sky brightness proxy; NOT a measurement - derived from neighbor distance as a fallback, so do not present it as observed light pollution |
+| bortle_scale | INTEGER | derived | Bortle class (1-9) from the same proxy; same caveat |
 | is_in_nature_park | BOOLEAN | PARKS | TRUE when the point falls inside a GDOŚ park or buffer (point-in-polygon) |
 | nature_park_id | INTEGER | PARKS | FK -> `dim_park.id` (the park the store is in, when any) |
 | nearest_neighbor_distance_meters | INTEGER | SPATIAL | distance to the nearest other Żabka (BallTree k=2, haversine, meters) |
 | amphibian_occurrences_5km | INTEGER | AMPHIBIANS | count of amphibian observations (GBIF, Amphibia) within 5 km of the store, a thematic nod to the network's name |
 | nearest_amphibian_km | DOUBLE | AMPHIBIANS | distance to the nearest amphibian observation (GBIF, km) |
+| gmina_id | INTEGER | GEO | FK -> `dim_gmina.id` (point-in-polygon against GADM gmina boundaries) |
 | created_at | TIMESTAMP | ETL | time the row was written |
 | deleted_at | TIMESTAMP | ETL | soft-delete for snapshot-to-snapshot comparisons (NULL = active) |
 
@@ -742,6 +789,23 @@ so a string join would be wrong). The voivodeship is referenced via
 | id | INTEGER (PK) | ETL | surrogate key (numbered in the ETL) |
 | name | VARCHAR | GEO | voivodeship name (same as on the facts) |
 | population | INTEGER | ECONOMY | sum of powiat populations in the voivodeship (from `dim_powiat`) |
+
+### Table `dim_gmina` (dimension - lowest geographic level)
+
+The lowest geographic level (`locations.gmina_id` -> `dim_gmina.id`). Boundaries +
+`area_km2` from GADM (`data/geo/gminy.geojson`), population from GUS BDL (var 72305).
+Powers the gmina granularity of the ranking switchers (stores, per 1000 residents,
+per km²). Note: the live DB carries ~1,501 gminas; `population` is not yet filled for
+every row (it relies on a separate GUS gmina pull), `area_km2` is complete.
+
+| Column | Type | Origin | Rule |
+|---|---|---|---|
+| id | INTEGER (PK) | ETL | surrogate key (numbered in the ETL) |
+| name | VARCHAR | GEO | gmina name |
+| voivodeship_id | INTEGER | GEO | FK -> `dim_voivodeship.id` |
+| powiat_id | INTEGER | GEO | FK -> `dim_powiat.id` |
+| population | INTEGER | ECONOMY | gmina population (GUS BDL); may be NULL where unmatched |
+| area_km2 | DOUBLE | GEO | gmina area from GADM polygons |
 
 ### Table `dim_gios_station` (dimension - nearest air-quality stations)
 
@@ -1003,10 +1067,17 @@ most amphibians nearby. The step can be skipped with `--skip-amphibians`.
 
 # 4. Frontend
 
-Single-page dashboard (`frontend/index.html`), dark theme, served by FastAPI. Static JS
-pulling from `/api/*`, rendered via Chart.js + Leaflet + Canvas 2D. Full specification
-with exact SQL, pixel dimensions, animations, and endpoint register:
-`.claude/analysis/DASHBOARD_SPEC.md`.
+Single-page dashboard, dark theme, served by FastAPI. A Vite build: `index.html` is just
+the DOM scaffold + `<head>`; all logic lives in modular ES under `frontend/src/`, entry
+`src/main.js`. Rendered via Chart.js + Leaflet + ECharts + D3 + Canvas 2D, pulling from
+`/api/*`. Full component register: `.claude/analysis/DASHBOARD_SPEC.md`.
+
+**Two tabs** (not the old four): `siec` ("SIEĆ", the network's anatomy + extremes) and
+`spoleczenstwo` ("ŻABKA A POLSKA", the default tab on load, correlations with Polish
+economics). The old EDGE CASE'Y and PŁAZY tabs were folded in: the extremes atlas, parks,
+twins and amphibian facts now live inside SIEĆ; the econ scatters live inside ŻABKA A
+POLSKA. There is no longer a global header KPI strip — the hero count-up carries the
+headline total (`renderKPI` is a guarded no-op kept for the cross-filter callback).
 
 **SEO.** Both HTML pages (`index.html`, `methodology.html`) carry a full `<head>` stack:
 unique `<title>` and `<meta name="description">`, `<link rel="canonical">`, Open Graph
@@ -1016,32 +1087,47 @@ candidate for Google rich results). The OG image (`/og.png`, 1200x630, dark them
 in `frontend/public/` and is copied to `dist/` by Vite. `robots.txt` and `sitemap.xml`
 also live in `frontend/public/` (Vite copies both to dist root).
 
-**Data loading:** `frontend/index.html` fires all 20 API endpoints in parallel via
-`Promise.allSettled` on page load (`loadData()`, bottom of the script block). Each
-settled result is mapped into `M`, the global data object consumed by all render
-functions. Failed endpoints fall back to empty arrays/objects so a broken endpoint
-can't white-screen the whole page. `frontend/mock-data.js` (700KB, 26 keys) is kept
-as a dev reference — its shape is 1:1 with the API responses but it is no longer
-loaded by the production frontend.
+**Data loading** (`src/data.js`): split into a core bucket and per-tab buckets, all via
+`Promise.allSettled` so a failed endpoint can't white-screen the page. `loadCore()` fires
+the ~15 endpoints the default tab (ŻABKA A POLSKA) + shared header need; `loadTabData('siec')`
+fires the SIEĆ bucket (~16 endpoints) on first open and caches. Each settled result is
+mapped into `M`, the global data object (`src/state.js`) consumed by all render functions;
+failures fall back to empty arrays/objects. The level/metric switchers (GRAN, NBL, the
+InPost dumbbell) lazy-fetch their `/api/stats/by-dimension`, `/neighbor-by-level`,
+`/inpost-vs-zabka-by-level` variants on demand and cache per (level, metric, sort).
+
+**Module loading:** `main.js` lazy-imports only `siec.js` and `spoleczenstwo.js` as
+separate Rollup chunks (`TAB_LOADERS`). `econ.js` is bundled into the spoleczenstwo chunk;
+`bubble.js`, `kraniec.js`, `edge.js` into the siec chunk. The default tab renders on load;
+the other renders on first click and is marked in `RENDERED` so it never double-renders.
+
+`frontend/mock-data.js` (700KB) is a dev reference — its shape is 1:1 with the API
+responses but it is no longer loaded by the production frontend.
+
+Note: `loadCore()` still fetches `sunday-by-voivodeship`, `voivodeship-density`, and
+`voivodeship` (merrychef); those datasets are not currently rendered as cards (the Sunday
+Wall / density / merrychef-gap visuals were retired from the visible layout) but stay in
+`M` for the cross-filter and possible reuse.
 
 ---
 
 ## 1. Dashboard description
 
-Four-section data story about Poland's Żabka convenience store network (13,143 active
-stores). The page is designed to reward exploration - it is not a reporting tool.
+Two-tab data story about Poland's Żabka convenience store network (~13,154 active stores,
+latest snapshot). The page is designed to reward exploration - it is not a reporting tool.
 
 **Page layout:**
-- Global header (always visible): 5 KPI tiles + four-tab navigation
-- Tab Historia: the network's anatomy — when, where, and how Żabka grew over 28 years
-- Tab SPOLECZENSTWO: correlations with Polish economics and geographic anomalies
-- Tab EDGE CASE'Y: geographic extremes on a hover-driven map + curiosity cards + live data
-- Tab PŁAZY: thematic coda — Żabka vs żabka (store-vs-frog data mini-chapter)
+- Tab-bar navigation (two tabs), no global KPI header
+- Tab SIEĆ: the network's anatomy + extremes — how Żabka grew over 28 years, how it ranks
+  by administrative level (woj/powiat/miasto/gmina), the Atlas krańców of geographic
+  extremes, powiat/city/gmina coverage, and the city bubble chart
+- Tab ŻABKA A POLSKA (default): correlations with Polish economics (salary, unemployment),
+  Żabka vs InPost, neighbor density by level, the busiest streets, per-capita gmina leaders
 
 **Main message the user should grasp in 10 seconds:**
-Half of all Żabka stores opened since 2023. They are not evenly distributed. Richer
-powiats have more. The western border behaves differently. Somewhere in Bieszczady,
-you are 46.5 km from the nearest one. The network is named after a frog and we checked.
+Nearly half of all Żabka stores opened since 2023 (47.5%). They are not evenly distributed.
+Richer powiats have more. Higher unemployment means fewer. Somewhere in Bieszczady, you are
+46.5 km from the nearest one. The network is named after a frog and we checked.
 
 **Audience:** Data-literate, curious. Not a business dashboard — a data portrait.
 
@@ -1051,38 +1137,34 @@ you are 46.5 km from the nearest one. The network is named after a frog and we c
 
 ## 2. Visual story
 
-The page follows an SPB arc plus a thematic coda:
+The story is split across two tabs. ŻABKA A POLSKA is where the page lands; SIEĆ is the
+deeper-dive companion.
 
-**Spark (Historia):** Numbers first — a giant glowing count-up of all active stores, then
-a stat strip of fresh history facts (milestone cadence, best year, oldest store). Then
-geography: a big dark vector map of Poland fills in dot by dot as the network grows
-1998->2026. Then direction: the fingerprint (1.1f) shows which compass bearing each year
-favored. Then the merged growth chart, the regions, per-capita, top cities. The section
-ends with how standardized the network is — 91.7% of stores open at exactly 06:00.
+**ŻABKA A POLSKA (landing):** The uniform network hides fault lines. A hero count-up
+(the 46.5 km void) and a strip of national KPIs set the stage. Then Żabka vs InPost —
+a voivodeship choropleth of the ratio plus a dumbbell that drills woj -> powiat -> miasto.
+Then how densely the stores stand (median distance to the nearest Żabka by level, with a
+kNN histogram). Then the busiest streets and the per-capita gmina leaders (resorts win).
+The economic core: two ECharts chapters — wealthier powiats have more stores (r = +0.41),
+higher unemployment means fewer (r = -0.35) — each with a scatter, quartile bars, and
+animated stat tiles. It closes on "Co z tego wynika?": Żabka follows money and crowds.
 
-**Problem (SPOLECZENSTWO):** The uniform network hides fault lines. Wealthier powiats have
-more stores (r = +0.41 salary correlation). Higher unemployment means fewer (r = -0.35).
-Pomorskie beats Mazowieckie per capita. And three western voivodeships —
-dolnośląskie (10.6%), zachodniopomorskie (9.3%), lubuskie (9.1%) — have a Sunday-closing
-cluster nobody drew on purpose. The same region has the merrychef gap (dolnośląskie 90.6%
-vs 97.4% national average). InPost's ratio over Żabka ranges from 4.54x in podkarpackie
-to 1.83x in zachodniopomorskie. The section closes by stating what the data cannot explain.
-
-**Bridge (EDGE CASE'Y):** At the edges the network stops being a network. One interactive
-map of Poland anchors every extreme — hovering a fact card flies the map there and opens a
-tooltip. A store at 963m. One below sea level. 35 that never close. The void in Bieszczady
-(46.5 km from the nearest Żabka) is rendered as a red hollow circle on the map with no
-store dots inside. A Żabka at ul. Zielonej Żabki 7 in Żabia Wola. The live cards (sky,
-weather, air) change on every page load.
-
-**Coda (PŁAZY):** The network is named after a frog. We checked where Żabka actually meets
-żabka. A beeswarm shows every store's frog count; a map shows the coexistence geography
-(river valleys glow teal); a bar ranks voivodeships by amphibian density (east wins).
-The most frog-dense store is in Ursynów (2,028 GBIF observations), not any national park.
+**SIEĆ (anatomy + extremes):** Numbers first — a giant glowing count-up of all active
+stores, then a stat strip of history facts (milestone cadence, best year, oldest store,
+median neighbor, % of cities covered). A force-directed bubble of the biggest cities.
+Then geography: a big dark vector map of Poland fills in dot by dot as the network grows
+1998->2026, with a companion month-by-month calendar grid. The fingerprint (1.1f) unrolls
+28 yearly rings to show which compass bearing each year favored. The growth chart (bars =
+new stores/year, line = YoY change). The GRAN ranking switcher (woj/powiat/miasto by count,
+per 1000, or per km²) with a voivodeship choropleth beside it. Then the extremes: a strip
+of clickable KPI tiles feeds the Atlas krańców — one interactive map where hovering/clicking
+a fact flies there (compass points, highest/lowest store, the loner, the Bieszczady void as
+a red hollow circle, the frog street, the 32 h24 stores, parks, twins). Finally a coverage
+donut + mini-map (powiaty / miasta / gminy).
 
 **Theme:** "Żabka in the dark city." Near-black green-tinted canvas (`#0a120a`), Żabka
 green (`#84c341`) as primary accent with a brighter lime (`#a6e84a`) for big numbers and
-glows, teal (`#4dd0b1`) for the PŁAZY tab. CartoDB dark tiles on the Leaflet maps.
+glows, teal (`#4dd0b1`) for ecological / amphibian data. CartoDB dark tiles on the Leaflet maps.
 
 ---
 
@@ -1091,99 +1173,61 @@ glows, teal (`#4dd0b1`) for the PŁAZY tab. CartoDB dark tiles on the Leaflet ma
 Full spec (SQL, pixel dimensions, annotations, interactions): `.claude/analysis/DASHBOARD_SPEC.md`.
 This section is the navigable index — what each component shows and where its data comes from.
 
-### Global header (all tabs)
+There is no global header KPI strip. Each tab carries its own hero + stat tiles.
 
-| Component | Endpoint | What it shows |
-|---|---|---|
-| T1 Sklepy | `/api/stats/summary` | 13,143 active stores |
-| T2 Miast | `/api/stats/summary` | 2,203 distinct cities |
-| T3 Z piecem | `/api/stats/summary` | 97.4% with Merrychef oven |
-| T4 Otwarte w niedzielę | `/api/stats/summary` | 95.5% open on Sundays |
-| T5 Otwarte 24/7 | `/api/stats/summary` | 35 stores; rendered in amber to signal rarity |
+### Tab SIEĆ (`siec.js`, render order)
 
-When a voivodeship filter is active, T1-T5 re-query with `AND voivodeship = $v` and show
-filtered numbers with "(wojew. X)" subtext.
-
-### Tab Historia
+Imports `bubble.js` (D3 force chart), `kraniec.js` (Atlas krańców), `edge.js` (edge KPI strip).
 
 | Ref | Library | Endpoint | What it shows |
 |---|---|---|---|
-| Hero | Canvas 2D | `/api/stats/summary` | Full-bleed opening: mono eyebrow, giant gradient-clipped glowing count-up number (total active stores), drifting green particle field behind it, finding headline + lede. Count-up and particles respect `prefers-reduced-motion`. |
-| Stat strip | — | `/api/stats/network-growth` + `/network-origin` | Four tiles of fresh history facts: milestone cadence ("first 1,000 -> ~11 lat, last 5,000 -> ~4 lata", from cumulative crossings), best year (2025: 1,943, "co ~4.5 h"), oldest store (Swarzędz, 1998), and stores opened in the last month. Replaces the old origin cards. |
-| Big map | Leaflet + Canvas 2D | `/api/geo/voivodeships` + `/api/stats/stores-timeline` | Large dark vector map of Poland (16 voivodeship polygons, no tiles). Store dots are drawn on a canvas overlay and animate in by opening year — a one-time ~2.8s sweep 1998->2026 with a year label and a replay button. Poland fills in as the network grows. Era color ramp on the dots. |
-| 1.1 growth chart | Chart.js | `/api/stats/network-growth` | One chart, one x-axis (years 1998-2026), two y-axes: bars = new stores/year (left), cumulative line = total active (right). 2025 is the best year (1,943). Era background bands. Footnote: data covers only currently active stores; early years underrepresented. |
-| 1.1f fingerprint | Canvas 2D | `/api/stats/stores-timeline` | 28 concentric rings, one per year, each deformed toward the compass direction where that year's openings concentrated (72 bins at 5deg). Dark radial background; rings "breathe" with a subtle pulse; a glowing ball travels along one randomly chosen non-edge ring. Ring color by era. Hover -> ring year + dominant direction. |
-| 1.2a regions | Chart.js | `/api/stats/growth-by-voivodeship` | Annual new stores stacked by 4 Polish regions (Polnoc / Zachod / Centrum / Poludnie). A legend under the chart lists which voivodeships make up each region. Post-2020 growth is broadly distributed. |
-| 1.2b per-capita bar | Chart.js | `/api/stats/per-capita` | 16 voivodeships sorted by stores per 1000 residents (descending). Pomorskie #1. National average reference line (0.35/1k). Color by region. Value labels at bar ends; brighten on hover. No on-click filter. |
-| 1.3b top 20 cities | Chart.js | `/api/stats/top-cities?limit=20` | Horizontal bars, sorted descending. Warsaw (1,138) in a class of its own. Top 20 = 44% of the network. Color by region. Value labels at bar ends; brighten on hover. Still reacts to the header cross-filter. |
-| 1.4a "Zegar Żabki" | Canvas 2D | `/api/stats/opening-hours` + summary | 24-hour clock face. Semi-transparent arcs accumulate into a near-solid band at 06:00-23:00 (91.7%). 35 h24 stores are amber dots on top. Stats row beside the clock: "97.4% z piecem \| 95.5% w niedzielę \| 35 całą dobę". |
+| Hero | Canvas 2D | `/stats/summary`, `/stats/network-origin` | Full-bleed opening: mono eyebrow (snapshot date), giant gradient-clipped glowing count-up of total active stores, drifting green particle field, headline + lede. Respects `prefers-reduced-motion`. |
+| Stat strip | DOM | `/stats/network-growth`, `/network-origin`, `/neighbor-stats`, `/coverage-funnel` | Six fact tiles: first-1k cadence, last-5k cadence, best year, median neighbor distance, % of Polish cities with a Żabka, new in the last month. |
+| Origin cards | DOM | `/stats/network-origin` | Oldest still-active store (Swarzędz, 1998) vs newest (updates each run). |
+| BUBBLE | D3 (force) | `/stats/by-dimension?dim=city&metric=count&limit=60` | Force-directed bubbles, one per city, size = store count, drag + Ctrl-scroll zoom, "Pozostałe" bubble for the tail. |
+| MAPA growth map + calendar | Leaflet + Canvas 2D | `/geo/voivodeships`, `/stats/stores-timeline`, `/stats/openings-monthly` | Large dark vector map of Poland (no tiles). Store dots on a canvas overlay animate in by opening year, a ~2.8s sweep 1998->2026 with year label + replay. A companion calendar grid shows month-by-month openings. |
+| 1.1f fingerprint | Canvas 2D | `/stats/network-growth`, `/stats/stores-timeline` | The "odcisk" unrolled flat: X = compass direction (N-E-S-W-N), Y = year (1998->2026); each row bulges toward that year's dominant expansion bearing. Hover -> year + direction. |
+| 1.1 growth chart | Chart.js | `/stats/network-growth` | One x-axis (years), two y-axes: bars = new stores/year, line = YoY change %. Era background bands. Footnote: covers only currently-active stores; early years underrepresented. |
+| GRAN ranking | Chart.js (bar) + Leaflet (choropleth) | `/stats/by-dimension`, `/geo/voivodeships` | Left: horizontal ranking bar with three switchers — level (Woj./Powiaty/Miasta) x metric (Liczba / na 1000 mieszk. / na km²) x sort (Największe/Najmniejsze). Right: voivodeship choropleth (always voivodeship-level). Click a row sets the cross-filter. |
+| Edge KPI strip | DOM | `/stats/section3-rare`, `/elevation`, `/neighbor-stats`, `/amphibians` | Six clickable tiles feeding the Atlas: 32 h24 stores (amber), stores in parks, frog record, the 46.5 km void, oldest active, farthest-from-frog. Click flies the Atlas map to that fact. |
+| Atlas krańców | Leaflet + mini panels | `/stats/kraniec-facts`, `/elevation`, `/neighbor-stats`, `/parks-stores`, `/twins`, `/amphibians` | One interactive Poland map with a faint store backdrop. Compass points, highest/lowest store, the loner, the Bieszczady void (red hollow circle, no dots inside), the frog street, h24, parks, twins. Hover/click a fact -> `flyTo` + tooltip; leave -> national view. |
+| POWIATY coverage | Chart.js (donut) + Canvas 2D | `/stats/powiat-coverage`, `/stats/coverage-funnel`, `/geo/voivodeships` | Animated donut: % of powiats / miasta / gminy with at least one Żabka (level toggle). Canvas mini-map: green = covered, red = uncovered. |
 
-### Tab SPOLECZENSTWO
+### Tab ŻABKA A POLSKA (`spoleczenstwo.js`, default tab, render order)
 
-| Ref | Library | Endpoint | What it shows |
-|---|---|---|---|
-| 2.1 left scatter | Chart.js | `/api/stats/powiat-economics` | ~370 powiat points. X = avg salary (4k-12k PLN), Y = stores per 1k residents. Point size = sqrt(population). Trend line, r = +0.41. Labeled outliers: Sopot, Kamieński, Tatrzański, Katowice. Tooltip: powiat, salary, density. |
-| 2.1 right scatter | Chart.js | same dataset | X = unemployment rate, Y = per_1k. Downward trend, r = -0.35. Title states finding: "Wyższe bezrobocie = mniej Żabek". Both scatters share one request; no second query. Highlight voivodeship points when cross-filter is active (client-side, no re-query). |
-| 2.2a Sunday choropleth | Leaflet | `/api/stats/sunday-by-voivodeship` | Voivodeship map, diverging color scale anchored at 3% median. The western cluster (dolnośląskie 10.6%, zachodniopomorskie 9.3%, lubuskie 9.1%) glows amber/orange vs near-white rest. Annotation: "Dlaczego zachód?" — no answer given. Click voivodeship -> sets cross-filter + opens drilldown drawer listing all Sunday-closed stores in that voivodeship (city, street, has_merrychef). Drilldown fired on demand, not pre-fetched. |
-| 2.2c density choropleth | Leaflet | `/api/stats/voivodeship-density` | Stores per km² per voivodeship. Sequential green scale. Śląskie is #1 at 12.3/100km² (3.5x national average) — labeled. Same GeoJSON boundaries as 2.2a. Area values are hardcoded constants (km² from GUS), density computed client-side. |
-| 2.2b merrychef bar | Chart.js | `/api/stats/voivodeship` | 16 voivodeships sorted ascending by merrychef%. All green except dolnośląskie (amber, 90.6%) isolated at bottom — 7 points below average. Dashed reference line at 97.4%. Cross-filter: selected voivodeship row highlighted, others dimmed. |
-| 2.3 InPost dumbbell | SVG/DOM | `/api/stats/inpost-vs-zabka` | One row per voivodeship, sorted by ratio highest to lowest. Left dot = Żabka/100k (green), right dot = paczkomaty/100k (amber), connecting line. Vertical reference at ratio = 1.0. Podkarpackie 4.54x at top, zachodniopomorskie 1.83x at bottom. National callout: "2.42 paczkomaty na każdą Żabkę". |
-
-### Tab EDGE CASE'Y
-
-Section opens with one shared interactive map (3.0), then a 4-column card grid below it.
-All cards and the map ignore the voivodeship cross-filter — always national extremes.
+Imports `econ.js` (the two ECharts economic chapters).
 
 | Ref | Library | Endpoint | What it shows |
 |---|---|---|---|
-| 3.0 extremes map | Leaflet | `/api/stats/kraniec-facts` | Dark Poland map, faint ~3k store backdrop. Markers per geographic extreme colored by group (compass=green, elevation=amber, isolation=teal, void=red ring). **Hover a fact card → map flyTo(lat,lon,zoom) + tooltip.** Leave → return to national view. Void is a hollow red circle ~46.5km radius containing no store dots. 460px height. |
-| A1-A4 compass | — | `/api/stats/kraniec-facts` | N: Jastrzębia Góra 54.83N / S: Cisna 49.21N / E: Hrubieszów 23.90E / W: Cedynia 14.20E. Hover drives the map. |
-| B1-B2 elevation | — | `/api/stats/elevation` | Highest: Kościelisko 962.6m. Lowest: Gdańsk port -1.5m. Hover drives the map. |
-| B3 elevation histogram | Chart.js | `/api/stats/elevation` | 50m buckets, 95% of network 17-332m. Two tail callouts. |
-| C1 most isolated | — | `/api/stats/neighbor-stats` | Michałowo, podlaskie: 27,321m to nearest Żabka. Hover drives the map. |
-| C2 neighbor distribution | Chart.js | `/api/stats/neighbor-stats` | 6-bucket horizontal bar. Median 299m / avg 942m / max 27,321m. Bimodal structure. |
-| E1 h24 club | Canvas 2D | `/api/stats/section3-rare` | "35" amber 72px. Mini Poland canvas with h24 dots — western cluster near A2 visible. |
-| E2 nature parks | Chart.js | `/api/stats/section3-rare` | 719 stores (5.5%). Small donut. Top 3 parks (Beskid Śląski: 54). |
-| E3 the void | Canvas 2D | `/api/stats/section3-rare` | "46.5 km" red-orange 56px. Mini Poland canvas, red void circle in Bieszczady. Hover drives the map. |
-| F1 Żabka na Żabiej | — | `/api/stats/section3-rare` | 24 stores on frog/water streets. Crown jewel: ul. Zielonej Żabki 7, Żabia Wola. Hover drives the map. |
-| G1+G2 civic map | Chart.js | `/api/stats/section3-rare` | 370 powiats, zero without Żabka. Range 1-521. Top civic streets horizontal bar. |
-
-### Tab PŁAZY
-
-Thematic coda. Teal `#00b4c8` leads instead of green. Single endpoint `GET /api/stats/amphibians`.
-Tab and Section 4 cards ignore the voivodeship cross-filter.
-
-| Ref | Library | What it shows |
-|---|---|---|
-| Hero band | — | Three stats: 46,000 obserwacji GBIF / mediana 84 / rekord 2,028. |
-| P1 beeswarm | Canvas 2D | "Większość Żabek ma kilkadziesiąt żab w pobliżu. Jedna ma 2 028." Every store as dot on log-scale x-axis. Sequential teal by density. Ursynów: highlighted, annotated, alone at far right. |
-| P2 coexistence map | Leaflet | "Żabki nad wodą mają najwięcej żab." Store dots colored by frog density (sequential teal). Optional GBIF obs fog (dim teal). River valleys and wetlands glow. |
-| P3 frog density by voivodeship | Chart.js | "Najbardziej żabie Żabki są na wschodzie." Horizontal bar, sorted desc. Podlaskie leads (~214 avg), śląskie last (~72). National median reference line. |
-| P4 water-vs-frogs scatter | Chart.js | "Im bliżej najbliższej żaby, tym ich więcej w okolicy." X = nearest_km (0-13), Y = occurrences (log). Downward trend. Labeled extremes: Ursynów (top-left), Osięciny (bottom-right). |
-| P5 most froggy card | — | Warsaw Ursynów: 2,028 observations. "Nie Białowieża (425). Nie park narodowy. Ursynów." Large teal number. |
-| P6 zero-frog card | — | 668 stores (5.1%) zero frogs in 5km. Farthest: Osięciny 12.48km. "Żabka bez żab. Czy to błąd marketingowy?" |
-| P7 top 10 bar | Chart.js | "Dziesięć Żabek z największą liczbą żab w pobliżu." 10 rows, teal bars, Ursynów leads at 2,028. |
+| Hero | Canvas 2D | `/stats/section3-rare` | Count-up of the 46.5 km void distance, particle field, lede with live totals. |
+| KPI strip | DOM | `/stats/summary`, `/per-capita`, `/voivodeship-density`, `/inpost-vs-zabka`, `/coverage-funnel` | Six national stats: one store per X residents, density /100 km², gmina coverage %, InPost-per-Żabka ratio, cities with Żabka, salary correlation. |
+| 2.3 InPost | Leaflet (choropleth) + SVG/DOM (dumbbell) | `/stats/inpost-vs-zabka`, `/inpost-vs-zabka-by-level` | Left: voivodeship choropleth of the InPost/Żabka ratio. Right: dumbbell — green dot = Żabka/100k, amber dot = paczkomaty/100k, connecting line; level toggle Województwo / Powiat / Miasto re-queries `by-level`. National callout: 2.42 paczkomaty per Żabka. |
+| NBL neighbor-by-level | Chart.js (bar) | `/stats/neighbor-by-level` | Median (or average) distance to the nearest Żabka per voivodeship/powiat/miasto. Three switchers: level x metric (Mediana/Średnia) x sort (Najgęstsze/Najrzadsze). |
+| kNN histogram | Chart.js (bar) | `/stats/neighbor-stats` | 6-bucket distribution of nearest-neighbor distance. Median 299m / avg 942m / max ~27.8km reference lines. |
+| STREETS | Chart.js (horizontal bar) | `/stats/common-streets?limit=15` | Busiest street names nationwide, dual-label y-axis (street name large, city small). Value labels at bar ends. |
+| GMINA-LEAD | Chart.js (horizontal bar) | `/stats/gmina-leaders?limit=12` | Top gminy by stores per 1000 residents (default) or per km² (metric toggle). Resorts lead per capita. National reference line on the per-1k view. |
+| ECON ch.1 salary | ECharts (scatter + bar) | `/stats/powiat-economics` | "Im wyższe zarobki, tym więcej Żabek." Scatter X = avg salary, Y = stores per 1k, point size = sqrt(population), trend r = +0.41; quartile-mean bars; animated stat tiles. |
+| ECON ch.2 unemployment | ECharts (scatter + bar) | `/stats/powiat-economics` | "Gdzie brak pracy, tam brak Żabki." Scatter X = unemployment %, Y = per 1k, downward trend r = -0.35; quartile-mean bars; stat tiles. Shares the one economics request. |
+| Conclusion | DOM | — | "Co z tego wynika?" narrative close: Żabka follows money and crowds, not ideology. |
 
 ---
 
 ## 4. Rendering libraries
 
-- **Chart.js 4.4.1** — vertical/horizontal bars, line, stacked area, scatter. All tab 1
-  and 2 charts except canvas-based and choropleths. Also P3, P4, P7 in PŁAZY.
-- **Leaflet 1.9.4** — Historia growth map (vector voivodeship polygons, no tiles, with a
-  canvas dot overlay), Sunday choropleth (2.2a), density choropleth (2.2c), extremes map
-  (3.0), coexistence map (P2). CartoDB dark tiles where tiles are used. `L.CircleMarker`
-  for store points.
-- **leaflet.heat 0.2.0** — GBIF observation fog layer in P2 (teal at low opacity).
-- **D3.js** — math processor only, never touches DOM. `d3.scaleLinear` for the fingerprint
-  radius/angle; `d3.areaRadial` for fingerprint deformed rings (1.1f).
-- **Canvas 2D** — hero particles + count-up, Historia growth-map dot overlay, fingerprint
-  (1.1f), clock (1.4a), h24 mini map (E1), void mini map (E3), beeswarm (P1). Used
-  wherever 13k+ DOM objects would hurt.
+- **Chart.js 4.4.1** — vertical/horizontal bars, line, scatter, donut, histograms. The
+  1.1 growth chart, GRAN ranking, NBL, kNN histogram, STREETS, GMINA-LEAD, POWIATY donut.
+- **ECharts** — the two economic chapters in `econ.js` (salary + unemployment scatters and
+  quartile bars). Bundled into the spoleczenstwo chunk.
+- **Leaflet 1.9.4** — SIEĆ growth map (vector voivodeship polygons, no tiles, canvas dot
+  overlay), the GRAN voivodeship choropleth, the Atlas krańców extremes map, the InPost
+  ratio choropleth (2.3). CartoDB dark tiles where tiles are used; `L.CircleMarker` for points.
+- **D3.js** — bubble chart only (`bubble.js`): force simulation + zoom/drag, tree-shaken
+  (`forceSimulation`, `forceX/Y`, `forceCollide`, `scaleSqrt`, `zoom`, `drag`). Never the DOM elsewhere.
+- **Canvas 2D** — hero particles + count-up (both tabs), growth-map dot overlay + calendar
+  grid, the unrolled fingerprint (1.1f), the POWIATY coverage mini-map, the Atlas mini-maps.
+  Used wherever 13k+ DOM nodes would hurt.
 - **Fonts:** one production set — Bricolage Grotesque (display) + IBM Plex Sans (body)
-  + JetBrains Mono (mono), loaded from Google Fonts. The mockup carried a live
-  five-set switcher (Editorial, Neo-Swiss, Bold Brutalist, Contrast Editorial, Spec);
-  production keeps only the Spec set and the switcher UI is gone.
+  + JetBrains Mono (mono), loaded from Google Fonts.
 
 ---
 
@@ -1199,7 +1243,7 @@ Tab and Section 4 cards ignore the voivodeship cross-filter.
 | Green bright | `#a6e84a` | Big numbers, hero count-up, glows, hover highlight |
 | Amber | `#f2a359` | Surprising facts, outliers, h24 stores |
 | Red-orange | `#e8693d` | Anomalies (Sunday Wall, merrychef gap, void distance) |
-| Teal | `#4dd0b1` | PŁAZY tab accent; ecological / amphibian data |
+| Teal | `#4dd0b1` | Ecological / amphibian data (frog density, coexistence) |
 | North region (Polnoc) | `#4dd0b1` | pomorskie, warmińsko-mazurskie, kujawsko-pomorskie, podlaskie |
 | West region (Zachod) | `#a6e84a` | dolnośląskie, zachodniopomorskie, lubuskie, opolskie |
 | Center region (Centrum) | `#84c341` | mazowieckie, łódzkie, świętokrzyskie, wielkopolskie |
@@ -1207,8 +1251,8 @@ Tab and Section 4 cards ignore the voivodeship cross-filter.
 | Muted text | `#93a487` | Secondary labels, caveats, footnotes |
 | Axis lines | `rgba(140,200,80,.14)` | Chart gridlines, tick marks |
 
-Macro-region colors used consistently across 1.2a, 1.2b, 1.3b, 2.1. PŁAZY tab uses
-sequential teal ramps (density) instead of the green accent.
+Macro-region colors used consistently across the ranking and economic charts. Amphibian
+visuals use sequential teal ramps (density) instead of the green accent.
 
 **Typography:** three roles, one fixed production set (see above).
 - Display: large KPI numbers, chart titles that state a finding
@@ -1223,21 +1267,21 @@ two-column pairs stack vertically, Section 3 cards go 2-column, maps shrink to ~
 Mobile (< 768px): graceful degradation — maps, dual scatter, beeswarm, stacked area
 replaced by static text summaries; banner prompts user to open on a wider screen.
 
-**Cross-filter:** Single global state `activeFilters = { voivodeship: null }`. Set by
-clicking per-capita bar (1.2b), stacked area legend (1.2a), or Sunday choropleth (2.2a).
-Active filter shows chip in header: `[X] Filtruj: Dolnośląskie`. What reacts: T1-T5
-tiles, 1.2b bar (highlight), 1.3b top cities (re-query), 2.1 scatter (client-side
-highlight), 2.2b merrychef (highlight), 2.3 dumbbell (highlight). What does NOT react:
-1.1 growth chart (network-level story), 1.2a stacked area (it IS the selector), EDGE
-CASE'Y and PŁAZY tabs (always national extremes).
+**Cross-filter:** Single global state `STATE.filter` (`src/filter.js`), voivodeship only.
+Set by clicking a GRAN ranking row. Render callbacks are registered per tab in `main.js`
+(`registerFilterCallbacks`): the GRAN chart (`renderGranular`) and the InPost dumbbell
+(`renderDumbbellByLevel`) react; the `renderKPI` callback is a guarded no-op since the
+header tiles were removed. What does NOT react: the 1.1 growth chart and fingerprint
+(network-level story), and the Atlas krańców / coverage / amphibian views (always national).
 
 ---
 
 ## 6. Loading states
 
-All 25 API requests fire in parallel on page load (`Promise.all`, 8s `AbortController`
-timeout per request). Each chart must enter a skeleton state immediately and swap to
-rendered content when its own data arrives. Never gate a chart on other charts finishing.
+API requests fire in parallel via `Promise.allSettled` with an 8s `AbortController`
+timeout per request, split into the core bucket (on load) and a per-tab bucket (on first
+open) — see "Data loading" above. Each chart enters a skeleton state immediately and swaps
+to rendered content when its own data arrives. Never gate a chart on other charts finishing.
 
 **Skeleton CSS:** `is-loading` class. `background: linear-gradient(90deg, #0f1b0e 25%,
 #16261280 50%, #0f1b0e 75%); background-size: 400%; animation: shimmer 1.4s infinite;`
@@ -1246,27 +1290,20 @@ rendered content when its own data arrives. Never gate a chart on other charts f
 
 | Component | Height |
 |---|---|
-| T1-T5 hero tiles | 80px each |
-| Historia hero | ~360px |
-| Stat strip | 110px |
-| Big growth map | 560px |
-| 1.1f fingerprint | 680px |
-| 1.1 growth chart | 340px |
-| 1.2a regions stacked | 420px |
-| 1.2b per-capita bar | 420px |
-| 1.3b top 20 cities bar | 420px |
-| 1.4a clock | 260px |
-| 2.1 dual scatter | 400px |
-| 2.2a/2.2c choropleths | 380px |
-| 2.2b merrychef bar | 380px |
-| 2.3 InPost dumbbell | 360px |
-| 3.0 extremes map | 460px |
-| Section 3 card grid | 220px per row of 4 |
-| P1 beeswarm | 360px |
-| P2 coexistence map | 460px |
-| P3 frog-density bar | 460px |
-| P4 water-vs-frogs scatter | 360px |
-| Section 4 cards / top10 | 220px |
+| Tab hero | ~360px |
+| Stat / KPI strip | ~110px |
+| Big growth map + calendar | ~560px |
+| 1.1f fingerprint | ~680px |
+| 1.1 growth chart | ~340px |
+| GRAN bar + choropleth | ~420px |
+| Atlas krańców map | ~460px |
+| POWIATY donut + mini-map | ~360px |
+| BUBBLE chart | ~420px |
+| 2.3 InPost choropleth + dumbbell | ~420px |
+| NBL bar + kNN histogram | ~400px |
+| STREETS / GMINA-LEAD bars | ~420px |
+| ECON scatter + bars (each chapter) | ~400px |
+| Edge KPI / card rows | ~220px per row |
 
 **Error states:**
 - Network error / 5xx: shimmer stops, show "Nie udało się załadować danych. [Spróbuj
@@ -1274,8 +1311,8 @@ rendered content when its own data arrives. Never gate a chart on other charts f
 - Empty data (200 + `[]`): "Brak danych dla wybranych filtrów." Only when a voivodeship
   filter returns an empty result set.
 - Timeout (> 8s): same as API failure.
-- Live endpoints (H/I/J cards): show error + retry if external API unreachable (no
-  fallback demo values for weather/sky). GIOŚ air quality shows "Dane przyblizane" badge
-  instead of error (backend has a realistic fallback).
 - Partial data badge (non-blocking): "218 sklepów bez daty otwarcia nie uwzględnionych"
-  on chart 1.1.
+  on the 1.1 growth chart.
+
+The live data endpoints (`/api/live/*`, weather / air quality / sky in `admin_router.py`)
+still exist on the backend but are not wired into the current two-tab layout.
