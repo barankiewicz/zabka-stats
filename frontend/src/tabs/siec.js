@@ -670,21 +670,26 @@ function _drawGrowthChart(mode){
       const prev=d.cumulative-d.new_stores;
       return Math.round(d.new_stores/prev*1000)/10;
     });
+    const vals=data.map(d=>d.new_stores);
     const barColors=data.map(d=>d.year>=2023?C.green:d.year>=2010?C.green+'88':C.green+'44');
     CHARTS['growth']=new Chart(document.getElementById('chart-growth'),{
       type:'bar',
-      data:{labels,datasets:[{label:'wzrost r/r %',data:yoyVals,backgroundColor:barColors,borderRadius:2,borderWidth:0}]},
+      data:{labels,datasets:[
+        {type:'bar',label:'nowych/rok',data:vals,backgroundColor:barColors,borderRadius:2,borderWidth:0,yAxisID:'y',order:2},
+        {type:'line',label:'wzrost r/r %',data:yoyVals,borderColor:C.teal,backgroundColor:'rgba(77,208,177,.08)',fill:false,borderWidth:2,pointRadius:2,pointBackgroundColor:C.teal,tension:.4,yAxisID:'y1',order:1}
+      ]},
       options:{
-        responsive:true,maintainAspectRatio:false,
+        responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
         plugins:{
-          legend:{display:false},
+          legend:{display:true,labels:{color:C.muted,usePointStyle:true,font:{size:11}}},
           tooltip:{enabled:false},
-          barLabels:{color:C.green,onlyBars:true,inside:true,suffix:'%'},
+          barLabels:{thousands:true,color:'#ffffff',onlyBars:true,inside:true},
           annot:{shadedBands:ERAS}
         },
         scales:{
           x:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}},
-          y:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10},callback:v=>v+'%'},title:{display:true,text:'wzrost sieci rok do roku',color:C.muted,font:{size:9}}}
+          y:{position:'left',grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}},title:{display:true,text:'nowych/rok',color:C.muted,font:{size:9}}},
+          y1:{position:'right',grid:{display:false},ticks:{color:C.teal,font:{size:10},callback:v=>v+'%'},title:{display:true,text:'wzrost r/r',color:C.teal,font:{size:9}}}
         }
       }
     });

@@ -526,8 +526,8 @@ canvas{display:block}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
 /* SURVIVAL-NOTE: prominent caveat inside growth chart card */
-.survival-note{font-size:12.5px;color:var(--amber);background:rgba(242,163,89,.07);border-left:2px solid var(--amber);border-radius:0 4px 4px 0;padding:8px 12px;margin-bottom:12px;line-height:1.55}
-.survival-note em{font-style:normal;font-weight:600;color:var(--amber)}
+.survival-note{font-size:11.5px;color:var(--red);opacity:.7;background:rgba(232,105,61,.05);border-left:2px solid rgba(232,105,61,.35);border-radius:0 4px 4px 0;padding:6px 12px;margin-top:8px;line-height:1.5}
+.survival-note em{font-style:normal;font-weight:600;color:var(--red)}
 
 /* BRIDGE-CARD: atmospheric text between fingerprint and gran chart */
 .bridge-card{padding:16px 20px;color:var(--muted2);font-size:14px;line-height:1.7;font-style:italic;border-left:2px solid var(--axis);margin-bottom:16px}

@@ -259,14 +259,24 @@ export function renderEdgeKPIs() {
     }
   }
 
-  // ep-isolated-val from neighbor_stats loner
+  // ep-isolated-val from neighbor_stats loner (panel under map, ep-isolated)
   const loner = ns.loner || {};
   if (loner.nearest_neighbor_distance_meters) {
     const km = (loner.nearest_neighbor_distance_meters / 1000).toFixed(1).replace('.', ',');
-    set('edge-kpi-isolated', `${km}<span class="stat-unit"> km</span>`);
     set('ep-isolated-val', `${km} km`);
     if (loner.city) set('ep-isolated-city', `${loner.city}${loner.voivodeship ? ', ' + loner.voivodeship : ''}`);
     if (loner.street) set('ep-isolated-street', loner.street);
+  }
+
+  // oldest KPI tile from network_origin
+  const no = M.network_origin || {};
+  const oldest = no.oldest || {};
+  if (oldest.first_opening_date) {
+    const yr = oldest.first_opening_date.slice(0, 4);
+    const age = new Date().getFullYear() - parseInt(yr, 10);
+    set('edge-kpi-oldest', yr);
+    const subEl = document.getElementById('edge-kpi-oldest-sub');
+    if (subEl && oldest.city) subEl.textContent = oldest.city + ' · dziala od ' + age + ' lat';
   }
 
   // void KPI from section3_rare

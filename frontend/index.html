@@ -187,8 +187,8 @@
         <button aria-pressed="false" class="gran-btn" data-gmode="yoy">Tempo wzrostu %</button>
       </div>
     </div>
-    <div class="survival-note">Uwaga na bias przeżywalności: wykres pokazuje tylko sklepy <em>aktualnie aktywne</em>. Zamknięte nie istnieją w datasecie, przez co wczesne lata (1998–2010) są systematycznie niedoszacowane — część ówczesnych otwarć już dawno zniknęła z mapy. 218 sklepów bez daty otwarcia nie zostało uwzględnionych.</div>
     <div class="chart-wrap" style="height:340px"><canvas id="chart-growth" aria-label="Wykres słupkowy: liczba nowych sklepów Żabka rocznie 1998–2026. Szczyt w 2025 roku. Linia kumulatywna pokazuje łączną liczbę aktywnych sklepów."></canvas></div>
+    <div class="survival-note">Bias przeżywalności: tylko <em>aktywne</em> sklepy — zamknięte wypadły z datasetu. Wczesne lata (1998–2010) niedoszacowane. 218 sklepów bez daty pominięto.</div>
   </div>
 
   <!-- ORIGINS: oldest (left) vs newest (right) active Zabka, with era logos -->
@@ -331,10 +331,10 @@
       <div class="stat-big" id="edge-kpi-void" style="color:#e8693d">46,5<span class="stat-unit"> km</span></div>
       <div class="stat-sub">od najbliższej Żabki</div>
     </div>
-    <div class="stat-tile" id="edge-kpi-isolated-tile" style="cursor:pointer" tabindex="0" role="button" aria-label="Najdalej od Żabki – pokaż na mapie">
-      <div class="stat-kicker">Najdalej od Żabki</div>
-      <div class="stat-big" id="edge-kpi-isolated" style="color:var(--teal)">27,3<span class="stat-unit"> km</span></div>
-      <div class="stat-sub">do najbliższej sąsiadki</div>
+    <div class="stat-tile" id="edge-kpi-oldest-tile" style="cursor:pointer" tabindex="0" role="button" aria-label="Najstarsza aktywna Żabka – pokaż na mapie">
+      <div class="stat-kicker">Najstarsza aktywna</div>
+      <div class="stat-big" id="edge-kpi-oldest" style="color:var(--green-bright)">1998</div>
+      <div class="stat-sub" id="edge-kpi-oldest-sub">Swarzędz · działa od 28 lat</div>
     </div>
     <div class="stat-tile" id="edge-kpi-farthestfrog-tile" style="cursor:pointer" tabindex="0" role="button" aria-label="Najdalej od żaby – pokaż na mapie">
       <div class="stat-kicker">Najdalej od zaby</div>

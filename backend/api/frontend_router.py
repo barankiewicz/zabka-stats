@@ -358,13 +358,13 @@ async def network_growth():
 @cached(ttl=3600)
 async def network_origin():
     oldest = _q1("""
-        SELECT city, voivodeship, street, first_opening_date
+        SELECT city, voivodeship, street, first_opening_date, latitude, longitude
         FROM locations
         WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) AND first_opening_date IS NOT NULL
         ORDER BY first_opening_date ASC LIMIT 1
     """)
     newest = _q1("""
-        SELECT city, voivodeship, street, first_opening_date
+        SELECT city, voivodeship, street, first_opening_date, latitude, longitude
         FROM locations
         WHERE deleted_at IS NULL AND snapshot_id = (SELECT MAX(id) FROM snapshots) AND first_opening_date IS NOT NULL
         ORDER BY first_opening_date DESC LIMIT 1
@@ -377,6 +377,8 @@ async def network_origin():
         return {
             "city": r[0], "voivodeship": r[1],
             "street": r[2], "first_opening_date": str(r[3]) if r[3] else None,
+            "lat": float(r[4]) if r[4] is not None else None,
+            "lon": float(r[5]) if r[5] is not None else None,
         }
     return {
         "oldest": fmt_row(oldest) if oldest else {},

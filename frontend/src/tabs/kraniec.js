@@ -19,6 +19,7 @@ const COL = {
   h24:        '#f2a359',
   parks:      '#84c341',
   twins:      '#a6e84a',
+  history:    '#a6e84a',
 };
 
 const HOME = [52.05, 19.3], HOME_Z = 6;
@@ -108,6 +109,21 @@ function buildFacts() {
     lon: (loner && loner.longitude != null) ? loner.longitude : 23.606322,
     zoom: 10, type: 'point',
     desc: 'Najbardziej samotna Żabka w sieci.' });
+
+  // Najstarsza aktywna Zabka (historia sieci)
+  const no = M.network_origin || {};
+  const oldestStore = no.oldest || {};
+  if (oldestStore.lat != null && oldestStore.lon != null) {
+    const yr = oldestStore.first_opening_date ? oldestStore.first_opening_date.slice(0, 4) : '1998';
+    const age = new Date().getFullYear() - parseInt(yr, 10);
+    out.push({ id: 'oldest', g: 'history', grp: 'Historia sieci', lab: 'Najstarsza wciaz czynna',
+      val: yr,
+      city: oldestStore.city || 'Swarzedz', voiv: oldestStore.voivodeship || 'wielkopolskie',
+      street: oldestStore.street || 'Rynek 4/5',
+      lat: oldestStore.lat, lon: oldestStore.lon,
+      zoom: 14, type: 'point',
+      desc: 'Najstarsza wciaz dzialajaca Zabka w sieci. Otwarta w ' + yr + ', w sieci od ' + age + ' lat.' });
+  }
 
   // Pustka
   out.push({ id: 'void', g: 'void', grp: 'Pustka – biała plama', lab: 'Największa pustka',
@@ -304,13 +320,13 @@ function buildMap() {
   // Hover na panelach (KPI u gory + ep-* pod mapa) - tooltip tylko dla point/circle
   const panelIds = [
     'edge-kpi-h24-tile', 'edge-kpi-parks-tile', 'edge-kpi-frogrecord-tile',
-    'edge-kpi-void-tile', 'edge-kpi-isolated-tile', 'edge-kpi-farthestfrog-tile',
+    'edge-kpi-void-tile', 'edge-kpi-oldest-tile', 'edge-kpi-farthestfrog-tile',
     'ep-highest', 'ep-lowest', 'ep-isolated', 'ep-zerofrog-panel', 'ep-frog-panel',
   ];
   const panelFactMap = {
     'edge-kpi-h24-tile': 'h24', 'edge-kpi-parks-tile': 'parks',
     'edge-kpi-frogrecord-tile': 'frogrecord', 'edge-kpi-void-tile': 'void',
-    'edge-kpi-isolated-tile': 'isolated', 'edge-kpi-farthestfrog-tile': 'farfrog',
+    'edge-kpi-oldest-tile': 'oldest', 'edge-kpi-farthestfrog-tile': 'farfrog',
     'ep-highest': 'highest', 'ep-lowest': 'lowest', 'ep-isolated': 'isolated',
     'ep-zerofrog-panel': 'zerofrog', 'ep-frog-panel': 'frog',
   };
@@ -623,7 +639,7 @@ function wirePanels() {
     { id: 'edge-kpi-parks-tile',        fact: 'parks' },
     { id: 'edge-kpi-frogrecord-tile',   fact: 'frogrecord' },
     { id: 'edge-kpi-void-tile',         fact: 'void' },
-    { id: 'edge-kpi-isolated-tile',     fact: 'isolated' },
+    { id: 'edge-kpi-oldest-tile',       fact: 'oldest' },
     { id: 'edge-kpi-farthestfrog-tile', fact: 'farfrog' },
     { id: 'ep-highest',                 fact: 'highest' },
     { id: 'ep-lowest',                  fact: 'lowest' },
