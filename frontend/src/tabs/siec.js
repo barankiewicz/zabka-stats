@@ -1091,6 +1091,14 @@ export function wireGranular(){
   grp('gran-dim','dim',(v,btn)=>{_gDim=v;_setActive('gran-dim',btn);renderGranular(null,{skipMap:true})});
   grp('gran-metric','metric',(v,btn)=>{
     _gMetric=v;_setActive('gran-metric',btn);
+    // cities have no area_km2 in dim_miasto, so per_km2 is always null there
+    const noCity=(v==='per_km2');
+    const cityBtn=document.querySelector('#gran-dim .gran-btn[data-dim="city"]');
+    if(cityBtn)cityBtn.classList.toggle('is-disabled',noCity);
+    if(noCity&&_gDim==='city'){
+      _gDim='powiat';
+      _setActive('gran-dim',document.querySelector('#gran-dim .gran-btn[data-dim="powiat"]'));
+    }
     renderGranular();
   });
   grp('gran-sort','sort',(v,btn)=>{_gSort=v;_setActive('gran-sort',btn);renderGranular()});
