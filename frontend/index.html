@@ -177,17 +177,9 @@
 
   <!-- 1.1 merged growth chart (directly under the map) -->
   <div class="card si-reveal" style="margin-bottom:16px">
-    <div class="gran-left-head" style="margin-bottom:4px">
-      <div>
-        <div class="card-title" data-debug-id="1.1">Kiedy otwarto sklepy, które wciąż działają</div>
-        <div class="card-sub">Słupki: nowe sklepy w roku. Przełącz na "Tempo wzrostu %" by zobaczyć dynamikę r/r.</div>
-      </div>
-      <div class="gran-toggle" role="group" aria-label="Tryb wykresu" id="growth-mode">
-        <button aria-pressed="true" class="gran-btn active" data-gmode="abs">Liczba</button>
-        <button aria-pressed="false" class="gran-btn" data-gmode="yoy">Tempo wzrostu %</button>
-      </div>
-    </div>
-    <div class="chart-wrap" style="height:340px"><canvas id="chart-growth" aria-label="Wykres słupkowy: liczba nowych sklepów Żabka rocznie 1998–2026. Szczyt w 2025 roku. Linia kumulatywna pokazuje łączną liczbę aktywnych sklepów."></canvas></div>
+    <div class="card-title" data-debug-id="1.1" style="margin-bottom:4px">Kiedy otwarto sklepy, które wciąż działają</div>
+    <div class="card-sub" style="margin-bottom:10px">Słupki: nowe sklepy w roku (prawa oś). Linia: zmiana rok do roku % (lewa oś).</div>
+    <div class="chart-wrap" style="height:340px"><canvas id="chart-growth" aria-label="Wykres: liczba nowych sklepów Żabka rocznie 1998–2026 (słupki, prawa oś) i zmiana rok do roku w % (linia, lewa oś)."></canvas></div>
     <div class="survival-note">Bias przeżywalności: tylko <em>aktywne</em> sklepy — zamknięte wypadły z datasetu. Wczesne lata (1998–2010) niedoszacowane. 218 sklepów bez daty pominięto.</div>
   </div>
 

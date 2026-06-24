@@ -633,27 +633,9 @@ function renderFpFlat(ctx){
   }
 }
 
-/* ---------------- 1.1 merged growth chart (bars + cumulative, dual axis) ----- */
-
-let _growthMode='abs';
+/* ---------------- 1.1 growth chart: bars (new/yr, right) + YoY line (left) --- */
 
 export function renderGrowthChart(){
-  _wireGrowthMode();
-  _drawGrowthChart(_growthMode);
-}
-
-function _wireGrowthMode(){
-  document.querySelectorAll('#growth-mode .gran-btn').forEach(btn=>{
-    if(btn._wired)return;btn._wired=true;
-    btn.addEventListener('click',()=>{
-      _growthMode=btn.dataset.gmode;
-      _setActive('growth-mode',btn);
-      _drawGrowthChart(_growthMode);
-    });
-  });
-}
-
-function _drawGrowthChart(mode){
   const data=M.network_growth||[];
   const labels=data.map(d=>d.year);
   const ERAS=[
@@ -662,60 +644,34 @@ function _drawGrowthChart(mode){
     {x1:2020,x2:2022,color:'rgba(116,189,42,.12)'},
     {x1:2023,x2:2026,color:'rgba(166,232,74,.10)'}
   ];
+  const yoyVals=data.map((d,i)=>{
+    if(i===0||!d.cumulative||d.cumulative===d.new_stores)return null;
+    const prev=d.cumulative-d.new_stores;
+    return Math.round(d.new_stores/prev*1000)/10;
+  });
+  const barColors=data.map(d=>d.year>=2023?C.green:d.year>=2010?C.green+'88':C.green+'44');
   destroyChart('growth');
-
-  if(mode==='yoy'){
-    const yoyVals=data.map((d,i)=>{
-      if(i===0||!d.cumulative||d.cumulative===d.new_stores)return null;
-      const prev=d.cumulative-d.new_stores;
-      return Math.round(d.new_stores/prev*1000)/10;
-    });
-    const vals=data.map(d=>d.new_stores);
-    const barColors=data.map(d=>d.year>=2023?C.green:d.year>=2010?C.green+'88':C.green+'44');
-    CHARTS['growth']=new Chart(document.getElementById('chart-growth'),{
-      type:'bar',
-      data:{labels,datasets:[
-        {type:'bar',label:'nowych/rok',data:vals,backgroundColor:barColors,borderRadius:2,borderWidth:0,yAxisID:'y',order:2},
-        {type:'line',label:'wzrost r/r %',data:yoyVals,borderColor:C.teal,backgroundColor:'rgba(77,208,177,.08)',fill:false,borderWidth:2,pointRadius:2,pointBackgroundColor:C.teal,tension:.4,yAxisID:'y1',order:1}
-      ]},
-      options:{
-        responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
-        plugins:{
-          legend:{display:true,labels:{color:C.muted,usePointStyle:true,font:{size:11}}},
-          tooltip:{enabled:false},
-          barLabels:{thousands:true,color:'#ffffff',onlyBars:true,inside:true},
-          annot:{shadedBands:ERAS}
-        },
-        scales:{
-          x:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}},
-          y:{position:'left',grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}},title:{display:true,text:'nowych/rok',color:C.muted,font:{size:9}}},
-          y1:{position:'right',grid:{display:false},ticks:{color:C.teal,font:{size:10},callback:v=>v+'%'},title:{display:true,text:'wzrost r/r',color:C.teal,font:{size:9}}}
-        }
+  CHARTS['growth']=new Chart(document.getElementById('chart-growth'),{
+    type:'bar',
+    data:{labels,datasets:[
+      {type:'line',label:'zmiana r/r %',data:yoyVals,borderColor:C.teal,backgroundColor:'transparent',fill:false,borderWidth:2,pointRadius:2,pointBackgroundColor:C.teal,tension:.4,yAxisID:'y0',order:1},
+      {type:'bar', label:'nowych/rok', data:data.map(d=>d.new_stores),backgroundColor:barColors,borderRadius:2,borderWidth:0,yAxisID:'y1',order:2}
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:true,labels:{color:C.muted,usePointStyle:true,font:{size:11}}},
+        tooltip:{enabled:false},
+        barLabels:{thousands:true,color:'#ffffff',onlyBars:true,inside:true},
+        annot:{shadedBands:ERAS}
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}},
+        y0:{position:'left', grid:{color:C.axis},ticks:{color:C.teal,font:{size:10},callback:v=>v+'%'},title:{display:true,text:'zmiana r/r %',color:C.teal,font:{size:9}}},
+        y1:{position:'right',grid:{display:false},ticks:{color:C.muted,font:{size:10}},title:{display:true,text:'nowych/rok',color:C.muted,font:{size:9}}}
       }
-    });
-  }else{
-    const vals=data.map(d=>d.new_stores);
-    const barColors=data.map(d=>d.year>=2023?C.green:d.year>=2010?C.green+'88':C.green+'44');
-    CHARTS['growth']=new Chart(document.getElementById('chart-growth'),{
-      type:'bar',
-      data:{labels,datasets:[
-        {label:'nowych/rok',data:vals,backgroundColor:barColors,borderRadius:2,borderWidth:0}
-      ]},
-      options:{
-        responsive:true,maintainAspectRatio:false,
-        plugins:{
-          legend:{display:false},
-          tooltip:{enabled:false},
-          barLabels:{thousands:true,color:C.green,onlyBars:true,inside:true},
-          annot:{shadedBands:ERAS}
-        },
-        scales:{
-          x:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}},
-          y:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}},title:{display:true,text:'nowych/rok',color:C.muted,font:{size:9}}}
-        }
-      }
-    });
-  }
+    }
+  });
 }
 
 /* ---------------- seasonality of openings (month-of-year histogram) ---------- */
