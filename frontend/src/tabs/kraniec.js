@@ -267,33 +267,24 @@ function buildMap() {
     }
   });
 
-  // Hover helper: otwiera popup markera (markery maja tylko popup, nie tooltip)
-  const showTooltip = (id) => {
-    const m = markers[id];
-    if (m) m.openPopup();
-  };
-  const hideTooltip = (id) => {
-    const m = markers[id];
-    if (m) m.closePopup();
-  };
-  // Dla cluster faktow - Leaflet nie ma markera, tooltip rysujemy recznie
-  let clusterTipEl = null;
-  function showClusterTip(f) {
-    if (!f || f.type === 'point' || f.type === 'circle') return;
-    if (clusterTipEl) clusterTipEl.remove();
+  // Unified hover tooltip: DOM element anchored above the hovered element,
+  // works for all fact types regardless of whether the map is on-screen.
+  let _tipEl = null;
+  function showTip(f, targetEl) {
+    if (_tipEl) { _tipEl.remove(); _tipEl = null; }
     const tip = document.createElement('div');
-    tip.className = 'kr-tip kr-tip-cluster';
+    tip.className = 'kr-tip-cluster';
+    tip.style.position = 'fixed';
     tip.style.setProperty('--c', COL[f.g] || '#84c341');
     tip.innerHTML = `<div class="krtc-v">${f.val}</div><div class="krtc-l">${f.lab}</div>`;
     document.body.appendChild(tip);
-    const p = map.latLngToContainerPoint([f.lat, f.lon]);
-    const r = map.getContainer().getBoundingClientRect();
-    tip.style.left = (r.left + p.x) + 'px';
-    tip.style.top = (r.top + p.y - 14) + 'px';
-    clusterTipEl = tip;
+    const r = targetEl.getBoundingClientRect();
+    tip.style.left = (r.left + r.width / 2) + 'px';
+    tip.style.top = (r.top - 10) + 'px';
+    _tipEl = tip;
   }
-  function hideClusterTip() {
-    if (clusterTipEl) { clusterTipEl.remove(); clusterTipEl = null; }
+  function hideTip() {
+    if (_tipEl) { _tipEl.remove(); _tipEl = null; }
   }
 
   // Hover na liscie (kr-rail .item)
@@ -302,20 +293,12 @@ function buildMap() {
     railEl.addEventListener('mouseover', e => {
       const it = e.target.closest('.item');
       if (!it) return;
-      const id = it.dataset.id;
-      const f = FACTS.find(x => x.id === id);
-      if (!f) return;
-      if (f.type === 'point' || f.type === 'circle') showTooltip(id);
-      else showClusterTip(f);
+      const f = FACTS.find(x => x.id === it.dataset.id);
+      if (f) showTip(f, it);
     });
     railEl.addEventListener('mouseout', e => {
-      const it = e.target.closest('.item');
-      if (!it) return;
-      const id = it.dataset.id;
-      const f = FACTS.find(x => x.id === id);
-      if (!f) return;
-      if (f.type === 'point' || f.type === 'circle') hideTooltip(id);
-      else hideClusterTip();
+      if (!e.target.closest('.item')) return;
+      hideTip();
     });
   }
 
@@ -332,23 +315,14 @@ function buildMap() {
     'ep-highest': 'highest', 'ep-lowest': 'lowest', 'ep-isolated': 'isolated',
     'ep-zerofrog-panel': 'zerofrog', 'ep-frog-panel': 'frog',
   };
-  panelIds.forEach(id => {
-    const el = document.getElementById(id);
+  panelIds.forEach(pid => {
+    const el = document.getElementById(pid);
     if (!el) return;
     el.addEventListener('mouseover', () => {
-      const factId = panelFactMap[id];
-      const f = FACTS.find(x => x.id === factId);
-      if (!f) return;
-      if (f.type === 'point' || f.type === 'circle') showTooltip(factId);
-      else showClusterTip(f);
+      const f = FACTS.find(x => x.id === panelFactMap[pid]);
+      if (f) showTip(f, el);
     });
-    el.addEventListener('mouseout', () => {
-      const factId = panelFactMap[id];
-      const f = FACTS.find(x => x.id === factId);
-      if (!f) return;
-      if (f.type === 'point' || f.type === 'circle') hideTooltip(factId);
-      else hideClusterTip();
-    });
+    el.addEventListener('mouseout', () => hideTip());
   });
 
   // Warstwy kropek dla zjawisk skupiskowych (h24, parks, twins)
