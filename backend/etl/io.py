@@ -359,7 +359,6 @@ def load_to_duckdb(con, rows: list, meta: dict):
                         r.get("opening_hours_monsat"), r.get("opening_hours_sun"),
                         fod, r.get("is_visible"),
                          r.get("is_new_month"), r.get("is_new_two_weeks"),
-                         r.get("gios_station_id"), r.get("gios_distance_km"),
                          r.get("elevation_meters"),
                          r.get("light_pollution_brightness"), r.get("bortle_scale"),
                          r.get("is_in_nature_park"), r.get("nature_park_id"),
@@ -371,13 +370,12 @@ def load_to_duckdb(con, rows: list, meta: dict):
          latitude, longitude, has_merrychef, open_sunday, h24,
          opening_hours_monsat, opening_hours_sun, first_opening_date,
          is_visible, is_new_month, is_new_two_weeks,
-         gios_station_id, gios_distance_km,
          elevation_meters, light_pollution_brightness, bortle_scale,
          is_in_nature_park, nature_park_id,
          nearest_neighbor_distance_meters,
          amphibian_occurrences_5km, nearest_amphibian_km,
          voivodeship_id, powiat_id)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", payload)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", payload)
     record_history(con, sid, src_date)
     print(f"[load] snapshot {sid} ({src_date}): {total:,} sklepow zapisanych")
     return sid
@@ -510,24 +508,6 @@ def load_dimensions(con, dim_powiat: list, dim_voivodeship: list):
         con.executemany("INSERT INTO dim_powiat (id, name, voivodeship_id, population, "
                         "avg_salary, unemployment_rate) VALUES (?,?,?,?,?,?)", dim_powiat)
     print(f"[dims] dim_powiat: {len(dim_powiat)}, dim_voivodeship: {len(dim_voivodeship)}")
-
-
-def load_dim_gios_station(con, stations: list):
-    """Zapisz wymiar stacji GIOŚ (replace). stations: [{id, name, lat, lon}].
-    Best-effort: gdy GIOŚ nie odpowiedzialo (pusta lista), NIE kasujemy istniejacego
-    wymiaru - przelotny flap nie powinien niszczyc poprawnych danych z poprzedniego
-    przebiegu (spojne z 'brak zrodla => kolumna zostaje, nie znika')."""
-    from backend.database_ch import ensure_extra_tables
-    ensure_extra_tables(con)
-    if not stations:
-        print("[dims] dim_gios_station: brak nowych stacji (GIOŚ niedostepne) - "
-              "zostawiam istniejacy wymiar")
-        return
-    con.execute("DELETE FROM dim_gios_station")
-    con.executemany("INSERT INTO dim_gios_station (id, name, latitude, longitude) "
-                    "VALUES (?,?,?,?)",
-                    [(s["id"], s.get("name"), s.get("lat"), s.get("lon")) for s in stations])
-    print(f"[dims] dim_gios_station: {len(stations)}")
 
 
 def load_dim_park(con, parks: list):

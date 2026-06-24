@@ -84,10 +84,7 @@ Revert frontend implementation
   clustering above 50k.
 - **ETL pipeline:** each enrichment source is its own `Enricher` class in
   `backend/etl/sources/`; network steps are best-effort (a missing source does
-  not abort the ETL, the column just stays empty). Shared dimensions are not
-  wiped on a transient failure: `load_dim_gios_station` skips the `DELETE` when
-  the GIOŚ fetch comes back empty, so an unlucky run keeps the previous day's
-  stations instead of zeroing `dim_gios_station`.
+  not abort the ETL, the column just stays empty).
 - **Retries:** every source fetch goes through `with_retries` - up to
   `ETL_RETRY_ATTEMPTS` tries (default 3), `ETL_RETRY_DELAY` seconds apart (default
   60, so 3x1 min), each request capped at `ETL_HTTP_TIMEOUT` (default 30s). This
@@ -365,9 +362,10 @@ Facts:
 - **parcel_lockers** - InPost parcel lockers (second fact entity)
 
 Dimensions: **dim_voivodeship**, **dim_powiat** (GUS economics), **dim_gmina**
-(population + area_km2), **dim_gios_station**, **dim_park**; plus **fun_facts**.
-Cities (`dim_miasto`) are a bundled JSON (`data/geo/miasta_pl.json`) read by the API,
-not a DuckDB table.
+(population + area_km2), **dim_park**; plus **fun_facts**.
+Cities (`dim_miasto`) are a bundled JSON (`data/geo/miasta_pl.json`, 1031 cities,
+GUS kinds 1+4) read by the API, not a DuckDB table. Carries population and
+`area_km2` (1025/1031 populated from GADM polygons via `patch_miasto_area.py`).
 
 Locations support soft delete via the `deleted_at` timestamp.
 
@@ -446,8 +444,8 @@ FastAPI + DuckDB. Serves the analytics API over the Żabka data plus live data
 - **FastAPI** (async Python) - API server + static frontend serving.
 - **DuckDB** - embedded column store for analytics.
 - **Redis** (UNIX socket) - cache for aggregate responses.
-- **Live integrations:** Open-Meteo (weather), GIOS (air quality), OpenLightMap
-  (light pollution). Geocoding/boundaries: offline point-in-polygon.
+- **Live integrations:** Open-Meteo (weather), OpenLightMap (light pollution).
+  Geocoding/boundaries: offline point-in-polygon.
 
 Dependencies: `requirements.txt` (root). Main modules: `main.py` (app + CORS +
 health + snapshot upload), `database_ch.py` (connection + schema + column
@@ -523,12 +521,17 @@ on the facts. GUS economics (salary, unemployment, population) live only in
 
 `dim_gmina` is the lowest geographic level (`locations.gmina_id` -> `dim_gmina.id`):
 gmina boundaries + `area_km2` come from GADM (`data/geo/gminy.geojson`), population
-from GUS BDL (var 72305). It powers the gmina granularity of the Historia chart
+from GUS BDL (var 72305). It powers the gmina granularity of the ranking switchers
 (stores, per 1000 residents, per km²). Stores are assigned to a gmina by
 point-in-polygon. `dim_miasto` (cities) is a separate reference set bundled in
-`data/geo/miasta_pl.json` (GUS units kind 1+4 with population), used for the city
-granularity and the "% of Polish cities with a Żabka" stat — it is read by the API,
-not stored as a DuckDB table.
+`data/geo/miasta_pl.json` (GUS units kind 1+4 with population and area), used for
+the city granularity and the "% of Polish cities with a Żabka" stat — it is read by
+the API, not stored as a DuckDB table. `area_km2` is populated for 1025 of 1031
+cities (source: GADM gmina polygons via `data/tools/patch_miasto_area.py`); the 6
+unmatched entries are administrative anomalies ("Miejska strefa uslug publicznych"
+x3, Slawkow, Stargard, Wesola) that contain no Żabka stores. The city level of the
+GRAN ranking supports all three metrics (count, per 1k, per km²). The patch script
+must be run on the VPS after each `git pull` since `data/geo/` is gitignored.
 
 **Keys are numeric** - no string joins. A powiat name is not unique across
 voivodeships (for example "powiat grodziski"), so facts join to dimensions via
@@ -536,10 +539,8 @@ voivodeships (for example "powiat grodziski"), so facts join to dimensions via
 voivodeship through `voivodeship_id`. Names stay on the facts as a display and
 grouping attribute, but relationships go through ids.
 
-GIOŚ air-quality stations and GDOŚ parks each get their own dimension
-(`dim_gios_station`, `dim_park`), linked from `locations` by numeric id. The
-nearest station's distance is kept on `locations` as `gios_distance_km`; the
-station's identity and coordinates live in `dim_gios_station`.
+GDOŚ parks get their own dimension (`dim_park`), linked from `locations` by
+`nature_park_id`.
 
 ```text
   FACTS                                      DIMENSIONS
@@ -549,23 +550,21 @@ station's identity and coordinates live in `dim_gios_station`.
     snapshot_id      -> snapshots.id           name
     voivodeship_id   -> dim_voivodeship.id     voivodeship_id -> dim_voivodeship.id
     powiat_id        -> dim_powiat.id          population
-    gios_station_id  -> dim_gios_station.id    avg_salary
-    nature_park_id   -> dim_park.id            unemployment_rate
-    city, street, lat, lon, flags, ...
-    gios_distance_km, elevation_meters,      dim_voivodeship
-    is_in_nature_park, neighbor dist,          id (PK)
-    amphibian fields, ...                      name
-                                               population
-  parcel_lockers (parcel lockers)
-    id (PK)                                  dim_gios_station
-    voivodeship_id   -> dim_voivodeship.id     id (PK)
-    powiat_id        -> dim_powiat.id          name
-    operator, type, city, lat, lon, status     latitude, longitude
-
-  snapshots (snapshots) 1 --< locations,     dim_park
-                        1 --< histories         id (PK)
-  histories (audit) location_id -> locations    name
-  fun_facts (key, lat, lon, value)             type
+    nature_park_id   -> dim_park.id            avg_salary
+    city, street, lat, lon, flags, ...         unemployment_rate
+    elevation_meters, is_in_nature_park,
+    neighbor dist, amphibian fields, ...     dim_voivodeship
+                                               id (PK)
+  parcel_lockers (parcel lockers)              name
+    id (PK)                                    population
+    voivodeship_id   -> dim_voivodeship.id
+    powiat_id        -> dim_powiat.id        dim_park
+    operator, type, city, lat, lon, status     id (PK)
+                                               name
+  snapshots (snapshots) 1 --< locations,       type
+                        1 --< histories
+  histories (audit) location_id -> locations
+  fun_facts (key, lat, lon, value)
     - interesting facts, no relations
 ```
 
@@ -596,7 +595,7 @@ The flow (`python -m backend.daily_etl`, orchestrated in
    names, derive flags (h24, Sunday, merrychef).
 3. **Enrich Żabki** - each source enriches the stores independently (best-effort:
    a missing source does not abort the ETL, the column just stays empty). Order:
-   regions, gios, neighbor, amphibians, parks, elevation, light pollution. Details in
+   regions, neighbor, amphibians, parks, elevation, light pollution. Details in
    section 4. (Light pollution / Bortle is a neighbor-distance proxy, not a measurement.)
 4. **Parcel lockers** - InPost parcel lockers loaded as a separate entity
    (voivodeship/powiat geocoding by the same point-in-polygon as the stores).
@@ -619,7 +618,7 @@ from `histories` (created/deleted per month); totals and regional trends from th
 per-snapshot `locations` and `parcel_lockers`. Soft delete (`deleted_at`) marks the
 date a store was last seen; queries filter `deleted_at IS NULL` by default.
 
-CLI flags: `--no-geocode`, `--limit N`, `--skip-gios`, `--skip-parks`,
+CLI flags: `--no-geocode`, `--limit N`, `--skip-parks`,
 `--skip-gus`, `--skip-amphibians`, `--skip-paczkomaty`, `--elevation` (opt-in,
 13k+ requests), `--fallback <file>`.
 
@@ -638,7 +637,6 @@ are in section 3.
 Where each column comes from after a daily ETL run (`backend/daily_etl.py`).
 Raw source: `https://www.zabka.pl/app/uploads/locator-store-data.json`
 (~13.2k stores). Administrative boundaries: ppatrzyk/polska-geojson.
-Air-quality stations: GIOŚ API v1.
 
 Geographic enrichment adds several sources: GDOŚ parks/buffers, GUS BDL powiat
 economics, GUGiK NMT terrain elevation, GBIF amphibian observations, InPost parcel
@@ -649,7 +647,6 @@ Origin legend:
 - SOURCE - value taken straight from a field in the Żabka JSON
 - DERIVED - computed from another source field
 - GEO - assigned by point-in-polygon against GeoJSON boundaries
-- GIOŚ - from the air-quality API
 - PARKS - point-in-polygon against GDOŚ park/buffer boundaries
 - ECONOMY - GUS BDL, attached to the powiat dimension
 - ELEVATION - GUGiK NMT numeric terrain model
@@ -681,8 +678,6 @@ Origin legend:
 | is_visible | BOOLEAN | SOURCE | `isVisible` |
 | is_new_month | BOOLEAN | SOURCE | `locatorNewMonth` (opened in the last month) |
 | is_new_two_weeks | BOOLEAN | SOURCE | `locatorNewTwoWeeks` |
-| gios_station_id | INTEGER | GIOŚ | FK -> `dim_gios_station.id` (nearest air-quality station) |
-| gios_distance_km | DOUBLE | GIOŚ | distance to that station (haversine, km) |
 | elevation_meters | DOUBLE | ELEVATION | elevation above sea level from GUGiK NMT (`GetHByXY`, PL-1992/EPSG:2180 coordinates); NULL when the service did not answer |
 | light_pollution_brightness | DOUBLE | derived | sky brightness proxy; NOT a measurement - derived from neighbor distance as a fallback, so do not present it as observed light pollution |
 | bortle_scale | INTEGER | derived | Bortle class (1-9) from the same proxy; same caveat |
@@ -694,12 +689,6 @@ Origin legend:
 | gmina_id | INTEGER | GEO | FK -> `dim_gmina.id` (point-in-polygon against GADM gmina boundaries) |
 | created_at | TIMESTAMP | ETL | time the row was written |
 | deleted_at | TIMESTAMP | ETL | soft-delete for snapshot-to-snapshot comparisons (NULL = active) |
-
-Note on air quality: `locations` stores only the nearest-station link
-(`gios_station_id` + `gios_distance_km`), not the actual air-quality readings. Air
-quality is live, time-varying data served on demand via `/api/live`. Baking a
-measurement into a daily snapshot would be stale by design, so the snapshot keeps
-the stable geographic link and the live endpoint fetches fresh readings.
 
 ### Table `snapshots` (one row = one daily fetch)
 
@@ -807,15 +796,6 @@ every row (it relies on a separate GUS gmina pull), `area_km2` is complete.
 | population | INTEGER | ECONOMY | gmina population (GUS BDL); may be NULL where unmatched |
 | area_km2 | DOUBLE | GEO | gmina area from GADM polygons |
 
-### Table `dim_gios_station` (dimension - nearest air-quality stations)
-
-| Column | Type | Origin | Rule |
-|---|---|---|---|
-| id | INTEGER (PK) | GIOŚ | station id from the GIOŚ API |
-| name | VARCHAR | GIOŚ | station name |
-| latitude | DOUBLE | GIOŚ | station latitude |
-| longitude | DOUBLE | GIOŚ | station longitude |
-
 ### Table `dim_park` (dimension - GDOŚ parks/buffers)
 
 | Column | Type | Origin | Rule |
@@ -842,7 +822,6 @@ work without expensive runtime calculations.
 | Source | What it adds | Access | Frequency | Config |
 |---|---|---|---|---|
 | Regions (ppatrzyk/polska-geojson) | `voivodeship_id`, `powiat_id` + names | static GeoJSON, offline point-in-polygon | rarely | bundled boundary files |
-| GIOŚ | `dim_gios_station` (id, name, lat, lon); `gios_station_id`, `gios_distance_km` on `locations` | REST API (air quality) | each ETL | `--skip-gios` |
 | GDOŚ | `dim_park` (name, type); `is_in_nature_park`, `nature_park_id` on `locations` | static GeoJSON, local file | rarely (yearly) | `data/input/parki_gdos.geojson` or `PARKS_GEOJSON_URL` |
 | GUS BDL | `dim_powiat` (population, avg_salary, unemployment_rate) + `dim_voivodeship.population` | REST API JSON, powiat level (unit-level=5) | yearly | `GUS_BDL_KEY` (10->100 req/min); variables `GUS_SALARY_VAR`=64428, `GUS_UNEMPLOY_VAR`=60270, `GUS_POPULATION_VAR`=72305 |
 | InPost (ShipX) | `parcel_lockers` entity (lockers, voivodeship/powiat geo) | public REST API (no token), paginated | rarely (network grows slowly) | cache `data/geo/paczkomaty_pl.json`; `--skip-paczkomaty`, `INPOST_TYPE`=parcel_locker |
@@ -1003,7 +982,7 @@ extension.** Voivodeship and powiat boundaries already compute offline this way,
 so parks reuse the existing pattern instead of introducing a second mechanism.
 Metric distances (meters to the nearest neighbor) come straight out of haversine;
 the spatial equivalent (`ST_DWithin`) works in degrees and would need
-`ST_Transform` to EPSG:2180. BallTree is already a dependency used by GIOŚ and the
+`ST_Transform` to EPSG:2180. BallTree is already a dependency used for the
 farthest-point computation.
 
 | # | Section | Implementation | Columns / tables |
@@ -1011,10 +990,9 @@ farthest-point computation.
 | 1 | GUS BDL economics | `enrich_economy` - materialized into `dim_powiat`, joined by numeric `powiat_id` (variables 64428, 60270, 72305; rename aliases + temporal suffixes) | `dim_powiat`, `dim_voivodeship.population` |
 | 2 | GUGiK NMT elevation | `enrich_elevation` - per point, local cache, only new coordinates (opt-in `--elevation`) | `elevation_meters` |
 | 3 | GDOŚ parks/buffers | `enrich_nature_parks` - point-in-polygon | `is_in_nature_park`, `nature_park_id`, `dim_park` |
-| 4 | GIOŚ stations | `enrich_gios` - nearest station, BallTree | `gios_station_id`, `gios_distance_km`, `dim_gios_station` |
-| 5 | Spatial analysis | `enrich_nearest_neighbor` - BallTree k=2; loner into `fun_facts` | `nearest_neighbor_distance_meters` |
-| 6 | GBIF amphibians | `enrich_amphibians` - BallTree over observations | `amphibian_occurrences_5km`, `nearest_amphibian_km`, `most_froggy_zabka` |
-| 7 | InPost parcel lockers | `enrich_paczkomaty` - separate fact entity | `parcel_lockers` |
+| 4 | Spatial analysis | `enrich_nearest_neighbor` - BallTree k=2; loner into `fun_facts` | `nearest_neighbor_distance_meters` |
+| 5 | GBIF amphibians | `enrich_amphibians` - BallTree over observations | `amphibian_occurrences_5km`, `nearest_amphibian_km`, `most_froggy_zabka` |
+| 6 | InPost parcel lockers | `enrich_paczkomaty` - separate fact entity | `parcel_lockers` |
 
 Correction relative to the original spec: the GUGiK NMT service only accepts flat
 XY coordinates in PL-1992 (EPSG:2180) via `request=GetHByXY` - the `GetH` variant

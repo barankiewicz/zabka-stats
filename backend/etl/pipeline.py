@@ -18,10 +18,9 @@ from backend.etl.io import (
     DB_PATH, fetch_zabka_json, to_tabular, resolve_poland_boundaries,
     farthest_point_from_any_zabka, load_to_duckdb, reload_cache,
     load_parcel_lockers, load_dimensions, load_fun_facts,
-    load_dim_gios_station, load_dim_park, enforce_retention,
+    load_dim_park, enforce_retention,
 )
 from backend.etl.sources.regions import RegionsEnricher
-from backend.etl.sources.gios import GiosEnricher, fetch_gios_stations
 from backend.etl.sources.neighbor import NeighborEnricher
 from backend.etl.sources.amphibians import AmphibiansEnricher
 from backend.etl.sources.parks import ParksEnricher
@@ -91,7 +90,7 @@ def _skip(rows: list[dict], columns: list[str], neutral: dict[str, Any], msg: st
             r.setdefault(col, neutral.get(col))
 
 
-def run(no_geocode: bool = False, limit: int | None = None, skip_gios: bool = False,
+def run(no_geocode: bool = False, limit: int | None = None,
         fallback: str | None = None, skip_parks: bool = False, skip_gus: bool = False,
         elevation: bool = False, skip_amphibians: bool = False,
         skip_paczkomaty: bool = False) -> None:
@@ -114,16 +113,6 @@ def run(no_geocode: bool = False, limit: int | None = None, skip_gios: bool = Fa
             _skip(rows, RegionsEnricher.columns,
                   {"voivodeship": None, "powiat": None},
                   "[regions] pominiete (--no-geocode)")
-
-        # GIOŚ: najblizsza stacja jakosci powietrza per sklep (stacje -> dim_gios_station)
-        gios_stations = []
-        if not skip_gios:
-            gios_stations = fetch_gios_stations()
-            GiosEnricher(stations=gios_stations).enrich(rows)
-        else:
-            _skip(rows, GiosEnricher.columns,
-                  {"gios_station_id": None, "gios_distance_km": None},
-                  "[gios] pominiete (--skip-gios)")
 
         # --- Wzbogacenie geograficzne (ENRICHMENT.md) ---
         # Sekcja 5: najblizszy sasiad - lokalne, zawsze (tanie, bez sieci)
@@ -192,7 +181,6 @@ def run(no_geocode: bool = False, limit: int | None = None, skip_gios: bool = Fa
         sid = load_to_duckdb(con, rows, meta)
         load_parcel_lockers(con, lockers, sid, src_date)
         load_dimensions(con, dim_powiat, dim_voiv)
-        load_dim_gios_station(con, gios_stations)
         load_dim_park(con, parks_enricher.parks())
         load_fun_facts(con, fun)
         enforce_retention(con, src_date, months=6)

@@ -18,7 +18,7 @@ class Enricher(ABC):
 
     - Best-effort: metoda NIGDY nie powinna wypuscic wyjatku na zewnatrz. Gdy
       zrodla brak lub pobieranie zawiedzie, loguj (z prefiksem [tag]) i zostaw
-      kolumny puste (None/False). Pipeline idzie dalej jak przy GIOŚ.
+      kolumny puste (None/False). Pipeline idzie dalej.
     - Idempotentne kolumny: enricher zawsze najpierw ustawia swoje kolumny na
       wartosc neutralna dla KAZDEGO wiersza (None lub False), a potem nadpisuje
       udane trafienia. Dzieki temu skipniecie kroku w pipeline i wywolanie tu
@@ -27,7 +27,7 @@ class Enricher(ABC):
       przez metode fun_fact() po przebiegu enrich(); domyslnie None.
     """
 
-    #: prefiks logow, np. "regions", "gios" - uzywany w komunikatach [tag]
+    #: prefiks logow, np. "regions", "parks" - uzywany w komunikatach [tag]
     tag = "enricher"
 
     @abstractmethod

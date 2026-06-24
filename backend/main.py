@@ -3,7 +3,6 @@ FastAPI backend for Żabka Dashboard v2.
 
 LIVE API endpoints:
 - /api/live/best-worst-weather - Real-time weather extremes
-- /api/live/air-quality-extremes - Real-time air quality (GIOŚ)
 - /api/live/darkest-sky-stargazing - Best/worst stargazing spots
 - /api/live/lightning-danger - Lightning strike monitoring
 

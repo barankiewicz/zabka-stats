@@ -1,6 +1,6 @@
 """
-Live data integration - weather, air quality, light pollution, lightning.
-Real-time data from Open-Meteo, GIOŚ, OpenLightMap, Lightningmaps.
+Live data integration - weather, light pollution, lightning.
+Real-time data from Open-Meteo, OpenLightMap, Lightningmaps.
 No caching to DB - always fresh!
 """
 
@@ -13,7 +13,6 @@ from datetime import datetime, timedelta
 
 # APIs
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
-GIOS_URL = "https://api.gios.gov.pl/pjp-api/rest"
 OPENLIGHTMAP_URL = "https://openlightmap.org/api"
 LIGHTNINGMAPS_URL = "https://api.lightningmaps.org"
 
@@ -40,11 +39,6 @@ VOIVODESHIP_CENTROIDS = {
 # Słownik w pamięci podręcznej jako fallback
 _weather_in_memory_cache = {}
 _weather_cache_expiry = None
-
-# Słownik w pamięci podręcznej jako fallback dla GIOŚ
-_gios_in_memory_cache = {}
-_gios_cache_expiry = None
-
 
 def get_all_voivodeship_weather_cached() -> Dict[str, Dict]:
     """
@@ -194,179 +188,6 @@ def get_weather_for_location(lat: float, lon: float, voivodeship: str = None) ->
         'wind_speed': 12.0,
         'humidity': 55,
         'precipitation': 0.0,
-    }
-
-
-def get_all_stations_aq_cached() -> Dict[str, Dict]:
-    """
-    Get current air quality indices for all GIOŚ active stations in Poland concurrently.
-    Caches results to Redis or in-memory.
-    """
-    global _gios_in_memory_cache, _gios_cache_expiry
-
-    # Próba odczytu z Redisa
-    try:
-        from backend.cache import get_cache
-        cached_val = get_cache("gios_all_stations_aqi")
-        if cached_val:
-            return cached_val
-    except Exception:
-        pass
-
-    # Próba odczytu z in-memory cache
-    if _gios_in_memory_cache and _gios_cache_expiry and datetime.now() < _gios_cache_expiry:
-        return _gios_in_memory_cache
-
-    # Pobierz wszystkie stacje z bazy DuckDB
-    try:
-        from backend.database_ch import client as db_client
-        stations = db_client.execute("SELECT id, name, latitude, longitude FROM dim_gios_station").fetchall()
-    except Exception as e:
-        print(f"Error fetching stations from DB: {e}")
-        stations = []
-
-    if not stations:
-        return {}
-
-    # Pobierz odczyty współbieżnie
-    results = {}
-    station_ids = [s[0] for s in stations]
-
-    import concurrent.futures
-    def fetch_one(sid):
-        try:
-            resp = requests.get(f"{GIOS_URL}/aqindex/getAQIDetails/{sid}", timeout=4)
-            if resp.status_code == 200:
-                return str(sid), resp.json()
-        except Exception:
-            pass
-        return str(sid), None
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
-        for sid_str, data in executor.map(fetch_one, station_ids):
-            if data:
-                results[sid_str] = data
-
-    if results:
-        # Zapisz do Redisa
-        try:
-            from backend.cache import set_cache
-            set_cache("gios_all_stations_aqi", results, ttl=1800)  # 30 min cache
-        except Exception:
-            pass
-
-        _gios_in_memory_cache = results
-        _gios_cache_expiry = datetime.now() + timedelta(minutes=30)
-        return results
-
-    return {}
-
-
-def get_air_quality_for_location(lat: float, lon: float) -> Dict:
-    """
-    Get current air quality from cached GIOŚ data for nearest station.
-    """
-    try:
-        # Pobierz wszystkie stacje z bazy
-        from backend.database_ch import client as db_client
-        stations = db_client.execute("SELECT id, name, latitude, longitude FROM dim_gios_station").fetchall()
-    except Exception:
-        stations = []
-
-    if not stations:
-        # Szybki fallback
-        return {
-            'station_name': 'Demo (GIOŚ unavailable)',
-            'station_distance_km': 3.2,
-            'pm25': 28,
-            'pm10': 42,
-            'no2': 38,
-            'o3': 55,
-            'aqi_category': 'FAIR',
-            'aqi_value': '1',
-        }
-
-    # Znajdź najbliższą stację pomiarową na podstawie współrzędnych
-    nearest = None
-    min_dist = float('inf')
-
-    for station in stations:
-        sid, name, lat_s, lon_s = station
-        dist = ((lat - lat_s) ** 2 + (lon - lon_s) ** 2) ** 0.5
-        if dist < min_dist:
-            min_dist = dist
-            nearest = station
-
-    if not nearest:
-        return None
-
-    station_id, station_name, lat_s, lon_s = nearest
-
-    # Pobierz odczyty ze skonsolidowanego cache
-    all_aq = get_all_stations_aq_cached()
-    aq_data = all_aq.get(str(station_id))
-
-    if not aq_data:
-        try:
-            resp = requests.get(f"{GIOS_URL}/aqindex/getAQIDetails/{station_id}", timeout=5)
-            aq_data = resp.json() if resp.status_code == 200 else None
-        except Exception:
-            aq_data = None
-
-    if not aq_data:
-        return {
-            'station_name': station_name,
-            'station_distance_km': round(min_dist * 111, 1),
-            'pm25': 28,
-            'pm10': 42,
-            'no2': 38,
-            'o3': 55,
-            'aqi_category': 'FAIR',
-            'aqi_value': '1',
-        }
-
-    # AQI categories (GIOS)
-    aqi_categories = {
-        0: ('GOOD', '0'),
-        1: ('FAIR', '1'),
-        2: ('MODERATE', '2'),
-        3: ('POOR', '3'),
-        4: ('VERY_POOR', '4'),
-        5: ('EXTREMELY_POOR', '5'),
-    }
-
-    try:
-        aqi_value = int(aq_data.get('indexLevelName', 2))
-    except (ValueError, TypeError):
-        aqi_value = 2
-
-    aqi_cat, aqi_num = aqi_categories.get(aqi_value, ('UNKNOWN', 'N/A'))
-
-    # Extract pollutant values
-    pollutants = {}
-    for param in aq_data.get('parameters', []):
-        param_name = param['paramName'].upper()
-        param_value = param.get('paramValue', None)
-
-        if param_name == 'PM2.5':
-            pollutants['pm25'] = param_value
-        elif param_name == 'PM10':
-            pollutants['pm10'] = param_value
-        elif param_name == 'NO2':
-            pollutants['no2'] = param_value
-        elif param_name == 'O3':
-            pollutants['o3'] = param_value
-        elif param_name == 'SO2':
-            pollutants['so2'] = param_value
-        elif param_name == 'CO':
-            pollutants['co'] = param_value
-
-    return {
-        'station_name': station_name,
-        'station_distance_km': round(min_dist * 111, 1),
-        **pollutants,
-        'aqi_category': aqi_cat,
-        'aqi_value': aqi_num,
     }
 
 

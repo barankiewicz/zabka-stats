@@ -8,7 +8,6 @@ from backend.database_ch import client
 from backend.cache import cached
 from backend.live_data import (
     get_weather_for_location,
-    get_air_quality_for_location,
     get_light_pollution,
     get_nearby_lightning,
 )
@@ -347,93 +346,6 @@ async def get_best_worst_weather():
             "location": _loc(wettest),
             "weather": wettest["weather"],
             "message": f"Najmokrzejsza: {wettest['city']} ({wettest['voivodeship']}) - {wettest['weather']['precipitation']} mm, {wettest['weather']['weather_description']}",
-        },
-    }
-
-
-@router.get("/live/air-quality-extremes")
-async def get_air_quality_extremes():
-    """
-    LIVE - najczystsze i najbardziej zanieczyszczone powietrze teraz.
-    Swieze dane z GIOS dla wszystkich stacji pomiarowych.
-    """
-    from backend.live_data import get_all_stations_aq_cached
-    all_aq = get_all_stations_aq_cached()
-
-    if not all_aq:
-        return {"error": "Could not fetch air quality data"}
-
-    scores = []
-    for sid_str, aq in all_aq.items():
-        score = -(
-            (aq.get("pm25") or 999) +
-            (aq.get("pm10") or 999) +
-            (aq.get("no2") or 999)
-        )
-        scores.append({"station_id": int(sid_str), "score": score, "air_quality": aq})
-
-    if not scores:
-        return {"error": "No station metrics found"}
-
-    best_station = max(scores, key=lambda x: x["score"])
-    worst_station = min(scores, key=lambda x: x["score"])
-
-    best_loc_row = client.execute("""
-        SELECT id, city, powiat, voivodeship, latitude, longitude
-        FROM locations
-        WHERE gios_station_id = ? AND deleted_at IS NULL
-        LIMIT 1
-    """, [best_station["station_id"]]).fetchone()
-
-    if not best_loc_row:
-        best_loc_row = client.execute("""
-            SELECT id, city, powiat, voivodeship, latitude, longitude
-            FROM locations
-            WHERE deleted_at IS NULL
-            LIMIT 1
-        """).fetchone()
-
-    worst_loc_row = client.execute("""
-        SELECT id, city, powiat, voivodeship, latitude, longitude
-        FROM locations
-        WHERE gios_station_id = ? AND deleted_at IS NULL
-        LIMIT 1
-    """, [worst_station["station_id"]]).fetchone()
-
-    if not worst_loc_row:
-        worst_loc_row = client.execute("""
-            SELECT id, city, powiat, voivodeship, latitude, longitude
-            FROM locations
-            WHERE deleted_at IS NULL
-            ORDER BY id DESC
-            LIMIT 1
-        """).fetchone()
-
-    def _loc(row):
-        return {
-            "id": row[0],
-            "city": row[1],
-            "powiat": row[2],
-            "voivodeship": row[3],
-            "lat": row[4],
-            "lon": row[5],
-        }
-
-    best_aq_loc = get_air_quality_for_location(best_loc_row[4], best_loc_row[5])
-    worst_aq_loc = get_air_quality_for_location(worst_loc_row[4], worst_loc_row[5])
-
-    return {
-        "best_air_quality_now": {
-            "location": _loc(best_loc_row),
-            "air_quality": best_aq_loc,
-            "score": round(best_station["score"], 1),
-            "message": f"Najczystsze powietrze: {best_loc_row[1]} ({best_loc_row[3]}) - {best_aq_loc.get('aqi_category')}",
-        },
-        "worst_air_quality_now": {
-            "location": _loc(worst_loc_row),
-            "air_quality": worst_aq_loc,
-            "score": round(worst_station["score"], 1),
-            "message": f"Najgorsze powietrze: {worst_loc_row[1]} ({worst_loc_row[3]}) - {worst_aq_loc.get('aqi_category')}",
         },
     }
 

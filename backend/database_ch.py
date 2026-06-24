@@ -66,8 +66,6 @@ def _run_all_ddl(con):
                 is_visible BOOLEAN,
                 is_new_month BOOLEAN,
                 is_new_two_weeks BOOLEAN,
-                gios_station_id INTEGER,
-                gios_distance_km DOUBLE,
                 elevation_meters DOUBLE,
                 light_pollution_brightness DOUBLE,
                 bortle_scale INTEGER,
@@ -239,15 +237,6 @@ def ensure_extra_tables(con):
             powiat_id INTEGER,
             population INTEGER,
             area_km2 DOUBLE
-        )
-    """)
-    # Wymiar stacji pomiarowej GIOŚ - locations wskazuje na nia przez gios_station_id.
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS dim_gios_station (
-            id INTEGER PRIMARY KEY,
-            name VARCHAR,
-            latitude DOUBLE,
-            longitude DOUBLE
         )
     """)
     # Wymiar parku/otuliny (GDOŚ) - locations wskazuje przez nature_park_id.

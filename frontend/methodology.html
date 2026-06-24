@@ -151,9 +151,6 @@
 <h3>Gospodarka – GUS BDL</h3>
 <p>Zarobki, bezrobocie i populacja na poziomie powiatów pochodzą z Banku Danych Lokalnych (zmienne 64428, 60270, 72305). Pobieramy je raz w roku. Nazwy powiatów trzeba normalizować – GUS lubi dodawać prefiksy (<code>Powiat m.</code>), przyrostki czasowe (<code>od 2023</code>) i zmieniać nazwy (<code>jeleniogórski</code> staje się <code>karkonoski</code> w 2021). Wszystko to czyścimy przed zmatchowaniem. Dokładność: dane pochodzą z roku, w którym GUS je opublikował, nie z bieżącego miesiąca.</p>
 
-<h3>Jakość powietrza – GIOŚ</h3>
-<p>Każdy sklep ma przypisaną najbliższą stację pomiarową GIOŚ. Obliczamy odległość w kilometrach (haversine) i zapisujemy referencję. Na tej podstawie karty na dashboardzie pokazują aktualny indeks jakości powietrza – dane live, nie wypieczone do snapshota. Stacje pobieramy od nowa przy każdym uruchomieniu ETL.</p>
-
 <h3>Parki narodowe i krajobrazowe – GDOŚ</h3>
 <p>Granice parków i ich otulin pobieramy z WFS GDOŚ (warstwy <code>ParkiNarodowe</code> + <code>ParkiKrajobrazowe</code>). Mamy 259 obiektów: 46 parków narodowych z otulinami i 213 krajobrazowych. Każdy sklep sprawdzamy punkt-w-poligon – jeśli trafił do parku lub otuliny, dostaje flagę.</p>
 
@@ -179,7 +176,7 @@
 <ol>
   <li><strong>Pobranie.</strong> Pobieramy publiczny plik JSON z lokalizacjami sklepów. Jak API niedostępne, bierzemy z lokalnego pliku fallback z <code>data/input/</code>.</li>
   <li><strong>Oczyszczenie.</strong> Deduplikacja po <code>storeId</code> (około 32 duplikaty w źródłach), normalizacja nazw miast (<code>LEGNICA</code> staje się <code>Legnica</code>), usuwanie <code>&lt;br&gt;</code> i kodów pocztowych z ulic, wyrzucenie danych osobowych i stałych pól.</li>
-  <li><strong>Wzbogacenie.</strong> Każde źródło niezależnie: regiony, GIOŚ, sąsiedztwo, płazy, parki, elewacja, GUS, paczkomaty. Błąd jednego źródła nie przerywa potoku – kolumna zostaje NULL i ETL idzie dalej. Każde zapytanie sieciowe ma retry: 3 próby z odstępem 60 sekund.</li>
+  <li><strong>Wzbogacenie.</strong> Każde źródło niezależnie: regiony, sąsiedztwo, płazy, parki, elewacja, GUS, paczkomaty. Błąd jednego źródła nie przerywa potoku – kolumna zostaje NULL i ETL idzie dalej. Każde zapytanie sieciowe ma retry: 3 próby z odstępem 60 sekund.</li>
   <li><strong>Diff.</strong> Porównujemy z poprzednim snapshotem: nowe <code>store_id</code> to sklep otwarty, zniknięte – zamknięty. Wynik zapisujemy jako historia zmian.</li>
   <li><strong>Zapis do bazy.</strong> Zapis do DuckDB. Nowe kolumny dodajemy przez <code>ALTER TABLE ADD COLUMN IF NOT EXISTS</code> (bez DEFAULT, bo DuckDB nie obsługuje DEFAULT w ALTER). Baza przechowuje ostatnie 6 miesięcy snapshotów – starsze usuwamy.</li>
   <li><strong>Czyszczenie cache.</strong> Po udanym ETL czyścimy cache Redis. Backend odbudowuje odpowiedzi na następnym zapytaniu. Redis jest opcjonalny – jak niedostępny, backend działa bez niego.</li>
@@ -194,7 +191,7 @@
     <li>Populacje powiatów to dane roczne z GUS, nie bieżące szacunki.</li>
     <li>Sklepy na granicach uproszczonych poligonów mogą trafić do sąsiedniego województwa (dotyczy około 3 punktów).</li>
     <li>Godziny otwarcia pochodzą ze źródła Żabki, nie z weryfikacji terenowej.</li>
-    <li>Dane GIOŚ (jakość powietrza) i pogodowe są live – mogą różnić się od off-line bazy.</li>
+    <li>Dane pogodowe są live – mogą różnić się od off-line bazy.</li>
     <li>Obserwacje GBIF zależą od aktywności obserwatorów – mniej zamieszkałe regiony mają mniej rekordów nie dlatego, że jest mniej płazów, tylko dlatego, że mniej osób tam patrzy.</li>
     <li>Brakujące źródło wzbogacenia zostawia kolumnę NULL – tabela jest spójna, ale niekompletna.</li>
     <li>Soft delete: sklepy, które zniknęły ze źródła, dostają <code>deleted_at</code> w bazie. Zapytania domyślnie filtrują <code>deleted_at IS NULL</code>, więc zamknięte sklepy nie psują statystyk.</li>

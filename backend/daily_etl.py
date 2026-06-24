@@ -9,8 +9,7 @@ jak wczesniej.
 
 Pobiera surowy JSON ze sklepami, zamienia go na forme tabelaryczna, wzbogaca
 geokodami (województwo, powiat, miasto, ulica), dolicza najdalszy punkt Polski
-od jakiejkolwiek Żabki, opcjonalnie dane GIOŚ, wrzuca wszystko do DuckDB i
-przeładowuje cache Redis.
+od jakiejkolwiek Żabki, wrzuca wszystko do DuckDB i przeładowuje cache Redis.
 
 Wzbogacenie geograficzne (ENRICHMENT.md): zabytki NID, parki/otuliny GDOŚ,
 ekonomia powiatu GUS BDL, najblizszy sasiad (lokalnie) i wysokosc GUGiK NMT.
@@ -20,12 +19,11 @@ Uruchomienie:
   python -m backend.daily_etl                 # pelny przebieg (bez wysokosci)
   python -m backend.daily_etl --no-geocode    # pomin geokodowanie (szybki test)
   python -m backend.daily_etl --limit 500     # geokoduj tylko N sklepow (test)
-  python -m backend.daily_etl --skip-gios     # bez danych o powietrzu
-  python -m backend.daily_etl --skip-heritage --skip-parks --skip-gus  # bez wzbogacen sieciowych
+  python -m backend.daily_etl --skip-parks --skip-gus  # bez wzbogacen sieciowych
   python -m backend.daily_etl --elevation     # dolacz wysokosc GUGiK (13k+ zapytan, cache)
 
-Zrodla statyczne (pobierz raz do data/input/): zabytki.geojson (NID/dane.gov.pl),
-parki_gdos.geojson (GDOŚ). Sciezki/URL-e nadpisywalne env-em (HERITAGE_*, PARKS_*).
+Zrodla statyczne (pobierz raz do data/input/): parki_gdos.geojson (GDOŚ).
+Sciezki/URL-e nadpisywalne env-em (PARKS_*).
 Klucz GUS_BDL_KEY podnosi limit BDL ze 10 do 100 zapytan/min.
 
 Cron (raz dziennie o 3:00):
@@ -47,7 +45,6 @@ def main():
     ap = argparse.ArgumentParser(description="Dzienny ETL Żabki")
     ap.add_argument("--no-geocode", action="store_true", help="pomin geokodowanie")
     ap.add_argument("--limit", type=int, help="geokoduj tylko N nowych sklepow (test)")
-    ap.add_argument("--skip-gios", action="store_true", help="pomin dane GIOŚ")
     ap.add_argument("--fallback", help="lokalny JSON gdy pobieranie zawiedzie")
     ap.add_argument("--skip-parks", action="store_true", help="pomin parki/otuliny GDOŚ")
     ap.add_argument("--skip-gus", action="store_true", help="pomin ekonomie GUS BDL")
@@ -59,7 +56,7 @@ def main():
                     help="pomin paczkomaty InPost (osobna encja)")
     args = ap.parse_args()
     run(no_geocode=args.no_geocode, limit=args.limit,
-        skip_gios=args.skip_gios, fallback=args.fallback,
+        fallback=args.fallback,
         skip_parks=args.skip_parks,
         skip_gus=args.skip_gus, elevation=args.elevation,
         skip_amphibians=args.skip_amphibians, skip_paczkomaty=args.skip_paczkomaty)
