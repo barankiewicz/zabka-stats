@@ -649,7 +649,6 @@ export function renderGrowthChart(){
     return Math.round(d.new_stores/prev*1000)/10;
   });
   const barColors=data.map(d=>d.year>=2023?C.green:d.year>=2010?C.green+'88':C.green+'44');
-  const YOY_LABEL_YEARS=[2020,2021];
   const yoyLabelPlugin={
     id:'yoyPtLabels',
     afterDatasetsDraw(chart){
@@ -663,8 +662,6 @@ export function renderGrowthChart(){
       ctx.textAlign='center';
       ctx.textBaseline='bottom';
       meta.data.forEach((el,i)=>{
-        const yr=chart.data.labels[i];
-        if(!YOY_LABEL_YEARS.includes(yr))return;
         const raw=ds.data[i];
         if(raw==null)return;
         const txt=String(raw).replace('.',',')+' %';
