@@ -699,21 +699,19 @@ function _drawGrowthChart(mode){
     CHARTS['growth']=new Chart(document.getElementById('chart-growth'),{
       type:'bar',
       data:{labels,datasets:[
-        {type:'bar',label:'nowych/rok',data:vals,backgroundColor:barColors,borderRadius:2,borderWidth:0,yAxisID:'y',order:2},
-        {type:'line',label:'łącznie aktywnych',data:data.map(d=>d.cumulative),borderColor:C.amber,backgroundColor:'rgba(242,163,89,.06)',fill:true,borderWidth:2,pointRadius:0,tension:.4,yAxisID:'y1',order:1}
+        {label:'nowych/rok',data:vals,backgroundColor:barColors,borderRadius:2,borderWidth:0}
       ]},
       options:{
-        responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+        responsive:true,maintainAspectRatio:false,
         plugins:{
-          legend:{display:true,labels:{color:C.muted,usePointStyle:true,font:{size:11}}},
+          legend:{display:false},
           tooltip:{enabled:false},
           barLabels:{thousands:true,color:C.green,onlyBars:true,inside:true},
           annot:{shadedBands:ERAS}
         },
         scales:{
           x:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}},
-          y:{position:'left',grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}},title:{display:true,text:'nowych/rok',color:C.muted,font:{size:9}}},
-          y1:{position:'right',grid:{display:false},ticks:{color:C.amber,font:{size:10}},title:{display:true,text:'łącznie aktywnych',color:C.amber,font:{size:9}}}
+          y:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}},title:{display:true,text:'nowych/rok',color:C.muted,font:{size:9}}}
         }
       }
     });
