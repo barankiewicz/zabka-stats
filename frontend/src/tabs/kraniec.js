@@ -373,7 +373,7 @@ function buildMap() {
 
   // Rozmiar canvasa (dopasowany do kontenera + obsluga resize)
   function resizeCanvas() {
-    const r = canvas.parentElement.getBoundingClientRect();
+    const r = map.getContainer().getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
     canvas.width = Math.floor(r.width * dpr);
     canvas.height = Math.floor(r.height * dpr);
@@ -391,7 +391,7 @@ function buildMap() {
   }
 
   function drawDots(now) {
-    const r = canvas.parentElement.getBoundingClientRect();
+    const r = map.getContainer().getBoundingClientRect();
     ctx.clearRect(0, 0, r.width, r.height);
     const fact = activeDotsFact ? dotsByFact[activeDotsFact] : null;
     if (!fact) return;

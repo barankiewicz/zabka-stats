@@ -262,46 +262,7 @@
     </div>
   </div>
 
-  <!-- powiaty (pelne pokrycie) + zegar -->
-  <div class="row row-2 si-reveal" style="margin-bottom:16px">
-    <div class="card powiat-card">
-      <div class="gran-left-head">
-        <div>
-          <div class="card-title" data-debug-id="POWIATY">Żabka jest niemal wszędzie</div>
-          <div class="card-sub">odsetek jednostek z Żabką – zielone: pokryte, czerwone: bez</div>
-        </div>
-        <div class="gran-toggle" role="group" aria-label="Poziom pokrycia" id="powiat-level">
-          <button aria-pressed="true" class="gran-btn active" data-plevel="powiaty">Powiaty</button>
-          <button aria-pressed="false" class="gran-btn" data-plevel="miasta">Miasta</button>
-          <button aria-pressed="false" class="gran-btn" data-plevel="gminy">Gminy</button>
-        </div>
-      </div>
-      <div class="powiat-cover">
-        <div class="powiat-stat">
-          <canvas id="powiat-donut" class="powiat-donut" width="200" height="200"></canvas>
-          <div class="powiat-frac"><span id="powiat-covered">380</span><span class="powiat-of">/<span id="powiat-total">380</span></span></div>
-          <div class="powiat-cap" id="powiat-cap">powiatów ma Żabkę</div>
-        </div>
-        <canvas id="canvas-powiat-map" class="powiat-map"></canvas>
-      </div>
-    </div>
-    <div class="card">
-      <div>
-        <div class="card-title" data-debug-id="BUBBLE">Z czego składa się sieć – miasta</div>
-        <div class="card-sub">Wielkość bąbla to liczba sklepów. Przeciągnij; Ctrl + scroll przybliża. Małe jednostki trafiają do „Pozostałych".</div>
-      </div>
-      <div id="bubble-stage"><div class="bubble-zoom-hint">ctrl + scroll przybliża</div></div>
-    </div>
-  </div>
-
-  <!-- Sezonowość otwarć -->
-  <div class="card si-reveal" style="margin-bottom:16px">
-    <div class="card-title" data-debug-id="SEASONALITY" id="seasonality-title">Kiedy w roku otwierają się Żabki</div>
-    <div class="card-sub">Liczba sklepów otwartych w danym miesiącu roku (2003–2026, sklepy z datą otwarcia).</div>
-    <div class="chart-wrap" style="height:220px"><canvas id="chart-seasonality" aria-label="Wykres słupkowy: sezonowość otwarć Żabka – liczba sklepów otwartych w każdym miesiącu roku (styczeń–grudzień), zagregowana dla wszystkich lat."></canvas></div>
-  </div>
-
-  <!-- KPI strip + atlas krancow (przeniesione z Ciekawostek) -->
+  <!-- KPI strip + atlas krancow -->
   <div class="stat-strip reveal">
     <div class="stat-tile" id="edge-kpi-h24-tile" style="cursor:pointer" tabindex="0" role="button" aria-label="Sklepy 24/7 – pokaż na mapie">
       <div class="stat-kicker">Sklepy 24/7</div>
@@ -389,6 +350,38 @@
     </div>
 
   </section>
+
+  <!-- powiaty (pelne pokrycie) + bubble -->
+  <div class="row row-2 si-reveal" style="margin-bottom:16px">
+    <div class="card powiat-card">
+      <div class="gran-left-head">
+        <div>
+          <div class="card-title" data-debug-id="POWIATY">Żabka jest niemal wszędzie</div>
+          <div class="card-sub">odsetek jednostek z Żabką – zielone: pokryte, czerwone: bez</div>
+        </div>
+        <div class="gran-toggle" role="group" aria-label="Poziom pokrycia" id="powiat-level">
+          <button aria-pressed="true" class="gran-btn active" data-plevel="powiaty">Powiaty</button>
+          <button aria-pressed="false" class="gran-btn" data-plevel="miasta">Miasta</button>
+          <button aria-pressed="false" class="gran-btn" data-plevel="gminy">Gminy</button>
+        </div>
+      </div>
+      <div class="powiat-cover">
+        <div class="powiat-stat">
+          <canvas id="powiat-donut" class="powiat-donut" width="200" height="200"></canvas>
+          <div class="powiat-frac"><span id="powiat-covered">380</span><span class="powiat-of">/<span id="powiat-total">380</span></span></div>
+          <div class="powiat-cap" id="powiat-cap">powiatów ma Żabkę</div>
+        </div>
+        <canvas id="canvas-powiat-map" class="powiat-map"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div>
+        <div class="card-title" data-debug-id="BUBBLE">Z czego składa się sieć – miasta</div>
+        <div class="card-sub">Wielkość bąbla to liczba sklepów. Przeciągnij; Ctrl + scroll przybliża. Małe jednostki trafiają do „Pozostałych".</div>
+      </div>
+      <div id="bubble-stage"><div class="bubble-zoom-hint">ctrl + scroll przybliża</div></div>
+    </div>
+  </div>
 
   <!-- Bridge: Siec -> Zabka a Polska -->
   <div class="tab-bridge si-reveal">

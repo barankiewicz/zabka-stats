@@ -24,7 +24,6 @@ export function renderSiec(){
   renderEdgeKPIs();
   renderKraniec();
   renderPowiatCoverage();
-  renderSeasonality();
   const root=document.getElementById('tab-siec');
   if(root){
     const obs=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');obs.unobserve(e.target);}}),{threshold:.12});
@@ -650,9 +649,34 @@ export function renderGrowthChart(){
     return Math.round(d.new_stores/prev*1000)/10;
   });
   const barColors=data.map(d=>d.year>=2023?C.green:d.year>=2010?C.green+'88':C.green+'44');
+  const YOY_LABEL_YEARS=[2020,2021];
+  const yoyLabelPlugin={
+    id:'yoyPtLabels',
+    afterDatasetsDraw(chart){
+      const ds=chart.data.datasets[0];
+      const meta=chart.getDatasetMeta(0);
+      if(meta.hidden)return;
+      const{ctx}=chart;
+      ctx.save();
+      ctx.font='600 10px JetBrains Mono,monospace';
+      ctx.fillStyle=C.teal;
+      ctx.textAlign='center';
+      ctx.textBaseline='bottom';
+      meta.data.forEach((el,i)=>{
+        const yr=chart.data.labels[i];
+        if(!YOY_LABEL_YEARS.includes(yr))return;
+        const raw=ds.data[i];
+        if(raw==null)return;
+        const txt=String(raw).replace('.',',')+' %';
+        ctx.fillText(txt,el.x,el.y-7);
+      });
+      ctx.restore();
+    }
+  };
   destroyChart('growth');
   CHARTS['growth']=new Chart(document.getElementById('chart-growth'),{
     type:'bar',
+    plugins:[yoyLabelPlugin],
     data:{labels,datasets:[
       {type:'line',label:'zmiana r/r %',data:yoyVals,borderColor:C.teal,backgroundColor:'transparent',fill:false,borderWidth:2,pointRadius:2,pointBackgroundColor:C.teal,tension:.4,yAxisID:'y0',order:1},
       {type:'bar', label:'nowych/rok', data:data.map(d=>d.new_stores),backgroundColor:barColors,borderRadius:2,borderWidth:0,yAxisID:'y1',order:2}
@@ -674,36 +698,6 @@ export function renderGrowthChart(){
   });
 }
 
-/* ---------------- seasonality of openings (month-of-year histogram) ---------- */
-
-function renderSeasonality(){
-  const data=M.opening_seasonality||[];
-  if(!data.length)return;
-  const peak=data.reduce((a,b)=>b.cnt>a.cnt?b:a,data[0]);
-  const titleEl=document.getElementById('seasonality-title');
-  if(titleEl&&peak)titleEl.textContent=`Szczyt otwarć: ${peak.label} (${fmt(peak.cnt)} sklepów)`;
-  const barColors=data.map(d=>d.month===peak.month?C.green:C.green+'55');
-  destroyChart('seasonality');
-  CHARTS['seasonality']=new Chart(document.getElementById('chart-seasonality'),{
-    type:'bar',
-    data:{
-      labels:data.map(d=>d.label),
-      datasets:[{data:data.map(d=>d.cnt),backgroundColor:barColors,borderRadius:2,borderWidth:0}]
-    },
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      plugins:{
-        legend:{display:false},
-        tooltip:{enabled:false},
-        barLabels:{thousands:true,color:C.green,inside:true}
-      },
-      scales:{
-        x:{grid:{display:false},ticks:{color:C.muted,font:{size:11}}},
-        y:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}}
-      }
-    }
-  });
-}
 
 /* ---------------- powiat coverage tile: 380/380 + dot map ----- */
 
@@ -1029,6 +1023,28 @@ async function renderWojMap(){
   const vk=_wVk();
   const vals=rows.map(r=>r[vk]).filter(v=>v!=null);
   _wojVmin=Math.min(...vals);_wojVmax=Math.max(...vals);
+
+  // Color scale legend (same style as spoleczenstwo InPost map)
+  const mapContainer=document.getElementById('map-granular-woj');
+  if(mapContainer){
+    const parent=mapContainer.parentElement;
+    let leg=parent.querySelector('.map-legend');
+    const fmtLeg=v=>{
+      if(_wojMetricLive==='count')return Math.round(v).toLocaleString('pl-PL');
+      if(_wojMetricLive==='per1k')return v.toFixed(2).replace('.',',');
+      return v.toFixed(3).replace('.',',');
+    };
+    if(!leg){
+      leg=document.createElement('div');
+      leg.className='map-legend';
+      leg.innerHTML='<div class="map-legend-axis map-legend-axis--vert" id="gran-leg-max"></div><div class="map-legend-bar" id="gran-leg-bar"></div><div class="map-legend-axis map-legend-axis--vert" id="gran-leg-min"></div>';
+      parent.appendChild(leg);
+    }
+    const maxEl=leg.querySelector('#gran-leg-max')||leg.querySelector('.map-legend-axis');
+    const minEl=leg.querySelector('#gran-leg-min')||leg.querySelectorAll('.map-legend-axis')[1];
+    if(maxEl)maxEl.textContent=_wojInverted?fmtLeg(_wojVmin):fmtLeg(_wojVmax);
+    if(minEl)minEl.textContent=_wojInverted?fmtLeg(_wojVmax):fmtLeg(_wojVmin);
+  }
 
   // ── Fast path: layers already exist — just update styles + tooltips ────────
   if(_wojPairs){
