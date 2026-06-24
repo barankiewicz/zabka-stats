@@ -636,7 +636,7 @@ function renderFpFlat(ctx){
 /* ---------------- 1.1 growth chart: bars (new/yr, right) + YoY line (left) --- */
 
 export function renderGrowthChart(){
-  const data=M.network_growth||[];
+  const data=(M.network_growth||[]).filter(d=>d.year>=2002);
   const labels=data.map(d=>d.year);
   const ERAS=[
     {x1:1998,x2:2009,color:'rgba(31,61,18,.25)'},
