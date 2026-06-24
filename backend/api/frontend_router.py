@@ -240,7 +240,13 @@ VOIV_POP = {
 _POP: dict[str, int] = {}
 
 def _pop(name: str) -> int:
-    """Return GUS population for a voivodeship name (any encoding)."""
+    """Return population for a voivodeship name (any encoding).
+
+    Prefers the real GUS figures materialized in dim_voivodeship; falls back to
+    hardcoded GUS 2024 constants only for names the dimension does not cover yet
+    (see the graceful-degradation note in the module docstring). Cached at module
+    level - the backend restarts after each ETL, so it never goes stale in-flight.
+    """
     if not _POP:
         raw = {
             "mazowieckie": 5540000, "śląskie": 4350000, "dolnośląskie": 2900000,
@@ -251,6 +257,15 @@ def _pop(name: str) -> int:
             "lubuskie": 980000, "świętokrzyskie": 1180000,
             "opolskie": 950000, "podlaskie": 1160000,
         }
+        # DB values win where present; constants fill the gaps.
+        try:
+            for vname, vpop in client.execute(
+                "SELECT name, population FROM dim_voivodeship"
+            ).fetchall():
+                if vname and vpop and vpop > 0:
+                    raw[vname] = int(vpop)
+        except Exception:
+            pass
         _POP.update(raw)
     return _POP.get(name, 0)
 

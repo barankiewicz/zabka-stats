@@ -85,7 +85,10 @@ fi
 
 # --- 6. ship the built dist (tar over SSH; server has no rsync) --------------
 say "Shipping frontend/dist to $SSH_HOST"
-( cd frontend && tar czf - dist ) | ssh "$SSH_HOST" "cd '$REMOTE_DIR/frontend' && rm -rf dist && tar xzf -"
+# --exclude '*.map': keep sourcemaps local only - no point shipping ~5 MB and
+# exposing unminified source on the server (Vite uses 'hidden' so browsers never
+# fetch them anyway).
+( cd frontend && tar czf - --exclude='*.map' dist ) | ssh "$SSH_HOST" "cd '$REMOTE_DIR/frontend' && rm -rf dist && tar xzf -"
 
 # --- 6b. sync large geo data files (gitignored, must be kept in sync manually) --
 # These files are too big / too static to live in git, so we compare checksums
