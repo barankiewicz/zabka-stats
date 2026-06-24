@@ -660,8 +660,8 @@ export function renderGrowthChart(){
       responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
       plugins:{
         legend:{display:true,labels:{color:C.muted,usePointStyle:true,font:{size:11}}},
-        tooltip:{enabled:false},
-        barLabels:{thousands:true,color:'#ffffff',onlyBars:true,inside:true},
+        tooltip:{mode:'index',intersect:false},
+        barLabels:{thousands:true,color:C.muted,onlyBars:true},
         annot:{shadedBands:ERAS}
       },
       scales:{
@@ -875,21 +875,15 @@ function drawGranularChart(){
   // right-side map height is governed by CSS (gran-split stretch); just refresh it
   if(_wojMap)setTimeout(()=>_wojMap.invalidateSize(),0);
 
-  // Labels + data: optionally append POZOSTALE for powiat/city with count metric
+  // Labels + data: append POZOSTALE for non-count metrics when not all rows are shown
   let labels=rows.map(d=>d.name);
   let data=rows.map(d=>d[vk]);
   let _hasPozostale=false;
-  if(_isCount()&&_gDim!=='voivodeship'&&!_gOffset&&_gRows.length<_gTotal){
-    const visibleSum=data.reduce((a,b)=>a+b,0);
-    const pozostale=_gSum-visibleSum;
-    const remainingCount=_gTotal-_gRows.length;
-    if(pozostale>0&&remainingCount>0){
-      const avgPozostale=Math.round(pozostale/remainingCount);
-      labels=labels.concat('Pozostałe (śr.)');
-      data=data.concat(avgPozostale);
-      colors.push('rgba(132,195,65,.15)');
-      _hasPozostale=true;
-    }
+  if(!_isCount()&&_gDim!=='voivodeship'&&!_gOffset&&_gRows.length<_gTotal&&_gAvg!=null){
+    labels=labels.concat('Pozostałe (śr.)');
+    data=data.concat(+_gAvg.toFixed(_gMetric==='per_km2'?3:2));
+    colors.push('rgba(147,164,135,0.35)');
+    _hasPozostale=true;
   }
 
   // Reference lines: AVG + MED from full dataset (skip vertical lines for city)
@@ -923,7 +917,9 @@ function drawGranularChart(){
       plugins:{
         legend:{display:false},
         tooltip:{enabled:false},
-        barLabels:_isCount()?{thousands:true,color:C.muted}:{decimals:_gMetric==='per_km2'?3:2,color:C.muted},
+        barLabels:_isCount()?{thousands:true,color:C.muted}
+          :_gMetric==='per1k'?{decimals:2,color:C.muted,suffix:' żab./1k'}
+          :{decimals:3,color:C.muted,suffix:' żab./km²'},
         annot:{refLines},
       },
       scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
@@ -948,6 +944,7 @@ function wojRamp(t){
 let _wojMap=null,_wojLayer=null,_wojPairs=null;
 let _wojByName=new Map(),_wojById=new Map();
 let _wojVmin=0,_wojVmax=1,_wojInverted=false,_wojMetricLive='count';
+let _wojValTooltips=[];
 
 function _wFindRow(f){
   const p=f.properties||{};
@@ -963,6 +960,25 @@ function _wFmtVal(r){
   const vk=_wVk();
   return _wojMetricLive==='count'?`${fmt(r[vk]||r.cnt)} sklepów`
     :_wojMetricLive==='per1k'?`${r.per_1k}/1k mieszk.`:`${r.per_km2}/km²`;
+}
+function _addWojValLabels(){
+  _wojValTooltips.forEach(t=>{try{t.remove()}catch(e){}});
+  _wojValTooltips=[];
+  if(!_wojPairs||!_wojMap)return;
+  _wojPairs.forEach(({layer,f})=>{
+    const r=_wFindRow(f);if(!r)return;
+    const vk=_wVk();
+    const v=r[vk];if(v==null)return;
+    let label;
+    if(_wojMetricLive==='count')label=fmt(Math.round(v));
+    else if(_wojMetricLive==='per1k')label=v.toFixed(2).replace('.',',')+'/1k';
+    else label=v.toFixed(3).replace('.',',')+'/km²';
+    const tip=L.tooltip({permanent:true,direction:'center',className:'woj-val-label',interactive:false})
+      .setLatLng(layer.getBounds().getCenter())
+      .setContent(label)
+      .addTo(_wojMap);
+    _wojValTooltips.push(tip);
+  });
 }
 function _wStyle(f,opacity=0.9){
   const r=_wFindRow(f);const v=r?r[_wVk()]:null;
@@ -999,27 +1015,7 @@ async function renderWojMap(){
   const vals=rows.map(r=>r[vk]).filter(v=>v!=null);
   _wojVmin=Math.min(...vals);_wojVmax=Math.max(...vals);
 
-  // Color scale legend (same style as spoleczenstwo InPost map)
-  const mapContainer=document.getElementById('map-granular-woj');
-  if(mapContainer){
-    const parent=mapContainer.parentElement;
-    let leg=parent.querySelector('.map-legend');
-    const fmtLeg=v=>{
-      if(_wojMetricLive==='count')return Math.round(v).toLocaleString('pl-PL');
-      if(_wojMetricLive==='per1k')return v.toFixed(2).replace('.',',');
-      return v.toFixed(3).replace('.',',');
-    };
-    if(!leg){
-      leg=document.createElement('div');
-      leg.className='map-legend';
-      leg.innerHTML='<div class="map-legend-axis map-legend-axis--vert" id="gran-leg-max"></div><div class="map-legend-bar" id="gran-leg-bar"></div><div class="map-legend-axis map-legend-axis--vert" id="gran-leg-min"></div>';
-      parent.appendChild(leg);
-    }
-    const maxEl=leg.querySelector('#gran-leg-max')||leg.querySelector('.map-legend-axis');
-    const minEl=leg.querySelector('#gran-leg-min')||leg.querySelectorAll('.map-legend-axis')[1];
-    if(maxEl)maxEl.textContent=_wojInverted?fmtLeg(_wojVmin):fmtLeg(_wojVmax);
-    if(minEl)minEl.textContent=_wojInverted?fmtLeg(_wojVmax):fmtLeg(_wojVmin);
-  }
+  // Value labels will be added as permanent tooltips after layers are created/updated below
 
   // ── Fast path: layers already exist — just update styles + tooltips ────────
   if(_wojPairs){
@@ -1033,6 +1029,7 @@ async function renderWojMap(){
         {sticky:true,className:'gran-tooltip',opacity:1}
       );
     });
+    _addWojValLabels();
     return;
   }
 
@@ -1076,7 +1073,7 @@ async function renderWojMap(){
   },10+i*14));
 
   try{_wojMap.fitBounds(L.geoJSON(M.woj_geo).getBounds(),{padding:[6,6]})}catch(e){}
-  setTimeout(()=>_wojMap&&_wojMap.invalidateSize(),60);
+  setTimeout(()=>{_wojMap&&_wojMap.invalidateSize();_addWojValLabels();},80);
 }
 
 function _setActive(group,btn){
@@ -1094,14 +1091,6 @@ export function wireGranular(){
   grp('gran-dim','dim',(v,btn)=>{_gDim=v;_setActive('gran-dim',btn);renderGranular(null,{skipMap:true})});
   grp('gran-metric','metric',(v,btn)=>{
     _gMetric=v;_setActive('gran-metric',btn);
-    // per-capita / per-km2 have no city data — disable Miasta, bounce off it
-    const noCity=(v==='per1k'||v==='per_km2');
-    const cityBtn=document.querySelector('#gran-dim .gran-btn[data-dim="city"]');
-    if(cityBtn)cityBtn.classList.toggle('is-disabled',noCity);
-    if(noCity&&_gDim==='city'){
-      _gDim='powiat';
-      _setActive('gran-dim',document.querySelector('#gran-dim .gran-btn[data-dim="powiat"]'));
-    }
     renderGranular();
   });
   grp('gran-sort','sort',(v,btn)=>{_gSort=v;_setActive('gran-sort',btn);renderGranular()});

@@ -142,21 +142,16 @@ function renderInpostMap(){
     layer.setStyle({fillOpacity:0.9});
   },10+i*14));
 
-  // Small vertical color legend in the bottom-left of the map.
-  // Vertical gradient bar = stosunek paczkomaty / Żabka. Bar runs bright (bottom)
-  // -> dark (top) to match the inverted _ipRamp gradient. Max above, min below.
-  const container=el.parentElement;
-  if(container&&!container.querySelector('.map-legend')){
-    const leg=document.createElement('div');
-    leg.className='map-legend';
-    const fmtN=v=>String(Math.round(v*100)/100).replace('.',',');
-    leg.innerHTML=`
-      <div class="map-legend-axis map-legend-axis--vert">${fmtN(vmax)}x</div>
-      <div class="map-legend-bar"></div>
-      <div class="map-legend-axis map-legend-axis--vert">${fmtN(vmin)}x</div>
-    `;
-    container.appendChild(leg);
-  }
+  // Value labels directly on each voivodeship (permanent Leaflet tooltips)
+  pairs.forEach(({layer,d,f})=>{
+    if(!d)return;
+    const r=(+d.ratio||0).toFixed(2).replace('.',',');
+    const c=map.latLngToLayerPoint(layer.getBounds().getCenter());
+    L.tooltip({permanent:true,direction:'center',className:'woj-val-label',interactive:false})
+      .setLatLng(layer.getBounds().getCenter())
+      .setContent(r+'x')
+      .addTo(map);
+  });
 }
 
 export function renderSpoleczenstwo(){
@@ -228,11 +223,11 @@ export function renderStreets(){
       const drawOne=(y,i)=>{
         const s=streetsData[i];if(!s)return;
         const x=yScale.left-8;
-        ctx.font=`800 15px '${getFont('display')}',sans-serif`;
-        ctx.fillStyle='#eef3e6';
+        ctx.font=`600 13px '${getFont('body')}',sans-serif`;
+        ctx.fillStyle='#c8d4c0';
         const st=s.street.replace(/^ul\.\s*/i,'').trim();
         ctx.fillText(st.length>28?st.slice(0,27)+'…':st, x, y-4);
-        ctx.font=`500 10px '${getFont('body')}',sans-serif`;
+        ctx.font=`400 10px '${getFont('body')}',sans-serif`;
         ctx.fillStyle='#93a487';
         ctx.fillText(s.city, x, y+10);
       };
@@ -251,11 +246,7 @@ export function renderStreets(){
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
       layout:{padding:{right:60,left:180,top:4,bottom:4}},
       plugins:{legend:{display:false},
-        tooltip:{callbacks:{
-          title:ctx=>`${rows[ctx[0].dataIndex].street}`,
-          beforeBody:ctx=>`${rows[ctx[0].dataIndex].city}`,
-          label:ctx=>`${ctx.raw} ${ctx.raw===1?'sklep':'sklepy'} pod tym adresem`,
-        }},
+        tooltip:{enabled:false},
         barLabels:{thousands:true,color:C.muted},
         dualLabelSpoleczenstwo:{}},
       scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},
@@ -289,9 +280,7 @@ export function renderGminaLeaders(){
     }]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},
-        tooltip:{callbacks:{label:ctx=>{const d=r12[ctx.dataIndex];return [
-          per1k?`${d.per_1k} skl./1000 mieszk.`:`${d.per_km2} skl./km²`,
-          `${d.cnt} Żabek · ${(d.population||0).toLocaleString('pl-PL')} mieszk.`]}}},
+        tooltip:{enabled:false},
         barLabels:{decimals:2,color:C.muted},
         annot:{refLines:natRef}},
       scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},
@@ -330,19 +319,35 @@ function _drawNbl(data){
   const rows=(data&&data.rows||[]).slice(0,20);
   if(!rows.length)return;
   const metric=_nblMetric;
+  const total=data&&data.total||rows.length;
   const sub=document.getElementById('nbl-sub');
   if(sub)sub.textContent=`${metric==='median_m'?'Mediana':'Średnia'} odległości do najbliższej Żabki, według ${_NBL_LABEL[_nblLevel]}`;
+
+  const labels=rows.map(d=>d.name);
+  const vals=rows.map(d=>d[metric]);
+  const bgs=rows.map((_,i)=>_ipRamp(1-i/Math.max(rows.length-1,1)));
+
+  if(total>rows.length){
+    const ns=(M.neighbor_stats&&M.neighbor_stats.distribution)||{};
+    const natVal=metric==='median_m'?(ns.median_m||null):(ns.avg_m||null);
+    if(natVal!=null){
+      labels.push('Pozostałe');
+      vals.push(Math.round(natVal));
+      bgs.push('rgba(147,164,135,0.35)');
+    }
+  }
+
   destroyChart('nbl');
   CHARTS['nbl']=new Chart(document.getElementById('chart-nbl'),{
     type:'bar',
-    data:{labels:rows.map(d=>d.name),datasets:[{
-      data:rows.map(d=>d[metric]),
-      backgroundColor:rows.map((_,i)=>_ipRamp(1-i/Math.max(rows.length-1,1))),
+    data:{labels,datasets:[{
+      data:vals,
+      backgroundColor:bgs,
       borderRadius:2,borderWidth:0
     }]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},
-        tooltip:{callbacks:{label:ctx=>{const d=rows[ctx.dataIndex];return [
+        tooltip:{callbacks:{label:ctx=>{const d=rows[ctx.dataIndex];if(!d)return[];return [
           `mediana ${d.median_m.toLocaleString('pl-PL')} m`,
           `średnia ${d.avg_m.toLocaleString('pl-PL')} m`,
           `${d.n} sklepów`]}}},

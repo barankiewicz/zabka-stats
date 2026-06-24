@@ -157,19 +157,22 @@ function buildFacts() {
       lat: ff.latitude, lon: ff.longitude, zoom: 10, type: 'point',
       desc: 'Żabka najbardziej oddalona od najbliższej obserwacji płaza.' });
   }
-  // 668 Żabek bez żadnej żaby w promieniu 5 km
+  // 668 Żabek bez żadnej żaby w promieniu 5 km - pokazane jako skupisko punktow
   if (ae.zero_frog_count != null) {
+    const zeroFrogDots = (ae.stores || [])
+      .filter(s => s[2] === 0)
+      .map(s => [s[0], s[1]]);
     out.push({ id: 'zerofrog', g: 'farfrog', grp: 'Żabka a żabki', lab: 'Bez żadnej żaby w pobliżu',
       val: fmt(ae.zero_frog_count) + ' sklepów',
-      city: ff && ff.city ? ff.city : '', voiv: ff && ff.voivodeship ? ff.voivodeship : '', street: '',
-      lat: ff && ff.latitude ? ff.latitude : 52.05,
-      lon: ff && ff.longitude ? ff.longitude : 19.3,
-      zoom: 10, type: 'point',
+      city: '', voiv: '', street: '',
+      lat: 52.05, lon: 19.3, zoom: 6, type: 'cluster',
+      short: 'sklepy bez obserwacji płaza w 5 km',
       desc: 'Tyle sklepów nie ma ani jednej obserwacji płaza w promieniu 5 km (GBIF, Amphibia). ' +
             (ff && ff.nearest_amphibian_km != null
               ? 'Najbardziej odizolowana Żabka: ' + ff.city + ' – ' +
                 ff.nearest_amphibian_km.toFixed(2).replace('.', ',') + ' km od najbliższej żaby.'
-              : '') });
+              : ''),
+      dots: zeroFrogDots });
   }
 
   // 24/7
@@ -216,14 +219,12 @@ export function renderKraniec() {
 
 function buildMap() {
   const node = document.getElementById('kr-map'); if (!node || !L) return;
-  const map = L.map('kr-map', { zoomControl: true, attributionControl: true, scrollWheelZoom: false })
+  const map = L.map('kr-map', { zoomControl: false, attributionControl: true, scrollWheelZoom: 'ctrl' })
     .setView(HOME, HOME_Z);
   _krMap = map;
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
     { attribution: '© OpenStreetMap, © CARTO', subdomains: 'abcd', maxZoom: 16, detectRetina: true })
     .addTo(map);
-  map.on('focus', () => map.scrollWheelZoom.enable());
-  map.on('blur', () => map.scrollWheelZoom.disable());
 
   // Tlo: brak kropek - pokazujemy je dopiero po wybraniu zjawiska z listy
   const FACTS = buildFacts();
@@ -295,7 +296,7 @@ function buildMap() {
     if (clusterTipEl) { clusterTipEl.remove(); clusterTipEl = null; }
   }
 
-  // Hover na liscie (kr-rail .item) - tooltip tylko dla point/circle (nie cluster)
+  // Hover na liscie (kr-rail .item)
   const railEl = document.getElementById('kr-rail');
   if (railEl) {
     railEl.addEventListener('mouseover', e => {
@@ -305,7 +306,7 @@ function buildMap() {
       const f = FACTS.find(x => x.id === id);
       if (!f) return;
       if (f.type === 'point' || f.type === 'circle') showTooltip(id);
-      // cluster: brak tooltipa
+      else showClusterTip(f);
     });
     railEl.addEventListener('mouseout', e => {
       const it = e.target.closest('.item');
@@ -314,10 +315,11 @@ function buildMap() {
       const f = FACTS.find(x => x.id === id);
       if (!f) return;
       if (f.type === 'point' || f.type === 'circle') hideTooltip(id);
+      else hideClusterTip();
     });
   }
 
-  // Hover na panelach (KPI u gory + ep-* pod mapa) - tooltip tylko dla point/circle
+  // Hover na panelach (KPI u gory + ep-* pod mapa)
   const panelIds = [
     'edge-kpi-h24-tile', 'edge-kpi-parks-tile', 'edge-kpi-frogrecord-tile',
     'edge-kpi-void-tile', 'edge-kpi-oldest-tile', 'edge-kpi-farthestfrog-tile',
@@ -338,12 +340,14 @@ function buildMap() {
       const f = FACTS.find(x => x.id === factId);
       if (!f) return;
       if (f.type === 'point' || f.type === 'circle') showTooltip(factId);
+      else showClusterTip(f);
     });
     el.addEventListener('mouseout', () => {
       const factId = panelFactMap[id];
       const f = FACTS.find(x => x.id === factId);
       if (!f) return;
       if (f.type === 'point' || f.type === 'circle') hideTooltip(factId);
+      else hideClusterTip();
     });
   });
 

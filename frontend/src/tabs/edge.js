@@ -13,7 +13,7 @@ function _updateEdgeHeroLede(){
   const voidVal=M.section3_rare&&M.section3_rare.void&&M.section3_rare.void.value;
   const hiStr=top?Math.round(top.elevation_meters)+' m':'963 m';
   const loStr=bot?String(bot.elevation_meters).replace('.',',')+' m':'−1,5 m';
-  const h24Str=h24n!=null?h24n:35;
+  const h24Str=h24n!=null?h24n:32;
   const voidStr=voidVal?String(voidVal).replace('.',','):'46,5';
   ledeEl.textContent=`Od ${loStr} pod poziomem morza po ${hiStr} w Tatrach. ${h24Str} sklepów, które nigdy nie śpią. Jeden punkt w Polsce oddalony o ${voidStr} km od jakiejkolwiek Żabki.`;
 }
