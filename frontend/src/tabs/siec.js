@@ -649,31 +649,9 @@ export function renderGrowthChart(){
     return Math.round(d.new_stores/prev*1000)/10;
   });
   const barColors=data.map(d=>d.year>=2023?C.green:d.year>=2010?C.green+'88':C.green+'44');
-  const yoyLabelPlugin={
-    id:'yoyPtLabels',
-    afterDatasetsDraw(chart){
-      const ds=chart.data.datasets[0];
-      const meta=chart.getDatasetMeta(0);
-      if(meta.hidden)return;
-      const{ctx}=chart;
-      ctx.save();
-      ctx.font='600 10px JetBrains Mono,monospace';
-      ctx.fillStyle=C.teal;
-      ctx.textAlign='center';
-      ctx.textBaseline='bottom';
-      meta.data.forEach((el,i)=>{
-        const raw=ds.data[i];
-        if(raw==null)return;
-        const txt=String(raw).replace('.',',')+' %';
-        ctx.fillText(txt,el.x,el.y-7);
-      });
-      ctx.restore();
-    }
-  };
   destroyChart('growth');
   CHARTS['growth']=new Chart(document.getElementById('chart-growth'),{
     type:'bar',
-    plugins:[yoyLabelPlugin],
     data:{labels,datasets:[
       {type:'line',label:'zmiana r/r %',data:yoyVals,borderColor:C.teal,backgroundColor:'transparent',fill:false,borderWidth:2,pointRadius:2,pointBackgroundColor:C.teal,tension:.4,yAxisID:'y0',order:1},
       {type:'bar', label:'nowych/rok', data:data.map(d=>d.new_stores),backgroundColor:barColors,borderRadius:2,borderWidth:0,yAxisID:'y1',order:2}
