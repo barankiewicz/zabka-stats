@@ -636,7 +636,7 @@ function renderFpFlat(ctx){
 /* ---------------- 1.1 growth chart: bars (new/yr, right) + YoY line (left) --- */
 
 export function renderGrowthChart(){
-  const data=(M.network_growth||[]).filter(d=>d.year>=2002);
+  const data=M.network_growth||[];
   const labels=data.map(d=>d.year);
   const ERAS=[
     {x1:1998,x2:2009,color:'rgba(31,61,18,.25)'},
@@ -645,7 +645,7 @@ export function renderGrowthChart(){
     {x1:2023,x2:2026,color:'rgba(166,232,74,.10)'}
   ];
   const yoyVals=data.map((d,i)=>{
-    if(i===0||!d.cumulative||d.cumulative===d.new_stores)return null;
+    if(d.year<2002||i===0||!d.cumulative||d.cumulative===d.new_stores)return null;
     const prev=d.cumulative-d.new_stores;
     return Math.round(d.new_stores/prev*1000)/10;
   });
