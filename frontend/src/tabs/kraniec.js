@@ -267,14 +267,14 @@ function buildMap() {
     }
   });
 
-  // Hover helper: pokaz tooltip na markerze (bez zoomu)
+  // Hover helper: otwiera popup markera (markery maja tylko popup, nie tooltip)
   const showTooltip = (id) => {
     const m = markers[id];
-    if (m) m.openTooltip();
+    if (m) m.openPopup();
   };
   const hideTooltip = (id) => {
     const m = markers[id];
-    if (m) m.closeTooltip();
+    if (m) m.closePopup();
   };
   // Dla cluster faktow - Leaflet nie ma markera, tooltip rysujemy recznie
   let clusterTipEl = null;

@@ -241,10 +241,10 @@ export function renderStreets(){
     data:{labels:rows.map((s,i)=>i),datasets:[{
       data:rows.map(d=>d.cnt),
       backgroundColor:rows.map((_,i)=>i===0?C.greenBright:C.green+'aa'),
-      borderWidth:0,borderRadius:2,barThickness:18
+      borderWidth:0,borderRadius:2,maxBarThickness:20
     }]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      layout:{padding:{right:60,left:180,top:4,bottom:4}},
+      layout:{padding:{right:60,left:180,top:8,bottom:8}},
       plugins:{legend:{display:false},
         tooltip:{enabled:false},
         barLabels:{thousands:true,color:C.muted},
@@ -276,13 +276,14 @@ export function renderGminaLeaders(){
     data:{labels:r12.map(d=>d.name),datasets:[{
       data:r12.map(d=>per1k?d.per_1k:d.per_km2),
       backgroundColor:r12.map((_,i)=>_ipRamp(1-i/Math.max(r12.length-1,1))),
-      borderRadius:2,borderWidth:0
+      borderRadius:2,borderWidth:0,maxBarThickness:20
     }]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      layout:{padding:{right:60,top:8,bottom:8}},
       plugins:{legend:{display:false},
         tooltip:{enabled:false},
         barLabels:{decimals:2,color:C.muted},
-        annot:{refLines:natRef}},
+        annot:{refLines:[]}},
       scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},
         y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
     }
