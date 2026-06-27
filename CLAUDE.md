@@ -365,6 +365,8 @@ read-heavy + append workload (daily snapshots).
 **Schema migration:** `ADD COLUMN IF NOT EXISTS` without `DEFAULT` (a `DEFAULT`
 clause in ALTER breaks DuckDB's WAL replay; the ETL sets the values explicitly
 anyway). Table schema with types: chapter 3.
+**Concurrency & Thread Safety:** DuckDB connections are not thread-safe if shared directly. The backend uses a thread-safe connection pool proxy (`_ConnectionProxy` in [database_ch.py](file:///home/alice/zabka-dashboard/backend/database_ch.py)) managing read-only connections via thread-local storage (`threading.local`). All registered connections are closed during ETL to release the file lock.
+
 
 ## 3. Cache: Redis over a UNIX socket
 
@@ -447,19 +449,19 @@ GDOŚ parks get their own dimension (`dim_park`), linked from `locations` by
     nature_park_id   -> dim_park.id            unemployment_rate
     city, street, lat, lon, flags, ...
     elevation_meters, is_in_nature_park,     dim_voivodeship
-    neighbor dist, amphibian fields, ...       id (PK)
-                                               name
-  parcel_lockers (parcel lockers)              population
-    id (PK)
-    voivodeship_id   -> dim_voivodeship.id     dim_gmina
-    powiat_id        -> dim_powiat.id          id (PK)
-    gmina_id         -> dim_gmina.id           name
-    miasto_id        -> dim_city.id            voivodeship_id -> dim_voivodeship.id
-    operator, type, city, lat, lon, status     powiat_id      -> dim_powiat.id
+    neighbor dist, amphibian fields,           id (PK)
+    h3_index_9                                 name
                                                population
-  fun_facts (key, lat, lon, value)             area_km2
-    - interesting facts, no relations
-                                             dim_city
+  parcel_lockers (parcel lockers)
+    id (PK)                                  dim_gmina
+    voivodeship_id   -> dim_voivodeship.id     id (PK)
+    powiat_id        -> dim_powiat.id          name
+    gmina_id         -> dim_gmina.id           voivodeship_id -> dim_voivodeship.id
+    miasto_id        -> dim_city.id            powiat_id      -> dim_powiat.id
+    operator, type, city, lat, lon, status     population
+                                               area_km2
+  fun_facts (key, lat, lon, value)
+    - interesting facts, no relations        dim_city
                                                id (PK)
                                                name
                                                voivodeship_id -> dim_voivodeship.id
@@ -472,6 +474,7 @@ GDOŚ parks get their own dimension (`dim_park`), linked from `locations` by
                                                name
                                                type
 ```
+
 
 Example query (who dominates per voivodeship, per 1000 residents) - JOIN by id:
 
@@ -497,8 +500,9 @@ The flow (`python -m backend.daily_etl`, orchestrated in
    `--fallback <file>`).
 2. **Tabularize** - flatten to rows: dedup by `storeId`, drop PII and junk
    fields, clean streets (remove `<br>` and any embedded postcode from the display string), normalize city
-   names, derive flags (h24, Sunday, merrychef).
+   names, derive flags (h24, Sunday, merrychef), and calculate a resolution 9 H3 index (`h3_index_9`) for each store coordinates using the Python `h3` library.
 3. **Enrich Żabki** - each source enriches the stores independently (best-effort:
+
    a missing source does not abort the ETL, the column just stays empty). Order:
    regions, neighbor, amphibians, parks, elevation. Details in section 4.
 4. **Parcel lockers** - InPost parcel lockers loaded as a separate entity (voivodeship/powiat geocoding by the same GUGiK geocoder and fallback matching as the stores).
@@ -508,10 +512,9 @@ The flow (`python -m backend.daily_etl`, orchestrated in
    Poland farthest from any Żabka, the loner (most isolated Żabka), and the most
    froggy Żabka.
 7. **Load** - reconcile and load the locations, parcel lockers, dimensions, and
-   fun_facts to DuckDB. Active locations are compared against incoming ones to perform a diff:
-   new stores are inserted (with `created_at` set), missing stores are soft-deleted (with `deleted_at` stamped),
-   and existing active stores are updated in-place.
+   fun_facts to DuckDB using Polars and PyArrow memory sharing. Incoming rows are loaded into a Polars DataFrame and joined directly with database-active records in DuckDB SQL using memory tables. This allows bulk inserts, in-place overwrites, and soft-deletes (`deleted_at` stamped) without row-by-row iteration or temporary CSV files.
 8. **Cache** - clear Redis; the backend rebuilds on the next query.
+
 
 The database keeps one row per physical store location in a pure SCD Type 2 model. Birth/death trends (created/deleted per month) are queried directly from `locations` via `created_at` and `deleted_at` timestamps. Soft delete (`deleted_at`) marks the date a store was last seen; queries filter `deleted_at IS NULL` by default.
 
