@@ -28,31 +28,38 @@ async def get_locations(
         offset: Pagination offset
     """
     where_clauses = []
+    params = []
 
     if month:
         where_clauses.append(
-            f"strftime(created_at, '%Y-%m') <= '{month}' AND (deleted_at IS NULL OR strftime(deleted_at, '%Y-%m') >= '{month}')"
+            "strftime(created_at, '%Y-%m') <= ? AND (deleted_at IS NULL OR strftime(deleted_at, '%Y-%m') >= ?)"
         )
+        params.extend([month, month])
     else:
         where_clauses.append("deleted_at IS NULL")
 
     if voivodeship:
-        where_clauses.append(f"voivodeship = '{voivodeship}'")
+        where_clauses.append("voivodeship = ?")
+        params.append(voivodeship)
 
     if city:
-        where_clauses.append(f"city = '{city}'")
+        where_clauses.append("city = ?")
+        params.append(city)
 
     where = " AND ".join(where_clauses)
 
-    total = client.execute(f"SELECT COUNT(*) FROM locations WHERE {where}").fetchone()[0]
+    total = client.execute(f"SELECT COUNT(*) FROM locations WHERE {where}", params).fetchone()[0]
+
+    query_params = list(params)
+    query_params.extend([limit, offset])
 
     results = client.execute(f"""
         SELECT id, store_id, city, voivodeship, street, latitude, longitude,
                has_merrychef, open_sunday, h24
         FROM locations
         WHERE {where}
-        LIMIT {limit} OFFSET {offset}
-    """).fetchall()
+        LIMIT ? OFFSET ?
+    """, query_params).fetchall()
 
     return {
         "total": total,
@@ -85,8 +92,10 @@ async def get_locations_for_map_geojson(
     """
     Get locations for map visualization (GeoJSON).
     """
+    params = []
     if month:
-        where = f"strftime(created_at, '%Y-%m') <= '{month}' AND (deleted_at IS NULL OR strftime(deleted_at, '%Y-%m') >= '{month}')"
+        where = "strftime(created_at, '%Y-%m') <= ? AND (deleted_at IS NULL OR strftime(deleted_at, '%Y-%m') >= ?)"
+        params.extend([month, month])
     else:
         where = "deleted_at IS NULL"
 
@@ -95,7 +104,7 @@ async def get_locations_for_map_geojson(
                has_merrychef, open_sunday, h24
         FROM locations
         WHERE {where}
-    """).fetchall()
+    """, params).fetchall()
 
     features = []
     for r in results:
@@ -129,12 +138,12 @@ async def get_locations_for_map_geojson(
 @cached(ttl=3600)
 async def get_location(location_id: int):
     """Get a specific location by ID."""
-    result = client.execute(f"""
+    result = client.execute("""
         SELECT id, 'Żabka' AS name, city, voivodeship, street, latitude, longitude,
                has_merrychef, open_sunday, h24, created_at, deleted_at, powiat
         FROM locations
-        WHERE id = {location_id} AND deleted_at IS NULL
-    """).fetchone()
+        WHERE id = ? AND deleted_at IS NULL
+    """, [location_id]).fetchone()
 
     if not result:
         raise HTTPException(status_code=404, detail="Location not found")

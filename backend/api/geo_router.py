@@ -215,6 +215,9 @@ async def coverage_funnel():
 @cached(ttl=3600)
 async def by_dimension(dim: str = "voivodeship", metric: str = "count",
                        sort: str = "desc", limit: int = 20, offset: int = 0):
+    if dim not in ("city", "gmina", "powiat", "voivodeship"):
+        raise HTTPException(status_code=400, detail="Invalid dimension")
+
     lim = max(1, min(int(limit), 3000))
     off = max(0, int(offset))
 

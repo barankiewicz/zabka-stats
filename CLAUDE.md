@@ -156,6 +156,11 @@ python -m backend.daily_etl --no-geocode --skip-parks --skip-gus --skip-amphibia
 python -m backend.daily_etl --elevation
 ```
 
+### 4. Run tests
+```bash
+python -m pytest test/test_api.py
+```
+
 ## Workflow: loading new data
 
 ### Option A: CLI (for cron/automation)

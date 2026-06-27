@@ -19,11 +19,12 @@ router = APIRouter()
 async def get_by_powiat(voivodeship: str = None):
     """Get statistics aggregated by powiat (county)."""
 
-    where = ""
+    where_clauses = ["deleted_at IS NULL"]
+    params = []
     if voivodeship:
-        where = f"WHERE voivodeship = '{voivodeship}' AND deleted_at IS NULL"
-    else:
-        where = "WHERE deleted_at IS NULL"
+        where_clauses.append("voivodeship = ?")
+        params.append(voivodeship)
+    where = " AND ".join(where_clauses)
 
     results = client.execute(f"""
         SELECT
@@ -34,10 +35,10 @@ async def get_by_powiat(voivodeship: str = None):
             SUM(open_sunday) as open_sunday,
             SUM(h24) as h24
         FROM locations
-        {where}
+        WHERE {where}
         GROUP BY voivodeship, powiat
         ORDER BY voivodeship, total DESC
-    """).fetchall()
+    """, params).fetchall()
 
     # Group by voivodeship
     by_voiv = {}
@@ -63,11 +64,15 @@ async def get_by_powiat(voivodeship: str = None):
 async def get_by_city(powiat: str = None, voivodeship: str = None):
     """Get statistics aggregated by city."""
 
-    where = "WHERE deleted_at IS NULL"
+    where_clauses = ["deleted_at IS NULL"]
+    params = []
     if voivodeship:
-        where += f" AND voivodeship = '{voivodeship}'"
+        where_clauses.append("voivodeship = ?")
+        params.append(voivodeship)
     if powiat:
-        where += f" AND powiat = '{powiat}'"
+        where_clauses.append("powiat = ?")
+        params.append(powiat)
+    where = " AND ".join(where_clauses)
 
     results = client.execute(f"""
         SELECT
@@ -79,10 +84,11 @@ async def get_by_city(powiat: str = None, voivodeship: str = None):
             SUM(open_sunday) as open_sunday,
             SUM(h24) as h24
         FROM locations
-        {where}
+        WHERE {where}
         GROUP BY city, voivodeship, powiat
         ORDER BY total DESC
-    """).fetchall()
+    """, params).fetchall()
+
 
     return {
         "data": [
@@ -114,24 +120,24 @@ async def get_voivodeships():
     result = {}
     for (voiv,) in voivodeships:
         # Get powiats in this voivodeship
-        powiats_data = client.execute(f"""
+        powiats_data = client.execute("""
             SELECT DISTINCT powiat, COUNT(*) as count
             FROM locations
-            WHERE voivodeship = '{voiv}' AND deleted_at IS NULL
+            WHERE voivodeship = ? AND deleted_at IS NULL
             GROUP BY powiat
             ORDER BY count DESC
-        """).fetchall()
+        """, [voiv]).fetchall()
 
         powiats = {}
         for powiat, count in powiats_data:
             # Get cities in this powiat
-            cities_data = client.execute(f"""
+            cities_data = client.execute("""
                 SELECT DISTINCT city, COUNT(*) as count
                 FROM locations
-                WHERE voivodeship = '{voiv}' AND powiat = '{powiat}' AND deleted_at IS NULL
+                WHERE voivodeship = ? AND powiat = ? AND deleted_at IS NULL
                 GROUP BY city
                 ORDER BY count DESC
-            """).fetchall()
+            """, [voiv, powiat]).fetchall()
 
             powiats[powiat] = {
                 "count": count,
@@ -150,7 +156,7 @@ async def get_location_context(lat: float, lon: float):
     """Get administrative context for coordinates using nearest location."""
 
     # Find nearest location to get context
-    nearest = client.execute(f"""
+    nearest = client.execute("""
         SELECT
             'Żabka' AS name,
             l.street,
@@ -167,9 +173,10 @@ async def get_location_context(lat: float, lon: float):
         LEFT JOIN dim_gmina g ON g.id = l.gmina_id
         WHERE l.deleted_at IS NULL
         ORDER BY
-            (l.latitude - {lat}) * (l.latitude - {lat}) + (l.longitude - {lon}) * (l.longitude - {lon})
+            (l.latitude - ?) * (l.latitude - ?) + (l.longitude - ?) * (l.longitude - ?)
         LIMIT 1
-    """).fetchone()
+    """, [lat, lat, lon, lon]).fetchone()
+
 
     if not nearest:
         return {"error": "No locations found"}

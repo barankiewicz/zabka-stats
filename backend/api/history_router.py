@@ -15,7 +15,7 @@ async def get_location_history(
     limit: int = 100,
 ):
     """Get full change history (creation and deletion only) for a specific location."""
-    location = client.execute(f"SELECT 'Żabka', created_at, deleted_at FROM locations WHERE id = {location_id}").fetchone()
+    location = client.execute("SELECT 'Żabka', created_at, deleted_at FROM locations WHERE id = ?", [location_id]).fetchone()
     if not location:
         raise HTTPException(status_code=404, detail="Location not found")
 
@@ -59,10 +59,13 @@ async def get_monthly_changes(
 ):
     """Get monthly change statistics (created and deleted events only)."""
     where_clauses = []
+    params = []
     if year:
-        where_clauses.append(f"strftime(event_time, '%Y') = '{year}'")
+        where_clauses.append("strftime(event_time, '%Y') = ?")
+        params.append(str(year))
     if voivodeship:
-        where_clauses.append(f"voivodeship = '{voivodeship}'")
+        where_clauses.append("voivodeship = ?")
+        params.append(voivodeship)
 
     where = ""
     if where_clauses:
@@ -93,7 +96,7 @@ async def get_monthly_changes(
         {where}
         GROUP BY month, change_type
         ORDER BY month
-    """).fetchall()
+    """, params).fetchall()
 
     monthly_stats = {}
     for month, change_type, count in results:
@@ -120,8 +123,10 @@ async def get_voivodeship_changes(
 ):
     """Get change statistics aggregated by voivodeship."""
     where = ""
+    params = []
     if month:
-        where = f"WHERE strftime(event_time, '%Y-%m') = '{month}'"
+        where = "WHERE strftime(event_time, '%Y-%m') = ?"
+        params.append(month)
 
     results = client.execute(f"""
         WITH monthly_events AS (
@@ -146,7 +151,7 @@ async def get_voivodeship_changes(
         FROM monthly_events
         {where}
         GROUP BY voivodeship, change_type
-    """).fetchall()
+    """, params).fetchall()
 
     voivodeship_stats = {}
     for voiv, change_type, count in results:
@@ -173,7 +178,7 @@ async def get_deletion_timeline(
     limit_months: int = 12,
 ):
     """Get timeline of deletions over the last N months."""
-    results = client.execute(f"""
+    results = client.execute("""
         SELECT
             CAST(deleted_at AS DATE) as source_date,
             COUNT(*) as count
@@ -181,8 +186,8 @@ async def get_deletion_timeline(
         WHERE deleted_at IS NOT NULL
         GROUP BY source_date
         ORDER BY source_date DESC
-        LIMIT {limit_months}
-    """).fetchall()
+        LIMIT ?
+    """, [limit_months]).fetchall()
 
     timeline_data = []
     for date, count in reversed(results):

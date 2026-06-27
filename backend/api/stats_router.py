@@ -263,14 +263,14 @@ async def city_first_opening():
 @router.get("/stats/top-cities", response_model=List[TopCityItem])
 @cached(ttl=1800)
 async def top_cities(limit: int = 20):
-    rows = client.execute(f"""
+    rows = client.execute("""
         SELECT city, COUNT(*) AS cnt, voivodeship
         FROM locations
         WHERE deleted_at IS NULL 
         GROUP BY city, voivodeship
         ORDER BY cnt DESC
-        LIMIT {max(1, min(limit, 200))}
-    """).fetchall()
+        LIMIT ?
+    """, [max(1, min(limit, 200))]).fetchall()
     return [{"city": r[0], "cnt": int(r[1]), "voivodeship": r[2] or ""} for r in rows]
 
 @router.get("/stats/opening-seasonality", response_model=List[OpeningSeasonalityResponseItem])
@@ -612,19 +612,22 @@ async def sunday_closed_stores(voivodeship: str):
 @router.get("/stats/top-streets", response_model=TopStreetsResponse)
 @cached(ttl=1800)
 async def get_top_streets(limit: int = 20, month: str = None):
+    params = []
     if month:
-        where = f"street IS NOT NULL AND strftime(created_at, '%Y-%m') <= '{month}' AND (deleted_at IS NULL OR strftime(deleted_at, '%Y-%m') >= '{month}')"
+        where = "street IS NOT NULL AND strftime(created_at, '%Y-%m') <= ? AND (deleted_at IS NULL OR strftime(deleted_at, '%Y-%m') >= ?)"
+        params.extend([month, month])
     else:
         where = "deleted_at IS NULL AND street IS NOT NULL"
 
+    params.append(limit)
     results = client.execute(f"""
         SELECT street, city, COUNT(*) as count
         FROM locations
         WHERE {where}
         GROUP BY street, city
         ORDER BY count DESC
-        LIMIT {limit}
-    """).fetchall()
+        LIMIT ?
+    """, params).fetchall()
 
     return {
         "data": [
