@@ -145,8 +145,8 @@
 <h3>Żabka – główne źródło</h3>
 <p>Lokalizacje sklepów pochodzą z publicznego pliku JSON na <code>zabka.pl</code> – to ten sam plik, z którego korzysta sklepowa wyszukiwarka na ich stronie. Plik ma około 13 200 sklepów, każdy ze współrzędnymi GPS, adresem, godzinami otwarcia i flagami (piec Merrychef, otwarte w niedzielę, 24/7). Z pliku wyrzucamy dane osobowe dyrektorów, stałe pola (kraj, aktywność) i marketingowe URLe. Zostają same dane analityczne.</p>
 
-<h3>Granice administracyjne</h3>
-<p>Województwa i powiaty bierzemy z GeoJSON z repozytorium <code>ppatrzyk/polska-geojson</code>. Każdy sklep przypisujemy do województwa i powiatu przez punkt-w-poligon – sprawdzamy, w którym wielokącie leży, i tyle. Gminy i ich powierzchnie z GADM. Miasta (dla statystyki "% polskich miast z Żabką") z GUS BDL. Około 3 sklepy na granicach trafiają do najbliższego regionu zamiast do właściwego – to efekt uproszczonych granic i nie da się z tym nic zrobić bez pełnej bazy adresowej.</p>
+<h3>Podział administracyjny i mapowanie</h3>
+<p>Strukturę podziału terytorialnego Polski (trzy poziomy: województwa, powiaty i gminy) budujemy bezpośrednio z oficjalnych rejestrów GUS BDL oraz TERYT jako pierwszy krok procesu ETL. Sklepy oraz paczkomaty przypisujemy do tej hierarchii relacyjnie na podstawie ich nazw miejscowości, z wykorzystaniem oficjalnej Uniwersalnej Usługi Geokodowania GUGiK do jednoznacznego rozstrzygania przynależności mniejszych miejscowości i wsi, wraz z zapasowym dopasowaniem przestrzennym. Eliminuje to potrzebę stosowania uproszczonych plików GeoJSON i powolnych testów punkt-w-poligon.</p>
 
 <h3>Gospodarka – GUS BDL</h3>
 <p>Zarobki, bezrobocie i populacja na poziomie powiatów pochodzą z Banku Danych Lokalnych (zmienne 64428, 60270, 72305). Pobieramy je raz w roku. Nazwy powiatów trzeba normalizować – GUS lubi dodawać prefiksy (<code>Powiat m.</code>), przyrostki czasowe (<code>od 2023</code>) i zmieniać nazwy (<code>jeleniogórski</code> staje się <code>karkonoski</code> w 2021). Wszystko to czyścimy przed zmatchowaniem. Dokładność: dane pochodzą z roku, w którym GUS je opublikował, nie z bieżącego miesiąca.</p>
@@ -158,7 +158,7 @@
 <p>Wysokość n.p.m. z Numerycznego Modelu Terenu GUGiK (<code>GetHByXY</code>, współrzędne PL-1992). To jest opt-in (flaga <code>--elevation</code>), bo ponad 13 tysięcy zapytań HTTP. Wyniki trafiają do lokalnego cache (<code>elevation_cache.json</code>) – ponowne odpalenie ETL nie odpytuje punktów, które już mamy. Uwaga: serwis GUGiK przyjmuje tylko współrzędne PL-1992, nie WGS84, więc w ETL jest konwersja własnym kodem (bez pyproj).</p>
 
 <h3>Paczkomaty InPost</h3>
-<p>Punkty paczkowe z publicznego API InPost ShipX (typ <code>parcel_locker</code>). Każdego paczkomatu przypisujemy do województwa i powiatu tym samym punktem-w-poligon co sklepy. To jest jednorazowe pobranie – sieć paczkomatów rośnie wolno, mamy około 31 800 punktów. Porównanie Żabek vs paczkomaty – z przełącznikiem poziomu (województwo / powiat / miasto / gmina) – jest na dashboardzie.</p>
+<p>Punkty paczkowe z publicznego API InPost ShipX (typ <code>parcel_locker</code>). Każdy paczkomat przypisujemy do podziału administracyjnego za pomocą tego samego geokodera GUGiK i relacyjnego dopasowania co sklepy. To jest jednorazowe pobranie – sieć paczkomatów rośnie wolno, mamy około 31 800 punktów. Porównanie Żabek vs paczkomaty – z podziałem na województwa, powiaty i gminy – jest na dashboardzie.</p>
 
 <h3>Płazy – GBIF</h3>
 <p>Obserwacje płazów z Global Biodiversity Information Facility (klasa Amphibia, <code>taxonKey=131</code>) w Polsce. Mamy około 46 000 rekordów ze współrzędnymi. BallTree (haversine) zlicza obserwacje w promieniu 5 km od każdego sklepu. Najbardziej żabia Żabka ma 2 028 obserwacji – i to jest w Ursynowie, nie w żadnym parku narodowym.</p>

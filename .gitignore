@@ -63,3 +63,6 @@ archive/
 # Frontend build
 node_modules/
 frontend/dist/
+
+# Zip files
+backend.zip

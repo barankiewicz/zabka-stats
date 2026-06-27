@@ -14,34 +14,40 @@ async def get_location_history(
     location_id: int,
     limit: int = 100,
 ):
-    """Get full change history for a specific location."""
-    location = client.execute(f"SELECT 'Żabka' FROM locations WHERE id = {location_id}").fetchone()
+    """Get full change history (creation and deletion only) for a specific location."""
+    location = client.execute(f"SELECT 'Żabka', created_at, deleted_at FROM locations WHERE id = {location_id}").fetchone()
     if not location:
         raise HTTPException(status_code=404, detail="Location not found")
 
-    results = client.execute(f"""
-        SELECT id, change_type, field_changed, old_value, new_value, recorded_at, snapshot_id
-        FROM histories
-        WHERE location_id = {location_id}
-        ORDER BY recorded_at DESC
-        LIMIT {limit}
-    """).fetchall()
+    created_at = location[1]
+    deleted_at = location[2]
+
+    history_events = []
+    if created_at:
+        history_events.append({
+            "id": 1,
+            "change_type": "created",
+            "field_changed": None,
+            "old_value": None,
+            "new_value": None,
+            "recorded_at": str(created_at),
+            "snapshot_id": 1,
+        })
+    if deleted_at:
+        history_events.append({
+            "id": 2,
+            "change_type": "deleted",
+            "field_changed": None,
+            "old_value": None,
+            "new_value": None,
+            "recorded_at": str(deleted_at),
+            "snapshot_id": 1,
+        })
 
     return {
         "location_id": location_id,
         "location_name": location[0],
-        "history": [
-            {
-                "id": r[0],
-                "change_type": r[1],
-                "field_changed": r[2],
-                "old_value": r[3],
-                "new_value": r[4],
-                "recorded_at": str(r[5]),
-                "snapshot_id": r[6],
-            }
-            for r in results
-        ]
+        "history": history_events[:limit]
     }
 
 
@@ -51,21 +57,39 @@ async def get_monthly_changes(
     year: Optional[int] = None,
     voivodeship: Optional[str] = None,
 ):
-    """Get monthly change statistics."""
-    where = ""
+    """Get monthly change statistics (created and deleted events only)."""
+    where_clauses = []
     if year:
-        where = f"WHERE strftime(histories.source_date, '%Y') = '{year}'"
+        where_clauses.append(f"strftime(event_time, '%Y') = '{year}'")
     if voivodeship:
-        where += f" {'AND' if where else 'WHERE'} voivodeship = '{voivodeship}'"
+        where_clauses.append(f"voivodeship = '{voivodeship}'")
+
+    where = ""
+    if where_clauses:
+        where = "WHERE " + " AND ".join(where_clauses)
 
     results = client.execute(f"""
+        WITH monthly_events AS (
+            SELECT
+                strftime(created_at, '%Y-%m') as month,
+                'created' as change_type,
+                voivodeship,
+                created_at as event_time
+            FROM locations
+            UNION ALL
+            SELECT
+                strftime(deleted_at, '%Y-%m') as month,
+                'deleted' as change_type,
+                voivodeship,
+                deleted_at as event_time
+            FROM locations
+            WHERE deleted_at IS NOT NULL
+        )
         SELECT
-            strftime(histories.source_date, '%Y-%m') as month,
+            month,
             change_type,
             COUNT(*) as count
-        FROM histories
-        JOIN snapshots ON histories.snapshot_id = snapshots.id
-        {'LEFT JOIN locations ON histories.location_id = locations.id' if voivodeship else ''}
+        FROM monthly_events
         {where}
         GROUP BY month, change_type
         ORDER BY month
@@ -97,18 +121,31 @@ async def get_voivodeship_changes(
     """Get change statistics aggregated by voivodeship."""
     where = ""
     if month:
-        where = f"WHERE strftime(snapshots.source_date, '%Y-%m') = '{month}'"
+        where = f"WHERE strftime(event_time, '%Y-%m') = '{month}'"
 
     results = client.execute(f"""
+        WITH monthly_events AS (
+            SELECT
+                voivodeship,
+                'created' as change_type,
+                created_at as event_time
+            FROM locations
+            WHERE voivodeship IS NOT NULL
+            UNION ALL
+            SELECT
+                voivodeship,
+                'deleted' as change_type,
+                deleted_at as event_time
+            FROM locations
+            WHERE deleted_at IS NOT NULL AND voivodeship IS NOT NULL
+        )
         SELECT
-            locations.voivodeship,
-            histories.change_type,
+            voivodeship,
+            change_type,
             COUNT(*) as count
-        FROM histories
-        JOIN locations ON histories.location_id = locations.id
-        JOIN snapshots ON histories.snapshot_id = snapshots.id
+        FROM monthly_events
         {where}
-        GROUP BY locations.voivodeship, histories.change_type
+        GROUP BY voivodeship, change_type
     """).fetchall()
 
     voivodeship_stats = {}
@@ -138,13 +175,12 @@ async def get_deletion_timeline(
     """Get timeline of deletions over the last N months."""
     results = client.execute(f"""
         SELECT
-            histories.source_date,
+            CAST(deleted_at AS DATE) as source_date,
             COUNT(*) as count
-        FROM histories
-        JOIN snapshots ON histories.snapshot_id = snapshots.id
-        WHERE change_type = 'deleted'
-        GROUP BY histories.source_date
-        ORDER BY histories.source_date DESC
+        FROM locations
+        WHERE deleted_at IS NOT NULL
+        GROUP BY source_date
+        ORDER BY source_date DESC
         LIMIT {limit_months}
     """).fetchall()
 

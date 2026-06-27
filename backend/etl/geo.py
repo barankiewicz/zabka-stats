@@ -30,21 +30,6 @@ def ring_contains(lon, lat, ring) -> bool:
     return inside
 
 
-def point_in_multipolygon(lon, lat, polygons) -> bool:
-    """Ray casting dla MultiPolygon (lista pierscieni [ [ [lon,lat],... ] ])."""
-    inside = False
-    for ring in polygons:
-        n = len(ring)
-        j = n - 1
-        for i in range(n):
-            xi, yi = ring[i][0], ring[i][1]
-            xj, yj = ring[j][0], ring[j][1]
-            if ((yi > lat) != (yj > lat)) and \
-               (lon < (xj - xi) * (lat - yi) / (yj - yi + 1e-12) + xi):
-                inside = not inside
-            j = i
-    return inside
-
 
 # ---------------------------------------------------------------------------
 # Indeksy poligonow

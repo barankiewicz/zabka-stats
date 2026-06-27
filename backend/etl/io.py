@@ -12,12 +12,12 @@ import re
 import json
 import time
 from collections import defaultdict
-from datetime import date
+from datetime import date, datetime
 
 import requests
 import numpy as np
 
-from backend.etl.geo import EARTH_KM, poland_rings, point_in_multipolygon
+from backend.etl.geo import EARTH_KM, poland_rings
 from backend.database_ch import ENRICHMENT_COLUMNS
 
 DB_PATH = os.getenv("ZABKA_DB", "data/zabka.duckdb")
@@ -275,10 +275,32 @@ def farthest_point_from_any_zabka(lats, lons, woj_geo: dict,
     (problem najwiekszego pustego kola). Zwraca {lat, lon, dist_km}.
     """
     from sklearn.neighbors import BallTree
+    from backend.etl.geo import ring_contains
 
     pts = np.radians(np.column_stack([lats, lons]))
     tree = BallTree(pts, metric="haversine")
-    rings = poland_rings(woj_geo)
+    raw_rings = poland_rings(woj_geo)
+
+    # Subsample rings to speed up ray casting and precompute bboxes
+    prepared_rings = []
+    for r in raw_rings:
+        # Take every 20th coordinate to speed up, keep the first/last
+        sub = r[::20]
+        if not sub or sub[-1] != r[-1]:
+            sub.append(r[-1])
+        xs = [pt[0] for pt in sub]
+        ys = [pt[1] for pt in sub]
+        bbox = (min(xs), min(ys), max(xs), max(ys))
+        prepared_rings.append((bbox, sub))
+
+    def point_in_prepared(lon, lat):
+        inside = False
+        for (x0, y0, x1, y1), ring in prepared_rings:
+            if x0 <= lon <= x1 and y0 <= lat <= y1:
+                if ring_contains(lon, lat, ring):
+                    inside = not inside
+                    break # disjoint voivodeships
+        return inside
 
     def nearest_km(grid_lat, grid_lon):
         q = np.radians(np.column_stack([grid_lat, grid_lon]))
@@ -292,7 +314,7 @@ def farthest_point_from_any_zabka(lats, lons, woj_geo: dict,
         LAT = LAT.ravel()
         LON = LON.ravel()
         # tylko punkty wewnatrz Polski
-        mask = np.array([point_in_multipolygon(lo, la, rings)
+        mask = np.array([point_in_prepared(lo, la)
                          for la, lo in zip(LAT, LON)])
         if not mask.any():
             return None
@@ -325,98 +347,154 @@ def ensure_enrichment_columns(con):
 
 
 def load_to_duckdb(con, rows: list, meta: dict):
-    """Zapisz snapshot + lokalizacje. Zastepuje dane dla tej samej daty.
-    Ciekawe fakty (fun_facts) laduje osobno load_fun_facts()."""
+    """Zapisz snapshot jako SCD Type 2 w tabeli locations.
+    Porównuje biezace aktywne sklepy z wejsciowymi:
+    - nowe sklepy sa wstawiane (created_at = source_date)
+    - brakujace sklepy sa soft-deletowane (deleted_at = source_date)
+    - istniejace aktywne sa aktualizowane w miejscu.
+    """
     ensure_enrichment_columns(con)
     src_date = meta.get("source_date") or date.today().isoformat()
-    total = len(rows)
-    czy = sum(1 for r in rows if r.get("has_merrychef"))
-    sun = sum(1 for r in rows if r.get("open_sunday"))
-    h24 = sum(1 for r in rows if r.get("h24"))
-    visible = sum(1 for r in rows if r.get("is_visible"))
-    towns = len({r.get("city") for r in rows if r.get("city")})
+    src_dt = datetime.fromisoformat(src_date)
+    
+    # Drop secondary indexes to avoid index corruption/fatal errors during bulk update
+    for idx in ("idx_locations_city", "idx_locations_voivodeship", "idx_locations_powiat",
+                "idx_locations_deleted_at", "idx_locations_store_id", "idx_locations_created_at",
+                "idx_locations_voivodeship_id", "idx_locations_powiat_id",
+                "idx_locations_voiv_id", "idx_locations_powiat_id", "idx_locations_miasto_id", "idx_locations_gmina_id"):
+        try:
+            con.execute(f"DROP INDEX IF EXISTS {idx}")
+        except Exception:
+            pass
+            
+    # 1. Pobierz wszystkie aktywne store_id z bazy danych (gdzie deleted_at IS NULL)
+    db_active = {}
+    db_rows = con.execute("SELECT store_id, id FROM locations WHERE deleted_at IS NULL").fetchall()
+    for store_id, db_id in db_rows:
+        db_active[store_id] = db_id
 
-    # idempotentny re-run dla tej samej daty: czyscimy snapshot, jego lokalizacje i historie
-    con.execute("DELETE FROM locations WHERE snapshot_id IN "
-                "(SELECT id FROM snapshots WHERE source_date = ?)", [src_date])
-    con.execute("DELETE FROM histories WHERE source_date = ?", [src_date])
-    con.execute("DELETE FROM snapshots WHERE source_date = ?", [src_date])
-    sid = con.execute("SELECT COALESCE(MAX(id),0)+1 FROM snapshots").fetchone()[0]
-    con.execute("""INSERT INTO snapshots
-        (id, source_date, total_count, visible_count, with_merrychef, open_sunday, h24, towns, created_at)
-        VALUES (?,?,?,?,?,?,?,?, now())""",
-        [sid, src_date, total, visible, czy, sun, h24, towns])
+    incoming_store_ids = {r["store_id"] for r in rows}
+    
+    # 2. Sklepy do soft-delete (te co sa w db_active, ale nie w incoming)
+    to_delete = [db_id for store_id, db_id in db_active.items() if store_id not in incoming_store_ids]
+    if to_delete:
+        con.executemany("UPDATE locations SET deleted_at = ? WHERE id = ?", 
+                        [(src_dt, db_id) for db_id in to_delete])
+        print(f"[load] soft-deleted {len(to_delete)} stores (not present in incoming data)")
 
-    base = con.execute("SELECT COALESCE(MAX(id),0) FROM locations").fetchone()[0]
-    payload = []
-    for j, r in enumerate(rows):
+    # 3. Rozdziel incoming rows na nowe i do aktualizacji
+    to_insert = []
+    to_update = []
+    
+    for r in rows:
+        store_id = r["store_id"]
         fod = r.get("first_opening_date") or None
-        payload.append((base + j + 1, sid, r.get("store_id"),
-                        r.get("city"), r.get("street"), r.get("voivodeship"),
-                        r.get("powiat"),
-                        r["latitude"], r["longitude"],
-                        r.get("has_merrychef"), r.get("open_sunday"), r.get("h24"),
-                        r.get("opening_hours_monsat"), r.get("opening_hours_sun"),
-                        fod, r.get("is_visible"),
-                         r.get("is_new_month"), r.get("is_new_two_weeks"),
-                         r.get("elevation_meters"),
-                         r.get("light_pollution_brightness"), r.get("bortle_scale"),
-                         r.get("is_in_nature_park"), r.get("nature_park_id"),
-                         r.get("nearest_neighbor_distance_meters"),
-                         r.get("amphibian_occurrences_5km"), r.get("nearest_amphibian_km"),
-                         r.get("voivodeship_id"), r.get("powiat_id")))
-    con.executemany("""INSERT INTO locations
-        (id, snapshot_id, store_id, city, street, voivodeship, powiat,
-         latitude, longitude, has_merrychef, open_sunday, h24,
-         opening_hours_monsat, opening_hours_sun, first_opening_date,
-         is_visible, is_new_month, is_new_two_weeks,
-         elevation_meters, light_pollution_brightness, bortle_scale,
-         is_in_nature_park, nature_park_id,
-         nearest_neighbor_distance_meters,
-         amphibian_occurrences_5km, nearest_amphibian_km,
-         voivodeship_id, powiat_id)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", payload)
-    record_history(con, sid, src_date)
-    print(f"[load] snapshot {sid} ({src_date}): {total:,} sklepow zapisanych")
-    return sid
+        vals = (
+            r.get("store_id"),
+            r.get("city"),
+            r.get("street"),
+            r.get("voivodeship"),
+            r.get("powiat"),
+            r.get("voivodeship_id"),
+            r.get("powiat_id"),
+            r["latitude"],
+            r["longitude"],
+            r.get("has_merrychef"),
+            r.get("open_sunday"),
+            r.get("h24"),
+            r.get("opening_hours_monsat"),
+            r.get("opening_hours_sun"),
+            fod,
+            r.get("is_visible"),
+            r.get("is_new_month"),
+            r.get("is_new_two_weeks"),
+            r.get("elevation_meters"),
+            r.get("is_in_nature_park"),
+            r.get("nature_park_id"),
+            r.get("nearest_neighbor_distance_meters"),
+            r.get("amphibian_occurrences_5km"),
+            r.get("nearest_amphibian_km"),
+            r.get("gmina_id"),
+            r.get("miasto_id")
+        )
+        
+        if store_id in db_active:
+            to_update.append(vals[1:] + (db_active[store_id],))
+        else:
+            to_insert.append(vals + (src_dt, None))
+
+    if to_insert:
+        con.executemany("""
+            INSERT INTO locations (
+                id, store_id, city, street, voivodeship, powiat,
+                voivodeship_id, powiat_id, latitude, longitude,
+                has_merrychef, open_sunday, h24,
+                opening_hours_monsat, opening_hours_sun, first_opening_date,
+                is_visible, is_new_month, is_new_two_weeks,
+                elevation_meters, is_in_nature_park, nature_park_id,
+                nearest_neighbor_distance_meters,
+                amphibian_occurrences_5km, nearest_amphibian_km,
+                gmina_id, miasto_id,
+                created_at, deleted_at
+            ) VALUES (nextval('seq_locations'),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """, to_insert)
+        print(f"[load] inserted {len(to_insert)} new stores")
+
+    if to_update:
+        con.executemany("""
+            UPDATE locations SET
+                city = ?,
+                street = ?,
+                voivodeship = ?,
+                powiat = ?,
+                voivodeship_id = ?,
+                powiat_id = ?,
+                latitude = ?,
+                longitude = ?,
+                has_merrychef = ?,
+                open_sunday = ?,
+                h24 = ?,
+                opening_hours_monsat = ?,
+                opening_hours_sun = ?,
+                first_opening_date = ?,
+                is_visible = ?,
+                is_new_month = ?,
+                is_new_two_weeks = ?,
+                elevation_meters = ?,
+                is_in_nature_park = ?,
+                nature_park_id = ?,
+                nearest_neighbor_distance_meters = ?,
+                amphibian_occurrences_5km = ?,
+                nearest_amphibian_km = ?,
+                gmina_id = ?,
+                miasto_id = ?
+            WHERE id = ?
+        """, to_update)
+        print(f"[load] updated {len(to_update)} existing stores")
+
+    # Recreate secondary indexes after bulk update
+    for stmt in (
+        "CREATE INDEX IF NOT EXISTS idx_locations_city ON locations(city)",
+        "CREATE INDEX IF NOT EXISTS idx_locations_deleted_at ON locations(deleted_at)",
+        "CREATE INDEX IF NOT EXISTS idx_locations_store_id ON locations(store_id)",
+        "CREATE INDEX IF NOT EXISTS idx_locations_created_at ON locations(created_at)",
+        "CREATE INDEX IF NOT EXISTS idx_locations_voivodeship_id ON locations(voivodeship_id)",
+        "CREATE INDEX IF NOT EXISTS idx_locations_powiat_id ON locations(powiat_id)",
+        "CREATE INDEX IF NOT EXISTS idx_locations_miasto_id ON locations(miasto_id)",
+        "CREATE INDEX IF NOT EXISTS idx_locations_gmina_id ON locations(gmina_id)",
+    ):
+        try:
+            con.execute(stmt)
+        except Exception:
+            pass
+
+    print(f"[load] snapshot ({src_date}): {len(rows):,} stores processed")
+    return 1
 
 
 def record_history(con, sid: int, src_date: str):
-    """Zapisz narodziny/zgony Żabek: diff store_id miedzy biezacym snapshotem a
-    poprzednim. created = store_id w nowym, nie ma w poprzednim; deleted = odwrotnie.
-    Dodatkowo znacznik deleted_at na wierszu znikajacego sklepu w poprzednim snapshocie.
-    Pierwszy snapshot (brak poprzedniego) nie generuje historii - to baza, nie zmiana."""
-    prev = con.execute("SELECT id FROM snapshots WHERE source_date < ? "
-                       "ORDER BY source_date DESC LIMIT 1", [src_date]).fetchone()
-    if not prev:
-        print("[history] pierwszy snapshot - brak diffu (baza)")
-        return
-    prev_sid = prev[0]
-    # narodziny: sklepy obecne dzis, nieobecne w poprzednim
-    con.execute("""
-        INSERT INTO histories (location_id, snapshot_id, source_date, store_id, change_type, recorded_at)
-        SELECT l.id, ?, ?, l.store_id, 'created', now()
-        FROM locations l
-        WHERE l.snapshot_id = ?
-          AND l.store_id NOT IN (SELECT store_id FROM locations WHERE snapshot_id = ?)
-    """, [sid, src_date, sid, prev_sid])
-    # zgony: sklepy z poprzedniego, nieobecne dzis (location_id wskazuje wiersz z prev)
-    con.execute("""
-        INSERT INTO histories (location_id, snapshot_id, source_date, store_id, change_type, recorded_at)
-        SELECT lp.id, ?, ?, lp.store_id, 'deleted', now()
-        FROM locations lp
-        WHERE lp.snapshot_id = ?
-          AND lp.store_id NOT IN (SELECT store_id FROM locations WHERE snapshot_id = ?)
-    """, [sid, src_date, prev_sid, sid])
-    # soft-delete: oznacz znikajace sklepy w poprzednim snapshocie data biezaca
-    con.execute("""
-        UPDATE locations SET deleted_at = now()
-        WHERE snapshot_id = ?
-          AND store_id NOT IN (SELECT store_id FROM locations WHERE snapshot_id = ?)
-    """, [prev_sid, sid])
-    born = con.execute("SELECT count(*) FROM histories WHERE snapshot_id=? AND change_type='created'", [sid]).fetchone()[0]
-    died = con.execute("SELECT count(*) FROM histories WHERE snapshot_id=? AND change_type='deleted'", [sid]).fetchone()[0]
-    print(f"[history] narodziny: {born}, zgony: {died} (vs snapshot {prev_sid})")
+    """Zapisz narodziny/zgony Żabek - no-op w nowym modelu SCD Type 2."""
+    pass
 
 
 # ---------------------------------------------------------------------------
@@ -454,60 +532,178 @@ def reload_cache():
 # LOAD: paczkomaty (osobna encja) + wymiary geograficzne
 # ---------------------------------------------------------------------------
 def load_parcel_lockers(con, lockers: list, sid: int, src_date: str):
-    """Zapisz paczkomaty otagowane snapshot_id (jak Żabki) - per dzien, do trendow.
-    Idempotentnie czysci paczkomaty tej daty przed wstawieniem."""
+    """Zapisz paczkomaty jako SCD Type 2.
+    Porównuje biezace aktywne paczkomaty z wejsciowymi:
+    - nowe sa wstawiane (created_at = source_date)
+    - brakujace sa soft-deletowane (deleted_at = source_date)
+    - istniejace aktywne sa aktualizowane w miejscu gdy ulegly zmianie.
+    """
     from backend.database_ch import ensure_extra_tables
     ensure_extra_tables(con)
-    con.execute("DELETE FROM parcel_lockers WHERE source_date = ?", [src_date])
     if not lockers:
         print("[paczkomaty] brak danych")
         return
-    base = con.execute("SELECT COALESCE(MAX(id),0) FROM parcel_lockers").fetchone()[0]
-    payload = [(base + i + 1, sid, src_date, L.get("operator"), L.get("external_id"),
-                L.get("type"), L.get("city"), L.get("voivodeship"), L.get("powiat"),
-                L.get("voivodeship_id"), L.get("powiat_id"),
-                L.get("latitude"), L.get("longitude"), L.get("status"))
-               for i, L in enumerate(lockers)]
-    con.executemany("""INSERT INTO parcel_lockers
-        (id, snapshot_id, source_date, operator, external_id, type, city, voivodeship, powiat,
-         voivodeship_id, powiat_id, latitude, longitude, status)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", payload)
-    print(f"[paczkomaty] zapisano {len(payload):,} punktow (snapshot {sid})")
+        
+    src_dt = datetime.fromisoformat(src_date)
+    
+    # Drop secondary indexes to avoid index corruption/fatal errors during bulk update
+    for idx in ("idx_lockers_voiv_id", "idx_lockers_powiat_id", "idx_lockers_miasto_id", "idx_lockers_gmina_id", "idx_lockers_deleted_at", "idx_lockers_external_id"):
+        try:
+            con.execute(f"DROP INDEX IF EXISTS {idx}")
+        except Exception:
+            pass
+
+    # 1. Pobierz wszystkie aktywne paczkomaty z bazy danych
+    db_active = {}
+    db_rows = con.execute("""
+        SELECT external_id, id, latitude, longitude, voivodeship_id, powiat_id, miasto_id, gmina_id, status 
+        FROM parcel_lockers 
+        WHERE deleted_at IS NULL
+    """).fetchall()
+    for row in db_rows:
+        ext_id = row[0]
+        if ext_id:
+            db_active[ext_id] = {
+                "id": row[1],
+                "latitude": row[2],
+                "longitude": row[3],
+                "voivodeship_id": row[4],
+                "powiat_id": row[5],
+                "miasto_id": row[6],
+                "gmina_id": row[7],
+                "status": row[8]
+            }
+
+    incoming_ext_ids = {L["external_id"] for L in lockers if L.get("external_id")}
+    
+    # 2. Soft-delete paczkomaty (te co sa w db_active, ale nie w incoming)
+    to_delete = [db_val["id"] for ext_id, db_val in db_active.items() if ext_id not in incoming_ext_ids]
+    if to_delete:
+        con.executemany("UPDATE parcel_lockers SET deleted_at = ? WHERE id = ?",
+                        [(src_dt, db_id) for db_id in to_delete])
+        print(f"[paczkomaty] soft-deleted {len(to_delete)} parcel lockers")
+
+    # 3. Rozdziel incoming rows na nowe (inserts) i do aktualizacji (updates)
+    to_insert = []
+    to_update = []
+    
+    for L in lockers:
+        ext_id = L.get("external_id")
+        if not ext_id:
+            continue
+            
+        vals = (
+            ext_id,
+            src_date,
+            L.get("latitude"),
+            L.get("longitude"),
+            L.get("voivodeship_id"),
+            L.get("powiat_id"),
+            L.get("miasto_id"),
+            L.get("gmina_id"),
+            L.get("status")
+        )
+        
+        if ext_id in db_active:
+            db_val = db_active[ext_id]
+            # Sprawdzamy czy cokolwiek sie zmienilo
+            if (
+                abs((L.get("latitude") or 0) - (db_val["latitude"] or 0)) > 1e-5 or
+                abs((L.get("longitude") or 0) - (db_val["longitude"] or 0)) > 1e-5 or
+                L.get("voivodeship_id") != db_val["voivodeship_id"] or
+                L.get("powiat_id") != db_val["powiat_id"] or
+                L.get("miasto_id") != db_val["miasto_id"] or
+                L.get("gmina_id") != db_val["gmina_id"] or
+                L.get("status") != db_val["status"]
+            ):
+                to_update.append(vals[1:] + (db_val["id"],))
+        else:
+            to_insert.append(vals)
+
+    # 4. Wykonaj aktualizacje w miejscu (w bardzo nielicznych przypadkach)
+    if to_update:
+        con.executemany("""
+            UPDATE parcel_lockers SET
+                source_date = ?,
+                latitude = ?,
+                longitude = ?,
+                voivodeship_id = ?,
+                powiat_id = ?,
+                miasto_id = ?,
+                gmina_id = ?,
+                status = ?
+            WHERE id = ?
+        """, to_update)
+        print(f"[paczkomaty] updated {len(to_update)} existing parcel lockers")
+
+    # 5. Hurtowe wstawianie nowych (przez CSV dla wydajnosci)
+    if to_insert:
+        import csv
+        import tempfile
+        
+        with tempfile.NamedTemporaryFile(mode="w", newline="", encoding="utf-8", suffix=".csv", delete=False) as tmp:
+            tmp_name = tmp.name
+            writer = csv.writer(tmp)
+            writer.writerow(["external_id", "source_date", "latitude", "longitude", "voivodeship_id", "powiat_id", "miasto_id", "gmina_id", "status"])
+            for vals in to_insert:
+                writer.writerow(vals)
+                
+        try:
+            con.execute(f"""
+                INSERT INTO parcel_lockers
+                (id, external_id, source_date, latitude, longitude, voivodeship_id, powiat_id, miasto_id, gmina_id, status, created_at, deleted_at)
+                SELECT nextval('seq_parcel_lockers'), external_id, source_date, latitude, longitude, voivodeship_id, powiat_id, miasto_id, gmina_id, status, ? as created_at, CAST(NULL AS TIMESTAMP) as deleted_at
+                FROM read_csv_auto('{tmp_name}')
+            """, [src_dt])
+            print(f"[paczkomaty] inserted {len(to_insert):,} new parcel lockers")
+        finally:
+            try:
+                os.unlink(tmp_name)
+            except Exception:
+                pass
+
+    # Recreate secondary indexes
+    for stmt in (
+        "CREATE INDEX IF NOT EXISTS idx_lockers_voiv_id ON parcel_lockers(voivodeship_id)",
+        "CREATE INDEX IF NOT EXISTS idx_lockers_powiat_id ON parcel_lockers(powiat_id)",
+        "CREATE INDEX IF NOT EXISTS idx_lockers_miasto_id ON parcel_lockers(miasto_id)",
+        "CREATE INDEX IF NOT EXISTS idx_lockers_gmina_id ON parcel_lockers(gmina_id)",
+        "CREATE INDEX IF NOT EXISTS idx_lockers_deleted_at ON parcel_lockers(deleted_at)",
+        "CREATE INDEX IF NOT EXISTS idx_lockers_external_id ON parcel_lockers(external_id)",
+    ):
+        try:
+            con.execute(stmt)
+        except Exception:
+            pass
 
 
 def enforce_retention(con, src_date: str, months: int = 6):
-    """Rolling window: trzymaj tylko ostatnie `months` miesiecy. Usun ogon -
-    snapshoty (i ich lokalizacje, historie, paczkomaty) starsze niz prog."""
+    """Rolling window: trzymaj tylko dane z ostatnich `months` miesiecy.
+    Usuwa soft-deletowane lokalizacje i paczkomaty starsze niz prog."""
     from dateutil.relativedelta import relativedelta
     cutoff = (date.fromisoformat(str(src_date)) - relativedelta(months=months)).isoformat()
-    old = con.execute("SELECT id FROM snapshots WHERE source_date < ?", [cutoff]).fetchall()
-    if not old:
-        print(f"[retencja] okno {months} mies. (prog {cutoff}) - nic do usuniecia")
-        return
-    ids = [o[0] for o in old]
-    ph = ",".join("?" * len(ids))
-    con.execute(f"DELETE FROM locations WHERE snapshot_id IN ({ph})", ids)
-    con.execute(f"DELETE FROM parcel_lockers WHERE snapshot_id IN ({ph})", ids)
-    con.execute("DELETE FROM histories WHERE source_date < ?", [cutoff])
-    con.execute("DELETE FROM snapshots WHERE source_date < ?", [cutoff])
-    print(f"[retencja] usunieto {len(ids)} snapshotow starszych niz {cutoff} (okno {months} mies.)")
+    
+    deleted_locs = con.execute("DELETE FROM locations WHERE deleted_at < ?", [cutoff]).rowcount
+    deleted_lockers = con.execute("DELETE FROM parcel_lockers WHERE source_date < ?", [cutoff]).rowcount
+    print(f"[retencja] usunieto {deleted_locs} usunietych sklepow i {deleted_lockers} paczkomatow starszych niz {cutoff}")
 
 
 def load_dimensions(con, dim_powiat: list, dim_voivodeship: list):
-    """Zapisz wymiary geograficzne (replace), z kluczami numerycznymi.
-    dim_powiat: [(id, name, voivodeship_id, population, avg_salary, unemployment_rate)],
-    dim_voivodeship: [(id, name, population)]."""
+    """Aktualizuje wymiary geograficzne (populacja, płaca, bezrobocie) 
+    w tabeli administrative_division na bazie danych z GUS.
+    """
     from backend.database_ch import ensure_extra_tables
     ensure_extra_tables(con)
-    con.execute("DELETE FROM dim_powiat")
-    con.execute("DELETE FROM dim_voivodeship")
+    
     if dim_voivodeship:
-        con.executemany("INSERT INTO dim_voivodeship (id, name, population) "
-                        "VALUES (?,?,?)", dim_voivodeship)
+        payload_voiv = [(v[2], v[0]) for v in dim_voivodeship]
+        con.executemany("UPDATE administrative_division SET population = ? WHERE id = ?", payload_voiv)
+        
     if dim_powiat:
-        con.executemany("INSERT INTO dim_powiat (id, name, voivodeship_id, population, "
-                        "avg_salary, unemployment_rate) VALUES (?,?,?,?,?,?)", dim_powiat)
-    print(f"[dims] dim_powiat: {len(dim_powiat)}, dim_voivodeship: {len(dim_voivodeship)}")
+        payload_pow = [(p[3], p[4], p[5], p[0]) for p in dim_powiat]
+        con.executemany("UPDATE administrative_division SET population = ?, avg_salary = ?, unemployment_rate = ? WHERE id = ?", payload_pow)
+        
+    print(f"[dims] Zaktualizowano dane GUS dla {len(dim_voivodeship)} wojewodztw i {len(dim_powiat)} powiatow w administrative_division")
 
 
 def load_dim_park(con, parks: list):

@@ -12,10 +12,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
-from backend.etl.geo import build_polygon_index, assign_region, nearest_region
 from backend.etl.io import (
-    USER_AGENT, GEO_DIR, load_geojson, GEOJSON_WOJ, GEOJSON_POW,
-    HTTP_TIMEOUT, with_retries,
+    USER_AGENT, HTTP_TIMEOUT, with_retries,
 )
 
 INPOST_POINTS_URL = "https://api-shipx-pl.easypack24.net/v1/points"
@@ -90,8 +88,7 @@ def _load_inpost_points() -> list:
 
 
 def fetch_parcel_lockers() -> list:
-    """Lista paczkomatow gotowa do zapisu: operator + geografia (woj/powiat przez
-    point-in-polygon, ten sam co Żabki). Best-effort: [] gdy zrodlo niedostepne."""
+    """Lista paczkomatow gotowa do zapisu. Best-effort: [] gdy zrodlo niedostepne."""
     try:
         pts = _load_inpost_points()
     except Exception as e:
@@ -100,27 +97,18 @@ def fetch_parcel_lockers() -> list:
     if not pts:
         print("[paczkomaty] brak punktow - pomijam")
         return []
-    woj_idx = build_polygon_index(load_geojson(GEOJSON_WOJ, "wojewodztwa.geojson"))
-    pow_idx = build_polygon_index(load_geojson(GEOJSON_POW, "powiaty.geojson"))
     out = []
-    fb = 0
     for p in pts:
-        lon, lat = p["longitude"], p["latitude"]
-        w = assign_region(lon, lat, woj_idx) or nearest_region(lon, lat, woj_idx)
-        pw = assign_region(lon, lat, pow_idx) or nearest_region(lon, lat, pow_idx)
-        if not assign_region(lon, lat, woj_idx):
-            fb += 1
         out.append({
             "operator": "InPost",
             "external_id": p.get("external_id"),
             "type": p.get("type"),
             "city": p.get("city"),
-            "voivodeship": w,
-            "powiat": pw,
-            "latitude": lat,
-            "longitude": lon,
+            "voivodeship": None,
+            "powiat": None,
+            "latitude": p["latitude"],
+            "longitude": p["longitude"],
             "status": p.get("status"),
         })
-    print(f"[paczkomaty] {len(out):,} punktow InPost (typ {INPOST_TYPE}); "
-          f"przypisano woj/powiat (fallback granicy: {fb})")
+    print(f"[paczkomaty] wczytano {len(out):,} punktow InPost (typ {INPOST_TYPE})")
     return out

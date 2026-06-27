@@ -20,34 +20,19 @@ def _run_all_ddl(con):
     tables = con.execute("SELECT table_name FROM information_schema.tables").fetchall()
     table_names = [t[0] for t in tables]
 
-    if 'snapshots' not in table_names:
+    if 'locations' not in table_names:
         print("Creating DuckDB schema...")
 
-        for seq in ("seq_snapshots", "seq_locations", "seq_histories"):
+        for seq in ("seq_locations", "seq_parcel_lockers"):
             try:
                 con.execute(f"CREATE SEQUENCE {seq} START 1")
             except Exception:
                 pass
 
-        con.execute("""
-            CREATE TABLE snapshots (
-                id INTEGER PRIMARY KEY DEFAULT nextval('seq_snapshots'),
-                source_date DATE UNIQUE NOT NULL,
-                total_count INTEGER,
-                visible_count INTEGER,
-                with_merrychef INTEGER,
-                open_sunday INTEGER,
-                h24 INTEGER,
-                towns INTEGER,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
         # Czysty model analityczny — PII, stale pola i wewnetrzne id wyrzucone.
         con.execute("""
             CREATE TABLE locations (
                 id INTEGER PRIMARY KEY DEFAULT nextval('seq_locations'),
-                snapshot_id INTEGER NOT NULL,
                 store_id VARCHAR,
                 city VARCHAR,
                 street VARCHAR,
@@ -67,48 +52,60 @@ def _run_all_ddl(con):
                 is_new_month BOOLEAN,
                 is_new_two_weeks BOOLEAN,
                 elevation_meters DOUBLE,
-                light_pollution_brightness DOUBLE,
-                bortle_scale INTEGER,
                 is_in_nature_park BOOLEAN DEFAULT FALSE,
                 nature_park_id INTEGER,
                 nearest_neighbor_distance_meters INTEGER,
                 amphibian_occurrences_5km INTEGER,
                 nearest_amphibian_km DOUBLE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                deleted_at TIMESTAMP,
-                FOREIGN KEY (snapshot_id) REFERENCES snapshots(id)
+                deleted_at TIMESTAMP
             )
         """)
 
-        # Bez FK — retencja kasuje stare snapshoty/lokalizacje, a wymuszony FK
-        # by sie na tym wywalal. source_date + store_id zdenormalizowane.
+        # dim_date table
         con.execute("""
-            CREATE TABLE histories (
-                id INTEGER PRIMARY KEY DEFAULT nextval('seq_histories'),
-                location_id INTEGER,
-                snapshot_id INTEGER,
-                source_date DATE,
-                store_id VARCHAR,
-                change_type VARCHAR NOT NULL,
-                field_changed VARCHAR,
-                old_value VARCHAR,
-                new_value VARCHAR,
-                recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            CREATE TABLE dim_date (
+                date_actual DATE PRIMARY KEY,
+                day_name VARCHAR NOT NULL,
+                day_of_week INTEGER NOT NULL,
+                day_of_month INTEGER NOT NULL,
+                day_of_year INTEGER NOT NULL,
+                month_number INTEGER NOT NULL,
+                month_name VARCHAR NOT NULL,
+                year_actual INTEGER NOT NULL,
+                is_weekend BOOLEAN NOT NULL,
+                quarter INTEGER NOT NULL
             )
+        """)
+
+        con.execute("""
+            INSERT INTO dim_date (
+                date_actual, day_name, day_of_week, day_of_month, day_of_year,
+                month_number, month_name, year_actual, is_weekend, quarter
+            )
+            SELECT 
+                d AS date_actual,
+                dayname(d) AS day_name,
+                dayofweek(d) AS day_of_week,
+                dayofmonth(d) AS day_of_month,
+                dayofyear(d) AS day_of_year,
+                month(d) AS month_number,
+                monthname(d) AS month_name,
+                year(d) AS year_actual,
+                CASE WHEN dayofweek(d) IN (0, 6) THEN TRUE ELSE FALSE END AS is_weekend,
+                quarter(d) AS quarter
+            FROM generate_series(DATE '2024-01-01', DATE '2030-12-31', INTERVAL '1 day') AS t(d)
         """)
 
         for stmt in (
-            "CREATE INDEX idx_locations_snapshot_id ON locations(snapshot_id)",
             "CREATE INDEX idx_locations_city ON locations(city)",
             "CREATE INDEX idx_locations_voivodeship ON locations(voivodeship)",
             "CREATE INDEX idx_locations_powiat ON locations(powiat)",
             "CREATE INDEX idx_locations_deleted_at ON locations(deleted_at)",
             "CREATE INDEX idx_locations_store_id ON locations(store_id)",
-            "CREATE INDEX idx_histories_location_id ON histories(location_id)",
-            "CREATE INDEX idx_histories_snapshot_id ON histories(snapshot_id)",
-            "CREATE INDEX idx_histories_source_date ON histories(source_date)",
-            "CREATE INDEX idx_histories_change_type ON histories(change_type)",
-            "CREATE INDEX idx_snapshots_source_date ON snapshots(source_date)",
+            "CREATE INDEX idx_locations_created_at ON locations(created_at)",
+            "CREATE INDEX idx_locations_voivodeship_id ON locations(voivodeship_id)",
+            "CREATE INDEX idx_locations_powiat_id ON locations(powiat_id)",
         ):
             con.execute(stmt)
 
@@ -147,10 +144,8 @@ class _ConnectionProxy:
         return getattr(self._conn, name)
 
 
-# Read-only connection shared across all API request handlers.
-# DuckDB allows multiple concurrent read-only connections to the same file.
-# The ETL cron stops the backend service before opening its own read-write
-# connection, so there is no write/read conflict in production.
+if not DB_PATH.exists():
+    duckdb.connect(str(DB_PATH)).close()
 client = _ConnectionProxy(duckdb.connect(str(DB_PATH), read_only=True))
 
 
@@ -185,60 +180,38 @@ def ensure_extra_tables(con):
     geograficzne (dim_powiat, dim_voivodeship). Z poziomu wymiarow pisze sie
     zapytania zestawiajace Żabki i paczkomaty (JOIN po powiat/voivodeship).
     Bezpieczne do wielokrotnego wywolania."""
-    # Fakty: paczkomaty (InPost). Stan najnowszy (replace), bez ciezkich wzbogacen
-    # - tylko geografia (miasto z adresu, woj/powiat przez point-in-polygon).
     con.execute("""
         CREATE TABLE IF NOT EXISTS parcel_lockers (
-            id INTEGER PRIMARY KEY,
-            snapshot_id INTEGER,
-            source_date DATE,
-            operator VARCHAR,
+            id INTEGER PRIMARY KEY DEFAULT nextval('seq_parcel_lockers'),
             external_id VARCHAR,
-            type VARCHAR,
-            city VARCHAR,
-            voivodeship VARCHAR,
-            powiat VARCHAR,
-            voivodeship_id INTEGER,
-            powiat_id INTEGER,
+            source_date DATE,
             latitude DOUBLE,
             longitude DOUBLE,
-            status VARCHAR,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    # Wymiar powiatu: jedyne miejsce ekonomii GUS (znormalizowane z locations).
-    # Klucz numeryczny (id); nazwa powiatu nie jest unikalna miedzy wojewodztwami
-    # (np. "powiat grodziski"), wiec fakty lacza sie po powiat_id, nie po nazwie.
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS dim_powiat (
-            id INTEGER PRIMARY KEY,
-            name VARCHAR,
-            voivodeship_id INTEGER,
-            population INTEGER,
-            avg_salary DOUBLE,
-            unemployment_rate DOUBLE
-        )
-    """)
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS dim_voivodeship (
-            id INTEGER PRIMARY KEY,
-            name VARCHAR,
-            population INTEGER
-        )
-    """)
-    # Wymiar gminy: najnizszy poziom podzialu (gmina -> powiat -> wojewodztwo).
-    # Granice + powierzchnia z GADM (data/geo/gminy.geojson), populacja z GUS BDL.
-    # Fakty lacza sie po gmina_id (nazwa gminy nie jest unikalna w kraju).
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS dim_gmina (
-            id INTEGER PRIMARY KEY,
-            name VARCHAR,
             voivodeship_id INTEGER,
             powiat_id INTEGER,
-            population INTEGER,
-            area_km2 DOUBLE
+            miasto_id INTEGER,
+            gmina_id INTEGER,
+            status VARCHAR,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            deleted_at TIMESTAMP
         )
     """)
+    # Zunifikowany slownik terytorialny (GUS BDL + GADM)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS administrative_division (
+            id INTEGER PRIMARY KEY,
+            level INTEGER NOT NULL,
+            name VARCHAR NOT NULL,
+            population INTEGER,
+            area_km2 DOUBLE,
+            avg_salary DOUBLE,
+            unemployment_rate DOUBLE,
+            voivodeship_id INTEGER,
+            powiat_id INTEGER,
+            gus_id VARCHAR
+        )
+    """)
+
     # Wymiar parku/otuliny (GDOŚ) - locations wskazuje przez nature_park_id.
     con.execute("""
         CREATE TABLE IF NOT EXISTS dim_park (
@@ -247,13 +220,63 @@ def ensure_extra_tables(con):
             type VARCHAR
         )
     """)
+
+    # Tabela ciekawych faktów (fun_facts)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS fun_facts (
+            key VARCHAR PRIMARY KEY,
+            lat DOUBLE,
+            lon DOUBLE,
+            value DOUBLE,
+            computed_at TIMESTAMP
+        )
+    """)
+
+#    Generowanie dynamicznych widokow wymiarow na bazie tabeli administrative_division
+    con.execute("DROP VIEW IF EXISTS dim_voivodeship")
+    con.execute("""
+        CREATE VIEW dim_voivodeship AS 
+        SELECT id, name, population, area_km2 
+        FROM administrative_division 
+        WHERE level = 1
+    """)
+
+    con.execute("DROP VIEW IF EXISTS dim_powiat")
+    con.execute("""
+        CREATE VIEW dim_powiat AS 
+        SELECT id, name, voivodeship_id, population, avg_salary, unemployment_rate, area_km2 
+        FROM administrative_division 
+        WHERE level = 2
+    """)
+
+    con.execute("DROP VIEW IF EXISTS dim_city")
+    con.execute("""
+        CREATE VIEW dim_city AS 
+        SELECT id, name, voivodeship_id, powiat_id, population, area_km2 
+        FROM administrative_division 
+        WHERE level = 4
+    """)
+
+    con.execute("DROP VIEW IF EXISTS dim_gmina")
+    con.execute("""
+        CREATE VIEW dim_gmina AS 
+        SELECT id, name, voivodeship_id, powiat_id, population, area_km2 
+        FROM administrative_division 
+        WHERE level = 3
+    """)
+
     for stmt in (
         "CREATE INDEX IF NOT EXISTS idx_lockers_voiv_id ON parcel_lockers(voivodeship_id)",
         "CREATE INDEX IF NOT EXISTS idx_lockers_powiat_id ON parcel_lockers(powiat_id)",
-        "CREATE INDEX IF NOT EXISTS idx_lockers_operator ON parcel_lockers(operator)",
-        "CREATE INDEX IF NOT EXISTS idx_dim_powiat_voiv_id ON dim_powiat(voivodeship_id)",
-        "CREATE INDEX IF NOT EXISTS idx_dim_gmina_powiat_id ON dim_gmina(powiat_id)",
+        "CREATE INDEX IF NOT EXISTS idx_lockers_miasto_id ON parcel_lockers(miasto_id)",
+        "CREATE INDEX IF NOT EXISTS idx_lockers_gmina_id ON parcel_lockers(gmina_id)",
+        "CREATE INDEX IF NOT EXISTS idx_locations_voiv_id ON locations(voivodeship_id)",
+        "CREATE INDEX IF NOT EXISTS idx_locations_powiat_id ON locations(powiat_id)",
+        "CREATE INDEX IF NOT EXISTS idx_locations_miasto_id ON locations(miasto_id)",
         "CREATE INDEX IF NOT EXISTS idx_locations_gmina_id ON locations(gmina_id)",
+        "CREATE INDEX IF NOT EXISTS idx_admin_division_level ON administrative_division(level)",
+        "CREATE INDEX IF NOT EXISTS idx_admin_division_voiv ON administrative_division(voivodeship_id)",
+        "CREATE INDEX IF NOT EXISTS idx_admin_division_powiat ON administrative_division(powiat_id)",
     ):
         try:
             con.execute(stmt)
@@ -266,12 +289,11 @@ def ensure_extra_tables(con):
 # (binding domyslnej wartosci przy odtwarzaniu). ETL i tak ustawia kazda wartosc jawnie.
 ENRICHMENT_COLUMNS = [
     ("elevation_meters", "DOUBLE"),
-    ("light_pollution_brightness", "DOUBLE"),
-    ("bortle_scale", "INTEGER"),
     ("is_in_nature_park", "BOOLEAN"),
     ("nature_park_id", "INTEGER"),
     ("voivodeship_id", "INTEGER"),
     ("powiat_id", "INTEGER"),
+    ("miasto_id", "INTEGER"),
     ("gmina_id", "INTEGER"),
     ("nearest_neighbor_distance_meters", "INTEGER"),
     ("amphibian_occurrences_5km", "INTEGER"),
@@ -280,9 +302,44 @@ ENRICHMENT_COLUMNS = [
 
 
 def ensure_enrichment_columns(con):
-    """Dodaj brakujace kolumny wzbogacenia do tabeli locations. Bezpieczne do wielokrotnego wywolania."""
+    """Zapewnia obecnosc kolumn oraz migruje stare fizyczne tabele wymiarow."""
     for name, decl in ENRICHMENT_COLUMNS:
         con.execute(f"ALTER TABLE locations ADD COLUMN IF NOT EXISTS {name} {decl}")
+        
+    con.execute("ALTER TABLE administrative_division ADD COLUMN IF NOT EXISTS gus_id VARCHAR")
+        
+    for col in ("voivodeship", "powiat", "light_pollution_brightness", "bortle_scale", "street"):
+        try:
+            con.execute(f"ALTER TABLE locations DROP COLUMN IF EXISTS {col}")
+        except Exception:
+            pass
+            
+    # # Pola "operator" nie usuwamy, poniewaz przechowuje ono dane InPost paczkomatow
+    # for col in ("type", "voivodeship", "powiat", "external_id"):
+    #     try:
+    #         con.execute(f"ALTER TABLE parcel_lockers DROP COLUMN IF EXISTS {col}")
+    #     except Exception:
+    #         pass
+            
+    # Usuwamy stare fizyczne tabele, jesli istnialy, zapobiegajac konfliktom z nowymi widokami
+    for tbl in ("dim_voivodeship", "dim_powiat", "dim_gmina", "dim_miasto", "dim_city"):
+        try:
+            con.execute(f"DROP TABLE IF EXISTS {tbl} CASCADE")
+        except Exception:
+            pass
+
+    for name, decl in [
+        ("voivodeship_id", "INTEGER"),
+        ("powiat_id", "INTEGER"),
+        ("miasto_id", "INTEGER"),
+        ("gmina_id", "INTEGER"),
+        ("external_id", "VARCHAR"),
+        ("deleted_at", "TIMESTAMP")
+    ]:
+        try:
+            con.execute(f"ALTER TABLE parcel_lockers ADD COLUMN IF NOT EXISTS {name} {decl}")
+        except Exception:
+            pass
 
 def get_client():
     """Get DuckDB connection."""

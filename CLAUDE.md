@@ -130,44 +130,31 @@ All documentation lives in this file (CLAUDE.md), in the chapters below: backend
 
 ## Quick start
 
-### 1. Install dependencies
-
+### 1. Install dependencies & configure env
 ```bash
 cd /home/alice/zabka-dashboard
 pip install -r requirements.txt
 ```
+Configurable environment variables (optional):
+- `API_TOKEN` - Secure token for snapshot uploads (default: `your-secret-token-change-me`)
+- `ZABKA_DB` - DuckDB database path (default: `data/zabka.duckdb`)
+- `REDIS_SOCKET` - Redis UNIX socket path (default: `/run/redis/redis-server.sock`)
+- `GUS_BDL_KEY` - Optional client ID to raise GUS BDL API limits
 
 ### 2. Run the backend
-
-**Option A: From the project root (recommended)**
 ```bash
 python -m backend
 ```
+The server is available at `http://localhost:8000`. API docs: `http://localhost:8000/docs`.
 
-**Option B: From the backend directory**
+### 3. Load / ETL data
 ```bash
-cd backend
-python main.py
+# Offline/fast run (skips slow remote APIs)
+python -m backend.daily_etl --no-geocode --skip-parks --skip-gus --skip-amphibians
+
+# Full ETL (runs elevation, GBIF, GUS API - requires network and takes time)
+python -m backend.daily_etl --elevation
 ```
-
-Backend is available at `http://localhost:8000`
-- Frontend: `http://localhost:8000/`
-- API docs (Swagger): `http://localhost:8000/docs`
-- Health check: `http://localhost:8000/health`
-
-### 3. Load test data
-
-```bash
-# Full ETL: fetches data from the Żabka source, loads into DuckDB, clears the Redis cache
-python -m backend.daily_etl
-
-# From a local JSON file instead of fetching from the source
-python -m backend.daily_etl --fallback data/input/snapshot_2026-06-15.json
-```
-
-### 4. Open the dashboard
-
-Go to `http://localhost:8000` and see the charts and map.
 
 ## Workflow: loading new data
 
@@ -265,107 +252,19 @@ A snapshot JSON must contain:
 }
 ```
 
-## API endpoints
-
-### Public (read-only)
-
-```
-GET /api/locations?month=2026-06&voivodeship=Mazowieckie&limit=100
-GET /api/locations/{id}
-GET /api/locations/map  -> GeoJSON
-
-GET /api/stats/summary
-GET /api/stats/voivodeship
-GET /api/stats/top-cities?limit=30
-GET /api/stats/top-streets?limit=20
-GET /api/trends/growth
-
-GET /api/history/location/{location_id}
-GET /api/changes/monthly?year=2026&voivodeship=...
-GET /api/changes/voivodeship?month=2026-06
-GET /api/changes/timeline?limit_months=12
-```
-
-**Frontend router** (`backend/api/frontend_router.py`) — additional endpoints consumed
-exclusively by `frontend/index.html`, 1-hour cache, registered before the aggregates
-router so it takes precedence on overlapping paths:
-
-```
-GET /api/geo/voivodeships              -> GeoJSON for choropleth maps
-GET /api/geo/powiats                   -> GeoJSON powiat boundaries (24h cache)
-
-# network history / growth (SIEC tab)
-GET /api/stats/network-growth          -> [{year, new_stores, cumulative}]
-GET /api/stats/network-origin          -> {oldest, newest, new_this_month}
-GET /api/stats/stores-timeline         -> {stores[[lat,lon,year]], undated, year_range, milestones}
-GET /api/stats/openings-monthly        -> [{year, month, cnt}]  (calendar grid)
-GET /api/stats/opening-hours           -> [{pattern, cnt}]  (top patterns)
-GET /api/stats/opening-seasonality     -> [{month, label, cnt}]
-GET /api/stats/growth-by-voivodeship   -> [{voivodeship, yr, new_stores}]
-GET /api/stats/city-first-opening      -> [{yr, new_cities, cumulative_cities}]
-GET /api/stats/top-cities?limit=N      -> [{city, cnt, voivodeship}]
-
-# ranking by administrative level (GRAN/NBL/coverage switchers)
-GET /api/stats/by-dimension?dim=&metric=&sort=&limit=&offset=
-                                       -> {rows, total, dim, metric, sort, avg, median, sum}
-                                          dim: voivodeship|powiat|city|gmina; metric: count|per1k|per_km2
-GET /api/stats/neighbor-by-level?level=&metric=&sort=&limit=
-                                       -> {rows[{name,voivodeship,n,median_m,avg_m}], total, level, metric}
-                                          level: voivodeship|powiat|city
-GET /api/stats/inpost-vs-zabka-by-level?level=&sort=&limit=&offset=
-                                       -> {rows, total, level}  (level: voivodeship|powiat|city|gmina)
-GET /api/stats/coverage-funnel         -> [{level, with, total, pct}]  (powiaty/miasta/gminy)
-GET /api/stats/powiat-coverage         -> {total, covered, dots[[lat,lon]]}  (24h cache)
-GET /api/stats/city-coverage           -> {total_cities, with_zabka, without_zabka, pct, zabka_localities}
-GET /api/stats/common-streets?limit=N  -> {streets[{name, cnt}], distinct}
-GET /api/stats/gmina-leaders?limit=N   -> {per_1k[], per_km2[], national_per_1k}
-
-# Poland-through-a-frog (ZABKA A POLSKA tab)
-GET /api/stats/per-capita              -> [{voivodeship, stores, population, per_1k}]
-GET /api/stats/powiat-economics        -> [{powiat, voivodeship, avg_salary, unemployment_rate, population, stores, per_1k}]
-GET /api/stats/sunday-by-voivodeship   -> [{voivodeship, closed_pct, closed_count, total}]
-GET /api/stats/voivodeship             -> [{voivodeship, total, mc_count, mc_pct}]  (merrychef)
-GET /api/stats/voivodeship-density     -> [{voivodeship, stores, area_km2}]
-GET /api/stats/inpost-vs-zabka         -> [{voivodeship, zabki, paczkomaty, population, zabki_per_100k, lockers_per_100k, ratio}]
-
-# extremes / Atlas krańców / amphibians (folded into SIEC tab)
-GET /api/stats/kraniec-facts           -> {facts[{id,group,label,value,lat,lon,zoom,type}], backdrop[[lat,lon]]}
-GET /api/stats/elevation               -> {extremes, histogram, percentiles}
-GET /api/stats/neighbor-stats          -> {loner, distribution, zero_distance_count}
-GET /api/stats/twins                   -> {within_50m, within_100m, within_200m, total, closest_pairs, same_address, points, points_50}
-GET /api/stats/parks-stores            -> [[lat,lon]]
-GET /api/stats/section3-rare           -> {h24_cities, h24_points, parks, void, frog_streets, frog_streets_count, west_wall_points, powiats_covered, powiat_range, civic_streets, physical_streets}
-GET /api/stats/amphibians              -> {gbif_total, median_occurrences, most_froggy, zero_frog_count, farthest_from_frog, stores, scatter_sample, distribution, by_voivodeship, top10, gbif_obs}
-
-GET /api/stats/sunday-closed-stores?voivodeship=X  -> drilldown, not cached
-```
-
-All `/api/stats/*` here are cached 1h (geo + powiat-coverage 24h). `frontend_router`
-shadows the legacy `aggregates_router` versions of summary/voivodeship/top-cities/per-capita.
-
-### Protected (token required)
-
-```
-POST /api/snapshot?token=YOUR_TOKEN
-  -F "file=@snapshot.json"
-  -F "source_date=2026-06-15" (optional)
-```
+All API endpoints are documented and referenceable under [Chapter 2: Backend -> API](#4-api). For interactive execution, run the server and visit `/docs`.
 
 ## Database
 
 DuckDB `data/zabka.duckdb` contains (full schema with types: chapter 3):
 
 Facts:
-- **snapshots** - snapshots with metadata (total, visible, towns, etc.)
-- **locations** - stores (city, voivodeship, street, lat, lon, flags, enrichment)
-- **histories** - store births and deaths (created/deleted per snapshot)
+- **locations** - stores (city, voivodeship, street, lat, lon, flags, enrichment, created_at, deleted_at)
 - **parcel_lockers** - InPost parcel lockers (second fact entity)
 
 Dimensions: **dim_voivodeship**, **dim_powiat** (GUS economics), **dim_gmina**
 (population + area_km2), **dim_park**; plus **fun_facts**.
-Cities (`dim_miasto`) are a bundled JSON (`data/geo/miasta_pl.json`, 1031 cities,
-GUS kinds 1+4) read by the API, not a DuckDB table. Carries population and
-`area_km2` (1025/1031 populated from GADM polygons via `patch_miasto_area.py`).
+Cities (`dim_city`) are stored in a DuckDB dimension table `dim_city` containing population and `area_km2` for the 302 official Polish cities (miasta with powiat rights - powiat kind 2, and gmina miejska - gmina kind 1).
 
 Locations support soft delete via the `deleted_at` timestamp.
 
@@ -378,7 +277,8 @@ backend/                 - code + API (chapter 2)
   cache.py               - Redis cache (UNIX socket)
   daily_etl.py           - thin ETL entrypoint (re-exports run + CLI)
   etl/                   - ETL pipeline: geo.py, io.py, pipeline.py, sources/ (one class per source)
-  api/                   - routers (locations, history, aggregates, admin, frontend_router)
+  api/                   - decomposed routers (locations, history, admin, dashboard_router, geo_router, ecology_router, stats_router, spatial_router, demographics)
+  schemas/               - Pydantic models for API validation (api_models)
 
 frontend/                - Vite SPA, modular ES + Chart.js + Leaflet + D3 + ECharts (chapter 4)
   index.html             - DOM scaffold + <head> (SEO, fonts); loads /src/main.js
@@ -475,28 +375,31 @@ a bare local checkout), `cache.py` logs it and the app runs without a cache.
 
 ## 4. API
 
-**Protected (requires `token`):**
-- `POST /api/snapshot` - upload a snapshot JSON.
+FastAPI serves modular API routers (`backend/api/`) validated via Pydantic schemas (`backend/schemas/api_models.py`). Most endpoints are cached for 1 hour using Redis.
 
-**Aggregates / geography / history (1h cache):**
-- `GET /api/stats/summary | /voivodeship | /top-cities | /top-streets | /by-powiat | /per-capita`
-- `GET /api/trends/growth`, `GET /api/changes/monthly | /voivodeship | /timeline`
-- `GET /api/locations | /locations/{id} | /locations/map`
-- `GET /api/history/location/{id}`, `GET /api/fun/extremes`, `GET /api/context/{lat}/{lon}`
+### Endpoints Summary
 
-Interactive docs: `/docs` (Swagger), `/redoc`.
-
-## 5. Quick start
-
-```bash
-cd /home/alice/zabka-dashboard
-pip install -r requirements.txt
-python -m backend.main          # http://localhost:8000  (front + /docs)
-python -m backend.daily_etl     # load/refresh data (chapter 3)
-```
-
-Environment variables: `ZABKA_DB` (DuckDB path), `REDIS_SOCKET`, `API_TOKEN`
-(snapshot upload token). Production deployment - see the team runbook.
+- **Geo Boundaries:**
+  - `GET /api/geo/voivodeships` -> Voivodeship GeoJSON
+  - `GET /api/geo/powiats` -> Powiat boundaries (24h cache)
+- **Locations & History:**
+  - `GET /api/locations` -> Query locations with filters (`?month=`, `?voivodeship=`, `?limit=`)
+  - `GET /api/locations/{id}` -> Get single store record
+  - `GET /api/locations/map` -> Fast GeoJSON of all stores
+  - `GET /api/history/location/{location_id}` -> History of single store
+- **Analytical Stats (SIEC tab):**
+  - `/api/stats/summary`, `/api/stats/network-growth`, `/api/stats/network-origin`, `/api/stats/stores-timeline`, `/api/stats/openings-monthly`, `/api/stats/opening-hours`, `/api/stats/opening-seasonality`, `/api/stats/by-dimension`
+- **Spatial / Coverage / Extremes:**
+  - `/api/stats/powiat-coverage`, `/api/stats/city-coverage`, `/api/stats/coverage-funnel`, `/api/stats/neighbor-by-level`, `/api/stats/neighbor-stats`, `/api/stats/twins`, `/api/stats/kraniec-facts`, `/api/stats/elevation`, `/api/stats/parks-stores`, `/api/stats/section3-rare`, `/api/stats/amphibians`
+- **Socioeconomics (ŻABKA A POLSKA tab):**
+  - `/api/stats/per-capita`, `/api/stats/powiat-economics` (average gross salary, unemployment rate)
+  - `/api/stats/inpost-vs-zabka`, `/api/stats/inpost-vs-zabka-by-level` (ratio and dumbbell)
+  - `/api/stats/common-streets`, `/api/stats/gmina-leaders`, `/api/stats/sunday-by-voivodeship`
+- **Data Export:**
+  - `GET /api/download/database` -> Downloads the raw `zabka.duckdb` (~23MB)
+  - `GET /api/download/geojson` -> Downloads voivodeships GeoJSON
+- **Protected Actions:**
+  - `POST /api/snapshot?token=YOUR_TOKEN` -> Uploads a new JSON snapshot to trigger ETL
 
 
 ---
@@ -512,26 +415,11 @@ in `io.py`, one enrichment class per source in `sources/`, orchestration in
 ### 0. Data model (galaxy schema)
 
 Two fact tables (`locations` = Żabki, `parcel_lockers` = InPost parcel lockers)
-share common geographic dimensions (`dim_gmina`, `dim_powiat`, `dim_voivodeship`).
-This is a galaxy / fact-constellation schema. The geography is lightly snowflaked
-(`dim_gmina` -> `dim_powiat` -> `dim_voivodeship`). That way "who dominates the
-public space" queries are a JOIN over the dimension instead of proximity columns
-on the facts. GUS economics (salary, unemployment, population) live only in
-`dim_powiat`.
+share common geographic dimensions (`dim_powiat`, `dim_voivodeship`).
+This is a galaxy / fact-constellation schema. The geography has been restructured to four levels: Voivodeship (Level 1), Powiat (Level 2), Gmina (Level 3), and City (Level 4).
+GUS economics (salary, unemployment, population) live only in `dim_powiat` (representing the 314 land counties). The 66 cities with powiat rights are assigned to their surrounding/corresponding land powiats at Level 2, ensuring they are fully integrated into county-level economic and statistical queries.
 
-`dim_gmina` is the lowest geographic level (`locations.gmina_id` -> `dim_gmina.id`):
-gmina boundaries + `area_km2` come from GADM (`data/geo/gminy.geojson`), population
-from GUS BDL (var 72305). It powers the gmina granularity of the ranking switchers
-(stores, per 1000 residents, per km²). Stores are assigned to a gmina by
-point-in-polygon. `dim_miasto` (cities) is a separate reference set bundled in
-`data/geo/miasta_pl.json` (GUS units kind 1+4 with population and area), used for
-the city granularity and the "% of Polish cities with a Żabka" stat — it is read by
-the API, not stored as a DuckDB table. `area_km2` is populated for 1025 of 1031
-cities (source: GADM gmina polygons via `data/tools/patch_miasto_area.py`); the 6
-unmatched entries are administrative anomalies ("Miejska strefa uslug publicznych"
-x3, Slawkow, Stargard, Wesola) that contain no Żabka stores. The city level of the
-GRAN ranking supports all three metrics (count, per 1k, per km²). The patch script
-must be run on the VPS after each `git pull` since `data/geo/` is gitignored.
+Note: The dimension table `dim_gmina` (2,479 rows) holds all gminas (Level 3), and the view `dim_city` (302 rows) holds all cities (Level 4, consisting of 66 cities with powiat rights and 236 urban gminy miejskie). The table columns `miasto_id` and `gmina_id` are fully populated (100.0% coverage) for both stores and parcel lockers using UUG GUGiK geocoding.
 
 **Keys are numeric** - no string joins. A powiat name is not unique across
 voivodeships (for example "powiat grodziski"), so facts join to dimensions via
@@ -547,25 +435,37 @@ GDOŚ parks get their own dimension (`dim_park`), linked from `locations` by
   -----                                      ----------
   locations (Żabki)                          dim_powiat
     id (PK)                                    id (PK)
-    snapshot_id      -> snapshots.id           name
-    voivodeship_id   -> dim_voivodeship.id     voivodeship_id -> dim_voivodeship.id
-    powiat_id        -> dim_powiat.id          population
-    nature_park_id   -> dim_park.id            avg_salary
-    city, street, lat, lon, flags, ...         unemployment_rate
-    elevation_meters, is_in_nature_park,
-    neighbor dist, amphibian fields, ...     dim_voivodeship
-                                               id (PK)
-  parcel_lockers (parcel lockers)              name
-    id (PK)                                    population
-    voivodeship_id   -> dim_voivodeship.id
-    powiat_id        -> dim_powiat.id        dim_park
-    operator, type, city, lat, lon, status     id (PK)
+    voivodeship_id   -> dim_voivodeship.id     name
+    powiat_id        -> dim_powiat.id          voivodeship_id -> dim_voivodeship.id
+    gmina_id         -> dim_gmina.id           population
+    miasto_id        -> dim_city.id            avg_salary
+    nature_park_id   -> dim_park.id            unemployment_rate
+    city, street, lat, lon, flags, ...
+    elevation_meters, is_in_nature_park,     dim_voivodeship
+    neighbor dist, amphibian fields, ...       id (PK)
                                                name
-  snapshots (snapshots) 1 --< locations,       type
-                        1 --< histories
-  histories (audit) location_id -> locations
-  fun_facts (key, lat, lon, value)
+  parcel_lockers (parcel lockers)              population
+    id (PK)
+    voivodeship_id   -> dim_voivodeship.id     dim_gmina
+    powiat_id        -> dim_powiat.id          id (PK)
+    gmina_id         -> dim_gmina.id           name
+    miasto_id        -> dim_city.id            voivodeship_id -> dim_voivodeship.id
+    operator, type, city, lat, lon, status     powiat_id      -> dim_powiat.id
+                                               population
+  fun_facts (key, lat, lon, value)             area_km2
     - interesting facts, no relations
+                                             dim_city
+                                               id (PK)
+                                               name
+                                               voivodeship_id -> dim_voivodeship.id
+                                               powiat_id      -> dim_powiat.id
+                                               population
+                                               area_km2
+
+                                             dim_park
+                                               id (PK)
+                                               name
+                                               type
 ```
 
 Example query (who dominates per voivodeship, per 1000 residents) - JOIN by id:
@@ -595,28 +495,20 @@ The flow (`python -m backend.daily_etl`, orchestrated in
    names, derive flags (h24, Sunday, merrychef).
 3. **Enrich Żabki** - each source enriches the stores independently (best-effort:
    a missing source does not abort the ETL, the column just stays empty). Order:
-   regions, neighbor, amphibians, parks, elevation, light pollution. Details in
-   section 4. (Light pollution / Bortle is a neighbor-distance proxy, not a measurement.)
-4. **Parcel lockers** - InPost parcel lockers loaded as a separate entity
-   (voivodeship/powiat geocoding by the same point-in-polygon as the stores).
+   regions, neighbor, amphibians, parks, elevation. Details in section 4.
+4. **Parcel lockers** - InPost parcel lockers loaded as a separate entity (voivodeship/powiat geocoding by the same GUGiK geocoder and fallback matching as the stores).
 5. **Build dimensions** - assemble the dimensions with numeric keys, then attach
    GUS economics into `dim_powiat`.
 6. **Interesting facts** - compute the facts written to `fun_facts`: the point in
    Poland farthest from any Żabka, the loner (most isolated Żabka), and the most
    froggy Żabka.
-7. **Load** - write the snapshot + locations + parcel lockers + dimensions +
-   fun_facts to DuckDB (column migration `ADD COLUMN IF NOT EXISTS`). Loading the
-   stores also diffs against the previous snapshot to record births/deaths in
-   `histories` and stamp `deleted_at` on closed stores.
-8. **Retention** - rolling 6-month window: snapshots older than 6 months (and their
-   locations, parcel lockers, histories) are dropped. Daily this means head in,
-   tail out.
-9. **Cache** - clear Redis; the backend rebuilds on the next query.
+7. **Load** - reconcile and load the locations, parcel lockers, dimensions, and
+   fun_facts to DuckDB. Active locations are compared against incoming ones to perform a diff:
+   new stores are inserted (with `created_at` set), missing stores are soft-deleted (with `deleted_at` stamped),
+   and existing active stores are updated in-place.
+8. **Cache** - clear Redis; the backend rebuilds on the next query.
 
-The database keeps the last 6 months of daily snapshots. Birth/death trends come
-from `histories` (created/deleted per month); totals and regional trends from the
-per-snapshot `locations` and `parcel_lockers`. Soft delete (`deleted_at`) marks the
-date a store was last seen; queries filter `deleted_at IS NULL` by default.
+The database keeps one row per physical store location in a pure SCD Type 2 model. Birth/death trends (created/deleted per month) are queried directly from `locations` via `created_at` and `deleted_at` timestamps. Soft delete (`deleted_at`) marks the date a store was last seen; queries filter `deleted_at IS NULL` by default.
 
 CLI flags: `--no-geocode`, `--limit N`, `--skip-parks`,
 `--skip-gus`, `--skip-amphibians`, `--skip-paczkomaty`, `--elevation` (opt-in,
@@ -636,7 +528,7 @@ are in section 3.
 
 Where each column comes from after a daily ETL run (`backend/daily_etl.py`).
 Raw source: `https://www.zabka.pl/app/uploads/locator-store-data.json`
-(~13.2k stores). Administrative boundaries: ppatrzyk/polska-geojson.
+(~13.2k stores). Administrative boundaries: official GUS registers.
 
 Geographic enrichment adds several sources: GDOŚ parks/buffers, GUS BDL powiat
 economics, GUGiK NMT terrain elevation, GBIF amphibian observations, InPost parcel
@@ -654,17 +546,16 @@ Origin legend:
 - AMPHIBIANS - amphibian (Amphibia) observations from GBIF
 - ETL - generated by the pipeline (keys, timestamps)
 
-### Table `locations` (one row = one store in a given snapshot)
+### Table `locations` (one row = one store, pure SCD2)
 
 | Column | Type | Origin | Source field / rule |
 |---|---|---|---|
 | id | INTEGER | ETL | primary key |
-| snapshot_id | INTEGER | ETL | FK to `snapshots.id` |
 | store_id | VARCHAR | SOURCE | `storeId` |
 | city | VARCHAR | DERIVED | `town`, case-normalized (LEGNICA -> Legnica) |
 | street | VARCHAR | DERIVED | `street` with `<br>` and any embedded postcode removed from display; empty -> "nieokreślona" |
-| voivodeship | VARCHAR | GEO | voivodeship name (point-in-polygon, 16); display attribute |
-| powiat | VARCHAR | GEO | powiat name (point-in-polygon, 380); display attribute |
+| voivodeship | VARCHAR | GEO | voivodeship name (GUGiK geocoding, 16); display attribute |
+| powiat | VARCHAR | GEO | powiat name (GUGiK geocoding, 382); display attribute |
 | voivodeship_id | INTEGER | GEO | FK -> `dim_voivodeship.id` (joins are by numeric key) |
 | powiat_id | INTEGER | GEO | FK -> `dim_powiat.id` |
 | latitude | DOUBLE | SOURCE | `lat` |
@@ -679,81 +570,34 @@ Origin legend:
 | is_new_month | BOOLEAN | SOURCE | `locatorNewMonth` (opened in the last month) |
 | is_new_two_weeks | BOOLEAN | SOURCE | `locatorNewTwoWeeks` |
 | elevation_meters | DOUBLE | ELEVATION | elevation above sea level from GUGiK NMT (`GetHByXY`, PL-1992/EPSG:2180 coordinates); NULL when the service did not answer |
-| light_pollution_brightness | DOUBLE | derived | sky brightness proxy; NOT a measurement - derived from neighbor distance as a fallback, so do not present it as observed light pollution |
-| bortle_scale | INTEGER | derived | Bortle class (1-9) from the same proxy; same caveat |
 | is_in_nature_park | BOOLEAN | PARKS | TRUE when the point falls inside a GDOŚ park or buffer (point-in-polygon) |
 | nature_park_id | INTEGER | PARKS | FK -> `dim_park.id` (the park the store is in, when any) |
 | nearest_neighbor_distance_meters | INTEGER | SPATIAL | distance to the nearest other Żabka (BallTree k=2, haversine, meters) |
 | amphibian_occurrences_5km | INTEGER | AMPHIBIANS | count of amphibian observations (GBIF, Amphibia) within 5 km of the store, a thematic nod to the network's name |
 | nearest_amphibian_km | DOUBLE | AMPHIBIANS | distance to the nearest amphibian observation (GBIF, km) |
-| gmina_id | INTEGER | GEO | FK -> `dim_gmina.id` (point-in-polygon against GADM gmina boundaries) |
+| gmina_id | INTEGER | GEO | FK -> dim_gmina.id (resolved via geocoder TERYT code) |
+| miasto_id | INTEGER | GEO | FK -> dim_city.id (resolved for stores in the 302 cities) |
 | created_at | TIMESTAMP | ETL | time the row was written |
-| deleted_at | TIMESTAMP | ETL | soft-delete for snapshot-to-snapshot comparisons (NULL = active) |
-
-### Table `snapshots` (one row = one daily fetch)
-
-| Column | Type | Origin | Rule |
-|---|---|---|---|
-| id | INTEGER | ETL | primary key |
-| source_date | DATE | ETL | fetch date (defaults to today) |
-| total_count | INTEGER | ETL | store count after dedup |
-| visible_count | INTEGER | ETL | count with `is_visible = true` |
-| with_merrychef | INTEGER | ETL | sum of `has_merrychef` |
-| open_sunday | INTEGER | ETL | sum of `open_sunday` |
-| h24 | INTEGER | ETL | sum of `h24` |
-| towns | INTEGER | ETL | distinct `city` count |
-| created_at | TIMESTAMP | ETL | snapshot creation time |
-
-### Table `histories` (store births and deaths)
-
-Change log driven by diffing `store_id` sets between consecutive snapshots: on each
-run, store_ids present today but not in the previous snapshot are recorded as
-`created` (a store opened), store_ids gone from the previous snapshot as `deleted`
-(a store closed). `source_date` and `store_id` are denormalized so birth/death
-trends (created/deleted per month) need no joins. No foreign keys here: retention
-deletes old snapshots and their locations, and an enforced FK would block that.
-The first snapshot writes no history (it is the baseline, not a change).
-
-| Column | Type | Origin | Rule |
-|---|---|---|---|
-| id | INTEGER (PK) | ETL | primary key |
-| location_id | INTEGER | ETL | the store's row id (in the new snapshot for `created`, the previous one for `deleted`) |
-| snapshot_id | INTEGER | ETL | snapshot where the change was detected |
-| source_date | DATE | ETL | date of that snapshot (denormalized for grouping) |
-| store_id | VARCHAR | ETL | which store opened/closed |
-| change_type | VARCHAR | ETL | `created` (born) / `deleted` (died) |
-| field_changed / old_value / new_value | VARCHAR | ETL | reserved for future `updated` events (attribute changes) |
-| recorded_at | TIMESTAMP | ETL | when the change was recorded |
-
-`deleted_at` on `locations`: when a store disappears, its row in the previous
-snapshot is stamped with `deleted_at` (its death date).
+| deleted_at | TIMESTAMP | ETL | soft-delete for active/inactive tracking (NULL = active) |
 
 ### Table `parcel_lockers` (InPost parcel lockers - separate fact entity)
 
-A second fact table parallel to `locations`. Enriched geographically only
-(voivodeship/powiat by the same point-in-polygon as the stores; city from the
-InPost address). Snapshotted per day like `locations` (tagged with `snapshot_id`),
-so locker counts also have month-to-month trends, and the same 6-month retention
-applies. Source: InPost ShipX API. Joins to dimensions by numeric key
-(`voivodeship_id`, `powiat_id`).
+A second fact table parallel to `locations`. Tracks inserts and deletes as SCD Type 2. Source: InPost ShipX API. Joins to dimensions by numeric keys (`voivodeship_id`, `powiat_id`, `gmina_id`).
 
 | Column | Type | Origin | Rule |
 |---|---|---|---|
-| id | INTEGER (PK) | ETL | primary key |
-| snapshot_id | INTEGER | ETL | FK -> `snapshots.id` (same daily snapshot as the stores) |
-| source_date | DATE | ETL | dump date |
-| operator | VARCHAR | SOURCE | network (`InPost`) |
-| external_id | VARCHAR | SOURCE | point code (`name` from ShipX) |
-| type | VARCHAR | SOURCE | `parcel_locker` / `pop` |
-| city | VARCHAR | SOURCE | city from the InPost address |
-| voivodeship | VARCHAR | GEO | name (display attribute) |
-| powiat | VARCHAR | GEO | name (display attribute) |
-| voivodeship_id | INTEGER | GEO | FK -> `dim_voivodeship.id` (point-in-polygon) |
-| powiat_id | INTEGER | GEO | FK -> `dim_powiat.id` (point-in-polygon) |
-| latitude | DOUBLE | SOURCE | `location.latitude` |
-| longitude | DOUBLE | SOURCE | `location.longitude` |
-| status | VARCHAR | SOURCE | point status (for example Operating) |
+| id | INTEGER (PK) | ETL | primary key (generated via seq_parcel_lockers) |
+| external_id | VARCHAR | SOURCE | unique locker code/identifier |
+| source_date | DATE | SOURCE | date of the locker data snapshot |
+| latitude | DOUBLE | SOURCE | geographical latitude |
+| longitude | DOUBLE | SOURCE | geographical longitude |
+| voivodeship_id | INTEGER | GEO | FK -> `dim_voivodeship.id` (resolved via geocoder) |
+| powiat_id | INTEGER | GEO | FK -> `dim_powiat.id` (resolved via geocoder) |
+| miasto_id | INTEGER | GEO | FK -> `dim_city.id` (resolved for lockers in the 302 cities) |
+| gmina_id | INTEGER | GEO | FK -> `dim_gmina.id` (resolved via geocoder TERYT code) |
+| status | VARCHAR | SOURCE | point status (e.g. Operating) |
 | created_at | TIMESTAMP | ETL | time the row was written |
+| deleted_at | TIMESTAMP | ETL | soft-delete timestamp (NULL = active) |
 
 ### Table `dim_powiat` (dimension - the only home of GUS economics)
 
@@ -771,6 +615,23 @@ so a string join would be wrong). The voivodeship is referenced via
 | avg_salary | DOUBLE | ECONOMY | average gross salary; GUS BDL 64428 (zł) |
 | unemployment_rate | DOUBLE | ECONOMY | registered unemployment rate; GUS BDL 60270 (%) |
 
+### Table `administrative_division` (base dictionary table)
+
+The master territory dictionary built directly from official GUS BDL / TERYT registers, holding voivodeships (level 1), powiats (level 2), gminas (level 3), and cities (level 4).
+
+| Column | Type | Origin | Rule |
+|---|---|---|---|
+| id | INTEGER (PK) | ETL | unique surrogate identifier |
+| level | INTEGER | ETL | administrative level: 1 = Voivodeship, 2 = Powiat, 3 = Gmina, 4 = City |
+| name | VARCHAR | GEO | name of the territory unit |
+| population | INTEGER | ECONOMY | population (GUS BDL) |
+| area_km2 | DOUBLE | GEO | territory area in km2 |
+| avg_salary | DOUBLE | ECONOMY | average monthly salary (GUS BDL, powiats only) |
+| unemployment_rate | DOUBLE | ECONOMY | registered unemployment rate (GUS BDL, powiats only) |
+| voivodeship_id | INTEGER | GEO | self-reference: id of parent voivodeship (NULL for voivodeships) |
+| powiat_id | INTEGER | GEO | self-reference: id of parent powiat (NULL for powiats/voivodeships) |
+| gus_id | VARCHAR | ETL | official GUS BDL/TERYT identifier |
+
 ### Table `dim_voivodeship` (dimension)
 
 | Column | Type | Origin | Rule |
@@ -779,22 +640,31 @@ so a string join would be wrong). The voivodeship is referenced via
 | name | VARCHAR | GEO | voivodeship name (same as on the facts) |
 | population | INTEGER | ECONOMY | sum of powiat populations in the voivodeship (from `dim_powiat`) |
 
-### Table `dim_gmina` (dimension - lowest geographic level)
+### Table `dim_city` (dimension)
 
-The lowest geographic level (`locations.gmina_id` -> `dim_gmina.id`). Boundaries +
-`area_km2` from GADM (`data/geo/gminy.geojson`), population from GUS BDL (var 72305).
-Powers the gmina granularity of the ranking switchers (stores, per 1000 residents,
-per km²). Note: the live DB carries ~1,501 gminas; `population` is not yet filled for
-every row (it relies on a separate GUS gmina pull), `area_km2` is complete.
+City level dimension view (`administrative_division` level 4). Holds the 302 urban municipalities (gminy miejskie) and cities with powiat rights.
+
+| Column | Type | Origin | Rule |
+|---|---|---|---|
+| id | INTEGER (PK) | ETL | surrogate key (numbered in the ETL) |
+| name | VARCHAR | GEO | city name |
+| voivodeship_id | INTEGER | GEO | FK -> `dim_voivodeship.id` |
+| powiat_id | INTEGER | GEO | FK -> `dim_powiat.id` |
+| population | INTEGER | ECONOMY | city population |
+| area_km2 | DOUBLE | GEO | city area in km2 |
+
+### Table `dim_gmina` (dimension)
+
+Gmina level dimension view (`administrative_division` level 3).
 
 | Column | Type | Origin | Rule |
 |---|---|---|---|
 | id | INTEGER (PK) | ETL | surrogate key (numbered in the ETL) |
 | name | VARCHAR | GEO | gmina name |
 | voivodeship_id | INTEGER | GEO | FK -> `dim_voivodeship.id` |
-| powiat_id | INTEGER | GEO | FK -> `dim_powiat.id` |
-| population | INTEGER | ECONOMY | gmina population (GUS BDL); may be NULL where unmatched |
-| area_km2 | DOUBLE | GEO | gmina area from GADM polygons |
+| powiat_id | INTEGER | GEO | FK -> `dim_powiat.id` (assigned to corresponding land powiat for the 66 cities with powiat rights) |
+| population | INTEGER | ECONOMY | gmina population |
+| area_km2 | DOUBLE | GEO | gmina area in km2 |
 
 ### Table `dim_park` (dimension - GDOŚ parks/buffers)
 
@@ -816,23 +686,17 @@ Schema: `key` PK, `lat`, `lon`, `value`, `computed_at`.
 
 ### External enrichment - sources and method
 
-Materialized in the ETL so that global filters (cross-filtering) on the frontend
-work without expensive runtime calculations.
+Enrichment runs during the ETL pipeline to pre-calculate spatial features, ensuring high performance at query time.
 
-| Source | What it adds | Access | Frequency | Config |
+| Source | What it adds / Target Tables | Implementation | Access & Frequency | Config / Parameter |
 |---|---|---|---|---|
-| Regions (ppatrzyk/polska-geojson) | `voivodeship_id`, `powiat_id` + names | static GeoJSON, offline point-in-polygon | rarely | bundled boundary files |
-| GDOŚ | `dim_park` (name, type); `is_in_nature_park`, `nature_park_id` on `locations` | static GeoJSON, local file | rarely (yearly) | `data/input/parki_gdos.geojson` or `PARKS_GEOJSON_URL` |
-| GUS BDL | `dim_powiat` (population, avg_salary, unemployment_rate) + `dim_voivodeship.population` | REST API JSON, powiat level (unit-level=5) | yearly | `GUS_BDL_KEY` (10->100 req/min); variables `GUS_SALARY_VAR`=64428, `GUS_UNEMPLOY_VAR`=60270, `GUS_POPULATION_VAR`=72305 |
-| InPost (ShipX) | `parcel_lockers` entity (lockers, voivodeship/powiat geo) | public REST API (no token), paginated | rarely (network grows slowly) | cache `data/geo/paczkomaty_pl.json`; `--skip-paczkomaty`, `INPOST_TYPE`=parcel_locker |
-| GUGiK NMT | `elevation_meters` | REST per point (`GetHByXY`, PL-1992) | daily (only new coordinates) | opt-in `--elevation`; cache `data/geo/elevation_cache.json` (successes only) |
-| GBIF | `amphibian_occurrences_5km`, `nearest_amphibian_km`, `most_froggy_zabka` | REST API (occurrence/search), class Amphibia | rarely (observations grow slowly) | cache `data/geo/amphibians_pl.json`; `--skip-amphibians`, `GBIF_AMPHIBIA_TAXON`=131, `AMPHIBIAN_RADIUS_KM`=5 |
-| Local (DuckDB/BallTree) | `nearest_neighbor_distance_meters`, `most_isolated_zabka` | no network | every ETL | - |
-
-Decision: point-in-polygon + BallTree (haversine) instead of the DuckDB spatial
-extension - metric distances come straight out of haversine, and the
-voivodeship/powiat boundaries already use this method offline. Full rationale in
-section 7.
+| **Regions (GUGiK PRG)** | `voivodeship_id`, `powiat_id` in `locations`/`parcel_lockers` | `regions.py` / DuckDB Spatial PIP | Local Shapefiles / rarely | `data/geo/granice/` |
+| **GDOŚ Parks** | `is_in_nature_park`, `nature_park_id` (FK to `dim_park`) | `ParksEnricher` / point-in-polygon | Static GeoJSON / yearly | `data/input/parki_gdos.geojson` |
+| **GUS BDL Economics** | `population`, `avg_salary`, `unemployment_rate` on `dim_powiat`/`dim_gmina` | `fetch_gus_hierarchy.py` / `populate_administrative_division` | REST API / yearly | `GUS_BDL_KEY`, variables: 64428, 60270, 72305 |
+| **InPost ShipX** | `parcel_lockers` fact table | `fetch_parcel_lockers` / `load_parcel_lockers` | Public REST API / monthly | `data/geo/paczkomaty_pl.json` |
+| **GUGiK NMT Terrain** | `elevation_meters` | `ElevationEnricher` / HTTP GET | REST `GetHByXY` / daily (new coords only) | `--elevation`, cache: `data/geo/elevation_cache.json` |
+| **GBIF Amphibians** | `amphibian_occurrences_5km`, `nearest_amphibian_km` | `AmphibiansEnricher` / BallTree | REST API / yearly | `data/geo/amphibians_pl.json` (taxonKey 131) |
+| **Local Proximity** | `nearest_neighbor_distance_meters` | `NeighborEnricher` / BallTree | Local CPU / every ETL | BallTree (k=2, haversine) |
 
 ### Data quality
 
@@ -859,187 +723,39 @@ section 7.
 
 ---
 
-## Geographic data enrichment specification: terrain elevation, parks, economics, and logistics
+## 4. Enrichment & Ingestion Notes
 
-This section sets out the technical requirements, integration methods,
-limitations, and analytical mechanics for the enrichment directions of the Żabka
-database. All processes run on the backend in the ETL cycle, which keeps
-performance high and makes the frontend's global filters (cross-filtering)
-respond instantly.
+Detailed logic, caching, and exceptions for the ingestion and enrichment sources:
 
----
+- **GUS BDL Economics:** Downloads average salary (64428), unemployment rate (60270), and population (72305) at powiat level (unit-level=5). Normalizes names (e.g., wałbrzych) and resolves temporal/alias shifts (e.g., jeleniogórski -> karkonoski).
+- **GUGiK NMT Elevation:** Projects WGS84 coordinates to EPSG:2180 (PL-1992) using custom transverse Mercator projection. Queries `services.gugik.gov.pl/nmt/?request=GetHByXY` and caches elevation.
+- **GDOŚ Parks:** Runs point-in-polygon tests offline against local `data/input/parki_gdos.geojson` (259 national/landscape parks and buffers).
+- **GBIF Amphibians:** Counts Amphibia (`taxonKey=131`) observations within 5km using a local BallTree over `data/geo/amphibians_pl.json` (~46k observations).
+- **Dropped Source Fields:** The ETL discards marketing URLs, internal locator IDs, and PII (e.g., `salesZoneDirector` personal data) to ensure database cleanliness.
+- **Cache Invalidation:** A successful ETL run automatically triggers Redis cache invalidation via `reload_cache()` by connecting to the Redis UNIX socket (`REDIS_SOCKET`).
 
-### 1. Economic and regional data (GUS BDL)
+### 4.1. Data Quality & Caveats
+- **`first_opening_date` (1.7% / 218 nulls):** Reflects the opening date of stores *currently active*. Closed historical stores are missing, so early years (1998–2015) remain underrepresented in time-series (treat as "surviving cohort growth").
+- **Opening Hours / `is_visible`:** 3.3% (433 stores) are missing hours. `is_visible` is null for 0.4% (53 stores), defaults to FALSE.
+- **Enrichments & Economics:** 100% complete with zero nulls.
 
-* **Source:** Główny Urząd Statystyczny (GUS) - Bank Danych Lokalnych (BDL).
-* **Access type:** REST API (JSON) for pulling statistical variables at given
-  territorial-division levels.
-* **Rate limit / key:** Free. Requires an API key (X-ClientId) in the HTTP
-  header. Anonymous requests are capped at 10 calls per minute; sending the token
-  raises the limit to 100 calls per minute and 10,000 per day.
-* **Refresh frequency:** BACKEND (yearly, after GUS publishes the final
-  statistical yearbooks).
-* **Method:**
-  1. Query the GUS endpoint for the variables: average gross salary (64428),
-     unemployment rate (60270), and total population (72305, as of 31 Dec - the
-     annual series, not the 33036 census from 2002), with `unit-level=5` (powiat
-     level). Population is the base for the "stores per 1000 residents" metric.
-  2. Request URL: `https://bdl.stat.gov.pl/api/v1/data/by-variable/{variable_id}?unit-level=5&format=json&page-size=1000`
-  3. A Python script normalizes the powiat names from the JSON (stripping
-     prefixes like "powiat ").
-  4. Materialize the data into `dim_powiat` and join the facts to it by numeric
-     `powiat_id`.
-* **Required input:** the `powiat` column (obtained earlier from point-in-polygon
-  geocoding).
+### 4.2. Key Proximity & Terrain Distributions
+- **Nearest Neighbor Distance:** Min 0m (same GPS pin in malls), Median 299m, Avg 942m, p95 4,751m, Max 27.3km (Michałowo, podlaskie).
+- **Elevation (m above sea level):** Min -1.5m (Gdańsk port), Median 132m, Avg 161m, p95 332m, Max 962.6m (Kościelisko).
+- **Amphibian Observations (within 5km):** Min 0, Median 17, Avg 55, p95 143, Max 2,028 (Warszawa Ursynów).
 
----
-
-### 2. Numeric terrain model (GUGiK Geoportal)
-
-* **Source:** Główny Urząd Geodezji i Kartografii (GUGiK).
-* **Access type:** REST web service (national integration of the numeric terrain
-  model) that takes a point's coordinates.
-* **Rate limit / key:** Fully free, open (public access), no auth keys, no
-  declared performance limits.
-* **Refresh frequency:** BACKEND (daily ETL, only for new rows).
-* **Method:**
-  1. Use `backend/daily_etl.py` to identify unique, newly added store records.
-  2. Make an async HTTP GET for each new point.
-  3. Request URL: `https://services.gugik.gov.pl/nmt/?request=GetHByXY&x={x}&y={y}`
-     (flat XY in PL-1992).
-  4. The API returns raw text with the numeric elevation. The result is parsed to
-     float and written to `elevation_meters`.
-* **Required input:** accurate `latitude` and `longitude` from `locations`.
-
----
-
-### 3. National and landscape park boundaries with buffers (GDOŚ)
-
-* **Source:** Generalna Dyrekcja Ochrony Środowiska (GDOŚ).
-* **Access type:** Static spatial dataset (Shapefile / GeoJSON) with current
-  boundaries of nature-protection forms in Poland.
-* **Rate limit / key:** Fully free, no API keys, no request limits (you download
-  the whole vector repository).
-* **Refresh frequency:** BACKEND (one-off / rare, about once a year).
-* **Method:**
-  1. Download the vector file directly from the GDOŚ spatial-data servers and save
-     it locally as `data/input/parki_gdos.geojson`.
-  2. Load the polygon geometries.
-  3. Run a point-in-polygon test to check whether a store's coordinates fall
-     inside a park or its official buffer.
-  4. Set `is_in_nature_park = TRUE` and link the park via `nature_park_id` into
-     `dim_park`.
-* **Required input:** `latitude`, `longitude`.
-
----
-
-### 4. Internal spatial analysis (DuckDB / BallTree)
-
-* **Source:** No external network dependencies. The computations run entirely on
-  local data structures.
-* **Rate limit / key:** Not applicable (local process, no risk of an IP block or
-  hitting external limits).
-* **Refresh frequency:** BACKEND (during every daily ETL cycle after the current
-  snapshot is loaded).
-* **Method:**
-  1. Nearest neighbor: a BallTree (k=2, haversine) over all active stores yields
-     `nearest_neighbor_distance_meters` for each point.
-  2. Isolation (the loner): sort the nearest-neighbor distances; the record with
-     the largest minimum distance is tagged as the most isolated and written to
-     `fun_facts`.
-* **Required input:** `id`, `latitude`, `longitude`, and the soft-delete flag
-  (`deleted_at IS NULL`).
-
----
-
-### 5. Cache invalidation (Redis)
-
-After a successful pipeline run, the pipeline clears Redis over the local UNIX
-socket (`reload_cache()` uses the same `cache.py` connection as the backend,
-driven by the `REDIS_SOCKET` env var):
-
-```python
-import os, redis
-r = redis.Redis(unix_socket_path=os.getenv("REDIS_SOCKET", "/run/redis/redis-server.sock"))
-r.flushdb()
-```
-
-This way the freshly recomputed extremes reach the FastAPI endpoints immediately
-and render correctly in the Chart.js + Leaflet frontend. If Redis is unreachable
-the step is a no-op (best-effort, like the rest of the pipeline).
-
----
-
-### 6. Implementation status
-
-All enrichment directions are implemented in `backend/daily_etl.py`, and the
-database schema carries the fact and dimension tables described above
-(`backend/database_ch.py`, with `ALTER TABLE ADD COLUMN IF NOT EXISTS` migration
-for existing databases).
-
-**Technical decision: point-in-polygon + BallTree (haversine), no DuckDB spatial
-extension.** Voivodeship and powiat boundaries already compute offline this way,
-so parks reuse the existing pattern instead of introducing a second mechanism.
-Metric distances (meters to the nearest neighbor) come straight out of haversine;
-the spatial equivalent (`ST_DWithin`) works in degrees and would need
-`ST_Transform` to EPSG:2180. BallTree is already a dependency used for the
-farthest-point computation.
-
-| # | Section | Implementation | Columns / tables |
-|---|--------|-----------|---------|
-| 1 | GUS BDL economics | `enrich_economy` - materialized into `dim_powiat`, joined by numeric `powiat_id` (variables 64428, 60270, 72305; rename aliases + temporal suffixes) | `dim_powiat`, `dim_voivodeship.population` |
-| 2 | GUGiK NMT elevation | `enrich_elevation` - per point, local cache, only new coordinates (opt-in `--elevation`) | `elevation_meters` |
-| 3 | GDOŚ parks/buffers | `enrich_nature_parks` - point-in-polygon | `is_in_nature_park`, `nature_park_id`, `dim_park` |
-| 4 | Spatial analysis | `enrich_nearest_neighbor` - BallTree k=2; loner into `fun_facts` | `nearest_neighbor_distance_meters` |
-| 5 | GBIF amphibians | `enrich_amphibians` - BallTree over observations | `amphibian_occurrences_5km`, `nearest_amphibian_km`, `most_froggy_zabka` |
-| 6 | InPost parcel lockers | `enrich_paczkomaty` - separate fact entity | `parcel_lockers` |
-
-Correction relative to the original spec: the GUGiK NMT service only accepts flat
-XY coordinates in PL-1992 (EPSG:2180) via `request=GetHByXY` - the `GetH` variant
-with lon/lat returns an empty response. The ETL transforms WGS84 -> PL-1992 with
-its own function (transverse Mercator, no pyproj dependency); verified directly
-against the service: Kraków 212.8 m, Gdańsk 7.8 m, Zakopane 821.3 m.
-
-Network steps are best-effort: a missing source does not abort the ETL, the
-column just stays empty. Static data (parks) is fetched once into `data/input/`;
-paths and URLs are overridable via env vars (`PARKS_GEOJSON_URL`/`_FILE`). The
-`GUS_BDL_KEY` key raises the BDL limit from 10 to 100 requests per minute. Cache
-invalidation (section 5) already runs through `reload_cache()` in the pipeline.
-
-#### Acquired data sources
-- **Parks (GDOŚ):** fetched from the WFS `https://sdi.gdos.gov.pl/wfs` (layers
-  `ParkiNarodowe` + `ParkiKrajobrazowe`, `srsName=CRS:84`), merged into
-  `data/input/parki_gdos.geojson` (259 features: 46 national with buffers + 213
-  landscape).
-- **Amphibians (GBIF):** `occurrence/search` for class Amphibia
-  (`taxonKey=131`), country PL, records with coordinates only (~46k), cached in
-  `data/geo/amphibians_pl.json` (paginated by 300).
-- **Parcel lockers (InPost ShipX):** public API, paginated, ~31.8k parcel-locker
-  points cached in `data/geo/paczkomaty_pl.json`.
-
-### What was dropped from the source (not useful for analysis)
-
-- PII: `salesZoneDirector`, `salesZoneDirectorEmail`, `salesZoneDirectorId`
-  (directors' personal data)
-- Constants: `active` (always "true"), `name` (always "Żabka"), `country`
-  (always "Polska")
-- Empty constant: `isAgency` (null in every record)
-- Internal ids: `locationId`, `townId`, `salesZoneId`
-- Marketing URLs: `storeUrl`, `relativeStoreUrl`
-
-### Thematic extension: amphibian population (GBIF)
-
-On top of the geographic enrichment we added amphibian data, a thematic nod to the
-network's name (Żabka = little frog). Source: GBIF (Global Biodiversity
-Information Facility), `occurrence/search` for class Amphibia (`taxonKey=131`),
-country PL, records with coordinates only (~46k). Points are cached in
-`data/geo/amphibians_pl.json` (paginated by 300).
-
-Method: a BallTree (haversine) over the observations; per store the count within
-the radius (`amphibian_occurrences_5km`) and the distance to the nearest one
-(`nearest_amphibian_km`). The `most_froggy_zabka` fun fact is the store with the
-most amphibians nearby. The step can be skipped with `--skip-amphibians`.
-
+### 4.3. Verified Findings Summary
+- **F1 (Growth):** 45.4% of surviving stores opened since 2023. Peak year 2025 (1,943 new). Oldest: Swarzędz (1998-10-17).
+- **F2 (Capita):** Pomorskie leads per capita (0.46/1k) vs Podkarpackie last (0.18/1k). Kamieński leads powiats (0.99/1k).
+- **F3 (Sunday Wall):** 10.6% of stores in Dolnośląskie are closed Sundays (border anomaly), vs <6% in eastern Poland.
+- **F4 (Silesia):** Highly dense outlier (0.156 stores/km², 3.5x national average).
+- **F5 (InPost dumbbell):** Podkarpackie has 4.54 paczkomaty/Żabka (InPost dominates) vs Zachodniopomorskie at 1.83. National: 2.42.
+- **F6 (Merrychef):** Dolnośląskie has a lower merrychef oven rate (90.6% vs 97.4% national).
+- **F7 (Standardization):** 91.7% of stores run standard 06:00-23:00 Mon-Sat hours.
+- **F9 (Amphibians):** Prime forest (Białowieża) has 425 observations vs urban Ursynów at 2,028. 5.1% of stores have 0 nearby.
+- **F10 (h24 border):** 32 stores total; heavily concentrated near motorway/border junctions (e.g. Lubuskie / Świnoujście).
+- **F11 (Powiats & Addresses):** 370/370 powiats covered. Most common street name is "Rynek" (222 stores), then Kościuszki (193).
+- **F12 (Frog Streets):** 24 stores on frog/wetland streets (e.g., Zielonej Żabki 7 in Żabia Wola).
 
 ---
 
@@ -1048,7 +764,7 @@ most amphibians nearby. The step can be skipped with `--skip-amphibians`.
 Single-page dashboard, dark theme, served by FastAPI. A Vite build: `index.html` is just
 the DOM scaffold + `<head>`; all logic lives in modular ES under `frontend/src/`, entry
 `src/main.js`. Rendered via Chart.js + Leaflet + ECharts + D3 + Canvas 2D, pulling from
-`/api/*`. Full component register: `.claude/analysis/DASHBOARD_SPEC.md`.
+`/api/*`. For the full component register, see [Section 3 (Components and charts)](#3-components-and-charts) below.
 
 **Two tabs** (not the old four): `siec` ("SIEĆ", the network's anatomy + extremes) and
 `spoleczenstwo` ("ŻABKA A POLSKA", the default tab on load, correlations with Polish
@@ -1148,8 +864,7 @@ glows, teal (`#4dd0b1`) for ecological / amphibian data. CartoDB dark tiles on t
 
 ## 3. Components and charts
 
-Full spec (SQL, pixel dimensions, annotations, interactions): `.claude/analysis/DASHBOARD_SPEC.md`.
-This section is the navigable index — what each component shows and where its data comes from.
+This section is the navigable index — what each component shows and where its data comes from. The SQL logic, layout constraints, and interactions are implemented directly in the backend APIs and frontend modules.
 
 There is no global header KPI strip. Each tab carries its own hero + stat tiles.
 

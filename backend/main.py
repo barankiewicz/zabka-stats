@@ -19,17 +19,20 @@ import json
 import subprocess
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, status, File, UploadFile
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from backend.database_ch import init_db, client
+from backend.database_ch import init_db, client, DB_PATH
 from backend.api.locations_router import router as locations_router
 from backend.api.history_router import router as history_router
-from backend.api.aggregates_router_cached import router as aggregates_router
 from backend.api.admin_router import router as admin_router
 from backend.api.dashboard_router import router as dashboard_router
-from backend.api.frontend_router import router as frontend_router
+from backend.api.geo_router import router as geo_router
+from backend.api.ecology_router import router as ecology_router
+from backend.api.spatial_router import router as spatial_router
+from backend.api.stats_router import router as stats_router
 
 # API_TOKEN is set via environment variable
 API_TOKEN = os.getenv("API_TOKEN", "your-secret-token-change-me")
@@ -64,12 +67,21 @@ except Exception as e:
 @app.get("/health")
 async def health_check():
     try:
-        result = client.execute("SELECT COUNT(*) FROM locations").fetchone()
+        result = client.execute("SELECT COUNT(*) FROM locations WHERE deleted_at IS NULL").fetchone()
         location_count = result[0] if result else 0
+        db_size_mb = round(DB_PATH.stat().st_size / (1024 * 1024), 2) if DB_PATH.exists() else 0
+        
+        # Additional statistics for dynamic badges
+        city_count = client.execute("SELECT COUNT(DISTINCT city) FROM locations WHERE deleted_at IS NULL").fetchone()[0]
+        locker_count = client.execute("SELECT COUNT(*) FROM parcel_lockers WHERE deleted_at IS NULL").fetchone()[0]
+        
         return {
             "status": "healthy",
             "database": "DuckDB",
+            "database_size_mb": db_size_mb,
             "locations": location_count,
+            "cities": city_count,
+            "parcel_lockers": locker_count,
             "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
@@ -77,6 +89,38 @@ async def health_check():
             "status": "unhealthy",
             "error": str(e)
         }
+
+
+# Public download endpoints
+@app.get("/api/download/database")
+async def download_database():
+    """Download the raw DuckDB database file containing all populated tables."""
+    if not DB_PATH.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Database file not found"
+        )
+    return FileResponse(
+        path=DB_PATH,
+        filename="zabka.duckdb",
+        media_type="application/octet-stream"
+    )
+
+
+@app.get("/api/download/geojson")
+async def download_geojson():
+    """Download the generated GeoJSON boundary file."""
+    geojson_path = DB_PATH.parent / "geo" / "wojewodztwa.geojson"
+    if not geojson_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="GeoJSON file not found"
+        )
+    return FileResponse(
+        path=geojson_path,
+        filename="wojewodztwa.geojson",
+        media_type="application/geo+json"
+    )
 
 
 # Protected endpoint: Upload snapshot
@@ -136,12 +180,13 @@ async def upload_snapshot(
         raise HTTPException(status_code=500, detail=f"Error processing snapshot: {str(e)}")
 
 
-# Include routers — frontend_router first so its versions of summary/voivodeship/
-# top-cities/per-capita take precedence over the legacy aggregates_router shapes.
-app.include_router(frontend_router, prefix="/api", tags=["Frontend v2"])
+# Include routers
+app.include_router(geo_router, prefix="/api", tags=["Geographic Boundaries"])
+app.include_router(ecology_router, prefix="/api", tags=["Ecology & GBIF"])
+app.include_router(spatial_router, prefix="/api", tags=["Spatial Analytics"])
+app.include_router(stats_router, prefix="/api", tags=["Network Stats & Trends"])
 app.include_router(locations_router, prefix="/api", tags=["Locations"])
 app.include_router(history_router, prefix="/api", tags=["History"])
-app.include_router(aggregates_router, prefix="/api", tags=["Aggregates"])
 app.include_router(admin_router, prefix="/api", tags=["Administrative & Live Data"])
 app.include_router(dashboard_router, prefix="/api", tags=["Dashboard"])
 

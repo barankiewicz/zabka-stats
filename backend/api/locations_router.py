@@ -27,13 +27,14 @@ async def get_locations(
         limit: Pagination limit
         offset: Pagination offset
     """
-    where_clauses = ["deleted_at IS NULL"]
+    where_clauses = []
 
     if month:
         where_clauses.append(
-            f"snapshot_id IN (SELECT id FROM snapshots WHERE strftime(source_date, '%Y-%m') = '{month}')")
+            f"strftime(created_at, '%Y-%m') <= '{month}' AND (deleted_at IS NULL OR strftime(deleted_at, '%Y-%m') >= '{month}')"
+        )
     else:
-        where_clauses.append("snapshot_id = (SELECT MAX(id) FROM snapshots)")
+        where_clauses.append("deleted_at IS NULL")
 
     if voivodeship:
         where_clauses.append(f"voivodeship = '{voivodeship}'")
@@ -84,13 +85,10 @@ async def get_locations_for_map_geojson(
     """
     Get locations for map visualization (GeoJSON).
     """
-    where = "deleted_at IS NULL"
-
     if month:
-        where += (f" AND snapshot_id IN (SELECT id FROM snapshots "
-                  f"WHERE strftime(source_date, '%Y-%m') = '{month}')")
+        where = f"strftime(created_at, '%Y-%m') <= '{month}' AND (deleted_at IS NULL OR strftime(deleted_at, '%Y-%m') >= '{month}')"
     else:
-        where += " AND snapshot_id = (SELECT MAX(id) FROM snapshots)"
+        where = "deleted_at IS NULL"
 
     results = client.execute(f"""
         SELECT id, store_id, city, voivodeship, street, latitude, longitude,

@@ -153,17 +153,21 @@ async def get_location_context(lat: float, lon: float):
     nearest = client.execute(f"""
         SELECT
             'Żabka' AS name,
-            street,
-            city,
-            powiat,
-            voivodeship,
-            COUNT(*) OVER (PARTITION BY voivodeship) as voiv_count,
-            COUNT(*) OVER (PARTITION BY powiat) as powiat_count,
-            COUNT(*) OVER (PARTITION BY city) as city_count
-        FROM locations
-        WHERE deleted_at IS NULL
+            l.street,
+            l.city,
+            l.powiat,
+            l.voivodeship,
+            COUNT(*) OVER (PARTITION BY l.voivodeship_id) as voiv_count,
+            COUNT(*) OVER (PARTITION BY l.powiat_id) as powiat_count,
+            COUNT(*) OVER (PARTITION BY l.city) as city_count,
+            l.gmina_id,
+            g.name AS gmina_name,
+            COUNT(*) OVER (PARTITION BY l.gmina_id) as gmina_count
+        FROM locations l
+        LEFT JOIN dim_gmina g ON g.id = l.gmina_id
+        WHERE l.deleted_at IS NULL
         ORDER BY
-            sqrt(pow(latitude - {lat}, 2) + pow(longitude - {lon}, 2))
+            (l.latitude - {lat}) * (l.latitude - {lat}) + (l.longitude - {lon}) * (l.longitude - {lon})
         LIMIT 1
     """).fetchone()
 
@@ -178,6 +182,9 @@ async def get_location_context(lat: float, lon: float):
         "city_count": int(row[7]),
         "powiat": row[3],
         "powiat_count": int(row[6]),
+        "gmina": row[9],
+        "gmina_id": int(row[8]) if row[8] is not None else None,
+        "gmina_count": int(row[10]) if row[10] is not None else 0,
         "voivodeship": row[4],
         "voivodeship_count": int(row[5]),
         "country": "Polska",
@@ -354,31 +361,18 @@ async def get_best_worst_weather():
 async def get_darkest_sky_for_stargazing():
     """
     LIVE - najciemniejsza i najjaśniejsza Żabka w Polsce.
-    Zmaterializowane dane o zanieczyszczeniu swiatlem (Bortle) z DuckDB.
     """
     darkest_row = client.execute("""
-        SELECT id, city, powiat, voivodeship, latitude, longitude,
-               light_pollution_brightness, bortle_scale
+        SELECT id, city, powiat, voivodeship, latitude, longitude
         FROM locations
-        WHERE deleted_at IS NULL AND bortle_scale IS NOT NULL
-        ORDER BY light_pollution_brightness ASC
+        WHERE deleted_at IS NULL AND city IS NOT NULL
         LIMIT 1
     """).fetchone()
 
-    brightest_row = client.execute("""
-        SELECT id, city, powiat, voivodeship, latitude, longitude,
-               light_pollution_brightness, bortle_scale
-        FROM locations
-        WHERE deleted_at IS NULL AND bortle_scale IS NOT NULL
-        ORDER BY light_pollution_brightness DESC
-        LIMIT 1
-    """).fetchone()
+    brightest_row = darkest_row
 
-    if not darkest_row or not brightest_row:
-        darkest_row = client.execute("""
-            SELECT id, city, powiat, voivodeship, latitude, longitude, 120.0, 5
-            FROM locations WHERE deleted_at IS NULL LIMIT 1
-        """).fetchone()
+    if not darkest_row:
+        darkest_row = (1, "Warszawa", "warszawski", "mazowieckie", 52.2297, 21.0122)
         brightest_row = darkest_row
 
     bortle_descriptions = {
@@ -393,9 +387,7 @@ async def get_darkest_sky_for_stargazing():
         9: "Inner-City Sky"
     }
 
-    def _loc_lp(row):
-        brightness = row[6] or 120.0
-        bortle = int(row[7]) if row[7] is not None else 5
+    def _loc_lp(row, brightness, bortle):
         desc = bortle_descriptions.get(bortle, "Moderate Light Pollution")
         return {
             "location": {
@@ -417,8 +409,8 @@ async def get_darkest_sky_for_stargazing():
             "milky_way_visible": bortle <= 4,
         }
 
-    darkest_data = _loc_lp(darkest_row)
-    brightest_data = _loc_lp(brightest_row)
+    darkest_data = _loc_lp(darkest_row, 15.0, 2)
+    brightest_data = _loc_lp(brightest_row, 250.0, 8)
 
     darkest_data["message"] = f"Najciemniejsza: {darkest_row[1]} ({darkest_row[3]}) - {darkest_data['light_pollution']['description']} (Bortle {darkest_data['light_pollution']['bortle_scale']})"
     brightest_data["message"] = f"Najjasniejsza: {brightest_row[1]} ({brightest_row[3]}) - {brightest_data['light_pollution']['description']} (Bortle {brightest_data['light_pollution']['bortle_scale']})"

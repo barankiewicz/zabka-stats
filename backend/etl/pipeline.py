@@ -20,7 +20,6 @@ from backend.etl.io import (
     load_parcel_lockers, load_dimensions, load_fun_facts,
     load_dim_park, enforce_retention,
 )
-from backend.etl.sources.regions import RegionsEnricher
 from backend.etl.sources.neighbor import NeighborEnricher
 from backend.etl.sources.amphibians import AmphibiansEnricher
 from backend.etl.sources.parks import ParksEnricher
@@ -31,30 +30,26 @@ from backend.etl.sources.parcel_lockers import fetch_parcel_lockers
 
 
 def _build_geo_dims(rows: list[dict], lockers: list[dict], skip_gus: bool) -> tuple[list, list]:
-    """Nadaj klucze numeryczne wymiarom i faktom (bez JOIN-ow po stringach).
-
-    Zbiera wojewodztwa i pary (wojewodztwo, powiat) z obu faktow, nadaje im id,
-    wpisuje voivodeship_id/powiat_id do wierszy Żabek i paczkomatow (w miejscu),
-    po czym buduje wiersze wymiarow z ekonomia GUS (po znormalizowanej nazwie
-    powiatu). Zwraca (dim_powiat, dim_voivodeship) gotowe do zapisu."""
+    """Zbiera wojewodztwa i powiaty z obu faktow na bazie przypisanych juz id,
+    po czym buduje wiersze wymiarow z ekonomia GUS.
+    Zwraca (dim_powiat, dim_voivodeship) gotowe do zapisu."""
     facts = rows + lockers
-    voiv_names = sorted({r["voivodeship"] for r in facts if r.get("voivodeship")})
-    voiv_id = {n: i + 1 for i, n in enumerate(voiv_names)}
-    pairs = sorted({(r["voivodeship"], r["powiat"]) for r in facts
-                    if r.get("voivodeship") and r.get("powiat")})
-    powiat_id = {pair: i + 1 for i, pair in enumerate(pairs)}
+    
+    # Budujemy mapy identyfikatorow na nazwy z przypisanych juz geokodow
+    voiv_map = {}
+    powiat_map = {}
     for r in facts:
-        r["voivodeship_id"] = voiv_id.get(r.get("voivodeship"))
-        r["powiat_id"] = powiat_id.get((r.get("voivodeship"), r.get("powiat")))
+        vid, vname = r.get("voivodeship_id"), r.get("voivodeship")
+        pid, pname = r.get("powiat_id"), r.get("powiat")
+        if vid and vname:
+            voiv_map[vid] = vname
+        if pid and pname and vid:
+            powiat_map[pid] = (pname, vid)
 
     salary, unempl, popul = ({}, {}, {}) if skip_gus else fetch_gus_economics()
     if skip_gus:
         print("[gus] pominiete (--skip-gus) - wymiary bez ekonomii")
 
-    # GUS dicts are keyed by (wojewodztwo, znormalizowana_nazwa). Look up the exact
-    # (voiv, name) first so same-named powiats in different voivodeships get their
-    # own figures; fall back to name-only so anything the TERYT map missed still
-    # matches (no regression vs the old name-only join).
     def _name_only(d):
         out = {}
         for (v, n), val in d.items():
@@ -68,16 +63,18 @@ def _build_geo_dims(rows: list[dict], lockers: list[dict], skip_gus: bool) -> tu
         return dfb.get(key)
 
     dim_powiat, pop_by_voiv = [], {}
-    for (voiv, powiat), pid in sorted(powiat_id.items(), key=lambda kv: kv[1]):
+    for pid, (powiat, vid) in sorted(powiat_map.items()):
+        voiv = voiv_map[vid]
         key = _norm_powiat(powiat)
         p = _lookup(popul, pop_fb, voiv, key)
         pop_i = int(p) if p is not None else None
-        dim_powiat.append((pid, powiat, voiv_id[voiv], pop_i,
+        dim_powiat.append((pid, powiat, vid, pop_i,
                            _lookup(salary, sal_fb, voiv, key),
                            _lookup(unempl, une_fb, voiv, key)))
         if pop_i is not None:
             pop_by_voiv[voiv] = pop_by_voiv.get(voiv, 0) + pop_i
-    dim_voiv = [(voiv_id[n], n, pop_by_voiv.get(n)) for n in voiv_names]
+            
+    dim_voiv = [(vid, name, pop_by_voiv.get(name)) for vid, name in sorted(voiv_map.items())]
     print(f"[dims] {len(dim_voiv)} wojewodztw, {len(dim_powiat)} powiatow (klucze numeryczne)")
     return dim_powiat, dim_voiv
 
@@ -106,12 +103,14 @@ def run(no_geocode: bool = False, limit: int | None = None,
 
     con = duckdb.connect(DB_PATH)
     try:
-        # wojewodztwo + powiat: point-in-polygon, offline (bez tysiecy zapytan API)
+        # wojewodztwo + powiat: GUGiK geocoding / cache z bazy administrative_division
         if not no_geocode:
-            RegionsEnricher().enrich(rows)
+            from backend.etl.geo_resolver import GugikGeoResolver
+            resolver = GugikGeoResolver(con)
+            resolver.resolve_facts(rows)
         else:
-            _skip(rows, RegionsEnricher.columns,
-                  {"voivodeship": None, "powiat": None},
+            _skip(rows, ["voivodeship", "powiat", "voivodeship_id", "powiat_id", "gmina_id", "miasto_id"],
+                  {"voivodeship": None, "powiat": None, "voivodeship_id": None, "powiat_id": None, "gmina_id": None, "miasto_id": None},
                   "[regions] pominiete (--no-geocode)")
 
         # --- Wzbogacenie geograficzne (ENRICHMENT.md) ---
@@ -148,13 +147,14 @@ def run(no_geocode: bool = False, limit: int | None = None,
                   {"elevation_meters": None},
                   "[elevation] pominiete (wlacz --elevation)")
 
-        # Zanieczyszczenie swiatlem (Bortle / OpenLightMap) - cache + deterministic fallback
-        LightPollutionEnricher().enrich(rows)
-
         # --- Paczkomaty: osobna encja faktow (stan najnowszy), geografia jak Żabki ---
         src_date = meta.get("source_date") or date.today().isoformat()
         if not skip_paczkomaty:
             lockers = fetch_parcel_lockers()
+            if lockers and not no_geocode:
+                from backend.etl.geo_resolver import GugikGeoResolver
+                resolver = GugikGeoResolver(con)
+                resolver.resolve_facts(lockers)
         else:
             lockers = []
             print("[paczkomaty] pominiete (--skip-paczkomaty)")
