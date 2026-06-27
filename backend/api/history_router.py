@@ -3,14 +3,15 @@
 from typing import Optional
 from litestar import Router, get
 from litestar.exceptions import HTTPException
+from litestar.params import FromQuery, FromPath
 from backend.database_ch import client
 from backend.cache import cached
 
 @get("/history/location/{location_id:int}")
 @cached(ttl=3600)
 async def get_location_history(
-    location_id: int,
-    limit: int = 100,
+    location_id: FromPath[int],
+    limit: FromQuery[int] = 100,
 ) -> dict:
     """Get full change history (creation and deletion only) for a specific location."""
     location = client.execute("SELECT 'Żabka', created_at, deleted_at FROM locations WHERE id = ?", [location_id]).fetchone()
@@ -52,8 +53,8 @@ async def get_location_history(
 @get("/changes/monthly")
 @cached(ttl=3600)
 async def get_monthly_changes(
-    year: Optional[int] = None,
-    voivodeship: Optional[str] = None,
+    year: FromQuery[Optional[int]] = None,
+    voivodeship: FromQuery[Optional[str]] = None,
 ) -> dict:
     """Get monthly change statistics (created and deleted events only)."""
     where_clauses = []
@@ -117,7 +118,7 @@ async def get_monthly_changes(
 @get("/changes/voivodeship")
 @cached(ttl=3600)
 async def get_voivodeship_changes(
-    month: Optional[str] = None,
+    month: FromQuery[Optional[str]] = None,
 ) -> dict:
     """Get change statistics aggregated by voivodeship."""
     where = ""
@@ -173,7 +174,7 @@ async def get_voivodeship_changes(
 @get("/changes/timeline")
 @cached(ttl=3600)
 async def get_deletion_timeline(
-    limit_months: int = 12,
+    limit_months: FromQuery[int] = 12,
 ) -> dict:
     """Get timeline of deletions over the last N months."""
     results = client.execute("""

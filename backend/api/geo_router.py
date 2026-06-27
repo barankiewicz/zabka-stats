@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 from litestar import Router, get, Response
 from litestar.exceptions import HTTPException
+from litestar.params import FromQuery
 from backend.database_ch import client
 from backend.cache import cached
 from backend.etl.geo import build_polygon_index, assign_region, nearest_region
@@ -218,11 +219,11 @@ async def coverage_funnel() -> List[CoverageFunnelItem]:
 @get("/stats/by-dimension")
 @cached(ttl=3600)
 async def by_dimension(
-    dim: str = "voivodeship",
-    metric: str = "count",
-    sort: str = "desc",
-    limit: int = 20,
-    offset: int = 0
+    dim: FromQuery[str] = "voivodeship",
+    metric: FromQuery[str] = "count",
+    sort: FromQuery[str] = "desc",
+    limit: FromQuery[int] = 20,
+    offset: FromQuery[int] = 0
 ) -> ByDimensionResponse:
     if dim not in ("city", "gmina", "powiat", "voivodeship"):
         raise HTTPException(status_code=400, detail="Invalid dimension")
@@ -326,7 +327,7 @@ async def by_dimension(
 
 @get("/stats/gmina-leaders")
 @cached(ttl=3600)
-async def gmina_leaders(limit: int = 12) -> GminaLeadersResponse:
+async def gmina_leaders(limit: FromQuery[int] = 12) -> GminaLeadersResponse:
     rows = _gmina_agg()
     per1k = sorted((r for r in rows if r.get("per_1k") and r.get("cnt", 0) >= 3),
                    key=lambda x: -x["per_1k"])[:max(1, min(int(limit), 30))]

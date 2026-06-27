@@ -2,6 +2,7 @@ import re
 from collections import Counter, defaultdict
 from typing import List, Optional, Dict, Any
 from litestar import Router, get, post
+from litestar.params import FromQuery
 from backend.database_ch import client
 from backend.cache import cached, clear_cache
 from backend.schemas.api_models import (
@@ -264,7 +265,7 @@ async def city_first_opening() -> List[CityFirstOpeningItem]:
 
 @get("/stats/top-cities")
 @cached(ttl=1800)
-async def top_cities(limit: int = 20) -> List[TopCityItem]:
+async def top_cities(limit: FromQuery[int] = 20) -> List[TopCityItem]:
     rows = client.execute("""
         SELECT city, COUNT(*) AS cnt, voivodeship
         FROM locations
@@ -426,10 +427,10 @@ async def inpost_vs_zabka() -> List[InPostVsZabkaResponseItem]:
 @get("/stats/inpost-vs-zabka-by-level")
 @cached(ttl=3600)
 async def inpost_vs_zabka_by_level(
-    level: str = "voivodeship",
-    sort: str = "desc",
-    limit: int = 20,
-    offset: int = 0
+    level: FromQuery[str] = "voivodeship",
+    sort: FromQuery[str] = "desc",
+    limit: FromQuery[int] = 20,
+    offset: FromQuery[int] = 0
 ) -> InPostVsZabkaByLevelResponse:
     lim = max(1, min(int(limit), 500))
     off = max(0, int(offset))
@@ -577,7 +578,7 @@ async def inpost_vs_zabka_by_level(
 
 @get("/stats/common-streets")
 @cached(ttl=3600)
-async def common_streets(limit: int = 15) -> CommonStreetsResponse:
+async def common_streets(limit: FromQuery[int] = 15) -> CommonStreetsResponse:
     rows = client.execute("""
         SELECT street FROM locations
         WHERE deleted_at IS NULL 
@@ -612,7 +613,7 @@ async def openings_monthly() -> List[OpeningsMonthlyItem]:
     return [OpeningsMonthlyItem(year=r[0], month=r[1], cnt=r[2]) for r in rows]
 
 @get("/stats/sunday-closed-stores")
-async def sunday_closed_stores(voivodeship: str) -> List[SundayClosedStoreItem]:
+async def sunday_closed_stores(voivodeship: FromQuery[str]) -> List[SundayClosedStoreItem]:
     rows = client.execute("""
         SELECT city, street, has_merrychef
         FROM locations
@@ -625,7 +626,7 @@ async def sunday_closed_stores(voivodeship: str) -> List[SundayClosedStoreItem]:
 
 @get("/stats/top-streets")
 @cached(ttl=1800)
-async def get_top_streets(limit: int = 20, month: Optional[str] = None) -> TopStreetsResponse:
+async def get_top_streets(limit: FromQuery[int] = 20, month: FromQuery[Optional[str]] = None) -> TopStreetsResponse:
     params = []
     if month:
         where = "street IS NOT NULL AND strftime(created_at, '%Y-%m') <= ? AND (deleted_at IS NULL OR strftime(deleted_at, '%Y-%m') >= ?)"

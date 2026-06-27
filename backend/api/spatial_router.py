@@ -1,5 +1,6 @@
 from typing import List, Optional, Dict, Any
 from litestar import Router, get
+from litestar.params import FromQuery
 from backend.database_ch import client
 from backend.cache import cached
 from backend.schemas.api_models import (
@@ -388,10 +389,10 @@ async def twins() -> TwinsResponse:
 @get("/stats/neighbor-by-level")
 @cached(ttl=3600)
 async def neighbor_by_level(
-    level: str = "voivodeship",
-    sort: str = "desc",
-    metric: str = "median_m",
-    limit: int = 20
+    level: FromQuery[str] = "voivodeship",
+    sort: FromQuery[str] = "desc",
+    metric: FromQuery[str] = "median_m",
+    limit: FromQuery[int] = 20
 ) -> NeighborByLevelResponse:
     col = {"voivodeship": "voivodeship", "powiat": "powiat", "city": "city"}.get(level)
     if not col:

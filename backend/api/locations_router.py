@@ -3,17 +3,18 @@
 from typing import Optional
 from litestar import Router, get
 from litestar.exceptions import HTTPException
+from litestar.params import FromQuery, FromPath
 from backend.database_ch import client
 from backend.cache import cached
 
 @get("/locations")
 @cached(ttl=3600)
 async def get_locations(
-    month: Optional[str] = None,
-    voivodeship: Optional[str] = None,
-    city: Optional[str] = None,
-    limit: int = 100,
-    offset: int = 0,
+    month: FromQuery[Optional[str]] = None,
+    voivodeship: FromQuery[Optional[str]] = None,
+    city: FromQuery[Optional[str]] = None,
+    limit: FromQuery[int] = 100,
+    offset: FromQuery[int] = 0,
 ) -> dict:
     """
     Get locations with optional filters.
@@ -85,7 +86,7 @@ async def get_locations(
 @get("/locations/map")
 @cached(ttl=3600)
 async def get_locations_for_map_geojson(
-    month: Optional[str] = None,
+    month: FromQuery[Optional[str]] = None,
 ) -> dict:
     """
     Get locations for map visualization (GeoJSON).
@@ -134,7 +135,7 @@ async def get_locations_for_map_geojson(
 
 @get("/locations/{location_id:int}")
 @cached(ttl=3600)
-async def get_location(location_id: int) -> dict:
+async def get_location(location_id: FromPath[int]) -> dict:
     """Get a specific location by ID."""
     result = client.execute("""
         SELECT id, 'Żabka' AS name, city, voivodeship, street, latitude, longitude,
