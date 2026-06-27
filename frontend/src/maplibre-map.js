@@ -165,3 +165,52 @@ export function htmlMarker(lngLat, el, opts = {}) {
   return new maplibregl.Marker({ element: el, anchor: opts.anchor || 'center' })
     .setLngLat(lngLat);
 }
+
+// [[lat,lon],...] or [[lat,lon,extra],...] -> Point FeatureCollection.
+// propFn(lat,lon,extra,index) returns the per-feature properties (optional).
+export function pointsToFC(pairs, propFn) {
+  const features = pairs.map((p, i) => {
+    const lat = Array.isArray(p) ? p[0] : (p && p.lat);
+    const lon = Array.isArray(p) ? p[1] : (p && p.lon);
+    const props = propFn ? propFn(lat, lon, p, i) : {};
+    return { type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] }, properties: props || {} };
+  }).filter((f) => typeof f.geometry.coordinates[0] === 'number');
+  return { type: 'FeatureCollection', features };
+}
+
+// Destination point on a sphere (haversine). Returns [lng,lat].
+export function destination(lat, lon, bearingDeg, distM) {
+  const R = 6371000, br = bearingDeg * Math.PI / 180;
+  const l1 = lat * Math.PI / 180, ln1 = lon * Math.PI / 180;
+  const dr = distM / R;
+  const l2 = Math.asin(Math.sin(l1) * Math.cos(dr) + Math.cos(l1) * Math.sin(dr) * Math.cos(br));
+  const ln2 = ln1 + Math.atan2(Math.sin(br) * Math.sin(dr) * Math.cos(l1), Math.cos(dr) - Math.sin(l1) * Math.sin(l2));
+  return [ln2 * 180 / Math.PI, l2 * 180 / Math.PI];
+}
+
+// Geodesic circle as a closed Polygon FeatureCollection — the MapLibre
+// equivalent of Leaflet's L.circle(latlng, {radius}). Used for the Bieszczady
+// "void" highlight.
+export function geoCircle(lat, lon, radiusM, n = 64) {
+  const ring = [];
+  for (let i = 0; i <= n; i++) {
+    ring.push(destination(lat, lon, (i / n) * 360, radiusM));
+  }
+  return { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [ring] } }] };
+}
+
+// Compute a [SW,NE] bounds pair [[minLng,minLat],[maxLng,maxLat]] from a list
+// of [lat,lon] points (or {lat,lon}). MapLibre fitBounds-friendly.
+export function boundsOf(points) {
+  let minLat = 90, minLng = 180, maxLat = -90, maxLng = -180;
+  for (const p of points) {
+    const lat = Array.isArray(p) ? p[0] : p.lat;
+    const lon = Array.isArray(p) ? p[1] : p.lon;
+    if (typeof lat !== 'number' || typeof lon !== 'number') continue;
+    if (lat < minLat) minLat = lat;
+    if (lon < minLng) minLng = lon;
+    if (lat > maxLat) maxLat = lat;
+    if (lon > maxLng) maxLng = lon;
+  }
+  return [[minLng, minLat], [maxLng, maxLat]];
+}

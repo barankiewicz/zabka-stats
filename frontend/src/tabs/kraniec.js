@@ -2,8 +2,8 @@
 // Hover NIE skacze - dopiero klik. Kazdy wpis moze renderowac kropki
 // (np. h24, parki, sciana zachodnia, sklepy tuz obok). Trzymane w M, cap 360
 // na wpis zeby nie przeciazac CPU.
-import L from 'leaflet';
-import { M } from '../state.js';
+import { maplibregl, createMap, fitPoland, pointsToFC, geoCircle, boundsOf } from '../maplibre-map.js';
+import { M, MAPS } from '../state.js';
 import { fmt } from '../utils.js';
 
 const RM = window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches;
@@ -209,7 +209,7 @@ function buildFacts() {
 
 export function renderKraniec() {
   const root = document.getElementById('kr-root'); if (!root) return;
-  if (_krDone) { if (_krMap) setTimeout(() => _krMap.invalidateSize(), 120); return; }
+  if (_krDone) { if (_krMap) setTimeout(() => _krMap.resize && _krMap.resize(), 120); return; }
   _krDone = true;
   _updateKrDataCounts();
   buildMap();
@@ -218,57 +218,61 @@ export function renderKraniec() {
 }
 
 function buildMap() {
-  const node = document.getElementById('kr-map'); if (!node || !L) return;
-  const map = L.map('kr-map', { zoomControl: false, attributionControl: true, scrollWheelZoom: 'ctrl' })
-    .setView(HOME, HOME_Z);
-  _krMap = map;
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    { attribution: '© OpenStreetMap, © CARTO', subdomains: 'abcd', maxZoom: 16, detectRetina: true })
-    .addTo(map);
-
-  // Tlo: brak kropek - pokazujemy je dopiero po wybraniu zjawiska z listy
-  const FACTS = buildFacts();
-
-  // Pustka: czerwone kolko (tlo) + marker (do popupu po kliknieciu)
-  const voidFact = FACTS.find(f => f.id === 'void');
-  const voidRadius = parseFloat(String(voidFact.val).replace(',', '.')) * 1000;
-  L.circle([voidFact.lat, voidFact.lon], {
-    radius: voidRadius,
-    color: '#e8693d', weight: 1.5, dashArray: '5 5',
-    fillColor: '#e8693d', fillOpacity: .07, interactive: false
-  }).addTo(map);
-
-  // Markery dla facts typu point (jeden punkt) + void (specjalny marker)
-  const markers = {};
-  FACTS.forEach(f => {
-    if (f.type === 'point') {
-      const c = COL[f.g];
-      const icon = L.divIcon({ className: '',
-        html: `<div class="mk ${f.id === 'frog' ? 'big' : ''}" style="--c:${c}"></div>`,
-        iconSize: [16, 16], iconAnchor: [8, 8] });
-      const m = L.marker([f.lat, f.lon], { icon }).addTo(map);
-      m.bindPopup(_popupHtml(f), { maxWidth: 260, closeButton: false });
-      m.on('click', () => selectFact(f.id));
-      m.on('mouseover', () => { if (activeId !== f.id) m.openPopup(); });
-      m.on('mouseout',  () => { if (activeId !== f.id) m.closePopup(); });
-      markers[f.id] = m;
-    } else if (f.type === 'circle') {
-      // Void - marker w srodku okregu, do popupu
-      const c = COL[f.g];
-      const icon = L.divIcon({ className: '',
-        html: `<div class="mk" style="--c:${c}"></div>`,
-        iconSize: [16, 16], iconAnchor: [8, 8] });
-      const m = L.marker([f.lat, f.lon], { icon }).addTo(map);
-      m.bindPopup(_popupHtml(f), { maxWidth: 260, closeButton: false });
-      m.on('click', () => selectFact(f.id));
-      m.on('mouseover', () => { if (activeId !== f.id) m.openPopup(); });
-      m.on('mouseout',  () => { if (activeId !== f.id) m.closePopup(); });
-      markers[f.id] = m;
-    }
+  const node = document.getElementById('kr-map'); if (!node) return;
+  _krMap = createMap('kr-map', {
+    center: HOME, zoom: HOME_Z, minZoom: 5, maxZoom: 13,
+    dragRotate: false, pitchWithRotate: false,
+    scrollZoom: false, doubleClickZoom: true, touchZoom: true,
+    cooperativeGestures: true,   // ctrl+scroll to zoom (page scrolls otherwise)
+    attributionControl: false,
   });
+  MAPS['kr-map'] = _krMap;
 
-  // Unified hover tooltip: DOM element anchored above the hovered element,
-  // works for all fact types regardless of whether the map is on-screen.
+  // ctrl + scroll to zoom, centered on the cursor (parity with the growth map)
+  node.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    const r = node.getBoundingClientRect();
+    const lngLat = _krMap.unproject([e.clientX - r.left, e.clientY - r.top]);
+    _krMap.easeTo({ center: lngLat, zoom: _krMap.getZoom() + (e.deltaY < 0 ? 0.6 : -0.6), duration: 0 });
+  }, { passive: false });
+
+  const FACTS = buildFacts();
+  const FACT_BY_ID = Object.fromEntries(FACTS.map(f => [f.id, f]));
+  const CLUSTER_FACTS = FACTS.filter(f => f.type === 'cluster' && f.dots && f.dots.length);
+  const POINT_FACTS = FACTS.filter(f => f.type === 'point' || f.type === 'circle');
+
+  // cluster dot layers: opacity tweened by a single rAF loop
+  const _dotState = {};   // factId -> {opacity, target}
+  let _dotRaf = 0;
+  function _dotLoop() {
+    let moving = false;
+    CLUSTER_FACTS.forEach(f => {
+      const st = _dotState[f.id] || (_dotState[f.id] = { opacity: 0, target: 0 });
+      const d = st.target - st.opacity;
+      if (Math.abs(d) > 0.01) { st.opacity += d * 0.15; moving = true; } else st.opacity = st.target;
+      const lid = 'cluster-' + f.id + '-dots';
+      if (_krMap.getLayer(lid)) {
+        const vis = st.opacity > 0.005 ? 'visible' : 'none';
+        _krMap.setLayoutProperty(lid, 'visibility', vis);
+        if (vis === 'visible') {
+          _krMap.setPaintProperty(lid, 'circle-opacity', st.opacity * 0.85);
+          _krMap.setPaintProperty(lid, 'circle-stroke-opacity', st.opacity * 0.4);
+        }
+      }
+    });
+    _dotRaf = moving ? requestAnimationFrame(_dotLoop) : 0;
+  }
+  function _setClusterTarget(factId) {
+    CLUSTER_FACTS.forEach(f => {
+      _dotState[f.id] = _dotState[f.id] || { opacity: 0, target: 0 };
+      _dotState[f.id].target = (f.id === factId) ? 1 : 0;
+    });
+    if (!_dotRaf) _dotRaf = requestAnimationFrame(_dotLoop);
+  }
+
+  // Unified hover tooltip: a DOM element anchored to the hovered item. Works
+  // for the rail list and the KPI/ep panels regardless of the map library.
   let _tipEl = null;
   function showTip(f, targetEl) {
     if (_tipEl) { _tipEl.remove(); _tipEl = null; }
@@ -283,11 +287,8 @@ function buildMap() {
     tip.style.top = (r.top - 10) + 'px';
     _tipEl = tip;
   }
-  function hideTip() {
-    if (_tipEl) { _tipEl.remove(); _tipEl = null; }
-  }
+  function hideTip() { if (_tipEl) { _tipEl.remove(); _tipEl = null; } }
 
-  // Hover na liscie (kr-rail .item)
   const railEl = document.getElementById('kr-rail');
   if (railEl) {
     railEl.addEventListener('mouseover', e => {
@@ -301,8 +302,6 @@ function buildMap() {
       hideTip();
     });
   }
-
-  // Hover na panelach (KPI u gory + ep-* pod mapa)
   const panelIds = [
     'edge-kpi-h24-tile', 'edge-kpi-parks-tile', 'edge-kpi-frogrecord-tile',
     'edge-kpi-void-tile', 'edge-kpi-oldest-tile', 'edge-kpi-farthestfrog-tile',
@@ -325,198 +324,51 @@ function buildMap() {
     el.addEventListener('mouseout', () => hideTip());
   });
 
-  // Warstwy kropek dla zjawisk skupiskowych (h24, parks, twins)
-  // Rysowane na canvas overlay z animacja (jak 380/380 w SIEC).
-  // Canvas dolaczony do Leaflet overlayPane, zeby wspoldzielic coord system i z-index.
-  const canvas = document.getElementById('kr-dots-canvas');
-  map.getPanes().overlayPane.appendChild(canvas);
-  canvas.classList.add('kr-canvas-pane');
-  const ctx = canvas.getContext('2d');
-  const dotsByFact = {};
-  const FACT_BY_ID = Object.fromEntries(FACTS.map(f => [f.id, f]));
-
-  FACTS.forEach(f => {
-    if (f.type === 'cluster' && f.dots && f.dots.length) {
-      dotsByFact[f.id] = f.dots.map((latlon, i) => {
-        const lat = Array.isArray(latlon) ? latlon[0] : (latlon && latlon.lat);
-        const lon = Array.isArray(latlon) ? latlon[1] : (latlon && latlon.lon);
-        const baseColor = (f.id === 'twins') ? _twinsColorForDot(i, f.dotsMeta && f.dotsMeta[i]) : COL[f.g];
-        return { lat, lon, color: baseColor, progress: 0, target: 0 };
-      });
-    }
-  });
-
-  let activeDotsFact = null;
-  let dotsAnim = null;
-
-  // Rozmiar canvasa (dopasowany do kontenera + obsluga resize)
-  function resizeCanvas() {
-    const r = map.getContainer().getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.floor(r.width * dpr);
-    canvas.height = Math.floor(r.height * dpr);
-    canvas.style.width = r.width + 'px';
-    canvas.style.height = r.height + 'px';
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-  resizeCanvas();
-
-  // Hover - pozycja kursora do podswietlenia okolicznych kropek
-  const hover = { x: -9999, y: -9999, on: false };
-
-  function latlngToPx(latlng) {
-    return map.latLngToContainerPoint(latlng);
-  }
-
-  function drawDots(now) {
-    const r = map.getContainer().getBoundingClientRect();
-    ctx.clearRect(0, 0, r.width, r.height);
-    const fact = activeDotsFact ? dotsByFact[activeDotsFact] : null;
-    if (!fact) return;
-    const EFFECT_R = 46, BASE_R = 1.6, MAX_R = 3.0;
-    fact.forEach(d => {
-      if (d.progress <= 0.001) return;
-      const p = map.latLngToLayerPoint([d.lat, d.lon]);
-      const x = p.x, y = p.y;
-      if (x < -20 || y < -20 || x > r.width + 20 || y > r.height + 20) return;
-      const dist = hover.on ? Math.hypot(x - hover.x, y - hover.y) : 999;
-      const t = dist < EFFECT_R ? 1 - dist / EFFECT_R : 0;
-      const breathe = t > 0 ? 0.2 * Math.sin(now / 280 + dist / 18) : 0;
-      const jx = t > 0 ? 0.5 * Math.sin(now / 370 + dist / 22) : 0;
-      const jy = t > 0 ? 0.5 * Math.cos(now / 340 + dist / 28) : 0;
-      const radius = Math.max(0, BASE_R * d.progress + t * (MAX_R - BASE_R) * d.progress + breathe);
-      // alpha z progress + delikatna poświata
-      const alpha = d.progress * (0.55 + 0.3 * t);
-      ctx.beginPath();
-      ctx.arc(x + jx, y + jy, radius, 0, Math.PI * 2);
-      ctx.fillStyle = hexWithAlpha(d.color, alpha);
-      ctx.shadowColor = hexWithAlpha(d.color, 0.5 + 0.3 * t);
-      ctx.shadowBlur = 3 + t * 7;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-    });
-  }
-
-  function animLoop(now) {
-    let moving = false;
-    const fact = activeDotsFact ? dotsByFact[activeDotsFact] : null;
-    if (fact) {
-      for (let i = 0; i < fact.length; i++) {
-        const d = fact[i];
-        const delta = d.target - d.progress;
-        if (Math.abs(delta) > 0.003) {
-          d.progress += delta * 0.12;
-          moving = true;
-        } else {
-          d.progress = d.target;
-        }
-      }
-    }
-    // Jesli poprzednia grupa sie pojawila, tez ja animuj (od target=1 do target=0)
-    Object.entries(dotsByFact).forEach(([id, arr]) => {
-      if (id !== activeDotsFact) {
-        for (let i = 0; i < arr.length; i++) {
-          const d = arr[i];
-          const delta = d.target - d.progress;
-          if (Math.abs(delta) > 0.003) {
-            d.progress += delta * 0.12;
-            moving = true;
-          } else {
-            d.progress = d.target;
-          }
-        }
-      }
-    });
-    drawDots(now);
-    if (moving || hover.on) {
-      dotsAnim = requestAnimationFrame(animLoop);
-    } else {
-      dotsAnim = null;
-    }
-  }
-
-  function startAnim() {
-    if (!dotsAnim) dotsAnim = requestAnimationFrame(animLoop);
-  }
-
-  function setActiveDots(factId) {
-    // Ustaw targety - poprzednia grupa na 0, nowa na 1
-    Object.keys(dotsByFact).forEach(id => {
-      const target = (id === factId) ? 1 : 0;
-      dotsByFact[id].forEach(d => { d.target = target; });
-    });
-    if (factId && dotsByFact[factId]) {
-      canvas.classList.add('active');
-    } else {
-      canvas.classList.remove('active');
-      hover.on = false;
-    }
-    startAnim();
-  }
-
-  // Hover na canvasie
-  canvas.addEventListener('mousemove', e => {
-    const r = canvas.getBoundingClientRect();
-    hover.x = e.clientX - r.left;
-    hover.y = e.clientY - r.top;
-    hover.on = true;
-    startAnim();
-  });
-  canvas.addEventListener('mouseleave', () => {
-    hover.on = false;
-    startAnim();
-  });
-
-  // Invalidate przy zmianie rozmiaru / zoom / pan
-  map.on('move zoom moveend zoomend resize', () => { if (activeDotsFact) startAnim(); });
-  window.addEventListener('resize', () => { resizeCanvas(); startAnim(); });
-
+  const markers = {};   // factId -> {marker, el, mkEl, popup}
   const cap = document.getElementById('kr-cap');
   let activeId = null;
-  const setActiveMarker = id => Object.entries(markers).forEach(([k, m]) => {
-    const el = m.getElement(); if (el) {
-      const d = el.querySelector('.mk');
-      if (d) d.classList.toggle('active', k === id);
-    }
-  });
 
-  const showDots = (factId) => {
-    activeDotsFact = factId || null;
-    setActiveDots(activeDotsFact);
-  };
-  const flyToFact = (f, withPopup) => {
+  function setActiveMarker(id) {
+    Object.entries(markers).forEach(([k, mm]) => {
+      if (mm.mkEl) mm.mkEl.classList.toggle('active', k === id);
+    });
+  }
+
+  const showDots = (factId) => _setClusterTarget(factId);
+
+  function flyToFact(f, withPopup) {
     if (!f) return;
-    // Zamknij poprzedni popup, jesli zmieniamy zjawisko
-    map.closePopup();
-    // Dla zjawisk skupiskowych: najpierw pokaz kropki, potem dopasuj mape do nich
+    // close any open popup when switching facts
+    Object.values(markers).forEach(mm => { if (mm.popup) mm.popup.remove(); });
     if (f.type === 'cluster' && f.dots && f.dots.length) {
       showDots(f.id);
       try {
-        const bnd = L.latLngBounds(f.dots);
-        map.flyToBounds(bnd, { padding: [28, 28], duration: RM ? 0 : 1.6, easeLinearity: .22, maxZoom: 12 });
+        const bnd = boundsOf(f.dots);
+        _krMap.fitBounds(bnd, { padding: 28, animate: !RM, duration: RM ? 0 : 1600, maxZoom: 12 });
       } catch (e) {
-        map.flyTo([f.lat, f.lon], f.zoom, { duration: RM ? 0 : 1.6, easeLinearity: .22 });
+        _krMap.flyTo({ center: [f.lon, f.lat], zoom: f.zoom, duration: RM ? 0 : 1600 });
       }
     } else {
-      map.flyTo([f.lat, f.lon], f.zoom, { duration: RM ? 0 : 1.6, easeLinearity: .22 });
+      _krMap.flyTo({ center: [f.lon, f.lat], zoom: f.zoom, duration: RM ? 0 : 1600 });
     }
     setActiveMarker(f.id);
     document.querySelectorAll('#kr-rail .item').forEach(it => it.classList.toggle('active', it.dataset.id === f.id));
     if (f.type !== 'cluster') showDots(null);
     if (cap) cap.innerHTML = `<b>${f.city || f.lab}</b> · ${f.val} – ${f.desc}`;
     if (withPopup && (f.type === 'point' || f.type === 'circle') && markers[f.id]) {
-      setTimeout(() => markers[f.id].openPopup(), RM ? 0 : 650);
+      setTimeout(() => markers[f.id].popup.addTo(_krMap), RM ? 0 : 650);
     }
-  };
+  }
+
   const select = (id) => {
-    const f = FACTS.find(x => x.id === id);
+    const f = FACT_BY_ID[id];
     if (!f) return;
     activeId = id;
     flyToFact(f, true);
   };
   _select = select;
   _highlight = (id) => {
-    const f = FACTS.find(x => x.id === id);
+    const f = FACT_BY_ID[id];
     if (!f) return;
     setActiveMarker(f.id);
     showDots(f.type === 'cluster' ? f.id : null);
@@ -526,19 +378,79 @@ function buildMap() {
   if (resetBtn) resetBtn.onclick = () => {
     activeId = null;
     setActiveMarker(null);
-    map.closePopup();
+    Object.values(markers).forEach(mm => { if (mm.popup) mm.popup.remove(); });
     showDots(null);
     document.querySelectorAll('#kr-rail .item').forEach(it => it.classList.remove('active'));
     document.querySelectorAll('.kr-fact-tile').forEach(it => it.classList.remove('active'));
-    map.flyTo(HOME, HOME_Z, { duration: RM ? 0 : 1.4, easeLinearity: .22 });
+    _krMap.flyTo({ center: HOME, zoom: HOME_Z, duration: RM ? 0 : 1400 });
     if (cap) cap.textContent = 'Kliknij zjawisko – mapa doleci i podświetli kropki.';
   };
 
-  setTimeout(() => { map.invalidateSize(); resizeCanvas(); startAnim(); }, 300);
-  new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { map.invalidateSize(); resizeCanvas(); } }), { threshold: .1 }).observe(node);
-  window.addEventListener('resize', () => { map.invalidateSize(); resizeCanvas(); startAnim(); });
-}
+  _krMap.on('load', () => {
+    // faint store backdrop for geographic context (no raster tiles)
+    const backdrop = M.points_sample || [];
+    if (backdrop.length) {
+      _krMap.addSource('backdrop', { type: 'geojson', data: pointsToFC(backdrop) });
+      _krMap.addLayer({ id: 'backdrop-dots', type: 'circle', source: 'backdrop',
+        paint: { 'circle-radius': 1, 'circle-color': '#1a3a14', 'circle-opacity': 0.5 } });
+    }
+    // voivodeship outline
+    if (M.woj_geo) {
+      _krMap.addSource('woj', { type: 'geojson', data: M.woj_geo });
+      _krMap.addLayer({ id: 'woj-line', type: 'line', source: 'woj',
+        paint: { 'line-color': 'rgba(140,200,80,.12)', 'line-width': 1 } });
+    }
+    // Bieszczady void: dashed geodesic circle
+    const voidFact = FACT_BY_ID.void;
+    if (voidFact) {
+      const radiusM = parseFloat(String(voidFact.val).replace(',', '.')) * 1000;
+      _krMap.addSource('void', { type: 'geojson', data: geoCircle(voidFact.lat, voidFact.lon, radiusM) });
+      _krMap.addLayer({ id: 'void-fill', type: 'fill', source: 'void', paint: { 'fill-color': '#e8693d', 'fill-opacity': 0.06 } });
+      _krMap.addLayer({ id: 'void-line', type: 'line', source: 'void',
+        paint: { 'line-color': '#e8693d', 'line-width': 1.5, 'line-dasharray': [2, 2], 'line-opacity': 0.8 } });
+    }
+    // cluster dot layers — one per cluster fact, all start hidden
+    CLUSTER_FACTS.forEach(f => {
+      const fc = pointsToFC(f.dots, (lat, lon, p, i) => ({
+        _c: (f.id === 'twins') ? _twinsColorForDot(i, f.dotsMeta && f.dotsMeta[i]) : COL[f.g],
+      }));
+      _krMap.addSource('cluster-' + f.id, { type: 'geojson', data: fc });
+      _krMap.addLayer({
+        id: 'cluster-' + f.id + '-dots', type: 'circle', source: 'cluster-' + f.id,
+        layout: { visibility: 'none' },
+        paint: {
+          'circle-radius': 1.8, 'circle-color': ['get', '_c'],
+          'circle-opacity': 0, 'circle-blur': 0.5,
+          'circle-stroke-color': ['get', '_c'], 'circle-stroke-opacity': 0, 'circle-stroke-width': 0.5,
+        },
+      });
+    });
+    // point/circle facts as HTML markers (reuse the .mk CSS)
+    POINT_FACTS.forEach(f => {
+      const c = COL[f.g];
+      const el = document.createElement('div');
+      el.className = 'mk-wrap';
+      el.innerHTML = `<div class="mk ${f.id === 'frog' ? 'big' : ''}" style="--c:${c}"></div>`;
+      const mkEl = el.querySelector('.mk');
+      const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([f.lon, f.lat]).addTo(_krMap);
+      const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: true, maxWidth: '280px', className: 'zab-popup' })
+        .setHTML(_popupHtml(f));
+      marker.setPopup(popup);
+      el.addEventListener('click', (ev) => { ev.stopPropagation(); selectFact(f.id); });
+      el.addEventListener('mouseenter', () => { if (activeId !== f.id) popup.addTo(_krMap); });
+      el.addEventListener('mouseleave', () => { if (activeId !== f.id) popup.remove(); });
+      markers[f.id] = { marker, el, mkEl, popup };
+    });
 
+    fitPoland(_krMap, 4);
+  });
+
+  // keep the map sized when its container reveals / resizes
+  new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting && _krMap) _krMap.resize(); }), { threshold: 0.1 }).observe(node);
+  window.addEventListener('resize', () => { if (_krMap) _krMap.resize(); });
+  setTimeout(() => { if (_krMap) _krMap.resize(); }, 300);
+}
 // 3 odcienie zieleni dla twins, w proporcjach odpowiadajacych progom
 function _twinsColorForDot(i, meta) {
   if (!meta) return '#a6e84a';
@@ -546,23 +458,6 @@ function _twinsColorForDot(i, meta) {
   if (b === 'a') return '#5e9a2a';   // <50 m, ciemna zielen
   if (b === 'b') return '#84c341';   // 50-100 m, bazowa
   return '#a6e84a';                  // 100-200 m, jasna
-}
-
-function hexWithAlpha(hex, a) {
-  if (!hex || hex[0] !== '#' || hex.length !== 7) return hex;
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r},${g},${b},${a})`;
-}
-
-function _tooltipHtml(f) {
-  const c = COL[f.g];
-  return `<div class="kr-tip-inner" style="--c:${c}">
-    <div class="krt-v">${f.val}</div>
-    <div class="krt-l">${f.lab}</div>
-    ${f.city ? `<div class="krt-c">${f.city}</div>` : ''}
-  </div>`;
 }
 
 function _popupHtml(f) {
