@@ -72,7 +72,13 @@ def cached(ttl: int = 3600):
     def decorator(func):
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
-            key = f"{func.__name__}:{json.dumps({**kwargs})}"
+            # Serialize serializable positional arguments and sorted keyword arguments
+            args_serializable = [arg for arg in args if isinstance(arg, (int, float, str, bool, type(None)))]
+            key_data = {
+                "args": args_serializable,
+                "kwargs": {k: v for k, v in sorted(kwargs.items())}
+            }
+            key = f"{func.__name__}:{json.dumps(key_data, sort_keys=True)}"
             cached_val = get_cache(key)
             if cached_val is not None:
                 return cached_val

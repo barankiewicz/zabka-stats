@@ -112,8 +112,8 @@ def _run_all_ddl(con):
         print("DuckDB schema created.")
 
     # Idempotentne migracje — bezpieczne przy kazdym wywolaniu.
-    ensure_enrichment_columns(con)
     ensure_extra_tables(con)
+    ensure_enrichment_columns(con)
 
 
 def _ensure_schema():
