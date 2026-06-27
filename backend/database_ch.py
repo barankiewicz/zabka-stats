@@ -6,6 +6,8 @@ Ultra-fast analytics database - 100x faster than SQLite!
 import duckdb
 from pathlib import Path
 
+import threading
+
 # Database path
 DB_PATH = Path(__file__).parent.parent / "data" / "zabka.duckdb"
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -127,26 +129,55 @@ def _ensure_schema():
 
 class _ConnectionProxy:
     """Proxy so `from database_ch import client` stays valid after init_db()
-    swaps the underlying connection. Without this, all module-level imports
-    of `client` hold a stale reference to the connection that init_db() closed."""
+    swaps the underlying connection. It uses thread-local storage to provide
+    thread-safe read-only connections and registers all open connections so
+    they can be closed collectively to release the database file."""
 
-    def __init__(self, conn=None):
-        self._conn = conn
+    def __init__(self, db_path):
+        self._db_path = db_path
+        self._lock = threading.Lock()
+        self._connections = []
+        self._local = threading.local()
+        self._enabled = True
 
-    def _replace(self, conn):
-        self._conn = conn
+    def _get_conn(self):
+        with self._lock:
+            if not self._enabled:
+                raise RuntimeError("Database client is closed/disabled.")
+            
+            if hasattr(self._local, "conn") and self._local.conn is not None:
+                return self._local.conn
+
+            conn = duckdb.connect(str(self._db_path), read_only=True)
+            self._local.conn = conn
+            self._connections.append(conn)
+            return conn
 
     def close(self):
-        if self._conn is not None:
-            self._conn.close()
+        with self._lock:
+            for conn in self._connections:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+            self._connections.clear()
+            if hasattr(self._local, "conn"):
+                self._local.conn = None
+
+    def _replace(self, db_path):
+        self.close()
+        with self._lock:
+            self._db_path = db_path
+            self._enabled = (db_path is not None)
 
     def __getattr__(self, name):
-        return getattr(self._conn, name)
+        conn = self._get_conn()
+        return getattr(conn, name)
 
 
 if not DB_PATH.exists():
     duckdb.connect(str(DB_PATH)).close()
-client = _ConnectionProxy(duckdb.connect(str(DB_PATH), read_only=True))
+client = _ConnectionProxy(DB_PATH)
 
 
 def init_db(keep_open: bool = True):
@@ -169,7 +200,7 @@ def init_db(keep_open: bool = True):
         # client below, so just swallow the error here.
         print(f"  Schema init skipped (concurrent worker): {e}")
     if keep_open:
-        client._replace(duckdb.connect(str(DB_PATH), read_only=True))
+        client._replace(DB_PATH)
     else:
         client._replace(None)
     return client if keep_open else None
