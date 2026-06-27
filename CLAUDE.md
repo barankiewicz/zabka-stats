@@ -278,7 +278,6 @@ Locations support soft delete via the `deleted_at` timestamp.
 ```
 backend/                 - code + API (chapter 2)
   main.py                - Litestar app + /api/snapshot
-  compat_router.py       - FastAPI compatibility router wrapper for Litestar
   database_ch.py         - DuckDB connection + schema (facts + dimensions)
   cache.py               - Redis cache (UNIX socket)
   daily_etl.py           - thin ETL entrypoint (re-exports run + CLI)
@@ -383,7 +382,7 @@ a bare local checkout), `cache.py` logs it and the app runs without a cache.
 
 ## 4. API
 
-Litestar serves modular API routers (`backend/api/`) via a lightweight FastAPI-compatibility routing wrapper (`backend/compat_router.py`), validated using Pydantic schemas (`backend/schemas/api_models.py`). Most endpoints are cached for 1 hour using Redis.
+Litestar serves modular native API routers (`backend/api/`) grouped under a parent API router in `backend/main.py`, validated natively using Pydantic schemas (`backend/schemas/api_models.py`). Most endpoints are cached for 1 hour using Redis.
 
 ### Endpoints Summary
 
