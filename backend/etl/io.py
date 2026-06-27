@@ -17,6 +17,7 @@ from datetime import date, datetime
 import requests
 import numpy as np
 import polars as pl
+import h3
 
 from backend.etl.geo import EARTH_KM, poland_rings
 from backend.database_ch import ENRICHMENT_COLUMNS
@@ -170,12 +171,14 @@ def to_tabular(raw) -> list:
         street = _clean_street(raw_street)
         if raw_street and ("<br>" in raw_street or re.search(r"\b\d{2}-\d{3}\b", raw_street)):
             cleaned_streets += 1
+        lat = float(loc.get("lat", loc.get("latitude")))
+        lon = float(loc.get("lon", loc.get("longitude")))
         rows.append({
             "store_id": loc.get("storeId") or loc.get("locationId"),
             "city": _normalize_city(loc.get("town") or loc.get("city")),
             "street": street,
-            "latitude": float(loc.get("lat", loc.get("latitude"))),
-            "longitude": float(loc.get("lon", loc.get("longitude"))),
+            "latitude": lat,
+            "longitude": lon,
             "has_merrychef": bool(loc.get("locatorMerrychef")),
             "open_sunday": _derive_open_sunday(hours),
             "h24": _derive_h24(hours),
@@ -185,6 +188,7 @@ def to_tabular(raw) -> list:
             "is_visible": bool(loc.get("isVisible")) if loc.get("isVisible") is not None else None,
             "is_new_month": bool(loc.get("locatorNewMonth")),
             "is_new_two_weeks": bool(loc.get("locatorNewTwoWeeks")),
+            "h3_index_9": h3.latlng_to_cell(lat, lon, 9),
         })
     print(f"[tabular] {n_raw:,} surowych -> {n_dedup:,} po dedup "
           f"({n_raw-n_dedup} duplikatow usunietych); {cleaned_streets} ulic wyczyszczonych")
@@ -362,7 +366,8 @@ def load_to_duckdb(con, rows: list, meta: dict):
     for idx in ("idx_locations_city", "idx_locations_voivodeship", "idx_locations_powiat",
                 "idx_locations_deleted_at", "idx_locations_store_id", "idx_locations_created_at",
                 "idx_locations_voivodeship_id", "idx_locations_powiat_id",
-                "idx_locations_voiv_id", "idx_locations_powiat_id", "idx_locations_miasto_id", "idx_locations_gmina_id"):
+                "idx_locations_voiv_id", "idx_locations_powiat_id", "idx_locations_miasto_id", "idx_locations_gmina_id",
+                "idx_locations_h3_index_9"):
         try:
             con.execute(f"DROP INDEX IF EXISTS {idx}")
         except Exception:
@@ -395,7 +400,8 @@ def load_to_duckdb(con, rows: list, meta: dict):
         "amphibian_occurrences_5km": pl.Int32,
         "nearest_amphibian_km": pl.Float64,
         "gmina_id": pl.Int32,
-        "miasto_id": pl.Int32
+        "miasto_id": pl.Int32,
+        "h3_index_9": pl.Utf8
     }
 
     # Normalize rows list to align with schema keys
@@ -443,7 +449,7 @@ def load_to_duckdb(con, rows: list, meta: dict):
                 elevation_meters, is_in_nature_park, nature_park_id,
                 nearest_neighbor_distance_meters,
                 amphibian_occurrences_5km, nearest_amphibian_km,
-                gmina_id, miasto_id,
+                gmina_id, miasto_id, h3_index_9,
                 created_at, deleted_at
             )
             SELECT 
@@ -457,7 +463,7 @@ def load_to_duckdb(con, rows: list, meta: dict):
                 elevation_meters, is_in_nature_park, nature_park_id,
                 nearest_neighbor_distance_meters,
                 amphibian_occurrences_5km, nearest_amphibian_km,
-                gmina_id, miasto_id,
+                gmina_id, miasto_id, h3_index_9,
                 ? AS created_at,
                 CAST(NULL AS TIMESTAMP) AS deleted_at
             FROM to_insert_df
@@ -496,7 +502,8 @@ def load_to_duckdb(con, rows: list, meta: dict):
                 amphibian_occurrences_5km = u.amphibian_occurrences_5km,
                 nearest_amphibian_km = u.nearest_amphibian_km,
                 gmina_id = u.gmina_id,
-                miasto_id = u.miasto_id
+                miasto_id = u.miasto_id,
+                h3_index_9 = u.h3_index_9
             FROM to_update_df AS u
             WHERE locations.id = u.id
         """)
@@ -513,6 +520,7 @@ def load_to_duckdb(con, rows: list, meta: dict):
         "CREATE INDEX IF NOT EXISTS idx_locations_powiat_id ON locations(powiat_id)",
         "CREATE INDEX IF NOT EXISTS idx_locations_miasto_id ON locations(miasto_id)",
         "CREATE INDEX IF NOT EXISTS idx_locations_gmina_id ON locations(gmina_id)",
+        "CREATE INDEX IF NOT EXISTS idx_locations_h3_index_9 ON locations(h3_index_9)",
     ):
         try:
             con.execute(stmt)

@@ -60,7 +60,8 @@ def _run_all_ddl(con):
                 amphibian_occurrences_5km INTEGER,
                 nearest_amphibian_km DOUBLE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                deleted_at TIMESTAMP
+                deleted_at TIMESTAMP,
+                h3_index_9 VARCHAR
             )
         """)
 
@@ -108,6 +109,7 @@ def _run_all_ddl(con):
             "CREATE INDEX idx_locations_created_at ON locations(created_at)",
             "CREATE INDEX idx_locations_voivodeship_id ON locations(voivodeship_id)",
             "CREATE INDEX idx_locations_powiat_id ON locations(powiat_id)",
+            "CREATE INDEX idx_locations_h3_index_9 ON locations(h3_index_9)",
         ):
             con.execute(stmt)
 
@@ -329,6 +331,7 @@ ENRICHMENT_COLUMNS = [
     ("nearest_neighbor_distance_meters", "INTEGER"),
     ("amphibian_occurrences_5km", "INTEGER"),
     ("nearest_amphibian_km", "DOUBLE"),
+    ("h3_index_9", "VARCHAR"),
 ]
 
 
