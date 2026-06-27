@@ -16,6 +16,7 @@ from datetime import date, datetime
 
 import requests
 import numpy as np
+import polars as pl
 
 from backend.etl.geo import EARTH_KM, poland_rings
 from backend.database_ch import ENRICHMENT_COLUMNS
@@ -347,7 +348,7 @@ def ensure_enrichment_columns(con):
 
 
 def load_to_duckdb(con, rows: list, meta: dict):
-    """Zapisz snapshot jako SCD Type 2 w tabeli locations.
+    """Zapisz snapshot w tabeli locations.
     Porównuje biezace aktywne sklepy z wejsciowymi:
     - nowe sklepy sa wstawiane (created_at = source_date)
     - brakujace sklepy sa soft-deletowane (deleted_at = source_date)
@@ -366,65 +367,73 @@ def load_to_duckdb(con, rows: list, meta: dict):
             con.execute(f"DROP INDEX IF EXISTS {idx}")
         except Exception:
             pass
-            
-    # 1. Pobierz wszystkie aktywne store_id z bazy danych (gdzie deleted_at IS NULL)
-    db_active = {}
-    db_rows = con.execute("SELECT store_id, id FROM locations WHERE deleted_at IS NULL").fetchall()
-    for store_id, db_id in db_rows:
-        db_active[store_id] = db_id
 
-    incoming_store_ids = {r["store_id"] for r in rows}
-    
-    # 2. Sklepy do soft-delete (te co sa w db_active, ale nie w incoming)
-    to_delete = [db_id for store_id, db_id in db_active.items() if store_id not in incoming_store_ids]
-    if to_delete:
-        con.executemany("UPDATE locations SET deleted_at = ? WHERE id = ?", 
-                        [(src_dt, db_id) for db_id in to_delete])
-        print(f"[load] soft-deleted {len(to_delete)} stores (not present in incoming data)")
+    # 1. Load incoming rows into Polars DataFrame with explicit types
+    schema = {
+        "store_id": pl.Utf8,
+        "city": pl.Utf8,
+        "street": pl.Utf8,
+        "voivodeship": pl.Utf8,
+        "powiat": pl.Utf8,
+        "voivodeship_id": pl.Int32,
+        "powiat_id": pl.Int32,
+        "latitude": pl.Float64,
+        "longitude": pl.Float64,
+        "has_merrychef": pl.Boolean,
+        "open_sunday": pl.Boolean,
+        "h24": pl.Boolean,
+        "opening_hours_monsat": pl.Utf8,
+        "opening_hours_sun": pl.Utf8,
+        "first_opening_date": pl.Utf8,
+        "is_visible": pl.Boolean,
+        "is_new_month": pl.Boolean,
+        "is_new_two_weeks": pl.Boolean,
+        "elevation_meters": pl.Float64,
+        "is_in_nature_park": pl.Boolean,
+        "nature_park_id": pl.Int32,
+        "nearest_neighbor_distance_meters": pl.Int32,
+        "amphibian_occurrences_5km": pl.Int32,
+        "nearest_amphibian_km": pl.Float64,
+        "gmina_id": pl.Int32,
+        "miasto_id": pl.Int32
+    }
 
-    # 3. Rozdziel incoming rows na nowe i do aktualizacji
-    to_insert = []
-    to_update = []
-    
+    # Normalize rows list to align with schema keys
     for r in rows:
-        store_id = r["store_id"]
-        fod = r.get("first_opening_date") or None
-        vals = (
-            r.get("store_id"),
-            r.get("city"),
-            r.get("street"),
-            r.get("voivodeship"),
-            r.get("powiat"),
-            r.get("voivodeship_id"),
-            r.get("powiat_id"),
-            r["latitude"],
-            r["longitude"],
-            r.get("has_merrychef"),
-            r.get("open_sunday"),
-            r.get("h24"),
-            r.get("opening_hours_monsat"),
-            r.get("opening_hours_sun"),
-            fod,
-            r.get("is_visible"),
-            r.get("is_new_month"),
-            r.get("is_new_two_weeks"),
-            r.get("elevation_meters"),
-            r.get("is_in_nature_park"),
-            r.get("nature_park_id"),
-            r.get("nearest_neighbor_distance_meters"),
-            r.get("amphibian_occurrences_5km"),
-            r.get("nearest_amphibian_km"),
-            r.get("gmina_id"),
-            r.get("miasto_id")
-        )
-        
-        if store_id in db_active:
-            to_update.append(vals[1:] + (db_active[store_id],))
-        else:
-            to_insert.append(vals + (src_dt, None))
+        if not r.get("first_opening_date"):
+            r["first_opening_date"] = None
+        for col in schema:
+            if col not in r:
+                r[col] = None
 
-    if to_insert:
-        con.executemany("""
+    incoming_df = pl.DataFrame(rows, schema=schema)
+    incoming_df = incoming_df.filter(pl.col("store_id").is_not_null()).unique(subset=["store_id"])
+
+    # 2. Get active database records into Polars DataFrame
+    active_arrow = con.execute("SELECT id, store_id FROM locations WHERE deleted_at IS NULL").to_arrow_table()
+    if active_arrow.num_rows == 0:
+        active_df = pl.DataFrame(schema={"id": pl.Int64, "store_id": pl.Utf8})
+    else:
+        active_df = pl.from_arrow(active_arrow)
+
+    # 3. Soft-deletes: active in DB, but not in incoming data
+    to_delete_df = active_df.join(incoming_df, on="store_id", how="anti")
+    if not to_delete_df.is_empty():
+        con.register("to_delete_df", to_delete_df)
+        con.execute("""
+            UPDATE locations 
+            SET deleted_at = ?
+            FROM to_delete_df 
+            WHERE locations.id = to_delete_df.id
+        """, [src_dt])
+        con.unregister("to_delete_df")
+        print(f"[load] soft-deleted {len(to_delete_df)} stores (not present in incoming data)")
+
+    # 4. Inserts: incoming, but not in active DB
+    to_insert_df = incoming_df.join(active_df, on="store_id", how="anti")
+    if not to_insert_df.is_empty():
+        con.register("to_insert_df", to_insert_df)
+        con.execute("""
             INSERT INTO locations (
                 id, store_id, city, street, voivodeship, powiat,
                 voivodeship_id, powiat_id, latitude, longitude,
@@ -436,41 +445,63 @@ def load_to_duckdb(con, rows: list, meta: dict):
                 amphibian_occurrences_5km, nearest_amphibian_km,
                 gmina_id, miasto_id,
                 created_at, deleted_at
-            ) VALUES (nextval('seq_locations'),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        """, to_insert)
-        print(f"[load] inserted {len(to_insert)} new stores")
+            )
+            SELECT 
+                nextval('seq_locations'),
+                store_id, city, street, voivodeship, powiat,
+                voivodeship_id, powiat_id, latitude, longitude,
+                has_merrychef, open_sunday, h24,
+                opening_hours_monsat, opening_hours_sun, 
+                CAST(first_opening_date AS DATE), 
+                is_visible, is_new_month, is_new_two_weeks,
+                elevation_meters, is_in_nature_park, nature_park_id,
+                nearest_neighbor_distance_meters,
+                amphibian_occurrences_5km, nearest_amphibian_km,
+                gmina_id, miasto_id,
+                ? AS created_at,
+                CAST(NULL AS TIMESTAMP) AS deleted_at
+            FROM to_insert_df
+        """, [src_dt])
+        con.unregister("to_insert_df")
+        print(f"[load] inserted {len(to_insert_df)} new stores")
 
-    if to_update:
-        con.executemany("""
-            UPDATE locations SET
-                city = ?,
-                street = ?,
-                voivodeship = ?,
-                powiat = ?,
-                voivodeship_id = ?,
-                powiat_id = ?,
-                latitude = ?,
-                longitude = ?,
-                has_merrychef = ?,
-                open_sunday = ?,
-                h24 = ?,
-                opening_hours_monsat = ?,
-                opening_hours_sun = ?,
-                first_opening_date = ?,
-                is_visible = ?,
-                is_new_month = ?,
-                is_new_two_weeks = ?,
-                elevation_meters = ?,
-                is_in_nature_park = ?,
-                nature_park_id = ?,
-                nearest_neighbor_distance_meters = ?,
-                amphibian_occurrences_5km = ?,
-                nearest_amphibian_km = ?,
-                gmina_id = ?,
-                miasto_id = ?
-            WHERE id = ?
-        """, to_update)
-        print(f"[load] updated {len(to_update)} existing stores")
+    # 5. Updates: incoming, and also in active DB
+    to_update_df = incoming_df.join(active_df, on="store_id", how="inner")
+    if not to_update_df.is_empty():
+        con.register("to_update_df", to_update_df)
+        con.execute("""
+            UPDATE locations
+            SET
+                city = u.city,
+                street = u.street,
+                voivodeship = u.voivodeship,
+                powiat = u.powiat,
+                voivodeship_id = u.voivodeship_id,
+                powiat_id = u.powiat_id,
+                latitude = u.latitude,
+                longitude = u.longitude,
+                has_merrychef = u.has_merrychef,
+                open_sunday = u.open_sunday,
+                h24 = u.h24,
+                opening_hours_monsat = u.opening_hours_monsat,
+                opening_hours_sun = u.opening_hours_sun,
+                first_opening_date = CAST(u.first_opening_date AS DATE),
+                is_visible = u.is_visible,
+                is_new_month = u.is_new_month,
+                is_new_two_weeks = u.is_new_two_weeks,
+                elevation_meters = u.elevation_meters,
+                is_in_nature_park = u.is_in_nature_park,
+                nature_park_id = u.nature_park_id,
+                nearest_neighbor_distance_meters = u.nearest_neighbor_distance_meters,
+                amphibian_occurrences_5km = u.amphibian_occurrences_5km,
+                nearest_amphibian_km = u.nearest_amphibian_km,
+                gmina_id = u.gmina_id,
+                miasto_id = u.miasto_id
+            FROM to_update_df AS u
+            WHERE locations.id = u.id
+        """)
+        con.unregister("to_update_df")
+        print(f"[load] updated {len(to_update_df)} existing stores")
 
     # Recreate secondary indexes after bulk update
     for stmt in (
@@ -553,114 +584,129 @@ def load_parcel_lockers(con, lockers: list, sid: int, src_date: str):
         except Exception:
             pass
 
-    # 1. Pobierz wszystkie aktywne paczkomaty z bazy danych
-    db_active = {}
-    db_rows = con.execute("""
-        SELECT external_id, id, latitude, longitude, voivodeship_id, powiat_id, miasto_id, gmina_id, status 
+def load_parcel_lockers(con, lockers: list, sid: int, src_date: str):
+    """Zapisz paczkomaty w tabeli parcel_lockers.
+    Porównuje biezace aktywne paczkomaty z wejsciowymi:
+    - nowe sa wstawiane (created_at = source_date)
+    - brakujace sa soft-deletowane (deleted_at = source_date)
+    - istniejace aktywne sa aktualizowane w miejscu gdy ulegly zmianie.
+    """
+    from backend.database_ch import ensure_extra_tables
+    ensure_extra_tables(con)
+    if not lockers:
+        print("[paczkomaty] brak danych")
+        return
+        
+    src_dt = datetime.fromisoformat(src_date)
+    
+    # Drop secondary indexes to avoid index corruption/fatal errors during bulk update
+    for idx in ("idx_lockers_voiv_id", "idx_lockers_powiat_id", "idx_lockers_miasto_id", "idx_lockers_gmina_id", "idx_lockers_deleted_at", "idx_lockers_external_id"):
+        try:
+            con.execute(f"DROP INDEX IF EXISTS {idx}")
+        except Exception:
+            pass
+
+    # 1. Load incoming rows into Polars DataFrame
+    schema = {
+        "external_id": pl.Utf8,
+        "source_date": pl.Utf8,
+        "latitude": pl.Float64,
+        "longitude": pl.Float64,
+        "voivodeship_id": pl.Int32,
+        "powiat_id": pl.Int32,
+        "miasto_id": pl.Int32,
+        "gmina_id": pl.Int32,
+        "status": pl.Utf8
+    }
+
+    # Ensure all columns present
+    for L in lockers:
+        L["source_date"] = src_date
+        for col in schema:
+            if col not in L:
+                L[col] = None
+
+    incoming_df = pl.DataFrame(lockers, schema=schema)
+    incoming_df = incoming_df.filter(pl.col("external_id").is_not_null()).unique(subset=["external_id"])
+
+    # 2. Get active database records into Polars DataFrame
+    active_arrow = con.execute("""
+        SELECT id, external_id, latitude, longitude, voivodeship_id, powiat_id, miasto_id, gmina_id, status 
         FROM parcel_lockers 
         WHERE deleted_at IS NULL
-    """).fetchall()
-    for row in db_rows:
-        ext_id = row[0]
-        if ext_id:
-            db_active[ext_id] = {
-                "id": row[1],
-                "latitude": row[2],
-                "longitude": row[3],
-                "voivodeship_id": row[4],
-                "powiat_id": row[5],
-                "miasto_id": row[6],
-                "gmina_id": row[7],
-                "status": row[8]
-            }
+    """).to_arrow_table()
+    if active_arrow.num_rows == 0:
+        active_df = pl.DataFrame(schema={
+            "id": pl.Int64, "external_id": pl.Utf8, "latitude": pl.Float64, "longitude": pl.Float64,
+            "voivodeship_id": pl.Int32, "powiat_id": pl.Int32, "miasto_id": pl.Int32, "gmina_id": pl.Int32, "status": pl.Utf8
+        })
+    else:
+        active_df = pl.from_arrow(active_arrow)
 
-    incoming_ext_ids = {L["external_id"] for L in lockers if L.get("external_id")}
+    # 3. Soft-deletes: active in DB, but not in incoming data
+    to_delete_df = active_df.join(incoming_df, on="external_id", how="anti")
+    if not to_delete_df.is_empty():
+        con.register("to_delete_df", to_delete_df)
+        con.execute("""
+            UPDATE parcel_lockers 
+            SET deleted_at = ?
+            FROM to_delete_df 
+            WHERE parcel_lockers.id = to_delete_df.id
+        """, [src_dt])
+        con.unregister("to_delete_df")
+        print(f"[paczkomaty] soft-deleted {len(to_delete_df)} parcel lockers")
+
+    # 4. Inserts: incoming, but not in active DB
+    to_insert_df = incoming_df.join(active_df, on="external_id", how="anti")
+    if not to_insert_df.is_empty():
+        con.register("to_insert_df", to_insert_df)
+        con.execute("""
+            INSERT INTO parcel_lockers (
+                id, external_id, source_date, latitude, longitude, 
+                voivodeship_id, powiat_id, miasto_id, gmina_id, status, 
+                created_at, deleted_at
+            )
+            SELECT 
+                nextval('seq_parcel_lockers'),
+                external_id, CAST(source_date AS DATE), latitude, longitude, 
+                voivodeship_id, powiat_id, miasto_id, gmina_id, status, 
+                ? as created_at, CAST(NULL AS TIMESTAMP) as deleted_at
+            FROM to_insert_df
+        """, [src_dt])
+        con.unregister("to_insert_df")
+        print(f"[paczkomaty] inserted {len(to_insert_df):,} new parcel lockers")
+
+    # 5. Updates: incoming, and also in active DB
+    to_update_df = incoming_df.join(active_df, on="external_id", how="inner", suffix="_db")
     
-    # 2. Soft-delete paczkomaty (te co sa w db_active, ale nie w incoming)
-    to_delete = [db_val["id"] for ext_id, db_val in db_active.items() if ext_id not in incoming_ext_ids]
-    if to_delete:
-        con.executemany("UPDATE parcel_lockers SET deleted_at = ? WHERE id = ?",
-                        [(src_dt, db_id) for db_id in to_delete])
-        print(f"[paczkomaty] soft-deleted {len(to_delete)} parcel lockers")
+    # Filter to rows where values changed
+    to_update_df = to_update_df.filter(
+        (pl.col("latitude") - pl.col("latitude_db")).abs() > 1e-5 |
+        (pl.col("longitude") - pl.col("longitude_db")).abs() > 1e-5 |
+        (pl.col("voivodeship_id") != pl.col("voivodeship_id_db")) |
+        (pl.col("powiat_id") != pl.col("powiat_id_db")) |
+        (pl.col("miasto_id") != pl.col("miasto_id_db")) |
+        (pl.col("gmina_id") != pl.col("gmina_id_db")) |
+        (pl.col("status") != pl.col("status_db"))
+    )
 
-    # 3. Rozdziel incoming rows na nowe (inserts) i do aktualizacji (updates)
-    to_insert = []
-    to_update = []
-    
-    for L in lockers:
-        ext_id = L.get("external_id")
-        if not ext_id:
-            continue
-            
-        vals = (
-            ext_id,
-            src_date,
-            L.get("latitude"),
-            L.get("longitude"),
-            L.get("voivodeship_id"),
-            L.get("powiat_id"),
-            L.get("miasto_id"),
-            L.get("gmina_id"),
-            L.get("status")
-        )
-        
-        if ext_id in db_active:
-            db_val = db_active[ext_id]
-            # Sprawdzamy czy cokolwiek sie zmienilo
-            if (
-                abs((L.get("latitude") or 0) - (db_val["latitude"] or 0)) > 1e-5 or
-                abs((L.get("longitude") or 0) - (db_val["longitude"] or 0)) > 1e-5 or
-                L.get("voivodeship_id") != db_val["voivodeship_id"] or
-                L.get("powiat_id") != db_val["powiat_id"] or
-                L.get("miasto_id") != db_val["miasto_id"] or
-                L.get("gmina_id") != db_val["gmina_id"] or
-                L.get("status") != db_val["status"]
-            ):
-                to_update.append(vals[1:] + (db_val["id"],))
-        else:
-            to_insert.append(vals)
-
-    # 4. Wykonaj aktualizacje w miejscu (w bardzo nielicznych przypadkach)
-    if to_update:
-        con.executemany("""
+    if not to_update_df.is_empty():
+        con.register("to_update_df", to_update_df)
+        con.execute("""
             UPDATE parcel_lockers SET
-                source_date = ?,
-                latitude = ?,
-                longitude = ?,
-                voivodeship_id = ?,
-                powiat_id = ?,
-                miasto_id = ?,
-                gmina_id = ?,
-                status = ?
-            WHERE id = ?
-        """, to_update)
-        print(f"[paczkomaty] updated {len(to_update)} existing parcel lockers")
-
-    # 5. Hurtowe wstawianie nowych (przez CSV dla wydajnosci)
-    if to_insert:
-        import csv
-        import tempfile
-        
-        with tempfile.NamedTemporaryFile(mode="w", newline="", encoding="utf-8", suffix=".csv", delete=False) as tmp:
-            tmp_name = tmp.name
-            writer = csv.writer(tmp)
-            writer.writerow(["external_id", "source_date", "latitude", "longitude", "voivodeship_id", "powiat_id", "miasto_id", "gmina_id", "status"])
-            for vals in to_insert:
-                writer.writerow(vals)
-                
-        try:
-            con.execute(f"""
-                INSERT INTO parcel_lockers
-                (id, external_id, source_date, latitude, longitude, voivodeship_id, powiat_id, miasto_id, gmina_id, status, created_at, deleted_at)
-                SELECT nextval('seq_parcel_lockers'), external_id, source_date, latitude, longitude, voivodeship_id, powiat_id, miasto_id, gmina_id, status, ? as created_at, CAST(NULL AS TIMESTAMP) as deleted_at
-                FROM read_csv_auto('{tmp_name}')
-            """, [src_dt])
-            print(f"[paczkomaty] inserted {len(to_insert):,} new parcel lockers")
-        finally:
-            try:
-                os.unlink(tmp_name)
-            except Exception:
-                pass
+                source_date = CAST(u.source_date AS DATE),
+                latitude = u.latitude,
+                longitude = u.longitude,
+                voivodeship_id = u.voivodeship_id,
+                powiat_id = u.powiat_id,
+                miasto_id = u.miasto_id,
+                gmina_id = u.gmina_id,
+                status = u.status
+            FROM to_update_df AS u
+            WHERE parcel_lockers.id = u.id
+        """)
+        con.unregister("to_update_df")
+        print(f"[paczkomaty] updated {len(to_update_df)} existing parcel lockers")
 
     # Recreate secondary indexes
     for stmt in (
