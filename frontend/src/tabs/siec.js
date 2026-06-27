@@ -1,5 +1,5 @@
 import Chart from 'chart.js/auto';
-import L from 'leaflet';
+import { maplibregl, createMap, addVoivodeshipLayers, fitPoland, wojCentroids, wojRamp, hexWithAlpha, featureBBoxCenter as _bboxCenter } from '../maplibre-map.js';
 import { C, STATE } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
 import { era, fmt, getFont, destroyChart } from '../utils.js';
@@ -173,7 +173,7 @@ export function renderOrigins(){
 
 /* ---------------- BIG MAP: vector Poland + year-sweep growth ---------------- */
 
-let growthMap=null,growthRaf=null,growthPts=null,growthSorted=null,growthLoopTimer=null,growthDensity=[];
+let growthMap=null,growthRaf=null,growthLoopTimer=null,_glowRaf=null;
 let growthLoop=true; // auto-repeat until the user grabs the timeline
 let calData=null;    // {byYM: Map(year*100+month -> cnt), max}
 const GROWTH_MIN=1998,GROWTH_MAX=2026;
@@ -279,112 +279,98 @@ function drawCalendar(uptoYear){
   }
 }
 
+// Convert [[lat,lon,year],...] into a Point FeatureCollection for the WebGL
+// circle layer. Built once per render; the year property drives both the era
+// colour and the sweep filter.
+function _storesToGeoJSON(stores){
+  const features=stores.map(([lat,lon,yr])=>({
+    type:'Feature',
+    geometry:{type:'Point',coordinates:[lon,lat]},
+    properties:{year:(yr|0)||GROWTH_MIN}
+  }));
+  return {type:'FeatureCollection',features};
+}
+
 export function renderGrowthMap(){
   const el=document.getElementById('map-growth');if(!el)return;
   const stores=(M.stores_timeline&&M.stores_timeline.stores)||[];
-  if(!growthMap){
-    // no zoom buttons; scroll is gated behind ctrl (see wheel handler below) so the
-    // page still scrolls normally when the cursor is over the map
-    growthMap=L.map('map-growth',{zoomControl:false,attributionControl:false,scrollWheelZoom:false,minZoom:5,maxZoom:9});
-    MAPS['map-growth']=growthMap;
-    growthMap.setView([52.0,19.3],6);
-    if(M.woj_geo){
-      L.geoJSON(M.woj_geo,{interactive:false,style:{fillColor:'#11240d',fillOpacity:.55,color:'rgba(140,200,80,.18)',weight:1}}).addTo(growthMap);
-    }
-    // ctrl + scroll to zoom, centered on the cursor
-    el.addEventListener('wheel',ev=>{
-      if(!ev.ctrlKey)return;
-      ev.preventDefault();
-      const ll=growthMap.containerPointToLatLng(growthMap.mouseEventToContainerPoint(ev));
-      const z=growthMap.getZoom()+(ev.deltaY<0?1:-1);
-      growthMap.setZoomAround(ll,Math.max(growthMap.getMinZoom(),Math.min(growthMap.getMaxZoom(),z)));
-    },{passive:false});
-    if(!el.querySelector('.map-zoom-hint')){
-      const hint=document.createElement('div');
-      hint.className='map-zoom-hint';
-      hint.textContent='ctrl + scroll przybliża';
-      el.appendChild(hint);
-    }
-  }
-  let cv=document.getElementById('growth-dots');
-  if(!cv){
-    cv=document.createElement('canvas');cv.id='growth-dots';
-    cv.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:450';
-    el.appendChild(cv);
-  }
-  const ctx=cv.getContext('2d');
-  growthSorted=[...stores].sort((a,b)=>a[2]-b[2]);
   buildCalData();
   const yrLabel=document.getElementById('growth-year');
   const slider=document.getElementById('growth-slider');
-
-  function size(){const r=el.getBoundingClientRect();cv.width=r.width;cv.height=r.height}
-  function project(){
-    // remember the center+zoom this projection was drawn for, and drop any
-    // live transform — the dots are now baked at their true positions
-    growthMap._drawnCenter=growthMap.getCenter();
-    growthMap._drawnZoom=growthMap.getZoom();
-    cv.style.transition='';cv.style.transform='';
-    growthPts=growthSorted.map(s=>{const p=growthMap.latLngToContainerPoint([s[0],s[1]]);return[p.x,p.y,s[2]]});
-    // build spatial-density grid: which dots are in a cluster (>=5 neighbors within 25px)?
-    const CS=25;
-    const grid=new Map();
-    growthPts.forEach(([x,y])=>{
-      const k=`${Math.floor(x/CS)},${Math.floor(y/CS)}`;
-      grid.set(k,(grid.get(k)||0)+1);
-    });
-    growthDensity=growthPts.map(([x,y])=>{
-      const cx=Math.floor(x/CS),cy=Math.floor(y/CS);
-      let n=0;
-      for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)n+=grid.get(`${cx+dx},${cy+dy}`)||0;
-      return n;
-    });
-  }
-  // map old (drawn) pixels onto a target view via an affine transform, so the dot
-  // canvas tracks both pan AND zoom instead of snapping only after the gesture ends
-  function applyTransform(center,zoom){
-    if(growthMap._drawnCenter==null)return;
-    const dz=growthMap._drawnZoom;
-    const scale=growthMap.getZoomScale(zoom,dz);
-    const half=growthMap.getSize().divideBy(2);
-    const otl=growthMap.project(growthMap._drawnCenter,dz).subtract(half);
-    const ntl=growthMap.project(center,zoom).subtract(half);
-    const off=otl.multiplyBy(scale).subtract(ntl);
-    cv.style.transformOrigin='0 0';
-    cv.style.transform=`translate(${off.x}px,${off.y}px) scale(${scale})`;
-  }
-  function drawUpTo(yr,hi,now){
-    ctx.clearRect(0,0,cv.width,cv.height);
-    if(!growthPts)return;
-    const progress=(yr-GROWTH_MIN)/(GROWTH_MAX-GROWTH_MIN);
-    const glowGain=Math.max(0,(progress-0.65)/0.35); // ramp in over the last ~35%
-    const glow=3+4*Math.sin((now||performance.now())/600);
-    let di=0;
-    for(const[x,y,yy]of growthPts){
-      if(yy>yr)break;
-      ctx.beginPath();
-      ctx.fillStyle=era(yy);
-      ctx.globalAlpha=(hi&&yy===hi)?1:0.7;
-      const dense=growthDensity[di++]>=12;
-      if(dense&&glowGain>0){
-        ctx.shadowColor='rgba(166,232,74,.45)';
-        ctx.shadowBlur=glow*glowGain;
-      }else ctx.shadowBlur=0;
-      ctx.arc(x,y,1.6,0,Math.PI*2);ctx.fill();
-    }
-    ctx.shadowBlur=0;
-    ctx.globalAlpha=1;
-    drawCalendar(yr);
-  }
-  function redrawStatic(){
-    size();project();
-    const yr=slider?+slider.value:GROWTH_MAX;
-    drawUpTo(yr);
-    if(yrLabel)yrLabel.textContent=yr;
-  }
-
   const playBtn=document.getElementById('growth-replay');
   const setPlaying=on=>{if(playBtn)playBtn.classList.toggle('is-playing',on)};
+
+  // First-time init: dark vector base + a single WebGL circle layer for all
+  // 13k+ stores. The old Canvas-2D overlay and its pan/zoom transform sync
+  // (applyTransform / _drawnCenter / _drawnZoom) are gone — MapLibre tracks
+  // the dots natively at 60 fps.
+  if(!growthMap){
+    growthMap=createMap('map-growth',{
+      center:[19.3,52.05],zoom:5.6,minZoom:5,maxZoom:9,
+      pitch:38,bearing:0,
+      dragRotate:true,pitchWithRotate:true,touchPitch:true,
+      maxBounds:[[13.6,48.8],[24.2,55.0]],
+      cooperativeGestures:true,   // ctrl+scroll to zoom; page scrolls otherwise
+    });
+    MAPS['map-growth']=growthMap;
+
+    if(!el.querySelector('.map-zoom-hint')){
+      const hint=document.createElement('div');
+      hint.className='map-zoom-hint';
+      hint.textContent='ctrl + scroll przybliża · prawy przycisk obraca';
+      el.appendChild(hint);
+    }
+    if(!el.querySelector('.map-reset-btn')){
+      const rb=document.createElement('button');
+      rb.className='map-reset-btn';rb.type='button';
+      rb.textContent='Reset widoku';
+      rb.setAttribute('aria-label','Resetuj widok mapy');
+      rb.addEventListener('click',()=>{growthMap.easeTo({pitch:38,bearing:0,zoom:5.6,center:[19.3,52.05],duration:600})});
+      el.appendChild(rb);
+    }
+
+    growthMap.on('load',()=>{
+      if(M.woj_geo){
+        addVoivodeshipLayers(growthMap,M.woj_geo,'woj-base',{
+          fillColor:'#11240d',fillOpacity:.55,
+          lineColor:'rgba(140,200,80,.18)',lineWidth:1,
+        });
+      }
+      growthMap.addSource('stores',{type:'geojson',data:_storesToGeoJSON(stores)});
+      // era colour steps mirror the old era() helper; circle-blur produces the
+      // density halo that used to be hand-painted onto Canvas 2D per cluster.
+      // circle-pitch-alignment:map lays the dots on the tilted surface (3D).
+      growthMap.addLayer({
+        id:'stores-dots',type:'circle',source:'stores',
+        paint:{
+          'circle-radius':1.7,
+          'circle-color':['step',['get','year'],
+            '#2b531a', 2010,'#4a8a22', 2020,'#74bd2a', 2023,'#a6e84a'],
+          'circle-opacity':0.72,
+          'circle-blur':0.35,
+          'circle-pitch-alignment':'map',
+        },
+      });
+      // start empty so the sweep animates dots in year by year
+      growthMap.setFilter('stores-dots',['<=',['get','year'],GROWTH_MIN-1]);
+      play();
+    });
+    window.addEventListener('resize',()=>{drawCalendar(slider?+slider.value:GROWTH_MAX)});
+  }
+
+  // Single entry for "show year Y": filter the WebGL dots, sync the calendar
+  // grid, and shimmer the glow across the last 35% of the timeline.
+  function setYear(yr,now){
+    if(growthMap.getLayer('stores-dots'))growthMap.setFilter('stores-dots',['<=',['get','year'],yr]);
+    if(yrLabel)yrLabel.textContent=yr;
+    drawCalendar(yr);
+    if(now&&growthMap.getLayer('stores-dots')){
+      const progress=(yr-GROWTH_MIN)/(GROWTH_MAX-GROWTH_MIN);
+      const glowGain=Math.max(0,(progress-0.65)/0.35);
+      const blur=glowGain>0?0.35+0.25*Math.sin(now/600)*glowGain:0.35;
+      growthMap.setPaintProperty('stores-dots','circle-blur',blur);
+    }
+  }
 
   // pause: freeze on the current year, stop looping, flip the button back to play
   function pauseAnim(){
@@ -400,10 +386,8 @@ export function renderGrowthMap(){
     if(growthRaf)cancelAnimationFrame(growthRaf);
     if(growthLoopTimer){clearTimeout(growthLoopTimer);growthLoopTimer=null}
     growthLoop=true;
-    size();project();
-    // Reset calendar pop-animations when replaying from the beginning
     if(fromYear==null||fromYear<=GROWTH_MIN)resetCalAnim();
-    if(prefersReduced()){drawUpTo(GROWTH_MAX);if(yrLabel)yrLabel.textContent=GROWTH_MAX;if(slider)slider.value=GROWTH_MAX;growthLoop=false;setPlaying(false);startGlowLoop();return}
+    if(prefersReduced()){setYear(GROWTH_MAX);if(slider)slider.value=GROWTH_MAX;growthLoop=false;setPlaying(false);startGlowLoop();return}
     setPlaying(true);
     const span=GROWTH_MAX-GROWTH_MIN,DUR=2800;
     let t0=0;
@@ -412,16 +396,14 @@ export function renderGrowthMap(){
     (function frame(now){
       const t=Math.min(1,(now-start)/DUR);
       const yr=Math.round(GROWTH_MIN+span*t);
-      drawUpTo(yr,yr);
-      if(yrLabel)yrLabel.textContent=yr;
+      setYear(yr,now);
       if(slider)slider.value=yr;
       if(t<1)growthRaf=requestAnimationFrame(frame);
       else{
-        drawUpTo(GROWTH_MAX);
-        startGlowLoop();
-        if(yrLabel)yrLabel.textContent=GROWTH_MAX;
+        setYear(GROWTH_MAX);
         if(slider)slider.value=GROWTH_MAX;
         growthRaf=null;
+        startGlowLoop();
         // brief hold on the full map, then sweep again from the start
         if(growthLoop)growthLoopTimer=setTimeout(()=>{if(growthLoop)play()},1000);
       }
@@ -430,48 +412,27 @@ export function renderGrowthMap(){
 
   function startGlowLoop(){
     if(growthRaf)return;
-    if(cv._glowRaf)return;
+    if(_glowRaf)return;
     let last=0;
     function tick(now){
-      cv._glowRaf=requestAnimationFrame(tick);
+      _glowRaf=requestAnimationFrame(tick);
       if(now-last<100)return; // ~10 fps
       last=now;
-      const yr=slider?+slider.value:GROWTH_MAX;
-      drawUpTo(yr,null,now);
+      setYear(slider?+slider.value:GROWTH_MAX,now);
     }
-    cv._glowRaf=requestAnimationFrame(tick);
-    if(!cv._visWired){
-      cv._visWired=true;
+    _glowRaf=requestAnimationFrame(tick);
+    if(!growthMap._glowVisWired){
+      growthMap._glowVisWired=true;
       document.addEventListener('visibilitychange',()=>{
-        if(document.hidden){stopGlowLoop()}
-        else if(!growthRaf){startGlowLoop()}
+        if(document.hidden)stopGlowLoop();
+        else if(!growthRaf)startGlowLoop();
       });
     }
   }
   function stopGlowLoop(){
-    if(cv._glowRaf){cancelAnimationFrame(cv._glowRaf);cv._glowRaf=null}
+    if(_glowRaf){cancelAnimationFrame(_glowRaf);_glowRaf=null}
   }
 
-  if(!growthMap._growthWired){
-    growthMap._growthWired=true;
-    growthMap.on('moveend zoomend',redrawStatic);
-    window.addEventListener('resize',redrawStatic);
-    // live tracking: slide the already-drawn dot canvas with the map while
-    // dragging, and scale+slide it through the zoom animation, so the dots follow
-    // the gesture instead of snapping into place only after it ends.
-    growthMap.on('zoomstart',()=>{growthMap._zooming=true});
-    growthMap.on('zoomend',()=>{growthMap._zooming=false});
-    growthMap.on('move',()=>{
-      if(growthMap._zooming)return;
-      cv.style.transition='';
-      applyTransform(growthMap.getCenter(),growthMap.getZoom());
-    });
-    // match Leaflet's zoom-animation easing so the canvas scales in sync
-    growthMap.on('zoomanim',e=>{
-      cv.style.transition='transform .25s cubic-bezier(0,0,.25,1)';
-      applyTransform(e.center,e.zoom);
-    });
-  }
   // play/pause toggle: pause freezes on the current year, play resumes from it
   if(playBtn&&!playBtn._wired){
     playBtn._wired=true;
@@ -480,25 +441,13 @@ export function renderGrowthMap(){
       else play(slider?+slider.value:GROWTH_MIN);
     });
   }
-
-  // timeline slider: grabbing it stops the auto-loop (button reverts to play) and
-  // scrubs years manually
+  // timeline slider: grabbing it stops the auto-loop and scrubs years manually
   if(slider&&!slider._wired){
     slider._wired=true;
-    const scrub=()=>{
-      pauseAnim();
-      size();project();
-      const yr=+slider.value;
-      drawUpTo(yr);
-      if(yrLabel)yrLabel.textContent=yr;
-    };
     slider.addEventListener('pointerdown',pauseAnim);
-    slider.addEventListener('input',scrub);
+    slider.addEventListener('input',()=>{pauseAnim();setYear(+slider.value)});
   }
-
-  setTimeout(()=>{growthMap.invalidateSize();play()},150);
 }
-
 /* ---------------- 1.1f-flat: fingerprint unrolled (X=direction, Y=year) ----- */
 
 let fpfData=null;
@@ -836,7 +785,7 @@ export async function renderGranular(arg,{skipMap=false}={}){
   drawGranularChart();
   updateMoreBtn();
   if(!skipMap)renderWojMap();
-  else if(_wojMap)_wojMap.invalidateSize();
+  else if(_wojMap)_wojMap.resize&&_wojMap.resize();
 }
 
 async function loadMoreGranular(){
@@ -873,7 +822,7 @@ function drawGranularChart(){
   const wrap=document.getElementById('gran-chart-wrap');
   if(wrap)wrap.style.height=Math.max(320,n*22+44)+'px';
   // right-side map height is governed by CSS (gran-split stretch); just refresh it
-  if(_wojMap)setTimeout(()=>_wojMap.invalidateSize(),0);
+  if(_wojMap)setTimeout(()=>{_wojMap.resize&&_wojMap.resize();},0);
 
   // Labels + data: append POZOSTALE for non-count metrics when not all rows are shown
   let labels=rows.map(d=>d.name);
@@ -927,85 +876,38 @@ function drawGranularChart(){
   });
 }
 
-/* ---- Right-side: locked voivodeship choropleth, styled like the reference --- */
+/* ---- Right-side: locked voivodeship choropleth (MapLibre, no tiles) ---- */
 
-// Green gradient matching the reference: very dark -> bright lime
-const WOJ_STOPS=['#132912','#1e4019','#2d6324','#4a9228','#72c133','#a6e84a'];
-function wojRamp(t){
-  t=Math.max(0,Math.min(1,t));
-  const seg=t*(WOJ_STOPS.length-1),i=Math.min(WOJ_STOPS.length-2,Math.floor(seg)),u=seg-i;
-  const h=k=>[parseInt(k.slice(1,3),16),parseInt(k.slice(3,5),16),parseInt(k.slice(5,7),16)];
-  const a=h(WOJ_STOPS[i]),b=h(WOJ_STOPS[i+1]);
-  return`rgb(${Math.round(a[0]+(b[0]-a[0])*u)},${Math.round(a[1]+(b[1]-a[1])*u)},${Math.round(a[2]+(b[2]-a[2])*u)})`;
-}
+// Green ramp stops shared with the growth dots and InPost map. The fill layer
+// reads a per-feature normalized ramp position (_t) through this expression.
+const _WOJ_FILL_STOPS=[
+  'interpolate',['linear'],['get','_t'],
+  0,'#132912', 0.2,'#1e4019', 0.4,'#2d6324', 0.6,'#4a9228', 0.8,'#72c133', 1,'#a6e84a'];
 
-// Module-level state so hover handlers always use the live metric/sort
-// even after the closure that created them is gone.
-let _wojMap=null,_wojLayer=null,_wojPairs=null;
+// Module-level state so hover handlers always see the live metric/sort even
+// after the closure that created them is gone.
+let _wojMap=null,_wojSrcReady=false;
 let _wojByName=new Map(),_wojById=new Map();
 let _wojVmin=0,_wojVmax=1,_wojInverted=false,_wojMetricLive='count';
-let _wojValTooltips=[];
+let _wojTip=null;
+let _wojLabelMarkers=[];   // MapLibre HTML markers carrying the value labels
 
-function _wFindRow(f){
-  const p=f.properties||{};
-  return _wojById.get(String(p.id??p.ID))||_wojById.get(String(p.nazwa))
-    ||_wojByName.get((p.nazwa||'').toLowerCase())||_wojByName.get((p.name||'').toLowerCase());
-}
-function _wNorm(v){
-  const t=(_wojVmax>_wojVmin)?(v-_wojVmin)/(_wojVmax-_wojVmin):0.5;
-  return _wojInverted?1-t:t;
-}
 function _wVk(){return _wojMetricLive==='per1k'?'per_1k':_wojMetricLive==='per_km2'?'per_km2':'cnt'}
 function _wFmtVal(r){
   const vk=_wVk();
   return _wojMetricLive==='count'?`${fmt(r[vk]||r.cnt)} sklepów`
     :_wojMetricLive==='per1k'?`${r.per_1k}/1k mieszk.`:`${r.per_km2}/km²`;
 }
-function _addWojValLabels(){
-  _wojValTooltips.forEach(t=>{try{t.remove()}catch(e){}});
-  _wojValTooltips=[];
-  if(!_wojPairs||!_wojMap)return;
-  _wojPairs.forEach(({layer,f})=>{
-    const r=_wFindRow(f);if(!r)return;
-    const vk=_wVk();
-    const v=r[vk];if(v==null)return;
-    let label;
-    if(_wojMetricLive==='count')label=fmt(Math.round(v));
-    else if(_wojMetricLive==='per1k')label=v.toFixed(2).replace('.',',')+'/1k';
-    else label=v.toFixed(3).replace('.',',')+'/km²';
-    const tip=L.tooltip({permanent:true,direction:'center',className:'woj-val-label',interactive:false})
-      .setLatLng(layer.getBounds().getCenter())
-      .setContent(label)
-      .addTo(_wojMap);
-    _wojValTooltips.push(tip);
-  });
-}
-function _wStyle(f,opacity=0.9){
-  const r=_wFindRow(f);const v=r?r[_wVk()]:null;
-  return{weight:1,color:'#08110a',
-    fillColor:v!=null?wojRamp(_wNorm(v)):'#0e1e0c',fillOpacity:opacity};
+function _wFindRow(f){
+  const p=f.properties||{};
+  return _wojById.get(String(p.id??p.ID))||_wojById.get(String(p.nazwa))
+    ||_wojByName.get((p.nazwa||'').toLowerCase())||_wojByName.get((p.name||'').toLowerCase());
 }
 
-async function renderWojMap(){
-  const el=document.getElementById('map-granular-woj');if(!el||!M.woj_geo)return;
-
-  if(!_wojMap){
-    _wojMap=L.map('map-granular-woj',{
-      zoomControl:false,attributionControl:false,
-      scrollWheelZoom:false,dragging:false,
-      doubleClickZoom:false,boxZoom:false,keyboard:false
-    });
-    MAPS['map-granular-woj']=_wojMap;
-    _wojMap.setView([52.0,19.3],6);
-    _wojMap.invalidateSize();
-  }
-
-  const res=await fetchDim('voivodeship',_gMetric,'desc',16,0);
-  const rows=res.rows||[];
-
-  // Update module-level state so hover + style fns always see current data
-  _wojMetricLive=_gMetric;
-  _wojInverted=(_gSort==='asc');
+// Inject the normalized ramp position (_t) + name/val into each woj feature,
+// push the updated GeoJSON to the source, and refresh the value-label markers.
+function _setWojData(rows,metric,inverted){
+  _wojMetricLive=metric;_wojInverted=inverted;
   _wojByName=new Map();_wojById=new Map();
   rows.forEach(r=>{
     if(r.name)_wojByName.set(r.name.toLowerCase(),r);
@@ -1013,69 +915,123 @@ async function renderWojMap(){
   });
   const vk=_wVk();
   const vals=rows.map(r=>r[vk]).filter(v=>v!=null);
-  _wojVmin=Math.min(...vals);_wojVmax=Math.max(...vals);
+  const vmin=vals.length?Math.min(...vals):0, vmax=vals.length?Math.max(...vals):vmin+0.01;
+  _wojVmin=vmin;_wojVmax=vmax;
 
-  // Value labels will be added as permanent tooltips after layers are created/updated below
-
-  // ── Fast path: layers already exist — just update styles + tooltips ────────
-  if(_wojPairs){
-    _wojPairs.forEach(({layer,f})=>{
-      const r=_wFindRow(f);const v=r?r[vk]:null;
-      layer.setStyle(_wStyle(f));
-      layer.unbindTooltip();
-      if(r)layer.bindTooltip(
-        `<div style="font-family:var(--font-display);font-weight:700;font-size:13px;margin-bottom:3px">${r.name}</div>`+
-        `<div style="font-size:12px;color:#93a487">${_wFmtVal(r)}</div>`,
-        {sticky:true,className:'gran-tooltip',opacity:1}
-      );
-    });
-    _addWojValLabels();
-    return;
-  }
-
-  // ── First render: create layers with short fade-in stagger ─────────────────
-  _wojPairs=[];
-  _wojLayer=L.geoJSON(M.woj_geo,{
-    style:f=>_wStyle(f,0),   // start transparent
-    onEachFeature:(f,layer)=>{
-      _wojPairs.push({layer,f});
-      const r=_wFindRow(f);
-      if(r)layer.bindTooltip(
-        `<div style="font-family:var(--font-display);font-weight:700;font-size:13px;margin-bottom:3px">${r.name}</div>`+
-        `<div style="font-size:12px;color:#93a487">${_wFmtVal(r)}</div>`,
-        {sticky:true,className:'gran-tooltip',opacity:1}
-      );
-      layer.on('mouseover',()=>{
-        const rv=_wFindRow(f);const v=rv?rv[_wVk()]:null;
-        layer.setStyle({weight:2.5,color:'rgba(166,232,74,.85)',
-          fillColor:v!=null?wojRamp(Math.min(1,_wNorm(v)+0.18)):'#1c3a1c',fillOpacity:1});
-        layer.bringToFront();
-        const el=layer.getElement&&layer.getElement();
-        if(el){
-          const b=layer.getBounds().getCenter();
-          const pt=_wojMap.latLngToLayerPoint(b);
-          el.style.transformOrigin=`${pt.x}px ${pt.y}px`;
-          el.style.transform='scale(1.06)';
-        }
-      });
-      layer.on('mouseout',()=>{
-        layer.setStyle(_wStyle(f));
-        const el=layer.getElement&&layer.getElement();
-        if(el){el.style.transform='scale(1)';}
-      });
-  }}).addTo(_wojMap);
-
-  // Short stagger: 16 voivodeships × 14ms = ~220ms total
-  _wojPairs.forEach(({layer},i)=>setTimeout(()=>{
-    const svg=layer.getElement&&layer.getElement();
-    if(svg)svg.style.transition='fill-opacity .25s ease,fill .25s ease';
-    layer.setStyle({fillOpacity:0.9});
-  },10+i*14));
-
-  try{_wojMap.fitBounds(L.geoJSON(M.woj_geo).getBounds(),{padding:[6,6]})}catch(e){}
-  setTimeout(()=>{_wojMap&&_wojMap.invalidateSize();_addWojValLabels();},80);
+  const features=(M.woj_geo.features||[]).map((f,i)=>{
+    const r=_wFindRow(f);
+    const nf={type:'Feature',geometry:f.geometry,properties:{...(f.properties||{}),_fid:i}};
+    if(r){
+      const v=r[vk];
+      const t=(vmax>vmin)?(v-vmin)/(vmax-vmin):0.5;
+      nf.properties._t=inverted?(1-t):t;
+      nf.properties._name=r.name||f.properties.nazwa||'';
+      nf.properties._val=_wFmtVal(r);
+      let label;
+      if(metric==='count')label=fmt(Math.round(v));
+      else if(metric==='per1k')label=v.toFixed(2).replace('.',',')+'/1k';
+      else label=v.toFixed(3).replace('.',',')+'/km²';
+      nf.properties._label=label;
+    }else{
+      nf.properties._t=0;nf.properties._label='';
+    }
+    return nf;
+  });
+  const geo={type:'FeatureCollection',features};
+  if(_wojMap&&_wojMap.getSource('gran-woj'))_wojMap.getSource('gran-woj').setData(geo);
+  _refreshWojLabels(features);
+  return geo;
 }
 
+// Value labels as MapLibre HTML markers at each voivodeship centroid. This
+// avoids pulling a glyph atlas into our tile-free style (keeps it offline).
+function _refreshWojLabels(features){
+  // clear previous markers
+  _wojLabelMarkers.forEach(m=>{try{m.remove()}catch(e){}});
+  _wojLabelMarkers=[];
+  if(!_wojMap)return;
+  const { Marker } = maplibregl;
+  features.forEach(f=>{
+    const c=_bboxCenter(f);
+    const lab=f.properties&&f.properties._label;
+    if(!c||!lab)return;
+    const el=document.createElement('div');
+    el.className='woj-val-label-marker';
+    el.textContent=lab;
+    const m=new Marker({element:el,anchor:'center'}).setLngLat(c).addTo(_wojMap);
+    _wojLabelMarkers.push(m);
+  });
+}
+
+async function renderWojMap(){
+  const el=document.getElementById('map-granular-woj');if(!el||!M.woj_geo)return;
+
+  if(!_wojMap){
+    _wojMap=createMap('map-granular-woj',{
+      center:[19.3,52.05],zoom:5.7,minZoom:4,maxZoom:9,
+      dragPan:false,dragRotate:false,scrollZoom:false,doubleClickZoom:false,touchZoom:false,keyboard:false,
+    });
+    MAPS['map-granular-woj']=_wojMap;
+    _wojMap.on('load',()=>{
+      // promoteId lets feature-state key off _fid without top-level feature ids
+      _wojMap.addSource('gran-woj',{type:'geojson',data:{type:'FeatureCollection',features:[]},promoteId:'_fid'});
+      _wojMap.addLayer({
+        id:'gran-woj-fill',type:'fill',source:'gran-woj',
+        paint:{
+          'fill-color':_WOJ_FILL_STOPS,
+          'fill-opacity':['case',['boolean',['feature-state','hover'],false],0.98,0.86],
+        },
+      });
+      _wojMap.addLayer({
+        id:'gran-woj-line',type:'line',source:'gran-woj',
+        paint:{
+          'line-color':['case',['boolean',['feature-state','hover'],false],'#a6e84a','#08110a'],
+          'line-width':['case',['boolean',['feature-state','hover'],false],2.5,1],
+        },
+      });
+
+      let _hoverFid=null;
+      const ensureTip=()=>{
+        if(!_wojTip){
+          _wojTip=document.createElement('div');
+          _wojTip.className='gran-tooltip maplibre-hover-tip';
+          _wojTip.style.display='none';
+          document.body.appendChild(_wojTip);
+        }
+      };
+      _wojMap.on('mousemove','gran-woj-fill',e=>{
+        const fs=e.features&&e.features[0];
+        if(!fs)return;
+        if(_hoverFid!=null)_wojMap.setFeatureState({source:'gran-woj',id:_hoverFid},{hover:false});
+        _hoverFid=fs.id;
+        _wojMap.setFeatureState({source:'gran-woj',id:_hoverFid},{hover:true});
+        _wojMap.getCanvas().style.cursor='pointer';
+        const p=fs.properties||{};
+        if(p._name){
+          ensureTip();
+          _wojTip.innerHTML=`<div style="font-family:var(--font-display);font-weight:700;font-size:13px;margin-bottom:3px">${p._name}</div>`+
+            `<div style="font-size:12px;color:#93a487">${p._val||''}</div>`;
+          _wojTip.style.left=(e.originalEvent.clientX+14)+'px';
+          _wojTip.style.top=(e.originalEvent.clientY+14)+'px';
+          _wojTip.style.display='block';
+        }
+      });
+      _wojMap.on('mouseleave','gran-woj-fill',()=>{
+        if(_hoverFid!=null)_wojMap.setFeatureState({source:'gran-woj',id:_hoverFid},{hover:false});
+        _hoverFid=null;
+        _wojMap.getCanvas().style.cursor='';
+        if(_wojTip)_wojTip.style.display='none';
+      });
+      fitPoland(_wojMap,6);
+      _wojSrcReady=true;
+    });
+  }
+
+  const res=await fetchDim('voivodeship',_gMetric,'desc',16,0);
+  const rows=res.rows||[];
+  const push=()=>{ if(_wojMap&&_wojMap.getSource('gran-woj')) _setWojData(rows,_gMetric,_gSort==='asc'); };
+  if(_wojSrcReady)push(); else _wojMap.once('load',push);
+}
 function _setActive(group,btn){
   document.querySelectorAll(`#${group} .gran-btn`).forEach(b=>{
     b.classList.toggle('active',b===btn);
