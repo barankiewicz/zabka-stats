@@ -2,7 +2,8 @@ import json
 import math
 from pathlib import Path
 from typing import List, Optional, Dict, Any
-from backend.compat_router import APIRouter, Response, HTTPException
+from litestar import Router, get, Response
+from litestar.exceptions import HTTPException
 from backend.database_ch import client
 from backend.cache import cached
 from backend.etl.geo import build_polygon_index, assign_region, nearest_region
@@ -18,8 +19,6 @@ from backend.schemas.api_models import (
 )
 from backend.api.demographics import get_voiv_population, get_voiv_area, load_demographics_from_db
 
-router = APIRouter()
-
 _GEO_DIR = Path(__file__).parent.parent.parent / "data" / "geo"
 
 _VOIV_AREA = None
@@ -27,9 +26,10 @@ _POW_GEO = None
 _GMINA_AGG = None
 
 # --- Startup Event ---
-@router.on_event("startup")
-async def startup_geo():
+async def startup_geo() -> None:
     load_demographics_from_db()
+
+startup_handlers = [startup_geo]
 
 # --- Geometry Helpers ---
 def _rings(geom):
@@ -124,25 +124,25 @@ def _gmina_agg():
 
 # --- Endpoints ---
 
-@router.get("/geo/voivodeships")
+@get("/geo/voivodeships")
 @cached(ttl=86400)
-async def geo_voivodeships():
+async def geo_voivodeships() -> Response:
     path = _GEO_DIR / "wojewodztwa.geojson"
     if not path.exists():
         raise HTTPException(status_code=404, detail="Voivodeships boundary file not found")
     return Response(content=path.read_bytes(), media_type="application/json")
 
-@router.get("/geo/powiats")
+@get("/geo/powiats")
 @cached(ttl=86400)
-async def geo_powiats():
+async def geo_powiats() -> Response:
     path = _GEO_DIR / "powiaty.geojson"
     if not path.exists():
         raise HTTPException(status_code=404, detail="Powiats boundary file not found")
     return Response(content=path.read_bytes(), media_type="application/json")
 
-@router.get("/stats/powiat-coverage", response_model=PowiatCoverageResponse)
+@get("/stats/powiat-coverage")
 @cached(ttl=86400)
-async def powiat_coverage():
+async def powiat_coverage() -> PowiatCoverageResponse:
     raw = client.execute("""
         SELECT AVG(latitude), AVG(longitude) 
         FROM locations 
@@ -160,11 +160,11 @@ async def powiat_coverage():
     dots = [[round(r[0], 4), round(r[1], 4)] for r in raw if r[0] is not None and r[1] is not None]
     total = 380
     covered = len(dots)
-    return {"total": total, "covered": covered, "dots": dots}
+    return PowiatCoverageResponse(total=total, covered=covered, dots=dots)
 
-@router.get("/stats/city-coverage", response_model=CityCoverageResponse)
+@get("/stats/city-coverage")
 @cached(ttl=3600)
-async def city_coverage():
+async def city_coverage() -> CityCoverageResponse:
     total_row = client.execute("SELECT COUNT(*) FROM dim_city").fetchone()
     total = total_row[0] if total_row else 302
     
@@ -180,14 +180,17 @@ async def city_coverage():
     """).fetchone()
     zab_localities = zab_localities_row[0] if zab_localities_row else 0
     
-    return {"total_cities": total, "with_zabka": covered,
-            "without_zabka": total - covered,
-            "pct": round(100.0 * covered / total, 1) if total else 0,
-            "zabka_localities": zab_localities}
+    return CityCoverageResponse(
+        total_cities=total,
+        with_zabka=covered,
+        without_zabka=total - covered,
+        pct=round(100.0 * covered / total, 1) if total else 0,
+        zabka_localities=zab_localities
+    )
 
-@router.get("/stats/coverage-funnel", response_model=List[CoverageFunnelItem])
+@get("/stats/coverage-funnel")
 @cached(ttl=3600)
-async def coverage_funnel():
+async def coverage_funnel() -> List[CoverageFunnelItem]:
     pc = await powiat_coverage()
     cc = await city_coverage()
     
@@ -205,16 +208,22 @@ async def coverage_funnel():
         return {"level": level, "with": w, "total": t,
                 "pct": round(100.0 * w / t, 1) if t else 0}
 
+    # Extract fields from schema classes returned by methods
     return [
-        node("powiaty", pc["covered"], pc["total"]),
-        node("miasta", cc["with_zabka"], cc["total_cities"]),
-        node("gminy", gminas_with, total_gminas),
+        CoverageFunnelItem(**node("powiaty", pc.covered, pc.total)),
+        CoverageFunnelItem(**node("miasta", cc.with_zabka, cc.total_cities)),
+        CoverageFunnelItem(**node("gminy", gminas_with, total_gminas)),
     ]
 
-@router.get("/stats/by-dimension", response_model=ByDimensionResponse)
+@get("/stats/by-dimension")
 @cached(ttl=3600)
-async def by_dimension(dim: str = "voivodeship", metric: str = "count",
-                       sort: str = "desc", limit: int = 20, offset: int = 0):
+async def by_dimension(
+    dim: str = "voivodeship",
+    metric: str = "count",
+    sort: str = "desc",
+    limit: int = 20,
+    offset: int = 0
+) -> ByDimensionResponse:
     if dim not in ("city", "gmina", "powiat", "voivodeship"):
         raise HTTPException(status_code=400, detail="Invalid dimension")
 
@@ -304,14 +313,20 @@ async def by_dimension(dim: str = "voivodeship", metric: str = "count",
         full_median = s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2.0
     else:
         full_sum = full_avg = full_median = 0
-    return {"rows": rows[off:off + lim], "total": len(rows),
-            "dim": dim, "metric": metric, "sort": sort,
-            "avg": round(full_avg, 3), "median": round(full_median, 3),
-            "sum": int(full_sum)}
+    return ByDimensionResponse(
+        rows=[ByDimensionItem(**r) for r in rows[off:off + lim]],
+        total=len(rows),
+        dim=dim,
+        metric=metric,
+        sort=sort,
+        avg=round(full_avg, 3),
+        median=round(full_median, 3),
+        sum=int(full_sum)
+    )
 
-@router.get("/stats/gmina-leaders", response_model=GminaLeadersResponse)
+@get("/stats/gmina-leaders")
 @cached(ttl=3600)
-async def gmina_leaders(limit: int = 12):
+async def gmina_leaders(limit: int = 12) -> GminaLeadersResponse:
     rows = _gmina_agg()
     per1k = sorted((r for r in rows if r.get("per_1k") and r.get("cnt", 0) >= 3),
                    key=lambda x: -x["per_1k"])[:max(1, min(int(limit), 30))]
@@ -335,17 +350,38 @@ async def gmina_leaders(limit: int = 12):
         nat_pop += get_voiv_population(name)
         
     nat_per_1k = round(total * 1000.0 / nat_pop, 3) if nat_pop else None
-    return {"per_1k": [shape(r) for r in per1k],
-            "per_km2": [shape(r) for r in per_km2],
-            "national_per_1k": nat_per_1k}
+    return GminaLeadersResponse(
+        per_1k=[GminaLeadersItem(**shape(r)) for r in per1k],
+        per_km2=[GminaLeadersItem(**shape(r)) for r in per_km2],
+        national_per_1k=nat_per_1k
+    )
 
-@router.get("/stats/voivodeship-density", response_model=List[VoivodeshipDensityResponseItem])
+@get("/stats/voivodeship-density")
 @cached(ttl=3600)
-async def voivodeship_density():
+async def voivodeship_density() -> List[VoivodeshipDensityResponseItem]:
     rows = client.execute("""
         SELECT voivodeship, COUNT(*) AS stores
         FROM locations WHERE deleted_at IS NULL GROUP BY voivodeship
     """).fetchall()
-    return [{"voivodeship": r[0], "stores": int(r[1]),
-             "area_km2": get_voiv_area(r[0])}
-            for r in rows if r[0]]
+    return [
+        VoivodeshipDensityResponseItem(
+            voivodeship=r[0],
+            stores=int(r[1]),
+            area_km2=get_voiv_area(r[0])
+        )
+        for r in rows if r[0]
+    ]
+
+router = Router(
+    path="",
+    route_handlers=[
+        geo_voivodeships,
+        geo_powiats,
+        powiat_coverage,
+        city_coverage,
+        coverage_funnel,
+        by_dimension,
+        gmina_leaders,
+        voivodeship_density,
+    ]
+)

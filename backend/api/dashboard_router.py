@@ -1,13 +1,10 @@
 """Dashboard data aggregation endpoint (returns all data for frontend)."""
 
-from backend.compat_router import APIRouter
+from litestar import Router, get
 from backend.database_ch import client
-import json
 
-router = APIRouter()
-
-@router.get("/dashboard-data")
-async def get_dashboard_data():
+@get("/dashboard-data")
+async def get_dashboard_data() -> dict:
     """Get all aggregated data for dashboard in one call."""
 
     # Summary
@@ -76,3 +73,5 @@ async def get_dashboard_data():
         "points": [],  # Would need full location data
         "woj_geo": {}  # GeoJSON - needs separate file
     }
+
+router = Router(path="", route_handlers=[get_dashboard_data])

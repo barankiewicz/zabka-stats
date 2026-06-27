@@ -1,7 +1,7 @@
 import re
 from collections import Counter, defaultdict
 from typing import List, Optional, Dict, Any
-from backend.compat_router import APIRouter
+from litestar import Router, get, post
 from backend.database_ch import client
 from backend.cache import cached, clear_cache
 from backend.schemas.api_models import (
@@ -34,8 +34,6 @@ from backend.schemas.api_models import (
 )
 from backend.api.demographics import get_voiv_population
 
-router = APIRouter()
-
 SUNDAY_CLOSED_PCT = {
     "dolnośląskie": 10.6, "zachodniopomorskie": 9.3, "lubuskie": 9.1,
     "opolskie": 5.2, "śląskie": 4.1, "wielkopolskie": 3.8,
@@ -67,9 +65,9 @@ def _city_geo():
 
 # --- Endpoints ---
 
-@router.get("/stats/summary", response_model=SummaryResponse)
+@get("/stats/summary")
 @cached(ttl=3600)
-async def summary():
+async def summary() -> SummaryResponse:
     r = client.execute("""
         SELECT
             COUNT(*) AS total_active,
@@ -82,17 +80,17 @@ async def summary():
         FROM locations
         WHERE deleted_at IS NULL 
     """).fetchone()
-    return {
-        "total_active": int(r[0] or 0),
-        "cities_count": int(r[1] or 0),
-        "merrychef_pct": float(r[2] or 0),
-        "sunday_pct": float(r[3] or 0),
-        "h24_count": int(r[4] or 0),
-    }
+    return SummaryResponse(
+        total_active=int(r[0] or 0),
+        cities_count=int(r[1] or 0),
+        merrychef_pct=float(r[2] or 0),
+        sunday_pct=float(r[3] or 0),
+        h24_count=int(r[4] or 0)
+    )
 
-@router.get("/stats/network-growth", response_model=List[NetworkGrowthItem])
+@get("/stats/network-growth")
 @cached(ttl=3600)
-async def network_growth():
+async def network_growth() -> List[NetworkGrowthItem]:
     rows = client.execute("""
         SELECT
             YEAR(first_opening_date) AS year,
@@ -105,12 +103,12 @@ async def network_growth():
         GROUP BY 1
         ORDER BY 1
     """).fetchall()
-    return [{"year": int(r[0]), "new_stores": int(r[1]), "cumulative": int(r[2])}
+    return [NetworkGrowthItem(year=int(r[0]), new_stores=int(r[1]), cumulative=int(r[2]))
             for r in rows]
 
-@router.get("/stats/network-origin", response_model=NetworkOriginResponse)
+@get("/stats/network-origin")
 @cached(ttl=3600)
-async def network_origin():
+async def network_origin() -> NetworkOriginResponse:
     oldest = client.execute("""
         SELECT city, voivodeship, street, first_opening_date, latitude, longitude
         FROM locations
@@ -137,15 +135,15 @@ async def network_origin():
             "lat": float(r[4]) if r[4] is not None else None,
             "lon": float(r[5]) if r[5] is not None else None,
         }
-    return {
-        "oldest": fmt_row(oldest) if oldest else {},
-        "newest": fmt_row(newest) if newest else {},
-        "new_this_month": int(new_month[0] or 0) if new_month else 0,
-    }
+    return NetworkOriginResponse(
+        oldest=fmt_row(oldest) if oldest else {},
+        newest=fmt_row(newest) if newest else {},
+        new_this_month=int(new_month[0] or 0) if new_month else 0
+    )
 
-@router.get("/stats/stores-timeline", response_model=StoreTimelineResponse)
+@get("/stats/stores-timeline")
 @cached(ttl=3600)
-async def stores_timeline():
+async def stores_timeline() -> StoreTimelineResponse:
     dated = client.execute("""
         SELECT latitude, longitude, YEAR(first_opening_date) AS yr
         FROM locations
@@ -185,36 +183,38 @@ async def stores_timeline():
     m = milestones_rows if milestones_rows else (None, None, None, None)
     year_vals = [r[2] for r in dated if r[2] is not None]
     
-    return {
-        "stores": [[round(r[0], 4), round(r[1], 4), int(r[2])] for r in dated],
-        "undated": [[round(r[0], 4), round(r[1], 4)] for r in undated],
-        "year_range": {
-            "min": int(min(year_vals)) if year_vals else 1998,
-            "max": int(max(year_vals)) if year_vals else 2026,
-        },
-        "milestones": {
-            "1000": int(m[0]) if m[0] else None,
-            "2000": int(m[1]) if m[1] else None,
-            "5000": int(m[2]) if m[2] else None,
-            "10000": int(m[3]) if m[3] else None,
-        },
-    }
+    return StoreTimelineResponse(
+        stores=[[round(r[0], 4), round(r[1], 4), int(r[2])] for r in dated],
+        undated=[[round(r[0], 4), round(r[1], 4)] for r in undated],
+        year_range=StoreTimelineRange(
+            min=int(min(year_vals)) if year_vals else 1998,
+            max=int(max(year_vals)) if year_vals else 2026
+        ),
+        milestones=StoreTimelineMilestones(
+            **{
+                "1000": int(m[0]) if m[0] else None,
+                "2000": int(m[1]) if m[1] else None,
+                "5000": int(m[2]) if m[2] else None,
+                "10000": int(m[3]) if m[3] else None
+            }
+        )
+    )
 
-@router.get("/stats/growth-by-voivodeship", response_model=List[GrowthByVoivodeshipResponseItem])
+@get("/stats/growth-by-voivodeship")
 @cached(ttl=3600)
-async def growth_by_voivodeship():
+async def growth_by_voivodeship() -> List[GrowthByVoivodeshipResponseItem]:
     rows = client.execute("""
         SELECT voivodeship, YEAR(first_opening_date) AS yr, COUNT(*) AS new_stores
         FROM locations
         WHERE deleted_at IS NULL AND first_opening_date IS NOT NULL
         GROUP BY 1, 2 ORDER BY 2, 1
     """).fetchall()
-    return [{"voivodeship": r[0] or "", "yr": int(r[1]), "new_stores": int(r[2])}
+    return [GrowthByVoivodeshipResponseItem(voivodeship=r[0] or "", yr=int(r[1]), new_stores=int(r[2]))
             for r in rows if r[0]]
 
-@router.get("/stats/per-capita", response_model=List[PerCapitaResponseItem])
+@get("/stats/per-capita")
 @cached(ttl=3600)
-async def per_capita():
+async def per_capita() -> List[PerCapitaResponseItem]:
     rows = client.execute("""
         SELECT voivodeship, COUNT(*) AS stores
         FROM locations
@@ -230,18 +230,20 @@ async def per_capita():
         stores = int(r[1])
         pop = get_voiv_population(name)
         per_1k = round(stores * 1000 / pop, 2) if pop else 0.0
-        result.append({
-            "voivodeship": name,
-            "stores": stores,
-            "population": pop,
-            "per_1k": per_1k,
-        })
-    result.sort(key=lambda x: -x["per_1k"])
+        result.append(
+            PerCapitaResponseItem(
+                voivodeship=name,
+                stores=stores,
+                population=pop,
+                per_1k=per_1k
+            )
+        )
+    result.sort(key=lambda x: -x.per_1k)
     return result
 
-@router.get("/stats/city-first-opening", response_model=List[CityFirstOpeningItem])
+@get("/stats/city-first-opening")
 @cached(ttl=3600)
-async def city_first_opening():
+async def city_first_opening() -> List[CityFirstOpeningItem]:
     rows = client.execute("""
         WITH first_by_city AS (
             SELECT city, MIN(first_opening_date) AS first_date
@@ -257,12 +259,12 @@ async def city_first_opening():
         FROM first_by_city
         GROUP BY 1 ORDER BY 1
     """).fetchall()
-    return [{"yr": int(r[0]), "new_cities": int(r[1]), "cumulative_cities": int(r[2])}
+    return [CityFirstOpeningItem(yr=int(r[0]), new_cities=int(r[1]), cumulative_cities=int(r[2]))
             for r in rows]
 
-@router.get("/stats/top-cities", response_model=List[TopCityItem])
+@get("/stats/top-cities")
 @cached(ttl=1800)
-async def top_cities(limit: int = 20):
+async def top_cities(limit: int = 20) -> List[TopCityItem]:
     rows = client.execute("""
         SELECT city, COUNT(*) AS cnt, voivodeship
         FROM locations
@@ -271,11 +273,11 @@ async def top_cities(limit: int = 20):
         ORDER BY cnt DESC
         LIMIT ?
     """, [max(1, min(limit, 200))]).fetchall()
-    return [{"city": r[0], "cnt": int(r[1]), "voivodeship": r[2] or ""} for r in rows]
+    return [TopCityItem(city=r[0], cnt=int(r[1]), voivodeship=r[2] or "") for r in rows]
 
-@router.get("/stats/opening-seasonality", response_model=List[OpeningSeasonalityResponseItem])
+@get("/stats/opening-seasonality")
 @cached(ttl=3600)
-async def opening_seasonality():
+async def opening_seasonality() -> List[OpeningSeasonalityResponseItem]:
     rows = client.execute("""
         SELECT
             MONTH(first_opening_date) AS month,
@@ -286,22 +288,22 @@ async def opening_seasonality():
         ORDER BY 1
     """).fetchall()
     months_pl = ['Sty', 'Lut', 'Mar', 'Kwi', 'Maj', 'Cze', 'Lip', 'Sie', 'Wrz', 'Paz', 'Lis', 'Gru']
-    return [{"month": int(r[0]), "label": months_pl[int(r[0]) - 1], "cnt": int(r[1])} for r in rows]
+    return [OpeningSeasonalityResponseItem(month=int(r[0]), label=months_pl[int(r[0]) - 1], cnt=int(r[1])) for r in rows]
 
-@router.get("/stats/opening-hours", response_model=List[OpeningHoursPatternItem])
+@get("/stats/opening-hours")
 @cached(ttl=3600)
-async def opening_hours():
+async def opening_hours() -> List[OpeningHoursPatternItem]:
     rows = client.execute("""
         SELECT opening_hours_monsat AS pattern, COUNT(*) AS cnt
         FROM locations
         WHERE deleted_at IS NULL AND opening_hours_monsat IS NOT NULL
         GROUP BY 1 ORDER BY cnt DESC LIMIT 8
     """).fetchall()
-    return [{"pattern": r[0], "cnt": int(r[1])} for r in rows]
+    return [OpeningHoursPatternItem(pattern=r[0], cnt=int(r[1])) for r in rows]
 
-@router.get("/stats/voivodeship", response_model=List[VoivodeshipStatsResponseItem])
+@get("/stats/voivodeship")
 @cached(ttl=3600)
-async def voivodeship_stats():
+async def voivodeship_stats() -> List[VoivodeshipStatsResponseItem]:
     rows = client.execute("""
         SELECT
             voivodeship,
@@ -314,13 +316,13 @@ async def voivodeship_stats():
         GROUP BY voivodeship
         ORDER BY mc_pct ASC
     """).fetchall()
-    return [{"voivodeship": r[0] or "", "total": int(r[1]),
-             "mc_count": int(r[2] or 0), "mc_pct": float(r[3] or 0)}
+    return [VoivodeshipStatsResponseItem(voivodeship=r[0] or "", total=int(r[1]),
+                                         mc_count=int(r[2] or 0), mc_pct=float(r[3] or 0))
             for r in rows if r[0]]
 
-@router.get("/stats/powiat-economics", response_model=List[PowiatEconomicsItem])
+@get("/stats/powiat-economics")
 @cached(ttl=3600)
-async def powiat_economics():
+async def powiat_economics() -> List[PowiatEconomicsItem]:
     rows = client.execute("""
         SELECT
             dp.name AS powiat,
@@ -341,17 +343,19 @@ async def powiat_economics():
         pop = int(r[4]) if r[4] else 0
         stores = int(r[5])
         per_1k = round(stores * 1000 / pop, 3) if pop > 0 else 0.0
-        result.append({
-            "powiat": r[0], "voivodeship": r[1],
-            "avg_salary": float(r[2] or 0),
-            "unemployment_rate": float(r[3] or 0),
-            "population": pop, "stores": stores, "per_1k": per_1k,
-        })
+        result.append(
+            PowiatEconomicsItem(
+                powiat=r[0], voivodeship=r[1],
+                avg_salary=float(r[2] or 0),
+                unemployment_rate=float(r[3] or 0),
+                population=pop, stores=stores, per_1k=per_1k
+            )
+        )
     return result
 
-@router.get("/stats/sunday-by-voivodeship", response_model=List[SundayByVoivodeshipResponseItem])
+@get("/stats/sunday-by-voivodeship")
 @cached(ttl=3600)
-async def sunday_by_voivodeship():
+async def sunday_by_voivodeship() -> List[SundayByVoivodeshipResponseItem]:
     rows = client.execute("""
         SELECT
             voivodeship,
@@ -371,17 +375,19 @@ async def sunday_by_voivodeship():
             continue
         db_pct = float(r[1] or 0)
         pct = db_pct if db_pct > 0 else SUNDAY_CLOSED_PCT.get(name.lower(), 2.5)
-        result.append({
-            "voivodeship": name,
-            "closed_pct": pct,
-            "closed_count": int(r[2] or 0),
-            "total": int(r[3] or 0),
-        })
+        result.append(
+            SundayByVoivodeshipResponseItem(
+                voivodeship=name,
+                closed_pct=pct,
+                closed_count=int(r[2] or 0),
+                total=int(r[3] or 0)
+            )
+        )
     return result
 
-@router.get("/stats/inpost-vs-zabka", response_model=List[InPostVsZabkaResponseItem])
+@get("/stats/inpost-vs-zabka")
 @cached(ttl=3600)
-async def inpost_vs_zabka():
+async def inpost_vs_zabka() -> List[InPostVsZabkaResponseItem]:
     zabka_rows = client.execute("""
         SELECT voivodeship, COUNT(*) AS cnt
         FROM locations WHERE deleted_at IS NULL GROUP BY voivodeship
@@ -403,22 +409,28 @@ async def inpost_vs_zabka():
             continue
         pop = get_voiv_population(name)
         ratio = round(p / z, 2) if z else 0.0
-        result.append({
-            "voivodeship": name,
-            "zabki": z,
-            "paczkomaty": p,
-            "population": pop,
-            "zabki_per_100k": round(z * 100000 / pop, 1) if pop else 0.0,
-            "lockers_per_100k": round(p * 100000 / pop, 1) if pop else 0.0,
-            "ratio": ratio,
-        })
-    result.sort(key=lambda x: -x["ratio"])
+        result.append(
+            InPostVsZabkaResponseItem(
+                voivodeship=name,
+                zabki=z,
+                paczkomaty=p,
+                population=pop,
+                zabki_per_100k=round(z * 100000 / pop, 1) if pop else 0.0,
+                lockers_per_100k=round(p * 100000 / pop, 1) if pop else 0.0,
+                ratio=ratio
+            )
+        )
+    result.sort(key=lambda x: -x.ratio)
     return result
 
-@router.get("/stats/inpost-vs-zabka-by-level", response_model=InPostVsZabkaByLevelResponse)
+@get("/stats/inpost-vs-zabka-by-level")
 @cached(ttl=3600)
-async def inpost_vs_zabka_by_level(level: str = "voivodeship", sort: str = "desc",
-                                    limit: int = 20, offset: int = 0):
+async def inpost_vs_zabka_by_level(
+    level: str = "voivodeship",
+    sort: str = "desc",
+    limit: int = 20,
+    offset: int = 0
+) -> InPostVsZabkaByLevelResponse:
     lim = max(1, min(int(limit), 500))
     off = max(0, int(offset))
 
@@ -553,15 +565,19 @@ async def inpost_vs_zabka_by_level(level: str = "voivodeship", sort: str = "desc
                 "ratio": ratio,
             })
     else:
-        return {"rows": [], "total": 0, "level": level}
+        return InPostVsZabkaByLevelResponse(rows=[], total=0, level=level)
 
     rows.sort(key=lambda x: x["ratio"] if sort != "asc" else -x["ratio"])
     total = len(rows)
-    return {"rows": rows[off:off + lim], "total": total, "level": level}
+    return InPostVsZabkaByLevelResponse(
+        rows=[InPostVsZabkaByLevelResponseItem(**r) for r in rows[off:off + lim]],
+        total=total,
+        level=level
+    )
 
-@router.get("/stats/common-streets", response_model=CommonStreetsResponse)
+@get("/stats/common-streets")
 @cached(ttl=3600)
-async def common_streets(limit: int = 15):
+async def common_streets(limit: int = 15) -> CommonStreetsResponse:
     rows = client.execute("""
         SELECT street FROM locations
         WHERE deleted_at IS NULL 
@@ -577,13 +593,13 @@ async def common_streets(limit: int = 15):
         counts[key] += 1
         forms[key][raw] += 1
     lim = max(1, min(int(limit), 50))
-    streets = [{"name": forms[k].most_common(1)[0][0], "cnt": int(c)}
+    streets = [CommonStreetItem(name=forms[k].most_common(1)[0][0], cnt=int(c))
                for k, c in counts.most_common(lim)]
-    return {"streets": streets, "distinct": len(counts)}
+    return CommonStreetsResponse(streets=streets, distinct=len(counts))
 
-@router.get("/stats/openings-monthly", response_model=List[OpeningsMonthlyItem])
+@get("/stats/openings-monthly")
 @cached(ttl=3600)
-async def openings_monthly():
+async def openings_monthly() -> List[OpeningsMonthlyItem]:
     rows = client.execute("""
         SELECT CAST(EXTRACT(year FROM first_opening_date) AS INT) AS y,
                CAST(EXTRACT(month FROM first_opening_date) AS INT) AS m,
@@ -593,10 +609,10 @@ async def openings_monthly():
           AND first_opening_date IS NOT NULL
         GROUP BY 1, 2 ORDER BY 1, 2
     """).fetchall()
-    return [{"year": r[0], "month": r[1], "cnt": r[2]} for r in rows]
+    return [OpeningsMonthlyItem(year=r[0], month=r[1], cnt=r[2]) for r in rows]
 
-@router.get("/stats/sunday-closed-stores", response_model=List[SundayClosedStoreItem])
-async def sunday_closed_stores(voivodeship: str):
+@get("/stats/sunday-closed-stores")
+async def sunday_closed_stores(voivodeship: str) -> List[SundayClosedStoreItem]:
     rows = client.execute("""
         SELECT city, street, has_merrychef
         FROM locations
@@ -605,13 +621,11 @@ async def sunday_closed_stores(voivodeship: str):
           AND open_sunday = false
         ORDER BY city, street
     """, [voivodeship]).fetchall()
-    return [{"city": r[0], "street": r[1] or "", "has_merrychef": bool(r[2])} for r in rows]
+    return [SundayClosedStoreItem(city=r[0], street=r[1] or "", has_merrychef=bool(r[2])) for r in rows]
 
-# --- Ported from legacy aggregates_router_cached ---
-
-@router.get("/stats/top-streets", response_model=TopStreetsResponse)
+@get("/stats/top-streets")
 @cached(ttl=1800)
-async def get_top_streets(limit: int = 20, month: str = None):
+async def get_top_streets(limit: int = 20, month: Optional[str] = None) -> TopStreetsResponse:
     params = []
     if month:
         where = "street IS NOT NULL AND strftime(created_at, '%Y-%m') <= ? AND (deleted_at IS NULL OR strftime(deleted_at, '%Y-%m') >= ?)"
@@ -629,16 +643,16 @@ async def get_top_streets(limit: int = 20, month: str = None):
         LIMIT ?
     """, params).fetchall()
 
-    return {
-        "data": [
-            {"street": r[0] or "", "city": r[1], "count": r[2]}
+    return TopStreetsResponse(
+        data=[
+            TopStreetItem(street=r[0] or "", city=r[1], count=r[2])
             for r in results
         ]
-    }
+    )
 
-@router.get("/trends/growth", response_model=GrowthTrendResponse)
+@get("/trends/growth")
 @cached(ttl=3600)
-async def get_growth_trend():
+async def get_growth_trend() -> GrowthTrendResponse:
     results = client.execute("""
         WITH daily_changes AS (
             SELECT CAST(created_at AS DATE) as event_date, 1 as change
@@ -658,14 +672,41 @@ async def get_growth_trend():
         ORDER BY event_date
     """).fetchall()
 
-    return {
-        "data": [
-            {"date": str(r[0]), "count": r[1]}
+    return GrowthTrendResponse(
+        data=[
+            GrowthTrendItem(date=str(r[0]), count=r[1])
             for r in results
         ]
-    }
+    )
 
-@router.post("/cache/clear")
-async def clear_all_cache():
+@post("/cache/clear")
+async def clear_all_cache() -> dict:
     clear_cache("*")
     return {"status": "cache cleared"}
+
+router = Router(
+    path="",
+    route_handlers=[
+        summary,
+        network_growth,
+        network_origin,
+        stores_timeline,
+        growth_by_voivodeship,
+        per_capita,
+        city_first_opening,
+        top_cities,
+        opening_seasonality,
+        opening_hours,
+        voivodeship_stats,
+        powiat_economics,
+        sunday_by_voivodeship,
+        inpost_vs_zabka,
+        inpost_vs_zabka_by_level,
+        common_streets,
+        openings_monthly,
+        sunday_closed_stores,
+        get_top_streets,
+        get_growth_trend,
+        clear_all_cache,
+    ]
+)

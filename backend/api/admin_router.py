@@ -3,7 +3,9 @@ Administrative context API - voivodeship, powiat, city, country.
 Hierarchical aggregations for Polish administrative divisions.
 """
 
-from backend.compat_router import APIRouter
+from typing import Optional
+from litestar import Router, get
+from litestar.exceptions import HTTPException
 from backend.database_ch import client
 from backend.cache import cached
 from backend.live_data import (
@@ -12,11 +14,9 @@ from backend.live_data import (
     get_nearby_lightning,
 )
 
-router = APIRouter()
-
-@router.get("/stats/by-powiat")
+@get("/stats/by-powiat")
 @cached(ttl=3600)
-async def get_by_powiat(voivodeship: str = None):
+async def get_by_powiat(voivodeship: Optional[str] = None) -> dict:
     """Get statistics aggregated by powiat (county)."""
 
     where_clauses = ["deleted_at IS NULL"]
@@ -59,9 +59,9 @@ async def get_by_powiat(voivodeship: str = None):
         "data": by_voiv
     }
 
-@router.get("/stats/by-city")
+@get("/stats/by-city")
 @cached(ttl=3600)
-async def get_by_city(powiat: str = None, voivodeship: str = None):
+async def get_by_city(powiat: Optional[str] = None, voivodeship: Optional[str] = None) -> dict:
     """Get statistics aggregated by city."""
 
     where_clauses = ["deleted_at IS NULL"]
@@ -105,9 +105,9 @@ async def get_by_city(powiat: str = None, voivodeship: str = None):
         ]
     }
 
-@router.get("/hierarchy/voivodeships")
+@get("/hierarchy/voivodeships")
 @cached(ttl=86400)
-async def get_voivodeships():
+async def get_voivodeships() -> dict:
     """Get all voivodeships with their powiats and cities."""
 
     voivodeships = client.execute("""
@@ -150,9 +150,9 @@ async def get_voivodeships():
         "hierarchy": result
     }
 
-@router.get("/context/{lat}/{lon}")
+@get("/context/{lat:float}/{lon:float}")
 @cached(ttl=86400)
-async def get_location_context(lat: float, lon: float):
+async def get_location_context(lat: float, lon: float) -> dict:
     """Get administrative context for coordinates using nearest location."""
 
     # Find nearest location to get context
@@ -198,9 +198,9 @@ async def get_location_context(lat: float, lon: float):
         "coordinates": {"lat": lat, "lon": lon},
     }
 
-@router.get("/fun/extremes")
+@get("/fun/extremes")
 @cached(ttl=3600)
-async def get_extremes():
+async def get_extremes() -> dict:
     """Get extreme points - najfajniejsze Żabki!"""
 
     northernmost = client.execute("""
@@ -253,9 +253,9 @@ async def get_extremes():
         "_najbardziej_zachód": format_location(westernmost),
     }
 
-@router.get("/stats/administrative-summary")
+@get("/stats/administrative-summary")
 @cached(ttl=3600)
-async def get_administrative_summary():
+async def get_administrative_summary() -> dict:
     """Summary: country → voivodeships → powiats → cities."""
 
     return {
@@ -285,8 +285,8 @@ async def get_administrative_summary():
     }
 
 
-@router.get("/live/best-worst-weather")
-async def get_best_worst_weather():
+@get("/live/best-worst-weather")
+async def get_best_worst_weather() -> dict:
     """
     LIVE - najbardziej sloneczna i najmokrzejsza Zabka teraz.
     Swieze dane z Open-Meteo dla wszystkich 16 wojewodztw.
@@ -364,8 +364,8 @@ async def get_best_worst_weather():
     }
 
 
-@router.get("/live/darkest-sky-stargazing")
-async def get_darkest_sky_for_stargazing():
+@get("/live/darkest-sky-stargazing")
+async def get_darkest_sky_for_stargazing() -> dict:
     """
     LIVE - najciemniejsza i najjaśniejsza Żabka w Polsce.
     """
@@ -428,8 +428,8 @@ async def get_darkest_sky_for_stargazing():
     }
 
 
-@router.get("/live/lightning-danger")
-async def get_lightning_danger():
+@get("/live/lightning-danger")
+async def get_lightning_danger() -> dict:
     """
     LIVE - zagrozenie piorunami teraz.
     Oceniane w oparciu o 16 wojewodzkich stref pogodowych.
@@ -502,3 +502,18 @@ async def get_lightning_danger():
             "message": f"{most_active['city']} ({most_active['voivodeship']}) - {most_active['lightning'].get('strikes_last_hour', 0)} piorunow w ostatniej godzinie",
         },
     }
+
+router = Router(
+    path="",
+    route_handlers=[
+        get_by_powiat,
+        get_by_city,
+        get_voivodeships,
+        get_location_context,
+        get_extremes,
+        get_administrative_summary,
+        get_best_worst_weather,
+        get_darkest_sky_for_stargazing,
+        get_lightning_danger,
+    ]
+)

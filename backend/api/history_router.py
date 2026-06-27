@@ -1,19 +1,17 @@
 """History API endpoints (DuckDB)."""
 
-from backend.compat_router import APIRouter, HTTPException
 from typing import Optional
+from litestar import Router, get
+from litestar.exceptions import HTTPException
 from backend.database_ch import client
 from backend.cache import cached
 
-router = APIRouter()
-
-
-@router.get("/history/location/{location_id}")
+@get("/history/location/{location_id:int}")
 @cached(ttl=3600)
 async def get_location_history(
     location_id: int,
     limit: int = 100,
-):
+) -> dict:
     """Get full change history (creation and deletion only) for a specific location."""
     location = client.execute("SELECT 'Żabka', created_at, deleted_at FROM locations WHERE id = ?", [location_id]).fetchone()
     if not location:
@@ -51,12 +49,12 @@ async def get_location_history(
     }
 
 
-@router.get("/changes/monthly")
+@get("/changes/monthly")
 @cached(ttl=3600)
 async def get_monthly_changes(
     year: Optional[int] = None,
     voivodeship: Optional[str] = None,
-):
+) -> dict:
     """Get monthly change statistics (created and deleted events only)."""
     where_clauses = []
     params = []
@@ -116,11 +114,11 @@ async def get_monthly_changes(
     }
 
 
-@router.get("/changes/voivodeship")
+@get("/changes/voivodeship")
 @cached(ttl=3600)
 async def get_voivodeship_changes(
     month: Optional[str] = None,
-):
+) -> dict:
     """Get change statistics aggregated by voivodeship."""
     where = ""
     params = []
@@ -172,11 +170,11 @@ async def get_voivodeship_changes(
     }
 
 
-@router.get("/changes/timeline")
+@get("/changes/timeline")
 @cached(ttl=3600)
 async def get_deletion_timeline(
     limit_months: int = 12,
-):
+) -> dict:
     """Get timeline of deletions over the last N months."""
     results = client.execute("""
         SELECT
@@ -199,3 +197,13 @@ async def get_deletion_timeline(
     return {
         "timeline": timeline_data
     }
+
+router = Router(
+    path="",
+    route_handlers=[
+        get_location_history,
+        get_monthly_changes,
+        get_voivodeship_changes,
+        get_deletion_timeline,
+    ]
+)

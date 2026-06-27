@@ -1,14 +1,12 @@
 """Locations API endpoints (DuckDB)."""
 
-from backend.compat_router import APIRouter, HTTPException
 from typing import Optional
+from litestar import Router, get
+from litestar.exceptions import HTTPException
 from backend.database_ch import client
 from backend.cache import cached
 
-router = APIRouter()
-
-
-@router.get("/locations")
+@get("/locations")
 @cached(ttl=3600)
 async def get_locations(
     month: Optional[str] = None,
@@ -16,7 +14,7 @@ async def get_locations(
     city: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
-):
+) -> dict:
     """
     Get locations with optional filters.
 
@@ -84,11 +82,11 @@ async def get_locations(
     }
 
 
-@router.get("/locations/map")
+@get("/locations/map")
 @cached(ttl=3600)
 async def get_locations_for_map_geojson(
     month: Optional[str] = None,
-):
+) -> dict:
     """
     Get locations for map visualization (GeoJSON).
     """
@@ -134,9 +132,9 @@ async def get_locations_for_map_geojson(
     }
 
 
-@router.get("/locations/{location_id}")
+@get("/locations/{location_id:int}")
 @cached(ttl=3600)
-async def get_location(location_id: int):
+async def get_location(location_id: int) -> dict:
     """Get a specific location by ID."""
     result = client.execute("""
         SELECT id, 'Żabka' AS name, city, voivodeship, street, latitude, longitude,
@@ -163,3 +161,12 @@ async def get_location(location_id: int):
         "created_at": result[10],
         "deleted_at": result[11],
     }
+
+router = Router(
+    path="",
+    route_handlers=[
+        get_locations,
+        get_locations_for_map_geojson,
+        get_location,
+    ]
+)

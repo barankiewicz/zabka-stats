@@ -18,7 +18,7 @@ import pathlib
 import json
 import subprocess
 from datetime import datetime
-from litestar import Litestar, get, post
+from litestar import Litestar, get, post, Router
 from litestar.config.cors import CORSConfig
 from litestar.config.compression import CompressionConfig
 from litestar.static_files import create_static_files_router
@@ -75,8 +75,8 @@ async def health_check() -> dict:
         }
 
 
-# Public download endpoints
-@get("/api/download/database")
+# Public download endpoints (paths relative to /api/download/...)
+@get("/download/database")
 async def download_database() -> File:
     """Download the raw DuckDB database file containing all populated tables."""
     if not DB_PATH.exists():
@@ -91,7 +91,7 @@ async def download_database() -> File:
     )
 
 
-@get("/api/download/geojson")
+@get("/download/geojson")
 async def download_geojson() -> File:
     """Download the generated GeoJSON boundary file."""
     geojson_path = DB_PATH.parent / "geo" / "wojewodztwa.geojson"
@@ -107,8 +107,8 @@ async def download_geojson() -> File:
     )
 
 
-# Protected endpoint: Upload snapshot
-@post("/api/snapshot")
+# Protected endpoint: Upload snapshot (path relative to /api/snapshot)
+@post("/snapshot")
 async def upload_snapshot(request: Request) -> dict:
     """
     Upload a new snapshot JSON file (DuckDB).
@@ -164,8 +164,8 @@ async def upload_snapshot(request: Request) -> dict:
         raise HTTPException(status_code=500, detail=f"Error processing snapshot: {str(e)}")
 
 
-# Build route handlers list from our routers
-routers = [
+# Router modules to import startup lifecycle hooks from
+router_modules = [
     geo_router,
     ecology_router,
     spatial_router,
@@ -176,21 +176,29 @@ routers = [
     dashboard_router,
 ]
 
-route_handlers = [
-    health_check,
-    download_database,
-    download_geojson,
-    upload_snapshot,
-]
-
-# Map custom APIRouters to Litestar Router instances
-for r in routers:
-    route_handlers.append(r.to_litestar_router("/api"))
+# Create parent API router prefixed with /api
+api_router = Router(
+    path="/api",
+    route_handlers=[
+        locations_router,
+        history_router,
+        admin_router,
+        dashboard_router,
+        geo_router,
+        ecology_router,
+        spatial_router,
+        stats_router,
+        download_database,
+        download_geojson,
+        upload_snapshot,
+    ]
+)
 
 # Gather on_startup lifecyle handlers
 on_startup = []
-for r in routers:
-    on_startup.extend(r.startup_handlers)
+for rm in router_modules:
+    if hasattr(rm, "startup_handlers"):
+        on_startup.extend(rm.startup_handlers)
 
 # Serve frontend from Vite build output (frontend/dist/).
 _project_root = pathlib.Path(__file__).parent.parent
@@ -211,6 +219,8 @@ if not _dist_dir.exists():
         print(f"Frontend build failed:\n{result.stderr}")
 
 frontend_dir = _dist_dir if _dist_dir.exists() else _frontend_root
+
+route_handlers = [api_router, health_check]
 
 try:
     static_router = create_static_files_router(

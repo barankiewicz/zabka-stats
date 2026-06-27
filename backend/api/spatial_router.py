@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any
-from backend.compat_router import APIRouter
+from litestar import Router, get
 from backend.database_ch import client
 from backend.cache import cached
 from backend.schemas.api_models import (
@@ -10,11 +10,9 @@ from backend.schemas.api_models import (
     NeighborByLevelResponse
 )
 
-router = APIRouter()
-
-@router.get("/stats/elevation", response_model=ElevationResponse)
+@get("/stats/elevation")
 @cached(ttl=3600)
-async def elevation():
+async def elevation() -> ElevationResponse:
     # Extremes
     top = client.execute("""
         SELECT city, voivodeship, street, elevation_meters
@@ -61,15 +59,15 @@ async def elevation():
         ]
         
     histogram = [{"bucket_m": int(r[0]), "cnt": int(r[1])} for r in hist_rows]
-    return {
-        "extremes": extremes,
-        "histogram": histogram,
-        "percentiles": {"p5": p5, "p95": p95}
-    }
+    return ElevationResponse(
+        extremes=extremes,
+        histogram=histogram,
+        percentiles={"p5": p5, "p95": p95}
+    )
 
-@router.get("/stats/neighbor-stats", response_model=NeighborStatsResponse)
+@get("/stats/neighbor-stats")
 @cached(ttl=3600)
-async def neighbor_stats():
+async def neighbor_stats() -> NeighborStatsResponse:
     loner = client.execute("""
         SELECT city, voivodeship, street, nearest_neighbor_distance_meters
         FROM locations WHERE deleted_at IS NULL 
@@ -108,25 +106,25 @@ async def neighbor_stats():
         SELECT COUNT(*) FROM locations WHERE deleted_at IS NULL
           AND nearest_neighbor_distance_meters = 0
     """).fetchone()
-    return {
-        "loner": {
+    return NeighborStatsResponse(
+        loner={
             "city": loner[0] if loner else "Michalowo",
             "voivodeship": loner[1] if loner else "podlaskie",
             "street": loner[2] if loner else "—",
             "nearest_neighbor_distance_meters": int(loner[3]) if loner else 27321,
         },
-        "distribution": {
+        distribution={
             "median_m": float(stats[0] or 0) if stats else 299,
             "avg_m": float(stats[1] or 0) if stats else 942,
             "max_m": float(stats[2] or 0) if stats else 27321,
             "buckets": [{"bucket": r[0], "cnt": int(r[1])} for r in buckets],
         },
-        "zero_distance_count": int(zero_dist[0] or 0) if zero_dist else 0,
-    }
+        zero_distance_count=int(zero_dist[0] or 0) if zero_dist else 0,
+    )
 
-@router.get("/stats/kraniec-facts", response_model=KraniecFactsResponse)
+@get("/stats/kraniec-facts")
 @cached(ttl=3600)
-async def kraniec_facts():
+async def kraniec_facts() -> KraniecFactsResponse:
     compass = client.execute("""
         SELECT * FROM (
             SELECT 'N' AS dir, city, voivodeship, street, latitude, longitude
@@ -273,14 +271,14 @@ async def kraniec_facts():
         USING SAMPLE 2000
     """).fetchall()
     
-    return {
-        "facts": facts,
-        "backdrop": [[round(float(r[0]), 4), round(float(r[1]), 4)] for r in backdrop],
-    }
+    return KraniecFactsResponse(
+        facts=facts,
+        backdrop=[[round(float(r[0]), 4), round(float(r[1]), 4)] for r in backdrop],
+    )
 
-@router.get("/stats/twins", response_model=TwinsResponse)
+@get("/stats/twins")
 @cached(ttl=3600)
-async def twins():
+async def twins() -> TwinsResponse:
     base = "FROM locations WHERE deleted_at IS NULL AND nearest_neighbor_distance_meters IS NOT NULL"
     agg = client.execute(f"""
         SELECT
@@ -371,29 +369,33 @@ async def twins():
         LIMIT 200
     """).fetchall()
     
-    return {
-        "within_50m": within50,
-        "within_100m": within100,
-        "within_200m": within200,
-        "total": total,
-        "closest_pairs": [{"city": r[0], "street": r[1] or "", "distance_m": int(r[2])} for r in closest],
-        "same_address": [{"city": r[0], "street": r[1] or "", "n": int(r[2])} for r in clusters],
-        "points": out_pts,
-        "points_50": [
+    return TwinsResponse(
+        within_50m=within50,
+        within_100m=within100,
+        within_200m=within200,
+        total=total,
+        closest_pairs=[{"city": r[0], "street": r[1] or "", "distance_m": int(r[2])} for r in closest],
+        same_address=[{"city": r[0], "street": r[1] or "", "n": int(r[2])} for r in clusters],
+        points=out_pts,
+        points_50=[
             {"lat": float(r[0]), "lon": float(r[1]),
              "distance_m": int(r[2]), "city": r[3], "street": r[4] or "",
              "bucket": "a"}
             for r in pts_50
-        ],
-    }
+        ]
+    )
 
-@router.get("/stats/neighbor-by-level", response_model=NeighborByLevelResponse)
+@get("/stats/neighbor-by-level")
 @cached(ttl=3600)
-async def neighbor_by_level(level: str = "voivodeship", sort: str = "desc",
-                             metric: str = "median_m", limit: int = 20):
+async def neighbor_by_level(
+    level: str = "voivodeship",
+    sort: str = "desc",
+    metric: str = "median_m",
+    limit: int = 20
+) -> NeighborByLevelResponse:
     col = {"voivodeship": "voivodeship", "powiat": "powiat", "city": "city"}.get(level)
     if not col:
-        return {"rows": [], "total": 0, "level": level, "metric": metric}
+        return NeighborByLevelResponse(rows=[], total=0, level=level, metric=metric)
     min_n = {"voivodeship": 20, "powiat": 15, "city": 10}[level]
     powiat_filter = ""
     if col == "powiat":
@@ -415,4 +417,20 @@ async def neighbor_by_level(level: str = "voivodeship", sort: str = "desc",
     sort_key = "avg_m" if metric == "avg_m" else "median_m"
     out.sort(key=lambda x: x[sort_key], reverse=(sort != "asc"))
     lim = max(1, min(int(limit), 100))
-    return {"rows": out[:lim], "total": len(out), "level": level, "metric": sort_key}
+    return NeighborByLevelResponse(
+        rows=out[:lim],
+        total=len(out),
+        level=level,
+        metric=sort_key
+    )
+
+router = Router(
+    path="",
+    route_handlers=[
+        elevation,
+        neighbor_stats,
+        kraniec_facts,
+        twins,
+        neighbor_by_level,
+    ]
+)

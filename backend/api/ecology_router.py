@@ -1,15 +1,13 @@
 import json
 from pathlib import Path
 from typing import List, Any
-from backend.compat_router import APIRouter
+from litestar import Router, get
 from backend.database_ch import client
 from backend.cache import cached
 from backend.schemas.api_models import (
     AmphibianExtremesResponse,
     Section3RareResponse
 )
-
-router = APIRouter()
 
 _GEO_DIR = Path(__file__).parent.parent.parent / "data" / "geo"
 _gbif_total_cache: int | None = None
@@ -26,9 +24,9 @@ def _gbif_total() -> int | None:
         _gbif_total_cache = None
     return _gbif_total_cache
 
-@router.get("/stats/amphibians", response_model=AmphibianExtremesResponse)
+@get("/stats/amphibians")
 @cached(ttl=3600)
-async def amphibians():
+async def amphibians() -> AmphibianExtremesResponse:
     # Summary stats
     total = client.execute("""
         SELECT COUNT(*), SUM(CASE WHEN h24 THEN 1 ELSE 0 END)
@@ -152,44 +150,44 @@ async def amphibians():
         ORDER BY total_occ DESC LIMIT 10
     """).fetchall()
     
-    return {
-        "gbif_total": _gbif_total(),
-        "median_occurrences": int(round(float(median_row[0]))) if median_row and median_row[0] is not None else None,
-        "has_enriched_data": has_amphibian_data,
-        "most_froggy": most_froggy,
-        "zero_frog_count": int(zero_count[0] or 0) if zero_count else None,
-        "farthest_from_frog": {
+    return AmphibianExtremesResponse(
+        gbif_total=_gbif_total(),
+        median_occurrences=int(round(float(median_row[0]))) if median_row and median_row[0] is not None else None,
+        has_enriched_data=has_amphibian_data,
+        most_froggy=most_froggy,
+        zero_frog_count=int(zero_count[0] or 0) if zero_count else None,
+        farthest_from_frog={
             "city": farthest_ff[0] if farthest_ff else None,
             "voivodeship": farthest_ff[1] if farthest_ff else None,
             "nearest_amphibian_km": float(farthest_ff[2]) if farthest_ff else None,
             "latitude": float(farthest_ff[3]) if farthest_ff else None,
             "longitude": float(farthest_ff[4]) if farthest_ff else None,
         },
-        "voivodeship_names": voiv_names,
-        "stores": [
+        voivodeship_names=voiv_names,
+        stores=[
             [round(float(r[0]), 4), round(float(r[1]), 4), int(r[2]), round(float(r[3]), 2),
              voiv_idx.get(r[4], -1)]
             for r in stores_db
         ],
-        "scatter_sample": [
+        scatter_sample=[
             [int(r[1]), int(r[0])]
             for r in scatter_db
         ],
-        "distribution": [{"bucket": r[0], "cnt": int(r[1])} for r in dist],
-        "by_voivodeship": [
+        distribution=[{"bucket": r[0], "cnt": int(r[1])} for r in dist],
+        by_voivodeship=[
             {"voivodeship": r[0], "avg_occurrences": int(r[1] or 0), "stores": int(r[2])}
             for r in by_voiv if r[0]
         ],
-        "top10": [
+        top10=[
             {"city": r[0], "voivodeship": r[1], "occ": int(r[2])}
             for r in top10 if r[0]
         ],
-        "gbif_obs": [],
-    }
+        gbif_obs=[],
+    )
 
-@router.get("/stats/section3-rare", response_model=Section3RareResponse)
+@get("/stats/section3-rare")
 @cached(ttl=3600)
-async def section3_rare():
+async def section3_rare() -> Section3RareResponse:
     h24_cities = client.execute("""
         SELECT city, voivodeship, COUNT(*) AS cnt
         FROM locations WHERE deleted_at IS NULL AND h24 = true
@@ -289,39 +287,39 @@ async def section3_rare():
         LIMIT 15
     """).fetchall()
     
-    return {
-        "h24_cities": [
+    return Section3RareResponse(
+        h24_cities=[
             {"city": r[0], "voivodeship": r[1] or "", "cnt": int(r[2])} for r in h24_cities
         ],
-        "h24_points": [
+        h24_points=[
             [round(float(r[0]), 4), round(float(r[1]), 4)] for r in h24_pts
         ],
-        "parks": {
+        parks={
             "count": int(park_count[0] or 0) if park_count else 0,
             "total": int(park_count[1] or 0) if park_count else 0,
             "top3": [{"park_name": r[0], "park_type": r[1] or "", "cnt": int(r[2])}
                      for r in top3_parks],
         },
-        "void": {
+        void={
             "value": round(float(void_ff[0]), 2) if void_ff else 46.52,
             "lat": float(void_ff[1]) if void_ff else 49.01,
             "lon": float(void_ff[2]) if void_ff else 22.89,
         },
-        "frog_streets": [
+        frog_streets=[
             {"street": r[0], "city": r[1], "voivodeship": r[2] or "",
              "latitude": float(r[3]), "longitude": float(r[4])}
             for r in frog_streets
         ],
-        "frog_streets_count": len(frog_streets),
-        "west_wall_points": [
+        frog_streets_count=len(frog_streets),
+        west_wall_points=[
             [round(float(r[0]), 4), round(float(r[1]), 4)] for r in west_wall
         ],
-        "powiats_covered": int(powiat_count[0] or 0) if powiat_count else 0,
-        "powiat_range": [
+        powiats_covered=int(powiat_count[0] or 0) if powiat_count else 0,
+        powiat_range=[
             {"which": r[0], "powiat": r[1], "voivodeship": r[2] or "", "cnt": int(r[3])}
             for r in powiat_range
         ],
-        "civic_streets": {
+        civic_streets={
             "rynek": int(civic[0] or 0) if civic else 0,
             "kosciuszki": int(civic[1] or 0) if civic else 0,
             "pilsudskiego": int(civic[2] or 0) if civic else 0,
@@ -329,18 +327,27 @@ async def section3_rare():
             "mickiewicza": int(civic[4] or 0) if civic else 0,
             "jana_pawla_ii": int(civic[5] or 0) if civic else 0,
         },
-        "physical_streets": [
+        physical_streets=[
             {"street": r[0], "city": r[1], "cnt": int(r[2])}
             for r in physical_streets
         ],
-    }
+    )
 
-@router.get("/stats/parks-stores", response_model=List[List[float]])
+@get("/stats/parks-stores")
 @cached(ttl=3600)
-async def parks_stores():
+async def parks_stores() -> List[List[float]]:
     rows = client.execute("""
         SELECT latitude, longitude
         FROM locations
         WHERE is_in_nature_park = TRUE AND deleted_at IS NULL
     """).fetchall()
     return [[round(float(r[0]), 6), round(float(r[1]), 6)] for r in rows]
+
+router = Router(
+    path="",
+    route_handlers=[
+        amphibians,
+        section3_rare,
+        parks_stores,
+    ]
+)
