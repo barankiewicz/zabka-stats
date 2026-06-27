@@ -115,8 +115,8 @@ the Żabka network across Poland.
 
 ## Features
 
-- **Dashboard** Chart.js + Leaflet (bars, map, heatmap)
-- **Interactive map** Leaflet with 13k+ locations
+- **Dashboard** Chart.js + MapLibre GL (bars, WebGL map, heatmap)
+- **Interactive map** MapLibre GL with 13k+ locations
 - **Litestar backend** with DuckDB + Redis
 - **Full change history** - tracks openings, closings, attribute changes
 - **REST API** for integration
@@ -285,7 +285,7 @@ backend/                 - code + API (chapter 2)
   api/                   - decomposed routers (locations, history, admin, dashboard_router, geo_router, ecology_router, stats_router, spatial_router, demographics)
   schemas/               - Pydantic models for API validation (api_models)
 
-frontend/                - Vite SPA, modular ES + Chart.js + Leaflet + D3 + ECharts (chapter 4)
+frontend/                - Vite SPA, modular ES + Chart.js + MapLibre GL + D3 + ECharts (chapter 4)
   index.html             - DOM scaffold + <head> (SEO, fonts); loads /src/main.js
   methodology.html       - methodology page
   src/                   - main.js (tab router, lazy chunks), data.js (fetch buckets),
@@ -327,7 +327,7 @@ CLAUDE.md                - instructions for Claude Code + documentation (this fi
 ## Notes
 
 - The project is a dark theme and deliberately does not support a light mode
-- The map uses CartoDB dark tiles, so it needs internet
+- The maps are tile-free dark vector (MapLibre GL); only the fonts and GoatCounter analytics need internet
 - Chart.js charts render on the client (no render server)
 - Soft deletes preserve history, so deleted locations can be "restored"
 - Database indexes are tuned for filtering by city/voivodeship/date
@@ -771,7 +771,7 @@ Detailed logic, caching, and exceptions for the ingestion and enrichment sources
 
 Single-page dashboard, dark theme, served by Litestar. A Vite build: `index.html` is just
 the DOM scaffold + `<head>`; all logic lives in modular ES under `frontend/src/`, entry
-`src/main.js`. Rendered via Chart.js + Leaflet + ECharts + D3 + Canvas 2D, pulling from
+`src/main.js`. Rendered via Chart.js + MapLibre GL + ECharts + D3 + Canvas 2D, pulling from
 `/api/*`. For the full component register, see [Section 3 (Components and charts)](#3-components-and-charts) below.
 
 **Two tabs** (not the old four): `siec` ("SIEĆ", the network's anatomy + extremes) and
@@ -866,7 +866,8 @@ donut + mini-map (powiaty / miasta / gminy).
 
 **Theme:** "Żabka in the dark city." Near-black green-tinted canvas (`#0a120a`), Żabka
 green (`#84c341`) as primary accent with a brighter lime (`#a6e84a`) for big numbers and
-glows, teal (`#4dd0b1`) for ecological / amphibian data. CartoDB dark tiles on the Leaflet maps.
+glows, teal (`#4dd0b1`) for ecological / amphibian data. All maps are tile-free dark vector
+(MapLibre GL); the Atlas carries a faint store-dot backdrop instead of raster tiles.
 
 ---
 
@@ -886,12 +887,12 @@ Imports `bubble.js` (D3 force chart), `kraniec.js` (Atlas krańców), `edge.js` 
 | Stat strip | DOM | `/stats/network-growth`, `/network-origin`, `/neighbor-stats`, `/coverage-funnel` | Six fact tiles: first-1k cadence, last-5k cadence, best year, median neighbor distance, % of Polish cities with a Żabka, new in the last month. |
 | Origin cards | DOM | `/stats/network-origin` | Oldest still-active store (Swarzędz, 1998) vs newest (updates each run). |
 | BUBBLE | D3 (force) | `/stats/by-dimension?dim=city&metric=count&limit=60` | Force-directed bubbles, one per city, size = store count, drag + Ctrl-scroll zoom, "Pozostałe" bubble for the tail. |
-| MAPA growth map + calendar | Leaflet + Canvas 2D | `/geo/voivodeships`, `/stats/stores-timeline`, `/stats/openings-monthly` | Large dark vector map of Poland (no tiles). Store dots on a canvas overlay animate in by opening year, a ~2.8s sweep 1998->2026 with year label + replay. A companion calendar grid shows month-by-month openings. |
+| MAPA growth map + calendar | MapLibre GL (WebGL circles) + Canvas 2D (calendar) | `/geo/voivodeships`, `/stats/stores-timeline`, `/stats/openings-monthly` | Large dark vector map of Poland (no tiles), pitched to 38° (drag-to-rotate / right-click tilts). All 13k+ stores are a single WebGL circle layer that animates in by opening year via a `setFilter` sweep, a ~2.8s sweep 1998->2026 with year label + replay. A companion calendar grid (Canvas 2D) shows month-by-month openings. |
 | 1.1f fingerprint | Canvas 2D | `/stats/network-growth`, `/stats/stores-timeline` | The "odcisk" unrolled flat: X = compass direction (N-E-S-W-N), Y = year (1998->2026); each row bulges toward that year's dominant expansion bearing. Hover -> year + direction. |
 | 1.1 growth chart | Chart.js | `/stats/network-growth` | One x-axis (years), two y-axes: bars = new stores/year, line = YoY change %. Era background bands. Footnote: covers only currently-active stores; early years underrepresented. |
-| GRAN ranking | Chart.js (bar) + Leaflet (choropleth) | `/stats/by-dimension`, `/geo/voivodeships` | Left: horizontal ranking bar with three switchers — level (Woj./Powiaty/Miasta) x metric (Liczba / na 1000 mieszk. / na km²) x sort (Największe/Najmniejsze). Right: voivodeship choropleth (always voivodeship-level). Click a row sets the cross-filter. |
+| GRAN ranking | Chart.js (bar) + MapLibre GL (choropleth) | `/stats/by-dimension`, `/geo/voivodeships` | Left: horizontal ranking bar with three switchers — level (Woj./Powiaty/Miasta) x metric (Liczba / na 1000 mieszk. / na km²) x sort (Największe/Najmniejsze). Right: voivodeship choropleth (always voivodeship-level, value labels as HTML markers). Click a row sets the cross-filter. |
 | Edge KPI strip | DOM | `/stats/section3-rare`, `/elevation`, `/neighbor-stats`, `/amphibians` | Six clickable tiles feeding the Atlas: 32 h24 stores (amber), stores in parks, frog record, the 46.5 km void, oldest active, farthest-from-frog. Click flies the Atlas map to that fact. |
-| Atlas krańców | Leaflet + mini panels | `/stats/kraniec-facts`, `/elevation`, `/neighbor-stats`, `/parks-stores`, `/twins`, `/amphibians` | One interactive Poland map with a faint store backdrop. Compass points, highest/lowest store, the loner, the Bieszczady void (red hollow circle, no dots inside), the frog street, h24, parks, twins. Hover/click a fact -> `flyTo` + tooltip; leave -> national view. |
+| Atlas krańców | MapLibre GL + mini panels | `/stats/kraniec-facts`, `/elevation`, `/neighbor-stats`, `/parks-stores`, `/twins`, `/amphibians` | One interactive Poland map (tile-free) with a faint store backdrop. Compass points, highest/lowest store, the loner, the Bieszczady void (dashed geodesic circle, no dots inside), the frog street, h24, parks, twins. Hover/click a fact -> `flyTo` + tooltip; leave -> national view. |
 | POWIATY coverage | Chart.js (donut) + Canvas 2D | `/stats/powiat-coverage`, `/stats/coverage-funnel`, `/geo/voivodeships` | Animated donut: % of powiats / miasta / gminy with at least one Żabka (level toggle). Canvas mini-map: green = covered, red = uncovered. |
 
 ### Tab ŻABKA A POLSKA (`spoleczenstwo.js`, default tab, render order)
@@ -902,7 +903,7 @@ Imports `econ.js` (the two ECharts economic chapters).
 |---|---|---|---|
 | Hero | Canvas 2D | `/stats/section3-rare` | Count-up of the 46.5 km void distance, particle field, lede with live totals. |
 | KPI strip | DOM | `/stats/summary`, `/per-capita`, `/voivodeship-density`, `/inpost-vs-zabka`, `/coverage-funnel` | Six national stats: one store per X residents, density /100 km², gmina coverage %, InPost-per-Żabka ratio, cities with Żabka, salary correlation. |
-| 2.3 InPost | Leaflet (choropleth) + SVG/DOM (dumbbell) | `/stats/inpost-vs-zabka`, `/inpost-vs-zabka-by-level` | Left: voivodeship choropleth of the InPost/Żabka ratio. Right: dumbbell — green dot = Żabka/100k, amber dot = paczkomaty/100k, connecting line; level toggle Województwo / Powiat / Miasto re-queries `by-level`. National callout: 2.42 paczkomaty per Żabka. |
+| 2.3 InPost | MapLibre GL (choropleth) + SVG/DOM (dumbbell) | `/stats/inpost-vs-zabka`, `/inpost-vs-zabka-by-level` | Left: voivodeship choropleth of the InPost/Żabka ratio (inverted ramp: high ratio = dim, low = bright). Right: dumbbell — green dot = Żabka/100k, amber dot = paczkomaty/100k, connecting line; level toggle Województwo / Powiat / Miasto re-queries `by-level`. National callout: 2.42 paczkomaty per Żabka. |
 | NBL neighbor-by-level | Chart.js (bar) | `/stats/neighbor-by-level` | Median (or average) distance to the nearest Żabka per voivodeship/powiat/miasto. Three switchers: level x metric (Mediana/Średnia) x sort (Najgęstsze/Najrzadsze). |
 | kNN histogram | Chart.js (bar) | `/stats/neighbor-stats` | 6-bucket distribution of nearest-neighbor distance. Median 299m / avg 942m / max ~27.8km reference lines. |
 | STREETS | Chart.js (horizontal bar) | `/stats/common-streets?limit=15` | Busiest street names nationwide, dual-label y-axis (street name large, city small). Value labels at bar ends. |
@@ -919,14 +920,20 @@ Imports `econ.js` (the two ECharts economic chapters).
   1.1 growth chart, GRAN ranking, NBL, kNN histogram, STREETS, GMINA-LEAD, POWIATY donut.
 - **ECharts** — the two economic chapters in `econ.js` (salary + unemployment scatters and
   quartile bars). Bundled into the spoleczenstwo chunk.
-- **Leaflet 1.9.4** — SIEĆ growth map (vector voivodeship polygons, no tiles, canvas dot
-  overlay), the GRAN voivodeship choropleth, the Atlas krańców extremes map, the InPost
-  ratio choropleth (2.3). CartoDB dark tiles where tiles are used; `L.CircleMarker` for points.
+- **MapLibre GL JS 5.24** — all four dashboard maps: the SIEĆ growth map (a single
+  WebGL circle layer for 13k+ stores, filtered by year, pitched to 38° for 3D),
+  the GRAN voivodeship choropleth, the Atlas krańców extremes map, and the
+  InPost ratio choropleth (2.3). Tile-free dark-vector base (voivodeship polygons
+  on near-black); the Atlas adds a faint store-dot backdrop for context. Value
+  labels are HTML Markers (no glyph atlas needed → keeps it offline). Shared
+  primitives live in `frontend/src/maplibre-map.js` (dark style, voivodeship
+  layer factory, green ramp, geodesic circle, bounds helper).
 - **D3.js** — bubble chart only (`bubble.js`): force simulation + zoom/drag, tree-shaken
   (`forceSimulation`, `forceX/Y`, `forceCollide`, `scaleSqrt`, `zoom`, `drag`). Never the DOM elsewhere.
-- **Canvas 2D** — hero particles + count-up (both tabs), growth-map dot overlay + calendar
-  grid, the unrolled fingerprint (1.1f), the POWIATY coverage mini-map, the Atlas mini-maps.
-  Used wherever 13k+ DOM nodes would hurt.
+- **Canvas 2D** — hero particles + count-up (both tabs), the growth-map calendar
+  grid, the unrolled fingerprint (1.1f), the POWIATY coverage mini-map. Used
+  wherever 13k+ DOM nodes would hurt. (The growth-map dot overlay moved to a
+  MapLibre WebGL circle layer.)
 - **Fonts:** one production set — Bricolage Grotesque (display) + IBM Plex Sans (body)
   + JetBrains Mono (mono), loaded from Google Fonts.
 
