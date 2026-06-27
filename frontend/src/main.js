@@ -1,5 +1,4 @@
 import Chart from 'chart.js/auto';
-import 'leaflet/dist/leaflet.css';
 import './style.css';
 import { annotPlugin, barValueLabels, C, STATE } from './config.js';
 import { M, CHARTS, MAPS, RENDERED } from './state.js';
@@ -103,7 +102,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     STATE.tab=tab;
     resetTabReveals(tabEl);
     if(!RENDERED.has(tab)){RENDERED.add(tab);setTimeout(()=>renderTab(tab),60)}
-    setTimeout(()=>Object.values(MAPS).forEach(m=>m&&m.invalidateSize&&m.invalidateSize()),200);
+    setTimeout(()=>Object.values(MAPS).forEach(m=>m&&(m.resize&&m.resize())),200);
   });
 });
 

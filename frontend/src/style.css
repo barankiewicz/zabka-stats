@@ -150,11 +150,32 @@ canvas{display:block}
 .growth-cal{flex:1;width:100%;display:block;min-height:0}
 .growth-map-wrap{position:relative}
 .growth-map{height:520px;border-radius:12px;overflow:hidden;background:#08110a;border:1px solid var(--axis)}
-.growth-map .leaflet-container{background:#08110a}
+.growth-map .maplibregl-map,.growth-map .maplibregl-canvas{background:#08110a}
 /* zoom hint: bottom-right of the map, scroll-to-zoom is gated behind ctrl */
 .map-zoom-hint{position:absolute;right:10px;bottom:10px;z-index:500;pointer-events:none;
   font-family:var(--font-mono);font-size:10.5px;letter-spacing:.04em;color:var(--muted);
   background:rgba(8,17,10,.72);border:1px solid var(--axis);border-radius:6px;padding:4px 8px}
+/* reset-view button for the 3D growth map (recovers from rotate/tilt) */
+.map-reset-btn{position:absolute;top:10px;right:10px;z-index:500;background:rgba(15,27,14,.9);
+  border:1px solid rgba(140,200,80,.3);color:var(--ink);border-radius:8px;padding:5px 10px;
+  font-family:var(--font-body);font-size:11px;cursor:pointer}
+.map-reset-btn:hover{border-color:rgba(166,232,74,.6)}
+/* dark theme for MapLibre's cooperative-gesture hint ("ctrl + scroll to zoom") */
+.maplibregl-cooperative-gesture-screen{background:rgba(10,18,10,.9)!important;color:#93a487!important}
+.maplibregl-cooperative-gesture-screen::before{background-color:rgba(132,195,65,.12)!important}
+/* HTML markers (Atlas .mk) and value labels are interactive elements */
+.mk-wrap{cursor:pointer}
+.woj-val-label-marker{font-family:var(--font-mono);font-size:10px;font-weight:600;color:#c8d4c0;
+  pointer-events:none;white-space:nowrap;background:transparent;
+  text-shadow:0 1px 3px rgba(0,0,0,.9),0 0 6px rgba(0,0,0,.7)}
+/* cursor-following hover tooltip for the MapLibre choropleths (GRAN + InPost) */
+.maplibre-hover-tip{position:fixed;z-index:9000;pointer-events:none;background:rgba(12,22,11,.96);
+  border:1px solid rgba(140,200,80,.3);border-radius:9px;box-shadow:0 6px 26px rgba(0,0,0,.55);
+  padding:9px 12px;font-family:var(--font-body);font-size:12px;color:var(--ink);max-width:260px}
+/* dark MapLibre popups (Atlas detail cards) */
+.zab-popup .maplibregl-popup-content{background:#0c160b;color:var(--ink);border:1px solid rgba(140,200,80,.3);
+  border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.5);padding:12px 14px;font-family:var(--font-body)}
+.zab-popup .maplibregl-popup-tip{border-top-color:#0c160b}
 .growth-map-overlay{position:absolute;left:14px;top:14px;z-index:500;display:flex;align-items:center;gap:12px;pointer-events:none}
 .growth-year{font-family:var(--font-display);font-weight:800;font-size:34px;color:var(--green-bright);text-shadow:var(--glow)}
 .growth-map-overlay .st-btn{pointer-events:auto}
@@ -296,16 +317,14 @@ canvas{display:block}
 #map-edge{height:460px}
 #map-sunday,#map-density{height:360px}
 #map-parks{height:200px}
-.map-container .leaflet-container{background:#08110a !important}
+.map-container .maplibregl-map,.map-container .maplibregl-canvas{background:#08110a !important}
 
-/* Color legend overlay (positioned on top of a leaflet map) */
+/* Color legend overlay (positioned on top of a map) */
 .map-legend{position:absolute;left:10px;bottom:10px;z-index:750;background:rgba(10,18,10,.82);border:1px solid rgba(140,200,80,.22);border-radius:7px;padding:7px 9px;font-family:var(--font-mono);font-size:10px;color:#c8d4ba;backdrop-filter:blur(4px);box-shadow:0 4px 18px rgba(0,0,0,.45);pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:3px}
 .map-legend-bar{width:7px;height:39px;border-radius:2px;background:linear-gradient(to top,#a6e84a 0%,#72c133 20%,#4a9228 40%,#2d6324 60%,#1e4019 80%,#132912 100%);border:1px solid rgba(0,0,0,.5)}
 .map-legend-axis{display:flex;justify-content:space-between;margin-top:3px;color:#93a487;font-size:10px}
 .map-legend-axis--vert{flex-direction:column;justify-content:space-between;align-items:flex-end;margin-top:0;color:#93a487;font-size:10px;line-height:1.1}
 
-.woj-val-label{background:transparent!important;border:none!important;box-shadow:none!important;padding:0!important;font-family:var(--font-mono);font-size:10px;font-weight:600;color:#c8d4c0;pointer-events:none;white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.9),0 0 6px rgba(0,0,0,.7)}
-.woj-val-label::before{display:none!important}
 
 /* CAVEAT */
 .caveat{font-size:11px;color:var(--muted);margin-top:8px;font-style:italic}
@@ -405,10 +424,6 @@ canvas{display:block}
 @media(max-width:880px){.kr .hero{grid-template-columns:1fr}}
 .kr .mapcard{background:var(--surface);border:1px solid var(--axis);border-radius:16px;padding:14px;box-shadow:0 0 60px rgba(132,195,65,.16);position:relative}
 .kr #kr-map{width:100%;height:560px;border-radius:11px;background:#0a120a;z-index:0;position:relative;overflow:hidden}
-.kr #kr-dots-canvas{pointer-events:none;opacity:0;transition:opacity .25s ease}
-.kr #kr-dots-canvas.active{pointer-events:auto;opacity:1}
-/* Canvas wewnatrz Leaflet overlayPane - position i wymiary z Leaflet */
-.kr .kr-canvas-pane{position:absolute;left:0;top:0;pointer-events:none}
 @media(max-width:880px){.kr #kr-map{height:420px}}
 .kr .maptop{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:2px 4px 10px}
 .kr .maptop .t{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2)}
@@ -462,30 +477,14 @@ canvas{display:block}
 .kr-reveal.in{opacity:1;transform:none}
 @media(prefers-reduced-motion:reduce){.kr-reveal{opacity:1;transform:none;transition:none}}
 
-/* leaflet custom markers + popups inside .kr */
-.kr .leaflet-popup-content-wrapper{background:#0c160b;color:var(--ink);border:1px solid rgba(140,200,80,.3);border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.5)}
-.kr .leaflet-popup-tip{background:#0c160b;border:1px solid rgba(140,200,80,.3)}
-.kr .leaflet-popup-content{margin:12px 14px;font-family:var(--font-body)}
-.leaflet-tooltip.kr-tip{background:#0c160b;color:#eef3e6;border:1px solid rgba(140,200,80,.3);border-radius:9px;box-shadow:0 6px 26px rgba(0,0,0,.55);padding:9px 12px;max-width:260px;white-space:normal;word-wrap:break-word;overflow-wrap:anywhere;font-family:IBM Plex Sans,sans-serif;font-size:12px}
-.leaflet-tooltip.kr-tip.leaflet-tooltip-top:before{border-top-color:#0c160b;border-top-width:7px}
+/* Atlas detail-card markup (rendered inside .zab-popup MapLibre popups) */
 .pop .pk{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--c)}
 .pop .pv{font-family:var(--font-display);font-weight:800;font-size:22px;color:var(--c);margin:3px 0 2px;letter-spacing:-.01em}
 .pop .pc{font-size:14px;color:var(--ink);font-weight:600}
 .pop .ps{font-size:11.5px;color:var(--muted);font-family:var(--font-mono);margin-top:2px}
 .pop .pd{font-size:12.5px;color:var(--muted);margin-top:7px;line-height:1.5;max-width:30ch}
 
-/* Tooltip na mapie (hover, bez zoomu) */
-.leaflet-tooltip.kr-tip{padding:0}
-.leaflet-tooltip.kr-tip .kr-tip-inner{padding:8px 11px;line-height:1.25}
-.leaflet-tooltip.kr-tip .krt-v{font-family:var(--font-display);font-weight:800;font-size:15px;color:var(--c);letter-spacing:-.01em;line-height:1.1}
-.leaflet-tooltip.kr-tip .krt-l{font-size:11.5px;color:var(--ink);margin-top:2px;font-weight:500}
-.leaflet-tooltip.kr-tip .krt-c{font-family:var(--font-mono);font-size:10.5px;color:var(--muted);margin-top:3px}
-
-/* Tooltip w stylu popupu (hover dla point/circle) - ten sam wyglad co popup */
-.leaflet-tooltip.kr-tip.kr-tip-as-pop{background:#0c160b;color:#eef3e6;border:1px solid rgba(140,200,80,.3);border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.5);padding:12px 14px;max-width:280px;line-height:1.4;font-family:IBM Plex Sans,sans-serif;font-size:12px;white-space:normal;word-wrap:break-word;overflow-wrap:anywhere}
-.leaflet-tooltip.kr-tip.kr-tip-as-pop.leaflet-tooltip-top:before{border-top-color:#0c160b;border-top-width:8px}
-
-/* Tooltip reczny (cluster fakty) - pozycjonowany absolutnie */
+/* Hand-positioned hover tooltip (cluster facts + rail/panel hovers) */
 .kr-tip-cluster{position:fixed;z-index:9000;background:#0c160b;color:#eef3e6;border:1px solid rgba(140,200,80,.3);border-radius:9px;box-shadow:0 6px 26px rgba(0,0,0,.55);padding:8px 11px;transform:translate(-50%,-100%);pointer-events:none;font-family:IBM Plex Sans,sans-serif;max-width:220px}
 .kr-tip-cluster .krtc-v{font-family:var(--font-display);font-weight:800;font-size:15px;color:var(--c);letter-spacing:-.01em;line-height:1.1}
 .kr-tip-cluster .krtc-l{font-size:11.5px;color:var(--ink);margin-top:2px;font-weight:500}

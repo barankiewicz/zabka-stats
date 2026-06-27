@@ -1,6 +1,5 @@
-import L from 'leaflet';
 import { C, MACRO } from './config.js';
-import { CHARTS, MAPS } from './state.js';
+import { CHARTS } from './state.js';
 
 export function era(yr){if(yr<=2009)return'#2b531a';if(yr<=2019)return'#4a8a22';if(yr<=2022)return'#74bd2a';return'#a6e84a'}
 export function eraName(yr){if(yr<=2009)return'Wczesna siec';if(yr<=2019)return'Wzrost';if(yr<=2022)return'Przyspieszenie';return'Boom'}
@@ -30,12 +29,6 @@ export function showNoData(id, msg){
   target.appendChild(div);
 }
 export function projectPL(lat,lon,W,H){return{x:(lon-14.1)/(24.2-14.1)*W,y:(1-(lat-49)/(54.9-49))*H}}
-export function leafletDark(id){
-  if(MAPS[id])return MAPS[id];
-  const map=L.map(id,{zoomControl:true,attributionControl:false});
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:18}).addTo(map);
-  MAPS[id]=map;return map;
-}
 
 // Ambient particle field for tab hero sections.
 // rgb: [r,g,b] base color; count: number of particles.

@@ -1,9 +1,8 @@
 import Chart from 'chart.js/auto';
-import L from 'leaflet';
+import { maplibregl, createMap, fitPoland, featureBBoxCenter } from '../maplibre-map.js';
 import { C, STATE } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
-import { fmt, macroCol, getFont, destroyChart, leafletDark, startTabParticles } from '../utils.js';
-import { setFilter } from '../filter.js';
+import { fmt, macroCol, getFont, destroyChart, startTabParticles } from '../utils.js';
 import { renderEcon } from './econ.js';
 
 
@@ -62,98 +61,105 @@ function _ipRamp(t){
   return`rgb(${Math.round(a[0]+(b[0]-a[0])*u)},${Math.round(a[1]+(b[1]-a[1])*u)},${Math.round(a[2]+(b[2]-a[2])*u)})`;
 }
 
+let _ipMap=null,_ipTip=null,_ipLabelMarkers=[];
+const _IP_FILL_STOPS=[
+  'interpolate',['linear'],['get','_t'],
+  0,'#132912', 0.2,'#1e4019', 0.4,'#2d6324', 0.6,'#4a9228', 0.8,'#72c133', 1,'#a6e84a'];
+
+function _refreshIpLabels(features){
+  _ipLabelMarkers.forEach(m=>{try{m.remove()}catch(e){}});
+  _ipLabelMarkers=[];
+  if(!_ipMap)return;
+  features.forEach(f=>{
+    const c=featureBBoxCenter(f);
+    const lab=f.properties&&f.properties._label;
+    if(!c||!lab)return;
+    const el=document.createElement('div');
+    el.className='woj-val-label-marker';
+    el.textContent=lab;
+    _ipLabelMarkers.push(new maplibregl.Marker({element:el,anchor:'center'}).setLngLat(c).addTo(_ipMap));
+  });
+}
+
 function renderInpostMap(){
   const data=M.inpost_vs_zabka||[];
   if(!data.length||!M.woj_geo||!M.woj_geo.features||!M.woj_geo.features.length)return;
   if(MAPS['map-inpost'])return;
   const el=document.getElementById('map-inpost');if(!el)return;
+
   const byName={};
   data.forEach(d=>{byName[(d.voivodeship||'').toLowerCase()]=d});
-  // Color the map by the InPost / Żabka ratio - that's the story of section 2.3.
-  // Inverted scale: highest ratio = darkest, lowest ratio = brightest. Reads as
-  // "where InPost dominates the public space, the map goes dim".
   const vals=data.map(d=>+d.ratio||0);
-  const vmin=Math.min(...vals),vmax=Math.max(...vals,vmin+0.01);
-  function norm(v){return 1 - (v-vmin)/(vmax-vmin);}
-  function wStyle(d,opacity=0.9){
-    return{weight:1,color:'#08110a',
-      fillColor:d?_ipRamp(norm(+d.ratio||0)):'#0e1e0c',
-      fillOpacity:opacity};
-  }
-  const map=L.map('map-inpost',{
-    zoomControl:false,attributionControl:false,
-    scrollWheelZoom:true,dragging:true,
-    doubleClickZoom:true,boxZoom:true,keyboard:true,
-    zoomSnap:0  // allow fractional zoom so fitBounds fills the canvas tightly
-  });
-  MAPS['map-inpost']=map;
-  map.setView([52.0,19.3],6.5);
-  map.invalidateSize();
-  const pairs=[];
-  L.geoJSON(M.woj_geo,{
-    style:f=>wStyle(byName[(f.properties.nazwa||'').toLowerCase()],0),
-    onEachFeature:(f,layer)=>{
+  const vmin=Math.min(...vals), vmax=Math.max(...vals,vmin+0.01);
+
+  // Build the joined FeatureCollection: _t is the inverted ramp position
+  // (high InPost/Żabka ratio -> dim, low ratio -> bright), _label is the
+  // ratio string, _tip is the hover card HTML.
+  function _buildData(){
+    const features=(M.woj_geo.features||[]).map((f,i)=>{
       const d=byName[(f.properties.nazwa||'').toLowerCase()];
-      const name=f.properties.nazwa||'';
-      pairs.push({layer,d,f});
+      const nf={type:'Feature',geometry:f.geometry,properties:{...(f.properties||{}),_fid:i}};
       if(d){
-        const z=(d.zabki_per_100k||0).toFixed(1);
-        const p=(d.lockers_per_100k||0).toFixed(1);
-        const r=typeof d.ratio==='number'?d.ratio.toFixed(2):String(d.ratio);
-        layer.bindTooltip(
-          `<div style="font-weight:700;font-size:13px;margin-bottom:3px">${name}</div>`+
+        const r0=(+d.ratio||0);
+        const norm=(r0-vmin)/(vmax-vmin);
+        nf.properties._t=Math.max(0,Math.min(1,1-(isNaN(norm)?0.5:norm)));
+        const rr=typeof d.ratio==='number'?d.ratio.toFixed(2):String(d.ratio);
+        nf.properties._label=rr.replace('.',',')+'x';
+        nf.properties._name=f.properties.nazwa||'';
+        const z=(d.zabki_per_100k||0).toFixed(1), p=(d.lockers_per_100k||0).toFixed(1);
+        nf.properties._tip=`<div style="font-weight:700;font-size:13px;margin-bottom:3px">${nf.properties._name}</div>`+
           `<div style="font-size:12px;color:#93a487">Żabka: ${z}/100k</div>`+
           `<div style="font-size:12px;color:#93a487">InPost: ${p}/100k</div>`+
-          `<div style="font-size:12px;color:#93a487">stosunek: ${r}x</div>`,
-          {sticky:true,className:'gran-tooltip',opacity:1}
-        );
+          `<div style="font-size:12px;color:#93a487">stosunek: ${rr}x</div>`;
+      }else{
+        nf.properties._t=0;nf.properties._label='';
       }
-      layer.on('mouseover',()=>{
-        const v=d?norm(+d.ratio||0):null;
-        layer.setStyle({weight:2.5,color:'rgba(166,232,74,.85)',
-          fillColor:v!=null?_ipRamp(Math.min(1,v+0.18)):'#1c3a1c',fillOpacity:1});
-        layer.bringToFront();
-        const svg=layer.getElement&&layer.getElement();
-        if(svg){const b=layer.getBounds().getCenter();const pt=map.latLngToLayerPoint(b);
-          svg.style.transformOrigin=`${pt.x}px ${pt.y}px`;svg.style.transform='scale(1.06)';}
-      });
-      layer.on('mouseout',()=>{
-        layer.setStyle(wStyle(d));
-        const svg=layer.getElement&&layer.getElement();
-        if(svg){svg.style.transform='scale(1)';}
-      });
-    }
-  }).addTo(map);
-  // Fit Poland to the canvas. invalidateSize first so fitBounds sees the real
-  // container size; re-fit after the flex/reveal layout settles so the map
-  // fills the whole canvas instead of leaving margins.
-  const _bounds=L.geoJSON(M.woj_geo).getBounds();
-  function fitInpost(){
-    if(!map)return;
-    map.invalidateSize();
-    try{map.fitBounds(_bounds,{padding:[4,4]})}catch(e){}
+      return nf;
+    });
+    return {type:'FeatureCollection',features};
   }
-  fitInpost();
-  setTimeout(fitInpost,80);
-  setTimeout(fitInpost,320);
-  pairs.forEach(({layer},i)=>setTimeout(()=>{
-    const svg=layer.getElement&&layer.getElement();
-    if(svg)svg.style.transition='fill-opacity .25s ease,fill .25s ease,transform .2s ease';
-    layer.setStyle({fillOpacity:0.9});
-  },10+i*14));
 
-  // Value labels directly on each voivodeship (permanent Leaflet tooltips)
-  pairs.forEach(({layer,d,f})=>{
-    if(!d)return;
-    const r=(+d.ratio||0).toFixed(2).replace('.',',');
-    const c=map.latLngToLayerPoint(layer.getBounds().getCenter());
-    L.tooltip({permanent:true,direction:'center',className:'woj-val-label',interactive:false})
-      .setLatLng(layer.getBounds().getCenter())
-      .setContent(r+'x')
-      .addTo(map);
+  _ipMap=createMap('map-inpost',{
+    center:[19.3,52.05],zoom:5.6,minZoom:5,maxZoom:9,
+    dragPan:true,dragRotate:false,scrollZoom:true,doubleClickZoom:true,touchZoom:true,keyboard:true,
+  });
+  MAPS['map-inpost']=_ipMap;
+
+  _ipMap.on('load',()=>{
+    const fc=_buildData();
+    _ipMap.addSource('ip-woj',{type:'geojson',data:fc,promoteId:'_fid'});
+    _ipMap.addLayer({id:'ip-woj-fill',type:'fill',source:'ip-woj',paint:{
+      'fill-color':_IP_FILL_STOPS,
+      'fill-opacity':['case',['boolean',['feature-state','hover'],false],1,0.9],
+    }});
+    _ipMap.addLayer({id:'ip-woj-line',type:'line',source:'ip-woj',paint:{
+      'line-color':['case',['boolean',['feature-state','hover'],false],'#a6e84a','#08110a'],
+      'line-width':['case',['boolean',['feature-state','hover'],false],2.5,1],
+    }});
+    _refreshIpLabels(fc.features);
+    fitPoland(_ipMap,4);
+
+    let _hoverFid=null;
+    if(!_ipTip){
+      _ipTip=document.createElement('div');
+      _ipTip.className='gran-tooltip maplibre-hover-tip';_ipTip.style.display='none';
+      document.body.appendChild(_ipTip);
+    }
+    _ipMap.on('mousemove','ip-woj-fill',e=>{
+      const fs=e.features&&e.features[0];if(!fs)return;
+      if(_hoverFid!=null)_ipMap.setFeatureState({source:'ip-woj',id:_hoverFid},{hover:false});
+      _hoverFid=fs.id;_ipMap.setFeatureState({source:'ip-woj',id:_hoverFid},{hover:true});
+      _ipMap.getCanvas().style.cursor='pointer';
+      const p=fs.properties||{};
+      if(p._tip){_ipTip.innerHTML=p._tip;_ipTip.style.left=(e.originalEvent.clientX+14)+'px';_ipTip.style.top=(e.originalEvent.clientY+14)+'px';_ipTip.style.display='block';}
+    });
+    _ipMap.on('mouseleave','ip-woj-fill',()=>{
+      if(_hoverFid!=null)_ipMap.setFeatureState({source:'ip-woj',id:_hoverFid},{hover:false});
+      _hoverFid=null;_ipMap.getCanvas().style.cursor='';_ipTip.style.display='none';
+    });
+    setTimeout(()=>{if(_ipMap){_ipMap.resize();fitPoland(_ipMap,4);}},120);
   });
 }
-
 export function renderSpoleczenstwo(){
   if(!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)){
     startTabParticles('particles-spoleczenstwo',[188,224,58],60);
@@ -421,68 +427,6 @@ export function renderScatters(){
   });
 }
 
-export function renderSundayChoropleth(){
-  const map=leafletDark('map-sunday');map.setView([52,19.4],5.5);
-  const byName={};M.sunday_by_voivodeship.forEach(d=>byName[d.voivodeship]=d.closed_pct);
-  L.geoJSON(M.woj_geo,{
-    style(f){const p=byName[f.properties.nazwa]||0;const t=Math.min(p/12,1);return{fillColor:`rgba(${Math.round(232*t)},${Math.round(90*(1-t))},${Math.round(47*t)},${0.25+t*.5})`,fillOpacity:.7,color:'#2a2a3a',weight:1}},
-    onEachFeature(f,l){
-      l.bindTooltip(`<b>${f.properties.nazwa}</b><br>${byName[f.properties.nazwa]||0}% zamkniętych w niedzielę`,{sticky:true});
-      l.on('click',()=>{
-        const v=f.properties.nazwa;
-        setFilter(STATE.filter===v?null:v);
-        openSundayDrawer(v);
-      });
-    }
-  }).addTo(map);
-  const closeBtn=document.getElementById('sunday-drawer-close');
-  if(closeBtn&&!closeBtn._wired){
-    closeBtn._wired=true;
-    closeBtn.addEventListener('click',()=>{document.getElementById('sunday-drawer').hidden=true});
-  }
-}
-
-async function openSundayDrawer(voivodeship){
-  const drawer=document.getElementById('sunday-drawer');
-  const title=document.getElementById('sunday-drawer-title');
-  const count=document.getElementById('sunday-drawer-count');
-  const body=document.getElementById('sunday-drawer-body');
-  if(!drawer)return;
-  title.textContent=voivodeship;
-  count.textContent='ładowanie...';
-  body.innerHTML='';
-  drawer.hidden=false;
-  try{
-    const data=await fetch(`/api/stats/sunday-closed-stores?voivodeship=${encodeURIComponent(voivodeship)}`).then(r=>r.json());
-    count.textContent=`${data.length} zamkniętych`;
-    if(!data.length){
-      body.innerHTML='<div class="drawer-row" style="color:var(--muted)">Brak zamkniętych sklepów w tym województwie.</div>';
-      return;
-    }
-    body.innerHTML=data.map(s=>`<div class="drawer-row"><span class="drawer-city">${s.city}</span><span class="drawer-street">${s.street}</span>${s.has_merrychef?'<span class="drawer-mc">piec</span>':''}</div>`).join('');
-  }catch(e){
-    body.innerHTML='<div class="drawer-row" style="color:var(--muted)">Błąd ładowania.</div>';
-  }
-}
-
-export function renderDensityChoropleth(){
-  const AREA={
-    'mazowieckie':35558,'śląskie':12333,'wielkopolskie':29826,'małopolskie':15183,
-    'łódzkie':18219,'dolnośląskie':19948,'zachodniopomorskie':22892,'warmińsko-mazurskie':24173,
-    'podlaskie':20187,'świętokrzyskie':11711,'lubuskie':13988,'opolskie':9412,
-    'kujawsko-pomorskie':17972,'pomorskie':18310,'podkarpackie':17846,'lubelskie':25122
-  };
-  const map=leafletDark('map-density');map.setView([52,19.4],5.5);
-  const dn={};M.voivodeship_density.forEach(d=>{
-    const area=AREA[d.voivodeship]||1;
-    dn[d.voivodeship]=(d.stores||d.total||0)/area*100;
-  });
-  const maxD=Math.max(...Object.values(dn),0.001);
-  L.geoJSON(M.woj_geo,{
-    style(f){const d=dn[f.properties.nazwa]||0;return{fillColor:`rgba(0,192,96,${0.1+d/maxD*.75})`,fillOpacity:.7,color:'#2a2a3a',weight:1}},
-    onEachFeature(f,l){l.bindTooltip(`<b>${f.properties.nazwa}</b><br>${(dn[f.properties.nazwa]||0).toFixed(1)}/100 km²`,{sticky:true})}
-  }).addTo(map);
-}
 
 export function renderMerrychef(){
   const data=[...M.voivodeship_merrychef].sort((a,b)=>a.mc_pct-b.mc_pct);
