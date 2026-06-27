@@ -1,7 +1,7 @@
 import re
 from collections import Counter, defaultdict
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter
+from backend.compat_router import APIRouter
 from backend.database_ch import client
 from backend.cache import cached, clear_cache
 from backend.schemas.api_models import (

@@ -2,7 +2,7 @@ import json
 import math
 from pathlib import Path
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Response, HTTPException
+from backend.compat_router import APIRouter, Response, HTTPException
 from backend.database_ch import client
 from backend.cache import cached
 from backend.etl.geo import build_polygon_index, assign_region, nearest_region

@@ -1,6 +1,6 @@
 """Dashboard data aggregation endpoint (returns all data for frontend)."""
 
-from fastapi import APIRouter
+from backend.compat_router import APIRouter
 from backend.database_ch import client
 import json
 

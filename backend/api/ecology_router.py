@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from typing import List, Any
-from fastapi import APIRouter
+from backend.compat_router import APIRouter
 from backend.database_ch import client
 from backend.cache import cached
 from backend.schemas.api_models import (

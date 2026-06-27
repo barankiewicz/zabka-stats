@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter
+from backend.compat_router import APIRouter
 from backend.database_ch import client
 from backend.cache import cached
 from backend.schemas.api_models import (

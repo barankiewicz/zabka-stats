@@ -1,6 +1,6 @@
 """History API endpoints (DuckDB)."""
 
-from fastapi import APIRouter, HTTPException
+from backend.compat_router import APIRouter, HTTPException
 from typing import Optional
 from backend.database_ch import client
 from backend.cache import cached

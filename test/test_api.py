@@ -1,10 +1,10 @@
 import pytest
-from fastapi.testclient import TestClient
+from litestar.testing import TestClient
 from backend.main import app
 
 @pytest.fixture
 def client():
-    # Use standard FastAPI TestClient
+    # Use standard Litestar TestClient
     with TestClient(app) as c:
         yield c
 

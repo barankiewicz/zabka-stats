@@ -1,5 +1,5 @@
 """
-FastAPI backend for Żabka Dashboard v2.
+Litestar backend for Żabka Dashboard v2.
 
 LIVE API endpoints:
 - /api/live/best-worst-weather - Real-time weather extremes
@@ -18,11 +18,13 @@ import pathlib
 import json
 import subprocess
 from datetime import datetime
-from fastapi import FastAPI, HTTPException, status, File, UploadFile
-from fastapi.responses import FileResponse
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.staticfiles import StaticFiles
+from litestar import Litestar, get, post
+from litestar.config.cors import CORSConfig
+from litestar.config.compression import CompressionConfig
+from litestar.static_files import create_static_files_router
+from litestar.response import File
+from litestar.exceptions import HTTPException
+from litestar.connection import Request
 
 from backend.database_ch import init_db, client, DB_PATH
 from backend.api.locations_router import router as locations_router
@@ -37,24 +39,6 @@ from backend.api.stats_router import router as stats_router
 # API_TOKEN is set via environment variable
 API_TOKEN = os.getenv("API_TOKEN", "your-secret-token-change-me")
 
-app = FastAPI(
-    title="Żabka Dashboard API v2",
-    description="Real-time analytics for Żabka store distribution across Poland",
-    version="2.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
-)
-
-# CORS
-app.add_middleware(GZipMiddleware, minimum_size=1000)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Adjust in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # Initialize database
 try:
     init_db()
@@ -64,8 +48,8 @@ except Exception as e:
 
 
 # Health check
-@app.get("/health")
-async def health_check():
+@get("/health")
+async def health_check() -> dict:
     try:
         result = client.execute("SELECT COUNT(*) FROM locations WHERE deleted_at IS NULL").fetchone()
         location_count = result[0] if result else 0
@@ -92,31 +76,31 @@ async def health_check():
 
 
 # Public download endpoints
-@app.get("/api/download/database")
-async def download_database():
+@get("/api/download/database")
+async def download_database() -> File:
     """Download the raw DuckDB database file containing all populated tables."""
     if not DB_PATH.exists():
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=404,
             detail="Database file not found"
         )
-    return FileResponse(
+    return File(
         path=DB_PATH,
         filename="zabka.duckdb",
         media_type="application/octet-stream"
     )
 
 
-@app.get("/api/download/geojson")
-async def download_geojson():
+@get("/api/download/geojson")
+async def download_geojson() -> File:
     """Download the generated GeoJSON boundary file."""
     geojson_path = DB_PATH.parent / "geo" / "wojewodztwa.geojson"
     if not geojson_path.exists():
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=404,
             detail="GeoJSON file not found"
         )
-    return FileResponse(
+    return File(
         path=geojson_path,
         filename="wojewodztwa.geojson",
         media_type="application/geo+json"
@@ -124,30 +108,32 @@ async def download_geojson():
 
 
 # Protected endpoint: Upload snapshot
-@app.post("/api/snapshot")
-async def upload_snapshot(
-    token: str,
-    file: UploadFile = File(...),
-    source_date: str = None
-):
+@post("/api/snapshot")
+async def upload_snapshot(request: Request) -> dict:
     """
     Upload a new snapshot JSON file (DuckDB).
-
-    Args:
-        token: API token (required)
-        file: JSON file containing snapshot data
-        source_date: YYYY-MM-DD (optional, derived from file if not provided)
     """
+    form_data = await request.form()
+    token = form_data.get("token")
+    file_upload = form_data.get("file")
+    source_date = form_data.get("source_date")
+
     # Verify token
     if token != API_TOKEN:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=401,
             detail="Invalid API token"
         )
 
+    if not file_upload:
+        raise HTTPException(
+            status_code=400,
+            detail="No file uploaded"
+        )
+
     try:
-        # Read uploaded file
-        contents = await file.read()
+        # Read uploaded file contents
+        contents = file_upload.file.read()
         data = json.loads(contents)
 
         # Use provided date or extract from metadata
@@ -165,8 +151,6 @@ async def upload_snapshot(
         with open(temp_path, 'w', encoding='utf-8') as f:
             json.dump(data, f)
 
-        # TODO: Process the saved snapshot into DuckDB (see backend.daily_etl)
-
         return {
             "status": "success",
             "file_saved": str(temp_path),
@@ -180,18 +164,35 @@ async def upload_snapshot(
         raise HTTPException(status_code=500, detail=f"Error processing snapshot: {str(e)}")
 
 
-# Include routers
-app.include_router(geo_router, prefix="/api", tags=["Geographic Boundaries"])
-app.include_router(ecology_router, prefix="/api", tags=["Ecology & GBIF"])
-app.include_router(spatial_router, prefix="/api", tags=["Spatial Analytics"])
-app.include_router(stats_router, prefix="/api", tags=["Network Stats & Trends"])
-app.include_router(locations_router, prefix="/api", tags=["Locations"])
-app.include_router(history_router, prefix="/api", tags=["History"])
-app.include_router(admin_router, prefix="/api", tags=["Administrative & Live Data"])
-app.include_router(dashboard_router, prefix="/api", tags=["Dashboard"])
+# Build route handlers list from our routers
+routers = [
+    geo_router,
+    ecology_router,
+    spatial_router,
+    stats_router,
+    locations_router,
+    history_router,
+    admin_router,
+    dashboard_router,
+]
+
+route_handlers = [
+    health_check,
+    download_database,
+    download_geojson,
+    upload_snapshot,
+]
+
+# Map custom APIRouters to Litestar Router instances
+for r in routers:
+    route_handlers.append(r.to_litestar_router("/api"))
+
+# Gather on_startup lifecyle handlers
+on_startup = []
+for r in routers:
+    on_startup.extend(r.startup_handlers)
 
 # Serve frontend from Vite build output (frontend/dist/).
-# If the dist is missing, run `npm run build` automatically so the server always works.
 _project_root = pathlib.Path(__file__).parent.parent
 _frontend_root = _project_root / "frontend"
 _dist_dir = _frontend_root / "dist"
@@ -210,11 +211,33 @@ if not _dist_dir.exists():
         print(f"Frontend build failed:\n{result.stderr}")
 
 frontend_dir = _dist_dir if _dist_dir.exists() else _frontend_root
-try:
-    app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
-except Exception:
-    print(f"Note: Frontend directory not found at {frontend_dir}")
 
+try:
+    static_router = create_static_files_router(
+        path="/",
+        directories=[str(frontend_dir)],
+        html_mode=True,
+        name="frontend"
+    )
+    route_handlers.append(static_router)
+except Exception as e:
+    print(f"Note: Static files router could not be configured: {e}")
+
+cors_config = CORSConfig(
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+compression_config = CompressionConfig(backend="gzip", minimum_size=1000)
+
+app = Litestar(
+    route_handlers=route_handlers,
+    cors_config=cors_config,
+    compression_config=compression_config,
+    on_startup=on_startup
+)
 
 if __name__ == "__main__":
     import uvicorn
@@ -226,6 +249,5 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=int(os.getenv("PORT", 8000)),
         workers=workers,
-        # access_log controlled by env; off in production to reduce I/O
         access_log=os.getenv("UVICORN_ACCESS_LOG", "false").lower() == "true",
     )

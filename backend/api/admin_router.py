@@ -3,7 +3,7 @@ Administrative context API - voivodeship, powiat, city, country.
 Hierarchical aggregations for Polish administrative divisions.
 """
 
-from fastapi import APIRouter
+from backend.compat_router import APIRouter
 from backend.database_ch import client
 from backend.cache import cached
 from backend.live_data import (
