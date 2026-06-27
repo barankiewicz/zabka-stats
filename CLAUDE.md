@@ -117,7 +117,7 @@ the Żabka network across Poland.
 
 - **Dashboard** Chart.js + Leaflet (bars, map, heatmap)
 - **Interactive map** Leaflet with 13k+ locations
-- **FastAPI backend** with DuckDB + Redis
+- **Litestar backend** with DuckDB + Redis
 - **Full change history** - tracks openings, closings, attribute changes
 - **REST API** for integration
 - **Daily refresh** of data snapshots
@@ -277,7 +277,8 @@ Locations support soft delete via the `deleted_at` timestamp.
 
 ```
 backend/                 - code + API (chapter 2)
-  main.py                - FastAPI app + /api/snapshot
+  main.py                - Litestar app + /api/snapshot
+  compat_router.py       - FastAPI compatibility router wrapper for Litestar
   database_ch.py         - DuckDB connection + schema (facts + dimensions)
   cache.py               - Redis cache (UNIX socket)
   daily_etl.py           - thin ETL entrypoint (re-exports run + CLI)
@@ -341,12 +342,12 @@ Internal use only.
 
 # 2. Backend
 
-FastAPI + DuckDB. Serves the analytics API over the Żabka data plus live data
+Litestar + DuckDB. Serves the analytics API over the Żabka data plus live data
 (weather, air quality). The data pipeline (ETL) is described in chapter 3.
 
 ## 1. Tech stack
 
-- **FastAPI** (async Python) - API server + static frontend serving.
+- **Litestar** (async Python) - high-performance API server + static frontend serving.
 - **DuckDB** - embedded column store for analytics.
 - **Redis** (UNIX socket) - cache for aggregate responses.
 - **Live integrations:** Open-Meteo (weather), OpenLightMap (light pollution).
@@ -382,7 +383,7 @@ a bare local checkout), `cache.py` logs it and the app runs without a cache.
 
 ## 4. API
 
-FastAPI serves modular API routers (`backend/api/`) validated via Pydantic schemas (`backend/schemas/api_models.py`). Most endpoints are cached for 1 hour using Redis.
+Litestar serves modular API routers (`backend/api/`) via a lightweight FastAPI-compatibility routing wrapper (`backend/compat_router.py`), validated using Pydantic schemas (`backend/schemas/api_models.py`). Most endpoints are cached for 1 hour using Redis.
 
 ### Endpoints Summary
 
@@ -769,7 +770,7 @@ Detailed logic, caching, and exceptions for the ingestion and enrichment sources
 
 # 4. Frontend
 
-Single-page dashboard, dark theme, served by FastAPI. A Vite build: `index.html` is just
+Single-page dashboard, dark theme, served by Litestar. A Vite build: `index.html` is just
 the DOM scaffold + `<head>`; all logic lives in modular ES under `frontend/src/`, entry
 `src/main.js`. Rendered via Chart.js + Leaflet + ECharts + D3 + Canvas 2D, pulling from
 `/api/*`. For the full component register, see [Section 3 (Components and charts)](#3-components-and-charts) below.
