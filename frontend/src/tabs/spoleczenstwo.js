@@ -2,7 +2,7 @@ import Chart from 'chart.js/auto';
 import { maplibregl, createMap, fitPoland, featureBBoxCenter } from '../maplibre-map.js';
 import { C, STATE } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
-import { fmt, macroCol, getFont, destroyChart, startTabParticles } from '../utils.js';
+import { fmt, getFont, destroyChart, startTabParticles } from '../utils.js';
 import { renderEcon } from './econ.js';
 
 
@@ -397,66 +397,7 @@ function wireNbl(){
   wire('#nbl-sort','nsort',v=>_nblSort=v);
 }
 
-export function renderScatters(){
-  const data=M.powiat_economics.filter(d=>d.avg_salary>0&&d.per_1k>0);
-  const ptSize=d=>Math.max(3,Math.sqrt(d.population/5000));
-  const ptColor=d=>macroCol(d.voivodeship);
-  const scatterOpts=(xLabel)=>({
-    responsive:true,maintainAspectRatio:false,
-    plugins:{
-      legend:{display:false},
-      tooltip:{callbacks:{label:ctx=>`${ctx.raw.label||'powiat'} (${ctx.raw.voj}): ${ctx.raw.y.toFixed(2)}/1k`}},
-      annot:{refLines:[]}
-    },
-    scales:{
-      x:{title:{display:true,text:xLabel,color:C.muted,font:{size:11}},ticks:{color:C.muted,font:{size:10}},grid:{color:C.axis}},
-      y:{title:{display:true,text:'sklepy / 1k mieszk.',color:C.muted,font:{size:11}},ticks:{color:C.muted,font:{size:10}},grid:{color:C.axis}}
-    }
-  });
-  destroyChart('scatter-salary');
-  CHARTS['scatter-salary']=new Chart(document.getElementById('chart-scatter-salary'),{
-    type:'scatter',
-    data:{datasets:[{data:data.map(d=>({x:d.avg_salary,y:d.per_1k,label:d.powiat,voj:d.voivodeship})),backgroundColor:data.map(ptColor),pointRadius:data.map(ptSize),pointHoverRadius:7}]},
-    options:scatterOpts('średnia pensja (PLN)')
-  });
-  destroyChart('scatter-unemp');
-  CHARTS['scatter-unemp']=new Chart(document.getElementById('chart-scatter-unemp'),{
-    type:'scatter',
-    data:{datasets:[{data:data.map(d=>({x:d.unemployment_rate,y:d.per_1k,label:d.powiat,voj:d.voivodeship})),backgroundColor:data.map(ptColor),pointRadius:data.map(ptSize),pointHoverRadius:7}]},
-    options:scatterOpts('stopa bezrobocia (%)')
-  });
-}
 
-
-export function renderMerrychef(){
-  const data=[...M.voivodeship_merrychef].sort((a,b)=>a.mc_pct-b.mc_pct);
-  // National average from data; fall back to summary counts if voivodeship list is empty
-  const natAvg=data.length
-    ? Math.round(data.reduce((s,d)=>s+d.mc_pct,0)/data.length*10)/10
-    : (M.summary&&M.summary.with_merrychef&&M.summary.total_active
-        ? Math.round(M.summary.with_merrychef/M.summary.total_active*1000)/10
-        : 0);
-  if(!natAvg)return;
-  const low=data.find(d=>d.mc_pct<natAvg-2);
-  const titleEl=document.querySelector('[data-debug-id="2.2b"]');
-  if(titleEl){
-    titleEl.textContent=low
-      ? `${low.voivodeship.charAt(0).toUpperCase()+low.voivodeship.slice(1)}: jedyny region poniżej ${natAvg}% z piecem`
-      : `Merrychef – rozkład województw (śr. krajowa ${natAvg}%)`;
-  }
-  const subEl=titleEl&&titleEl.closest('.card')&&titleEl.closest('.card').querySelector('.card-sub');
-  if(subEl)subEl.textContent=`% sklepów z Merrychef, posortowane rosnąco – średnia krajowa ${String(natAvg).replace('.',',')}%`;
-  destroyChart('merrychef');
-  CHARTS['merrychef']=new Chart(document.getElementById('chart-merrychef'),{
-    type:'bar',
-    data:{labels:data.map(d=>d.voivodeship),datasets:[{data:data.map(d=>d.mc_pct),backgroundColor:data.map(d=>d.mc_pct<natAvg-2?C.amber:C.green+'aa'),borderRadius:2,borderWidth:0}]},
-    options:{
-      indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw}% z Merrychef`}},annot:{refLines:[{value:natAvg,axis:'x',color:'rgba(255,255,255,.25)'}]}},
-      scales:{x:{min:Math.max(0,Math.floor(Math.min(...data.map(d=>d.mc_pct))-2)),max:100,grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
-    }
-  });
-}
 
 let _dbTip=null;
 const _DB_LIMIT=20;
