@@ -10,6 +10,7 @@
     "vite": "^5.4.0"
   },
   "dependencies": {
+    "@observablehq/plot": "^0.6.17",
     "chart.js": "^4.4.1",
     "d3": "^7.9.0",
     "echarts": "^5.5.0",

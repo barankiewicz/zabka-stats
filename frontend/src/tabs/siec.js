@@ -1,4 +1,5 @@
 import Chart from 'chart.js/auto';
+import * as Plot from '@observablehq/plot';
 import { maplibregl, createMap, addVoivodeshipLayers, fitPoland, wojCentroids, wojRamp, hexWithAlpha, featureBBoxCenter as _bboxCenter, showMapUnavailable, WebGLUnavailableError } from '../maplibre-map.js';
 import { C, STATE } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
@@ -594,41 +595,94 @@ function renderFpFlat(ctx){
 
 export function renderGrowthChart(){
   const data=M.network_growth||[];
-  const labels=data.map(d=>d.year);
-  const ERAS=[
-    {x1:1998,x2:2009,color:'rgba(31,61,18,.25)'},
-    {x1:2010,x2:2019,color:'rgba(53,102,21,.18)'},
-    {x1:2020,x2:2022,color:'rgba(116,189,42,.12)'},
-    {x1:2023,x2:2026,color:'rgba(166,232,74,.10)'}
-  ];
+  const container = document.getElementById('chart-growth');
+  if(!container) return;
+  container.innerHTML = '';
+
   const yoyVals=data.map((d,i)=>{
     if(d.year<2002||i===0||!d.cumulative||d.cumulative===d.new_stores)return null;
     const prev=d.cumulative-d.new_stores;
     return Math.round(d.new_stores/prev*1000)/10;
   });
-  const barColors=data.map(d=>d.year>=2023?C.green:d.year>=2010?C.green+'88':C.green+'44');
+
+  const plotData = data.map((d, i) => ({
+    year: d.year,
+    new_stores: d.new_stores,
+    cumulative: d.cumulative,
+    yoy: yoyVals[i]
+  }));
+
+  const maxStores = Math.max(...plotData.map(d => d.new_stores || 0));
+  const maxYoy = Math.max(...plotData.map(d => d.yoy || 0));
+  const normalizeY = yoy => yoy != null ? (yoy / (maxYoy || 100)) * maxStores : null;
+
   destroyChart('growth');
-  CHARTS['growth']=new Chart(document.getElementById('chart-growth'),{
-    type:'bar',
-    data:{labels,datasets:[
-      {type:'line',label:'zmiana r/r %',data:yoyVals,borderColor:C.teal,backgroundColor:'transparent',fill:false,borderWidth:2,pointRadius:2,pointBackgroundColor:C.teal,tension:.4,yAxisID:'y0',order:1},
-      {type:'bar', label:'nowych/rok', data:data.map(d=>d.new_stores),backgroundColor:barColors,borderRadius:2,borderWidth:0,yAxisID:'y1',order:2}
-    ]},
-    options:{
-      responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
-      plugins:{
-        legend:{display:true,labels:{color:C.muted,usePointStyle:true,font:{size:11}}},
-        tooltip:{mode:'index',intersect:false},
-        barLabels:{thousands:true,color:C.muted,onlyBars:true},
-        annot:{shadedBands:ERAS}
-      },
-      scales:{
-        x:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}},
-        y0:{position:'left', grid:{color:C.axis},ticks:{color:C.teal,font:{size:10},callback:v=>v+'%'},title:{display:true,text:'zmiana r/r %',color:C.teal,font:{size:9}}},
-        y1:{position:'right',grid:{display:false},ticks:{color:C.muted,font:{size:10}},title:{display:true,text:'nowych/rok',color:C.muted,font:{size:9}}}
-      }
-    }
+
+  const plot = Plot.plot({
+    width: container.clientWidth || 800,
+    height: 340,
+    style: {
+      background: "transparent",
+      color: C.muted,
+      fontSize: "10px",
+      fontFamily: "IBM Plex Sans, sans-serif"
+    },
+    x: {
+      tickFormat: "d",
+      label: "Rok →",
+      grid: false
+    },
+    y: {
+      label: "↑ Nowe sklepy",
+      grid: true,
+      stroke: C.muted
+    },
+    marks: [
+      // Shaded background bands for Eras
+      Plot.rectY([{x1: 1998, x2: 2009}, {x1: 2010, x2: 2019}, {x1: 2020, x2: 2022}, {x1: 2023, x2: 2026}], {
+        x1: "x1",
+        x2: "x2",
+        y1: 0,
+        y2: maxStores,
+        fill: d => d.x1 <= 2009 ? 'rgba(31,61,18,.08)' : d.x1 <= 2019 ? 'rgba(53,102,21,.06)' : d.x1 <= 2022 ? 'rgba(116,189,42,.04)' : 'rgba(166,232,74,.03)'
+      }),
+
+      Plot.gridY({ stroke: C.axis }),
+
+      // Bars for new stores
+      Plot.barY(plotData, {
+        x: "year",
+        y: "new_stores",
+        fill: d => d.year >= 2023 ? C.green : d.year >= 2010 ? C.green + '88' : C.green + '44',
+        rx: 2,
+        title: d => `Rok: ${d.year}\nNowe sklepy: ${d.new_stores.toLocaleString('pl-PL')}\nZmiana r/r: ${d.yoy != null ? d.yoy + '%' : '–'}`
+      }),
+
+      // Line for YoY %
+      Plot.lineY(plotData, {
+        x: "year",
+        y: d => normalizeY(d.yoy),
+        stroke: C.teal,
+        strokeWidth: 2,
+        curve: "monotone-x"
+      }),
+
+      // Dots for YoY % tooltips
+      Plot.dot(plotData, {
+        x: "year",
+        y: d => normalizeY(d.yoy),
+        stroke: C.teal,
+        fill: C.bg,
+        strokeWidth: 1.5,
+        r: 3,
+        tip: true,
+        title: d => `Rok: ${d.year}\nZmiana r/r: ${d.yoy != null ? d.yoy + '%' : '–'}\nNowe sklepy: ${d.new_stores.toLocaleString('pl-PL')}`
+      })
+    ]
   });
+
+  container.appendChild(plot);
+  CHARTS['growth'] = plot; // Save reference to allow safe cleanup/destruction
 }
 
 

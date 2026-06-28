@@ -285,7 +285,7 @@ backend/                 - code + API (chapter 2)
   api/                   - decomposed routers (locations, history, admin, dashboard_router, geo_router, ecology_router, stats_router, spatial_router, demographics)
   schemas/               - Pydantic models for API validation (api_models)
 
-frontend/                - Vite SPA, modular ES + Chart.js + MapLibre GL + D3 + ECharts (chapter 4)
+frontend/                - Vite SPA, modular ES + Chart.js + MapLibre GL + Observable Plot + D3 + ECharts (chapter 4)
   index.html             - DOM scaffold + <head> (SEO, fonts); loads /src/main.js
   methodology.html       - methodology page
   src/                   - main.js (tab router, lazy chunks), data.js (fetch buckets),
@@ -771,7 +771,7 @@ Detailed logic, caching, and exceptions for the ingestion and enrichment sources
 
 Single-page dashboard, dark theme, served by Litestar. A Vite build: `index.html` is just
 the DOM scaffold + `<head>`; all logic lives in modular ES under `frontend/src/`, entry
-`src/main.js`. Rendered via Chart.js + MapLibre GL + ECharts + D3 + Canvas 2D, pulling from
+`src/main.js`. Rendered via Chart.js + MapLibre GL + Observable Plot + ECharts + D3 + Canvas 2D, pulling from
 `/api/*`. For the full component register, see [Section 3 (Components and charts)](#3-components-and-charts) below.
 
 **Two tabs** (not the old four): `siec` ("SIEĆ", the network's anatomy + extremes) and

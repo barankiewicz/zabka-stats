@@ -9,7 +9,14 @@ export function macroCol(v){return C[MACRO[v]]||C.green}
 export function getFont(r){
   return{display:'Bricolage Grotesque',body:'IBM Plex Sans',mono:'JetBrains Mono'}[r];
 }
-export function destroyChart(id){if(CHARTS[id]){CHARTS[id].destroy();delete CHARTS[id]}}
+export function destroyChart(id){
+  if(CHARTS[id]){
+    if(typeof CHARTS[id].destroy === 'function'){
+      CHARTS[id].destroy();
+    }
+    delete CHARTS[id];
+  }
+}
 
 // Render a "no data" error state inside a chart or map container.
 // id: the canvas/div element id. msg: optional override message.
