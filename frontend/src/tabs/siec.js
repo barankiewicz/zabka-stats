@@ -1,5 +1,5 @@
 import Chart from 'chart.js/auto';
-import { maplibregl, createMap, addVoivodeshipLayers, fitPoland, wojCentroids, wojRamp, hexWithAlpha, featureBBoxCenter as _bboxCenter } from '../maplibre-map.js';
+import { maplibregl, createMap, addVoivodeshipLayers, fitPoland, wojCentroids, wojRamp, hexWithAlpha, featureBBoxCenter as _bboxCenter, showMapUnavailable, WebGLUnavailableError } from '../maplibre-map.js';
 import { C, STATE } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
 import { era, fmt, getFont, destroyChart } from '../utils.js';
@@ -305,57 +305,66 @@ export function renderGrowthMap(){
   // (applyTransform / _drawnCenter / _drawnZoom) are gone — MapLibre tracks
   // the dots natively at 60 fps.
   if(!growthMap){
-    growthMap=createMap('map-growth',{
-      center:[19.3,52.05],zoom:5.6,minZoom:5,maxZoom:9,
-      pitch:38,bearing:0,
-      dragRotate:true,pitchWithRotate:true,touchPitch:true,
-      maxBounds:[[13.6,48.8],[24.2,55.0]],
-      cooperativeGestures:true,   // ctrl+scroll to zoom; page scrolls otherwise
-    });
-    MAPS['map-growth']=growthMap;
-
-    if(!el.querySelector('.map-zoom-hint')){
-      const hint=document.createElement('div');
-      hint.className='map-zoom-hint';
-      hint.textContent='ctrl + scroll przybliża · prawy przycisk obraca';
-      el.appendChild(hint);
-    }
-    if(!el.querySelector('.map-reset-btn')){
-      const rb=document.createElement('button');
-      rb.className='map-reset-btn';rb.type='button';
-      rb.textContent='Reset widoku';
-      rb.setAttribute('aria-label','Resetuj widok mapy');
-      rb.addEventListener('click',()=>{growthMap.easeTo({pitch:38,bearing:0,zoom:5.6,center:[19.3,52.05],duration:600})});
-      el.appendChild(rb);
-    }
-
-    growthMap.on('load',()=>{
-      if(M.woj_geo){
-        addVoivodeshipLayers(growthMap,M.woj_geo,'woj-base',{
-          fillColor:'#11240d',fillOpacity:.55,
-          lineColor:'rgba(140,200,80,.18)',lineWidth:1,
-        });
-      }
-      growthMap.addSource('stores',{type:'geojson',data:_storesToGeoJSON(stores)});
-      // era colour steps mirror the old era() helper; circle-blur produces the
-      // density halo that used to be hand-painted onto Canvas 2D per cluster.
-      // circle-pitch-alignment:map lays the dots on the tilted surface (3D).
-      growthMap.addLayer({
-        id:'stores-dots',type:'circle',source:'stores',
-        paint:{
-          'circle-radius':1.7,
-          'circle-color':['step',['get','year'],
-            '#2b531a', 2010,'#4a8a22', 2020,'#74bd2a', 2023,'#a6e84a'],
-          'circle-opacity':0.72,
-          'circle-blur':0.35,
-          'circle-pitch-alignment':'map',
-        },
+    try {
+      growthMap=createMap('map-growth',{
+        center:[19.3,52.05],zoom:5.6,minZoom:5,maxZoom:9,
+        pitch:38,bearing:0,
+        dragRotate:true,pitchWithRotate:true,touchPitch:true,
+        maxBounds:[[13.6,48.8],[24.2,55.0]],
+        cooperativeGestures:true,   // ctrl+scroll to zoom; page scrolls otherwise
       });
-      // start empty so the sweep animates dots in year by year
-      growthMap.setFilter('stores-dots',['<=',['get','year'],GROWTH_MIN-1]);
-      play();
-    });
-    window.addEventListener('resize',()=>{drawCalendar(slider?+slider.value:GROWTH_MAX)});
+      MAPS['map-growth']=growthMap;
+
+      if(!el.querySelector('.map-zoom-hint')){
+        const hint=document.createElement('div');
+        hint.className='map-zoom-hint';
+        hint.textContent='ctrl + scroll przybliża · prawy przycisk obraca';
+        el.appendChild(hint);
+      }
+      if(!el.querySelector('.map-reset-btn')){
+        const rb=document.createElement('button');
+        rb.className='map-reset-btn';rb.type='button';
+        rb.textContent='Reset widoku';
+        rb.setAttribute('aria-label','Resetuj widok mapy');
+        rb.addEventListener('click',()=>{growthMap.easeTo({pitch:38,bearing:0,zoom:5.6,center:[19.3,52.05],duration:600})});
+        el.appendChild(rb);
+      }
+
+      growthMap.on('load',()=>{
+        if(M.woj_geo){
+          addVoivodeshipLayers(growthMap,M.woj_geo,'woj-base',{
+            fillColor:'#11240d',fillOpacity:.55,
+            lineColor:'rgba(140,200,80,.18)',lineWidth:1,
+          });
+        }
+        growthMap.addSource('stores',{type:'geojson',data:_storesToGeoJSON(stores)});
+        // era colour steps mirror the old era() helper; circle-blur produces the
+        // density halo that used to be hand-painted onto Canvas 2D per cluster.
+        // circle-pitch-alignment:map lays the dots on the tilted surface (3D).
+        growthMap.addLayer({
+          id:'stores-dots',type:'circle',source:'stores',
+          paint:{
+            'circle-radius':1.7,
+            'circle-color':['step',['get','year'],
+              '#2b531a', 2010,'#4a8a22', 2020,'#74bd2a', 2023,'#a6e84a'],
+            'circle-opacity':0.72,
+            'circle-blur':0.35,
+            'circle-pitch-alignment':'map',
+          },
+        });
+        // start empty so the sweep animates dots in year by year
+        growthMap.setFilter('stores-dots',['<=',['get','year'],GROWTH_MIN-1]);
+        play();
+      });
+      window.addEventListener('resize',()=>{drawCalendar(slider?+slider.value:GROWTH_MAX)});
+    } catch (e) {
+      if (e instanceof WebGLUnavailableError) {
+        showMapUnavailable(el, { message: 'Mapa ekspansji niedostępna' });
+        growthMap = null;
+        return;
+      }
+      throw e;
+    }
   }
 
   // Single entry for "show year Y": filter the WebGL dots, sync the calendar
@@ -967,11 +976,12 @@ async function renderWojMap(){
   const el=document.getElementById('map-granular-woj');if(!el||!M.woj_geo)return;
 
   if(!_wojMap){
-    _wojMap=createMap('map-granular-woj',{
-      center:[19.3,52.05],zoom:5.7,minZoom:4,maxZoom:9,
-      dragPan:false,dragRotate:false,scrollZoom:false,doubleClickZoom:false,touchZoom:false,keyboard:false,
-    });
-    MAPS['map-granular-woj']=_wojMap;
+    try {
+      _wojMap=createMap('map-granular-woj',{
+        center:[19.3,52.05],zoom:5.7,minZoom:4,maxZoom:9,
+        dragPan:false,dragRotate:false,scrollZoom:false,doubleClickZoom:false,touchZoom:false,keyboard:false,
+      });
+      MAPS['map-granular-woj']=_wojMap;
     _wojMap.on('load',()=>{
       // promoteId lets feature-state key off _fid without top-level feature ids
       _wojMap.addSource('gran-woj',{type:'geojson',data:{type:'FeatureCollection',features:[]},promoteId:'_fid'});
@@ -1025,6 +1035,14 @@ async function renderWojMap(){
       fitPoland(_wojMap,6);
       _wojSrcReady=true;
     });
+    } catch (e) {
+      if (e instanceof WebGLUnavailableError) {
+        showMapUnavailable(el, { message: 'Mapa województw niedostępna' });
+        _wojMap = null;
+        return;
+      }
+      throw e;
+    }
   }
 
   const res=await fetchDim('voivodeship',_gMetric,'desc',16,0);

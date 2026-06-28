@@ -1,5 +1,5 @@
 import Chart from 'chart.js/auto';
-import { maplibregl, createMap, fitPoland, featureBBoxCenter } from '../maplibre-map.js';
+import { maplibregl, createMap, fitPoland, featureBBoxCenter, showMapUnavailable, WebGLUnavailableError } from '../maplibre-map.js';
 import { C, STATE } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
 import { fmt, getFont, destroyChart, startTabParticles } from '../utils.js';
@@ -119,6 +119,7 @@ function renderInpostMap(){
     return {type:'FeatureCollection',features};
   }
 
+  try {
   _ipMap=createMap('map-inpost',{
     center:[19.3,52.05],zoom:5.6,minZoom:5,maxZoom:9,
     dragPan:true,dragRotate:false,scrollZoom:true,doubleClickZoom:true,touchZoom:true,keyboard:true,
@@ -159,6 +160,14 @@ function renderInpostMap(){
     });
     setTimeout(()=>{if(_ipMap){_ipMap.resize();fitPoland(_ipMap,4);}},120);
   });
+  } catch (e) {
+    if (e instanceof WebGLUnavailableError) {
+      showMapUnavailable(el, { message: 'Mapa Żabka vs InPost niedostępna' });
+      _ipMap = null;
+      return;
+    }
+    throw e;
+  }
 }
 export function renderSpoleczenstwo(){
   if(!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)){

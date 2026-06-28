@@ -7,6 +7,33 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 
 export { maplibregl };
 
+// Thrown by createMap() when the browser refuses to give us a WebGL context
+// (headless / RDP / hardware acceleration disabled). Callers catch this and
+// render a static "mapa niedostępna" notice instead so the rest of the page
+// keeps working.
+export class WebGLUnavailableError extends Error {
+  constructor() {
+    super('WebGL is currently disabled');
+    this.name = 'WebGLUnavailableError';
+  }
+}
+
+// Probe once at module load. We try WebGL2 first (which MapLibre prefers)
+// and fall back to WebGL1, the same way the library does internally.
+// Browsers report the capability but refuse the actual context until GPU
+// acceleration is enabled - the only reliable check is to ask for one.
+function _probeWebGL() {
+  if (typeof document === 'undefined') return false;
+  try {
+    const c = document.createElement('canvas');
+    const gl = c.getContext('webgl2') || c.getContext('webgl') || c.getContext('experimental-webgl');
+    return !!gl;
+  } catch (e) {
+    return false;
+  }
+}
+export const webglAvailable = _probeWebGL();
+
 // Poland bounding box [SW [lng,lat], NE [lng,lat]] and visual center.
 export const PL_BOUNDS = [[14.08, 49.00], [24.16, 54.84]];
 export const PL_CENTER = [19.3, 52.05];
@@ -56,6 +83,7 @@ export function darkStyle() {
 // opts: { center, zoom, pitch, bearing, minZoom, maxZoom, maxBounds,
 //         dragRotate, pitchWithRotate, scrollZoom, cooperativeGestures }
 export function createMap(container, opts = {}) {
+  if (!webglAvailable) throw new WebGLUnavailableError();
   const map = new maplibregl.Map({
     container,
     style: darkStyle(),
@@ -75,6 +103,30 @@ export function createMap(container, opts = {}) {
     antialias: true,
   });
   return map;
+}
+
+// Render a small dark "mapa niedostępna" notice inside the map container.
+// The container keeps its CSS height so the rest of the layout doesn't jump;
+// the notice explains the missing GPU and what to do.
+export function showMapUnavailable(container, opts = {}) {
+  if (!container) return;
+  const msg = opts.message || 'Mapa niedostępna';
+  const hint = opts.hint || 'Twoja przeglądarka nie udostępniła WebGL. Włącz akcelerację sprzętową w ustawieniach przeglądarki i odśwież stronę.';
+  // Clear anything MapLibre / a previous render left behind
+  container.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'map-unavailable';
+  wrap.innerHTML = `
+    <div class="map-unavailable-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/>
+        <path d="M9 4v16"/><path d="M15 6v16"/>
+      </svg>
+    </div>
+    <div class="map-unavailable-title">${msg}</div>
+    <div class="map-unavailable-hint">${hint}</div>
+  `;
+  container.appendChild(wrap);
 }
 
 export function fitPoland(map, padding = 6) {

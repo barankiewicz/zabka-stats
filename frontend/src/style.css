@@ -176,6 +176,16 @@ canvas{display:block}
 .zab-popup .maplibregl-popup-content{background:#0c160b;color:var(--ink);border:1px solid rgba(140,200,80,.3);
   border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.5);padding:12px 14px;font-family:var(--font-body)}
 .zab-popup .maplibregl-popup-tip{border-top-color:#0c160b}
+
+/* Fallback shown in place of a MapLibre map when WebGL is unavailable
+   (headless / RDP / hardware acceleration disabled). The map container keeps
+   its CSS height so the rest of the layout doesn't shift. */
+.map-unavailable{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:8px;height:100%;min-height:280px;padding:24px;text-align:center;
+  color:var(--muted);font-family:var(--font-body)}
+.map-unavailable-icon{color:rgba(132,195,65,.5);margin-bottom:4px}
+.map-unavailable-title{font-family:var(--font-display);font-weight:700;font-size:16px;color:var(--ink)}
+.map-unavailable-hint{font-size:12px;line-height:1.5;max-width:34ch;color:var(--muted)}
 .growth-map-overlay{position:absolute;left:14px;top:14px;z-index:500;display:flex;align-items:center;gap:12px;pointer-events:none}
 .growth-year{font-family:var(--font-display);font-weight:800;font-size:34px;color:var(--green-bright);text-shadow:var(--glow)}
 .growth-map-overlay .st-btn{pointer-events:auto}

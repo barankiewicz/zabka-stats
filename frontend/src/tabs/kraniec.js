@@ -2,7 +2,7 @@
 // Hover NIE skacze - dopiero klik. Kazdy wpis moze renderowac kropki
 // (np. h24, parki, sciana zachodnia, sklepy tuz obok). Trzymane w M, cap 360
 // na wpis zeby nie przeciazac CPU.
-import { maplibregl, createMap, fitPoland, pointsToFC, geoCircle, boundsOf } from '../maplibre-map.js';
+import { maplibregl, createMap, fitPoland, pointsToFC, geoCircle, boundsOf, showMapUnavailable, WebGLUnavailableError } from '../maplibre-map.js';
 import { M, MAPS } from '../state.js';
 import { fmt } from '../utils.js';
 
@@ -219,6 +219,7 @@ export function renderKraniec() {
 
 function buildMap() {
   const node = document.getElementById('kr-map'); if (!node) return;
+  try {
   _krMap = createMap('kr-map', {
     center: HOME, zoom: HOME_Z, minZoom: 5, maxZoom: 13,
     dragRotate: false, pitchWithRotate: false,
@@ -450,6 +451,14 @@ function buildMap() {
   new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting && _krMap) _krMap.resize(); }), { threshold: 0.1 }).observe(node);
   window.addEventListener('resize', () => { if (_krMap) _krMap.resize(); });
   setTimeout(() => { if (_krMap) _krMap.resize(); }, 300);
+  } catch (e) {
+    if (e instanceof WebGLUnavailableError) {
+      showMapUnavailable(node, { message: 'Atlas krańców niedostępny' });
+      _krMap = null;
+      return;
+    }
+    throw e;
+  }
 }
 // 3 odcienie zieleni dla twins, w proporcjach odpowiadajacych progom
 function _twinsColorForDot(i, meta) {
