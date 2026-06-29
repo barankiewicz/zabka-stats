@@ -422,7 +422,7 @@ def load_to_duckdb(con, rows: list, meta: dict):
         WHERE store_id NOT IN (SELECT store_id FROM incoming_df)
           AND deleted_at IS NULL
     """, [src_dt]).rowcount
-    if deleted:
+    if deleted and deleted > 0:
         print(f"[load] soft-deleted {deleted} stores")
 
     # Upsert: insert new stores, update existing (created_at preserved via ON CONFLICT)
@@ -688,8 +688,8 @@ def enforce_retention(con, src_date: str, months: int = 6):
     from dateutil.relativedelta import relativedelta
     cutoff = (date.fromisoformat(str(src_date)) - relativedelta(months=months)).isoformat()
     
-    deleted_locs = con.execute("DELETE FROM locations WHERE deleted_at < ?", [cutoff]).rowcount
-    deleted_lockers = con.execute("DELETE FROM parcel_lockers WHERE source_date < ?", [cutoff]).rowcount
+    deleted_locs = con.execute("DELETE FROM locations WHERE deleted_at < ?", [cutoff]).rowcount or 0
+    deleted_lockers = con.execute("DELETE FROM parcel_lockers WHERE source_date < ?", [cutoff]).rowcount or 0
     print(f"[retencja] usunieto {deleted_locs} usunietych sklepow i {deleted_lockers} paczkomatow starszych niz {cutoff}")
 
 
