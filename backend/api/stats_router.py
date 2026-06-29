@@ -332,12 +332,12 @@ async def powiat_economics() -> list[PowiatEconomicsItem]:
             COALESCE(dp.avg_salary, 0) AS avg_salary,
             COALESCE(dp.unemployment_rate, 0) AS unemployment_rate,
             COALESCE(dp.population, 0) AS population,
-            COUNT(l.id) AS stores
+            COUNT(l.store_id) AS stores
         FROM dim_powiat dp
         JOIN dim_voivodeship dv ON dp.voivodeship_id = dv.id
         LEFT JOIN locations l ON l.powiat_id = dp.id AND l.deleted_at IS NULL 
         GROUP BY dp.name, dv.name, dp.avg_salary, dp.unemployment_rate, dp.population
-        HAVING COUNT(l.id) > 0
+        HAVING COUNT(l.store_id) > 0
         ORDER BY dp.name
     """).fetchall()
     result = []
@@ -466,7 +466,7 @@ async def inpost_vs_zabka_by_level(
             })
     elif level == "powiat":
         zabka_rows = client.execute("""
-            SELECT dp.name, v.name, dp.population, COUNT(l.id)
+            SELECT dp.name, v.name, dp.population, COUNT(l.store_id)
             FROM dim_powiat dp
             JOIN dim_voivodeship v ON v.id = dp.voivodeship_id
             JOIN locations l ON l.powiat_id = dp.id
@@ -535,7 +535,7 @@ async def inpost_vs_zabka_by_level(
             })
     elif level == "gmina":
         zabka_rows = client.execute("""
-            SELECT g.name, v.name, g.population, COUNT(l.id)
+            SELECT g.name, v.name, g.population, COUNT(l.store_id)
             FROM dim_gmina g
             JOIN dim_voivodeship v ON v.id = g.voivodeship_id
             JOIN locations l ON l.gmina_id = g.id

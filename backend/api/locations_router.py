@@ -55,7 +55,7 @@ async def get_locations(
     query_params.extend([limit, offset])
 
     results = client.execute(f"""
-        SELECT id, store_id, city, voivodeship, street, latitude, longitude,
+        SELECT store_id, store_id, city, voivodeship, street, latitude, longitude,
                has_merrychef, open_sunday, h24
         FROM locations
         WHERE {where}
@@ -101,7 +101,7 @@ async def get_locations_for_map_geojson(
         where = "deleted_at IS NULL"
 
     results = client.execute(f"""
-        SELECT id, store_id, city, voivodeship, street, latitude, longitude,
+        SELECT store_id, store_id, city, voivodeship, street, latitude, longitude,
                has_merrychef, open_sunday, h24
         FROM locations
         WHERE {where}
@@ -135,15 +135,15 @@ async def get_locations_for_map_geojson(
     }
 
 
-@get("/locations/{location_id:int}")
+@get("/locations/{location_id:str}")
 @cached(ttl=3600)
-async def get_location(location_id: FromPath[int]) -> dict:
-    """Get a specific location by ID."""
+async def get_location(location_id: FromPath[str]) -> dict:
+    """Get a specific location by store_id."""
     result = client.execute("""
-        SELECT id, 'Żabka' AS name, city, voivodeship, street, latitude, longitude,
+        SELECT store_id, 'Żabka' AS name, city, voivodeship, street, latitude, longitude,
                has_merrychef, open_sunday, h24, created_at, deleted_at, powiat
         FROM locations
-        WHERE id = ? AND deleted_at IS NULL
+        WHERE store_id = ? AND deleted_at IS NULL
     """, [location_id]).fetchone()
 
     if not result:

@@ -354,27 +354,16 @@ def ensure_enrichment_columns(con):
 
 def load_to_duckdb(con, rows: list, meta: dict):
     """Zapisz snapshot w tabeli locations.
-    Porównuje biezace aktywne sklepy z wejsciowymi:
-    - nowe sklepy sa wstawiane (created_at = source_date)
-    - brakujace sklepy sa soft-deletowane (deleted_at = source_date)
-    - istniejace aktywne sa aktualizowane w miejscu.
+    store_id jest kluczem glownym — jeden wiersz na sklep:
+    - nowe sklepy: INSERT z created_at = source_date
+    - istniejace: UPDATE wszystkich pol oprocz created_at (ON CONFLICT)
+    - brakujace: soft-delete (deleted_at = source_date)
+    - wroty (deleted -> obecny): deleted_at = NULL (przywrocone przez ON CONFLICT)
     """
     ensure_enrichment_columns(con)
     src_date = meta.get("source_date") or date.today().isoformat()
     src_dt = datetime.fromisoformat(src_date)
-    
-    # Drop secondary indexes to avoid index corruption/fatal errors during bulk update
-    for idx in ("idx_locations_city", "idx_locations_voivodeship", "idx_locations_powiat",
-                "idx_locations_deleted_at", "idx_locations_store_id", "idx_locations_created_at",
-                "idx_locations_voivodeship_id", "idx_locations_powiat_id",
-                "idx_locations_voiv_id", "idx_locations_powiat_id", "idx_locations_miasto_id", "idx_locations_gmina_id",
-                "idx_locations_h3_index_9"):
-        try:
-            con.execute(f"DROP INDEX IF EXISTS {idx}")
-        except Exception:
-            pass
 
-    # 1. Load incoming rows into Polars DataFrame with explicit types
     schema = {
         "store_id": pl.Utf8,
         "city": pl.Utf8,
@@ -402,10 +391,9 @@ def load_to_duckdb(con, rows: list, meta: dict):
         "nearest_amphibian_km": pl.Float64,
         "gmina_id": pl.Int32,
         "miasto_id": pl.Int32,
-        "h3_index_9": pl.Utf8
+        "h3_index_9": pl.Utf8,
     }
 
-    # Normalize rows list to align with schema keys
     for r in rows:
         if not r.get("first_opening_date"):
             r["first_opening_date"] = None
@@ -416,106 +404,89 @@ def load_to_duckdb(con, rows: list, meta: dict):
     incoming_df = pl.DataFrame(rows, schema=schema)
     incoming_df = incoming_df.filter(pl.col("store_id").is_not_null()).unique(subset=["store_id"])
 
-    # 2. Get active database records into Polars DataFrame
-    active_arrow = con.execute("SELECT id, store_id FROM locations WHERE deleted_at IS NULL").to_arrow_table()
-    if active_arrow.num_rows == 0:
-        active_df = pl.DataFrame(schema={"id": pl.Int64, "store_id": pl.Utf8})
-    else:
-        active_df = pl.from_arrow(active_arrow)
+    for idx in ("idx_locations_city", "idx_locations_voivodeship", "idx_locations_powiat",
+                "idx_locations_deleted_at", "idx_locations_created_at",
+                "idx_locations_voivodeship_id", "idx_locations_powiat_id",
+                "idx_locations_miasto_id", "idx_locations_gmina_id", "idx_locations_h3_index_9"):
+        try:
+            con.execute(f"DROP INDEX IF EXISTS {idx}")
+        except Exception:
+            pass
 
-    # 3. Soft-deletes: active in DB, but not in incoming data
-    to_delete_df = active_df.join(incoming_df, on="store_id", how="anti")
-    if not to_delete_df.is_empty():
-        con.register("to_delete_df", to_delete_df)
-        con.execute("""
-            UPDATE locations 
-            SET deleted_at = ?
-            FROM to_delete_df 
-            WHERE locations.id = to_delete_df.id
-        """, [src_dt])
-        con.unregister("to_delete_df")
-        print(f"[load] soft-deleted {len(to_delete_df)} stores (not present in incoming data)")
+    con.register("incoming_df", incoming_df)
 
-    # 4. Inserts: incoming, but not in active DB
-    to_insert_df = incoming_df.join(active_df, on="store_id", how="anti")
-    if not to_insert_df.is_empty():
-        con.register("to_insert_df", to_insert_df)
-        con.execute("""
-            INSERT INTO locations (
-                id, store_id, city, street, voivodeship, powiat,
-                voivodeship_id, powiat_id, latitude, longitude,
-                has_merrychef, open_sunday, h24,
-                opening_hours_monsat, opening_hours_sun, first_opening_date,
-                is_visible, is_new_month, is_new_two_weeks,
-                elevation_meters, is_in_nature_park, nature_park_id,
-                nearest_neighbor_distance_meters,
-                amphibian_occurrences_5km, nearest_amphibian_km,
-                gmina_id, miasto_id, h3_index_9,
-                created_at, deleted_at
-            )
-            SELECT 
-                nextval('seq_locations'),
-                store_id, city, street, voivodeship, powiat,
-                voivodeship_id, powiat_id, latitude, longitude,
-                has_merrychef, open_sunday, h24,
-                opening_hours_monsat, opening_hours_sun, 
-                CAST(first_opening_date AS DATE), 
-                is_visible, is_new_month, is_new_two_weeks,
-                elevation_meters, is_in_nature_park, nature_park_id,
-                nearest_neighbor_distance_meters,
-                amphibian_occurrences_5km, nearest_amphibian_km,
-                gmina_id, miasto_id, h3_index_9,
-                ? AS created_at,
-                CAST(NULL AS TIMESTAMP) AS deleted_at
-            FROM to_insert_df
-        """, [src_dt])
-        con.unregister("to_insert_df")
-        print(f"[load] inserted {len(to_insert_df)} new stores")
+    # Soft-delete: stores active in DB but absent from this snapshot
+    deleted = con.execute("""
+        UPDATE locations
+        SET deleted_at = ?
+        WHERE store_id NOT IN (SELECT store_id FROM incoming_df)
+          AND deleted_at IS NULL
+    """, [src_dt]).rowcount
+    if deleted:
+        print(f"[load] soft-deleted {deleted} stores")
 
-    # 5. Updates: incoming, and also in active DB
-    to_update_df = incoming_df.join(active_df, on="store_id", how="inner")
-    if not to_update_df.is_empty():
-        con.register("to_update_df", to_update_df)
-        con.execute("""
-            UPDATE locations
-            SET
-                city = u.city,
-                street = u.street,
-                voivodeship = u.voivodeship,
-                powiat = u.powiat,
-                voivodeship_id = u.voivodeship_id,
-                powiat_id = u.powiat_id,
-                latitude = u.latitude,
-                longitude = u.longitude,
-                has_merrychef = u.has_merrychef,
-                open_sunday = u.open_sunday,
-                h24 = u.h24,
-                opening_hours_monsat = u.opening_hours_monsat,
-                opening_hours_sun = u.opening_hours_sun,
-                first_opening_date = CAST(u.first_opening_date AS DATE),
-                is_visible = u.is_visible,
-                is_new_month = u.is_new_month,
-                is_new_two_weeks = u.is_new_two_weeks,
-                elevation_meters = u.elevation_meters,
-                is_in_nature_park = u.is_in_nature_park,
-                nature_park_id = u.nature_park_id,
-                nearest_neighbor_distance_meters = u.nearest_neighbor_distance_meters,
-                amphibian_occurrences_5km = u.amphibian_occurrences_5km,
-                nearest_amphibian_km = u.nearest_amphibian_km,
-                gmina_id = u.gmina_id,
-                miasto_id = u.miasto_id,
-                h3_index_9 = u.h3_index_9
-            FROM to_update_df AS u
-            WHERE locations.id = u.id
-        """)
-        con.unregister("to_update_df")
-        print(f"[load] updated {len(to_update_df)} existing stores")
+    # Upsert: insert new stores, update existing (created_at preserved via ON CONFLICT)
+    con.execute("""
+        INSERT INTO locations (
+            store_id, city, street, voivodeship, powiat,
+            voivodeship_id, powiat_id, latitude, longitude,
+            has_merrychef, open_sunday, h24,
+            opening_hours_monsat, opening_hours_sun, first_opening_date,
+            is_visible, is_new_month, is_new_two_weeks,
+            elevation_meters, is_in_nature_park, nature_park_id,
+            nearest_neighbor_distance_meters,
+            amphibian_occurrences_5km, nearest_amphibian_km,
+            gmina_id, miasto_id, h3_index_9,
+            created_at, deleted_at
+        )
+        SELECT
+            store_id, city, street, voivodeship, powiat,
+            voivodeship_id, powiat_id, latitude, longitude,
+            has_merrychef, open_sunday, h24,
+            opening_hours_monsat, opening_hours_sun, CAST(first_opening_date AS DATE),
+            is_visible, is_new_month, is_new_two_weeks,
+            elevation_meters, is_in_nature_park, nature_park_id,
+            nearest_neighbor_distance_meters,
+            amphibian_occurrences_5km, nearest_amphibian_km,
+            gmina_id, miasto_id, h3_index_9,
+            ? AS created_at,
+            CAST(NULL AS TIMESTAMP) AS deleted_at
+        FROM incoming_df
+        ON CONFLICT (store_id) DO UPDATE SET
+            city = excluded.city,
+            street = excluded.street,
+            voivodeship = excluded.voivodeship,
+            powiat = excluded.powiat,
+            voivodeship_id = excluded.voivodeship_id,
+            powiat_id = excluded.powiat_id,
+            latitude = excluded.latitude,
+            longitude = excluded.longitude,
+            has_merrychef = excluded.has_merrychef,
+            open_sunday = excluded.open_sunday,
+            h24 = excluded.h24,
+            opening_hours_monsat = excluded.opening_hours_monsat,
+            opening_hours_sun = excluded.opening_hours_sun,
+            first_opening_date = excluded.first_opening_date,
+            is_visible = excluded.is_visible,
+            is_new_month = excluded.is_new_month,
+            is_new_two_weeks = excluded.is_new_two_weeks,
+            elevation_meters = excluded.elevation_meters,
+            is_in_nature_park = excluded.is_in_nature_park,
+            nature_park_id = excluded.nature_park_id,
+            nearest_neighbor_distance_meters = excluded.nearest_neighbor_distance_meters,
+            amphibian_occurrences_5km = excluded.amphibian_occurrences_5km,
+            nearest_amphibian_km = excluded.nearest_amphibian_km,
+            gmina_id = excluded.gmina_id,
+            miasto_id = excluded.miasto_id,
+            h3_index_9 = excluded.h3_index_9,
+            deleted_at = NULL
+    """, [src_dt])
 
-    # Recreate secondary indexes after bulk update
+    con.unregister("incoming_df")
+
     for stmt in (
         "CREATE INDEX IF NOT EXISTS idx_locations_city ON locations(city)",
         "CREATE INDEX IF NOT EXISTS idx_locations_deleted_at ON locations(deleted_at)",
-        "CREATE INDEX IF NOT EXISTS idx_locations_store_id ON locations(store_id)",
         "CREATE INDEX IF NOT EXISTS idx_locations_created_at ON locations(created_at)",
         "CREATE INDEX IF NOT EXISTS idx_locations_voivodeship_id ON locations(voivodeship_id)",
         "CREATE INDEX IF NOT EXISTS idx_locations_powiat_id ON locations(powiat_id)",
@@ -528,7 +499,8 @@ def load_to_duckdb(con, rows: list, meta: dict):
         except Exception:
             pass
 
-    print(f"[load] snapshot ({src_date}): {len(rows):,} stores processed")
+    active = con.execute("SELECT COUNT(*) FROM locations WHERE deleted_at IS NULL").fetchone()[0]
+    print(f"[load] snapshot ({src_date}): {len(rows):,} incoming, {active:,} active in DB")
     return 1
 
 

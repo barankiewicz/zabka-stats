@@ -95,7 +95,7 @@ async def amphibians() -> AmphibianExtremesResponse:
     scatter_db = client.execute("""
         SELECT a.occ, COUNT(b.id) AS density
         FROM (
-            SELECT id, latitude, longitude,
+            SELECT store_id, latitude, longitude,
                    COALESCE(amphibian_occurrences_5km, 0) AS occ
             FROM locations
             WHERE deleted_at IS NULL 
@@ -104,10 +104,10 @@ async def amphibians() -> AmphibianExtremesResponse:
         ) a
         LEFT JOIN locations b
           ON b.deleted_at IS NULL
-         AND b.id != a.id
+         AND b.store_id != a.store_id
          AND b.latitude  BETWEEN a.latitude  - 0.045 AND a.latitude  + 0.045
          AND b.longitude BETWEEN a.longitude - 0.065 AND a.longitude + 0.065
-        GROUP BY a.id, a.occ
+        GROUP BY a.store_id, a.occ
         ORDER BY density
     """).fetchall()
     
@@ -231,7 +231,7 @@ async def section3_rare() -> Section3RareResponse:
     """).fetchone()
     powiat_range = client.execute("""
         WITH pc AS (
-            SELECT dp.name AS p, dv.name AS v, COUNT(l.id) AS cnt
+            SELECT dp.name AS p, dv.name AS v, COUNT(l.store_id) AS cnt
             FROM dim_powiat dp
             JOIN dim_voivodeship dv ON dv.id = dp.voivodeship_id
             LEFT JOIN locations l ON l.powiat_id = dp.id AND l.deleted_at IS NULL 

@@ -205,7 +205,7 @@ async def get_extremes() -> dict:
     """Get extreme points - najfajniejsze Żabki!"""
 
     northernmost = client.execute("""
-        SELECT id, 'Żabka' AS name, city, powiat, voivodeship, latitude, longitude
+        SELECT store_id, 'Żabka' AS name, city, powiat, voivodeship, latitude, longitude
         FROM locations
         WHERE deleted_at IS NULL
         ORDER BY latitude DESC
@@ -213,7 +213,7 @@ async def get_extremes() -> dict:
     """).fetchone()
 
     southernmost = client.execute("""
-        SELECT id, 'Żabka' AS name, city, powiat, voivodeship, latitude, longitude
+        SELECT store_id, 'Żabka' AS name, city, powiat, voivodeship, latitude, longitude
         FROM locations
         WHERE deleted_at IS NULL
         ORDER BY latitude ASC
@@ -221,7 +221,7 @@ async def get_extremes() -> dict:
     """).fetchone()
 
     easternmost = client.execute("""
-        SELECT id, 'Żabka' AS name, city, powiat, voivodeship, latitude, longitude
+        SELECT store_id, 'Żabka' AS name, city, powiat, voivodeship, latitude, longitude
         FROM locations
         WHERE deleted_at IS NULL
         ORDER BY longitude DESC
@@ -229,7 +229,7 @@ async def get_extremes() -> dict:
     """).fetchone()
 
     westernmost = client.execute("""
-        SELECT id, 'Żabka' AS name, city, powiat, voivodeship, latitude, longitude
+        SELECT store_id, 'Żabka' AS name, city, powiat, voivodeship, latitude, longitude
         FROM locations
         WHERE deleted_at IS NULL
         ORDER BY longitude ASC
@@ -293,10 +293,10 @@ async def get_best_worst_weather() -> dict:
     Swieze dane z Open-Meteo dla wszystkich 16 wojewodztw.
     """
     locations = client.execute("""
-        SELECT id, city, powiat, voivodeship, latitude, longitude
+        SELECT store_id, city, powiat, voivodeship, latitude, longitude
         FROM (
-            SELECT id, city, powiat, voivodeship, latitude, longitude,
-                   ROW_NUMBER() OVER (PARTITION BY voivodeship ORDER BY id) as rn
+            SELECT store_id, city, powiat, voivodeship, latitude, longitude,
+                   ROW_NUMBER() OVER (PARTITION BY voivodeship ORDER BY store_id) as rn
             FROM locations
             WHERE deleted_at IS NULL
         )
@@ -371,7 +371,7 @@ async def get_darkest_sky_for_stargazing() -> dict:
     LIVE - najciemniejsza i najjaśniejsza Żabka w Polsce.
     """
     darkest_row = client.execute("""
-        SELECT id, city, powiat, voivodeship, latitude, longitude
+        SELECT store_id, city, powiat, voivodeship, latitude, longitude
         FROM locations
         WHERE deleted_at IS NULL AND city IS NOT NULL
         LIMIT 1
@@ -436,10 +436,10 @@ async def get_lightning_danger() -> dict:
     Oceniane w oparciu o 16 wojewodzkich stref pogodowych.
     """
     locations = client.execute("""
-        SELECT id, city, powiat, voivodeship, latitude, longitude
+        SELECT store_id, city, powiat, voivodeship, latitude, longitude
         FROM (
-            SELECT id, city, powiat, voivodeship, latitude, longitude,
-                   ROW_NUMBER() OVER (PARTITION BY voivodeship ORDER BY id) as rn
+            SELECT store_id, city, powiat, voivodeship, latitude, longitude,
+                   ROW_NUMBER() OVER (PARTITION BY voivodeship ORDER BY store_id) as rn
             FROM locations
             WHERE deleted_at IS NULL
         )

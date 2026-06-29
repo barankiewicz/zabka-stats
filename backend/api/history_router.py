@@ -9,14 +9,14 @@ from backend.cache import cached
 from backend.database_ch import client
 
 
-@get("/history/location/{location_id:int}")
+@get("/history/location/{location_id:str}")
 @cached(ttl=3600)
 async def get_location_history(
-    location_id: FromPath[int],
+    location_id: FromPath[str],
     limit: FromQuery[int] = 100,
 ) -> dict:
     """Get full change history (creation and deletion only) for a specific location."""
-    location = client.execute("SELECT 'Żabka', created_at, deleted_at FROM locations WHERE id = ?", [location_id]).fetchone()
+    location = client.execute("SELECT 'Żabka', created_at, deleted_at FROM locations WHERE store_id = ?", [location_id]).fetchone()
     if not location:
         raise HTTPException(status_code=404, detail="Location not found")
 

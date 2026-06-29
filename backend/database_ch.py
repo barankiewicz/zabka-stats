@@ -25,17 +25,17 @@ def _run_all_ddl(con):
     if 'locations' not in table_names:
         print("Creating DuckDB schema...")
 
-        for seq in ("seq_locations", "seq_parcel_lockers"):
-            try:
-                con.execute(f"CREATE SEQUENCE {seq} START 1")
-            except Exception:
-                pass
+        try:
+            con.execute("CREATE SEQUENCE IF NOT EXISTS seq_parcel_lockers START 1")
+        except Exception:
+            pass
 
-        # Czysty model analityczny — PII, stale pola i wewnetrzne id wyrzucone.
+        # store_id is the natural PK (one row per physical store, no surrogate int id).
+        # created_at = first-seen timestamp (never overwritten on upsert).
+        # deleted_at = when the store vanished from the source (NULL = active).
         con.execute("""
             CREATE TABLE locations (
-                id INTEGER PRIMARY KEY DEFAULT nextval('seq_locations'),
-                store_id VARCHAR,
+                store_id VARCHAR PRIMARY KEY,
                 city VARCHAR,
                 street VARCHAR,
                 voivodeship VARCHAR,
@@ -59,9 +59,11 @@ def _run_all_ddl(con):
                 nearest_neighbor_distance_meters INTEGER,
                 amphibian_occurrences_5km INTEGER,
                 nearest_amphibian_km DOUBLE,
+                gmina_id INTEGER,
+                miasto_id INTEGER,
+                h3_index_9 VARCHAR,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                deleted_at TIMESTAMP,
-                h3_index_9 VARCHAR
+                deleted_at TIMESTAMP
             )
         """)
 
@@ -86,7 +88,7 @@ def _run_all_ddl(con):
                 date_actual, day_name, day_of_week, day_of_month, day_of_year,
                 month_number, month_name, year_actual, is_weekend, quarter
             )
-            SELECT 
+            SELECT
                 d AS date_actual,
                 dayname(d) AS day_name,
                 dayofweek(d) AS day_of_week,
@@ -105,7 +107,6 @@ def _run_all_ddl(con):
             "CREATE INDEX idx_locations_voivodeship ON locations(voivodeship)",
             "CREATE INDEX idx_locations_powiat ON locations(powiat)",
             "CREATE INDEX idx_locations_deleted_at ON locations(deleted_at)",
-            "CREATE INDEX idx_locations_store_id ON locations(store_id)",
             "CREATE INDEX idx_locations_created_at ON locations(created_at)",
             "CREATE INDEX idx_locations_voivodeship_id ON locations(voivodeship_id)",
             "CREATE INDEX idx_locations_powiat_id ON locations(powiat_id)",
@@ -118,6 +119,46 @@ def _run_all_ddl(con):
     # Idempotentne migracje — bezpieczne przy kazdym wywolaniu.
     ensure_extra_tables(con)
     ensure_enrichment_columns(con)
+    _migrate_locations_pk_if_needed(con)
+
+
+def _migrate_locations_pk_if_needed(con):
+    """Drop and immediately recreate the locations table if it has the old integer id PK.
+    Data will be re-populated on the next ETL run."""
+    cols = {r[1] for r in con.execute("PRAGMA table_info('locations')").fetchall()}
+    if 'id' not in cols:
+        return
+    print("[migrate] locations has old integer id PK — dropping and rebuilding schema")
+    con.execute("DROP TABLE locations")
+    con.execute("""
+        CREATE TABLE locations (
+            store_id VARCHAR PRIMARY KEY,
+            city VARCHAR, street VARCHAR, voivodeship VARCHAR, powiat VARCHAR,
+            voivodeship_id INTEGER, powiat_id INTEGER,
+            latitude DOUBLE NOT NULL, longitude DOUBLE NOT NULL,
+            has_merrychef BOOLEAN, open_sunday BOOLEAN, h24 BOOLEAN,
+            opening_hours_monsat VARCHAR, opening_hours_sun VARCHAR,
+            first_opening_date DATE, is_visible BOOLEAN, is_new_month BOOLEAN,
+            is_new_two_weeks BOOLEAN, elevation_meters DOUBLE,
+            is_in_nature_park BOOLEAN DEFAULT FALSE, nature_park_id INTEGER,
+            nearest_neighbor_distance_meters INTEGER,
+            amphibian_occurrences_5km INTEGER, nearest_amphibian_km DOUBLE,
+            gmina_id INTEGER, miasto_id INTEGER, h3_index_9 VARCHAR,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, deleted_at TIMESTAMP
+        )
+    """)
+    for stmt in (
+        "CREATE INDEX idx_locations_city ON locations(city)",
+        "CREATE INDEX idx_locations_deleted_at ON locations(deleted_at)",
+        "CREATE INDEX idx_locations_created_at ON locations(created_at)",
+        "CREATE INDEX idx_locations_voivodeship_id ON locations(voivodeship_id)",
+        "CREATE INDEX idx_locations_powiat_id ON locations(powiat_id)",
+    ):
+        try:
+            con.execute(stmt)
+        except Exception:
+            pass
+    print("[migrate] done — locations rebuilt with store_id as primary key")
 
 
 def _ensure_schema():

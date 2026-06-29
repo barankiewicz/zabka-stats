@@ -102,14 +102,14 @@ def _gmina_agg():
     global _GMINA_AGG
     if _GMINA_AGG is None:
         raw = client.execute("""
-            SELECT g.name, COUNT(l.id), g.population, g.area_km2,
+            SELECT g.name, COUNT(l.store_id), g.population, g.area_km2,
                    AVG(l.latitude), AVG(l.longitude), MAX(v.name)
             FROM dim_gmina g
             JOIN locations l ON l.gmina_id = g.id
               AND l.deleted_at IS NULL 
             LEFT JOIN dim_voivodeship v ON v.id = g.voivodeship_id
             GROUP BY g.id, g.name, g.population, g.area_km2
-            HAVING COUNT(l.id) > 0
+            HAVING COUNT(l.store_id) > 0
         """).fetchall()
         rows = []
         for name, cnt, pop, area, lat, lon, voiv in raw:
@@ -238,14 +238,14 @@ async def by_dimension(
 
     if dim == "city":
         raw = client.execute("""
-            SELECT c.name, COUNT(l.id), c.population, c.area_km2,
+            SELECT c.name, COUNT(l.store_id), c.population, c.area_km2,
                    AVG(l.latitude), AVG(l.longitude), MAX(v.name), c.id
             FROM dim_city c
             JOIN locations l ON l.miasto_id = c.id
               AND l.deleted_at IS NULL 
             LEFT JOIN dim_voivodeship v ON v.id = c.voivodeship_id
             GROUP BY c.id, c.name, c.population, c.area_km2
-            HAVING COUNT(l.id) > 0
+            HAVING COUNT(l.store_id) > 0
         """).fetchall()
         rows = [{"name": r[0], "cnt": r[1], "population": r[2], "area_km2": r[3],
                  "per_1k": round(r[1] * 1000.0 / r[2], 2) if r[2] else None,
@@ -254,14 +254,14 @@ async def by_dimension(
                 for r in raw]
     elif dim == "gmina":
         raw = client.execute("""
-            SELECT g.name, COUNT(l.id), g.population, g.area_km2,
+            SELECT g.name, COUNT(l.store_id), g.population, g.area_km2,
                    AVG(l.latitude), AVG(l.longitude), MAX(v.name), g.id
             FROM dim_gmina g
             JOIN locations l ON l.gmina_id = g.id
               AND l.deleted_at IS NULL 
             LEFT JOIN dim_voivodeship v ON v.id = g.voivodeship_id
             GROUP BY g.id, g.name, g.population, g.area_km2
-            HAVING COUNT(l.id) > 0
+            HAVING COUNT(l.store_id) > 0
         """).fetchall()
         if raw:
             rows = [{"name": r[0], "cnt": r[1], "population": r[2], "area_km2": r[3],
@@ -281,14 +281,14 @@ async def by_dimension(
             extra = ""
             varea = _voiv_area()
         raw = client.execute(f"""
-            SELECT d.name, COUNT(l.id), d.population,
+            SELECT d.name, COUNT(l.store_id), d.population,
                    AVG(l.latitude), AVG(l.longitude), MAX(l.voivodeship)
             FROM {dimtbl} d
             LEFT JOIN locations l
               ON l.{fk} = d.id AND l.deleted_at IS NULL 
             {extra}
             GROUP BY d.id, d.name, d.population
-            HAVING COUNT(l.id) > 0
+            HAVING COUNT(l.store_id) > 0
         """).fetchall()
         rows = []
         for name, cnt, pop, lat, lon, voiv in raw:
