@@ -4,10 +4,13 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run"
   },
   "devDependencies": {
-    "vite": "^5.4.0"
+    "happy-dom": "^20.10.6",
+    "vite": "^5.4.0",
+    "vitest": "^4.1.9"
   },
   "dependencies": {
     "@observablehq/plot": "^0.6.17",

@@ -1,8 +1,8 @@
 """
 DuckDB database connection and initialization.
-Ultra-fast analytics database - 100x faster than SQLite!
 """
 
+import json
 import duckdb
 from pathlib import Path
 
@@ -208,11 +208,41 @@ def init_db(keep_open: bool = True):
     return client if keep_open else None
 
 
+def _seed_administrative_division(con) -> None:
+    """Load the GUS hierarchy JSON into administrative_division on a fresh/migrated DB."""
+    seed_path = Path(__file__).parent.parent / "data" / "geo" / "administrative_division_gus.json"
+    if not seed_path.exists():
+        print(f"[schema] seed file not found: {seed_path}")
+        return
+    rows = json.loads(seed_path.read_text(encoding="utf-8"))
+    if not rows:
+        return
+    con.executemany(
+        "INSERT INTO administrative_division "
+        "(id, level, name, population, area_km2, avg_salary, unemployment_rate, voivodeship_id, powiat_id, gus_id) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?)",
+        [
+            (r["id"], r["level"], r["name"], r.get("population"), r.get("area_km2"),
+             r.get("avg_salary"), r.get("unemployment_rate"), r.get("voivodeship_id"),
+             r.get("powiat_id"), r.get("gus_id"))
+            for r in rows
+        ]
+    )
+    print(f"[schema] seeded administrative_division with {len(rows)} rows")
+
+
 def ensure_extra_tables(con):
     """Tabela faktow paczkomatow (osobna encja, jak locations) + krotkie wymiary
     geograficzne (dim_powiat, dim_voivodeship). Z poziomu wymiarow pisze sie
     zapytania zestawiajace Żabki i paczkomaty (JOIN po powiat/voivodeship).
     Bezpieczne do wielokrotnego wywolania."""
+    # Sequences may be missing on databases that predate parcel_lockers.
+    for seq in ("seq_locations", "seq_parcel_lockers"):
+        try:
+            con.execute(f"CREATE SEQUENCE IF NOT EXISTS {seq} START 1")
+        except Exception:
+            pass
+
     con.execute("""
         CREATE TABLE IF NOT EXISTS parcel_lockers (
             id INTEGER PRIMARY KEY DEFAULT nextval('seq_parcel_lockers'),
@@ -265,36 +295,47 @@ def ensure_extra_tables(con):
         )
     """)
 
-#    Generowanie dynamicznych widokow wymiarow na bazie tabeli administrative_division
+    # Seed on a fresh or migrated DB that is missing the hierarchy data.
+    if con.execute("SELECT COUNT(*) FROM administrative_division").fetchone()[0] == 0:
+        _seed_administrative_division(con)
+
+    # Drop any old physical dim tables before recreating them as views.
+    for tbl in ("dim_voivodeship", "dim_powiat", "dim_gmina", "dim_miasto", "dim_city"):
+        try:
+            con.execute(f"DROP TABLE IF EXISTS {tbl} CASCADE")
+        except Exception:
+            pass
+
+    # Views backed by administrative_division.
     con.execute("DROP VIEW IF EXISTS dim_voivodeship")
     con.execute("""
-        CREATE VIEW dim_voivodeship AS 
-        SELECT id, name, population, area_km2 
-        FROM administrative_division 
+        CREATE VIEW dim_voivodeship AS
+        SELECT id, name, population, area_km2
+        FROM administrative_division
         WHERE level = 1
     """)
 
     con.execute("DROP VIEW IF EXISTS dim_powiat")
     con.execute("""
-        CREATE VIEW dim_powiat AS 
-        SELECT id, name, voivodeship_id, population, avg_salary, unemployment_rate, area_km2 
-        FROM administrative_division 
+        CREATE VIEW dim_powiat AS
+        SELECT id, name, voivodeship_id, population, avg_salary, unemployment_rate, area_km2
+        FROM administrative_division
         WHERE level = 2
     """)
 
     con.execute("DROP VIEW IF EXISTS dim_city")
     con.execute("""
-        CREATE VIEW dim_city AS 
-        SELECT id, name, voivodeship_id, powiat_id, population, area_km2 
-        FROM administrative_division 
+        CREATE VIEW dim_city AS
+        SELECT id, name, voivodeship_id, powiat_id, population, area_km2
+        FROM administrative_division
         WHERE level = 4
     """)
 
     con.execute("DROP VIEW IF EXISTS dim_gmina")
     con.execute("""
-        CREATE VIEW dim_gmina AS 
-        SELECT id, name, voivodeship_id, powiat_id, population, area_km2 
-        FROM administrative_division 
+        CREATE VIEW dim_gmina AS
+        SELECT id, name, voivodeship_id, powiat_id, population, area_km2
+        FROM administrative_division
         WHERE level = 3
     """)
 
@@ -336,29 +377,17 @@ ENRICHMENT_COLUMNS = [
 
 
 def ensure_enrichment_columns(con):
-    """Zapewnia obecnosc kolumn oraz migruje stare fizyczne tabele wymiarow."""
+    """Zapewnia obecnosc kolumn wzbogacenia. Bezpieczne do wielokrotnego wywolania."""
     for name, decl in ENRICHMENT_COLUMNS:
         con.execute(f"ALTER TABLE locations ADD COLUMN IF NOT EXISTS {name} {decl}")
-        
+
     con.execute("ALTER TABLE administrative_division ADD COLUMN IF NOT EXISTS gus_id VARCHAR")
-        
-    for col in ("voivodeship", "powiat", "light_pollution_brightness", "bortle_scale", "street"):
+
+    # Remove old fake-data columns (light pollution was derived from neighbor distance,
+    # never real measured data). voivodeship/powiat/street are kept — API depends on them.
+    for col in ("light_pollution_brightness", "bortle_scale"):
         try:
             con.execute(f"ALTER TABLE locations DROP COLUMN IF EXISTS {col}")
-        except Exception:
-            pass
-            
-    # # Pola "operator" nie usuwamy, poniewaz przechowuje ono dane InPost paczkomatow
-    # for col in ("type", "voivodeship", "powiat", "external_id"):
-    #     try:
-    #         con.execute(f"ALTER TABLE parcel_lockers DROP COLUMN IF EXISTS {col}")
-    #     except Exception:
-    #         pass
-            
-    # Usuwamy stare fizyczne tabele, jesli istnialy, zapobiegajac konfliktom z nowymi widokami
-    for tbl in ("dim_voivodeship", "dim_powiat", "dim_gmina", "dim_miasto", "dim_city"):
-        try:
-            con.execute(f"DROP TABLE IF EXISTS {tbl} CASCADE")
         except Exception:
             pass
 

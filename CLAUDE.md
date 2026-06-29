@@ -294,7 +294,6 @@ frontend/                - Vite SPA, modular ES + Chart.js + MapLibre GL + Obser
                            plus econ.js, edge.js, kraniec.js, bubble.js (bundled into their parent)
   public/                - og.png, robots.txt, sitemap.xml (copied to dist/ by Vite)
   dist/                  - built bundle shipped to prod
-  mock-data.js           - dev reference snapshot (700KB, shape matches API; not loaded in prod)
 
 data/                    - data + data documentation (chapter 3)
   input/                 - snapshot JSON
@@ -802,9 +801,6 @@ InPost dumbbell) lazy-fetch their `/api/stats/by-dimension`, `/neighbor-by-level
 separate Rollup chunks (`TAB_LOADERS`). `econ.js` is bundled into the spoleczenstwo chunk;
 `bubble.js`, `kraniec.js`, `edge.js` into the siec chunk. The default tab renders on load;
 the other renders on first click and is marked in `RENDERED` so it never double-renders.
-
-`frontend/mock-data.js` (700KB) is a dev reference — its shape is 1:1 with the API
-responses but it is no longer loaded by the production frontend.
 
 Note: `loadCore()` still fetches `sunday-by-voivodeship`, `voivodeship-density`, and
 `voivodeship` (merrychef); those datasets are not currently rendered as cards (the Sunday

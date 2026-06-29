@@ -25,7 +25,6 @@ from backend.etl.sources.amphibians import AmphibiansEnricher
 from backend.etl.sources.parks import ParksEnricher
 from backend.etl.sources.economy import fetch_gus_economics, _norm_powiat
 from backend.etl.sources.elevation import ElevationEnricher
-from backend.etl.sources.light_pollution import LightPollutionEnricher
 from backend.etl.sources.parcel_lockers import fetch_parcel_lockers
 
 

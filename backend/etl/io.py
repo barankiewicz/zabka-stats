@@ -571,28 +571,6 @@ def reload_cache():
 # LOAD: paczkomaty (osobna encja) + wymiary geograficzne
 # ---------------------------------------------------------------------------
 def load_parcel_lockers(con, lockers: list, sid: int, src_date: str):
-    """Zapisz paczkomaty jako SCD Type 2.
-    Porównuje biezace aktywne paczkomaty z wejsciowymi:
-    - nowe sa wstawiane (created_at = source_date)
-    - brakujace sa soft-deletowane (deleted_at = source_date)
-    - istniejace aktywne sa aktualizowane w miejscu gdy ulegly zmianie.
-    """
-    from backend.database_ch import ensure_extra_tables
-    ensure_extra_tables(con)
-    if not lockers:
-        print("[paczkomaty] brak danych")
-        return
-        
-    src_dt = datetime.fromisoformat(src_date)
-    
-    # Drop secondary indexes to avoid index corruption/fatal errors during bulk update
-    for idx in ("idx_lockers_voiv_id", "idx_lockers_powiat_id", "idx_lockers_miasto_id", "idx_lockers_gmina_id", "idx_lockers_deleted_at", "idx_lockers_external_id"):
-        try:
-            con.execute(f"DROP INDEX IF EXISTS {idx}")
-        except Exception:
-            pass
-
-def load_parcel_lockers(con, lockers: list, sid: int, src_date: str):
     """Zapisz paczkomaty w tabeli parcel_lockers.
     Porównuje biezace aktywne paczkomaty z wejsciowymi:
     - nowe sa wstawiane (created_at = source_date)
