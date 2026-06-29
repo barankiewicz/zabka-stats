@@ -78,7 +78,6 @@ async function renderTab(tab){
     if(tab==='siec'){
       registerFilterCallbacks(null, mod.renderGranular, null);
       mod.renderSiec();
-      mod.wireH3Toggle();
     } else if(tab==='spoleczenstwo'){
       registerFilterCallbacks(null, null, mod.renderDumbbellByLevel);
       mod.renderSpoleczenstwo();
@@ -111,10 +110,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   const btn=document.getElementById('filter-clear');if(btn)btn.addEventListener('click',clearFilter);
 });
 
-// spoleczenstwo is the default tab: load the core data, then render it (its
-// module + wireInpostLevel are handled inside renderTab). Mark it RENDERED so
-// the tab-click handler does not double-render on the first click.
-RENDERED.add('spoleczenstwo');
+// SIEC is the default tab. loadCore() fetches only what SIEC needs for first
+// paint; per-tab heavy payloads (spoleczenstwo economics etc.) load on first click.
+RENDERED.add('siec');
 loadCore()
-  .then(()=>{renderKPI();setTimeout(()=>renderTab('spoleczenstwo'),120)})
+  .then(()=>{renderKPI();setTimeout(()=>renderTab('siec'),120)})
   .catch(err=>console.error('loadCore failed:',err));

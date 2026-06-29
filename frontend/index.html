@@ -90,8 +90,8 @@
   <div class="nav-inner">
     <a class="brand" href="#top"><span class="brand-dot"></span>Żabka w liczbach</a>
     <div class="tab-nav" role="tablist" aria-label="Sekcje dashboardu">
-      <button class="tab-btn" id="tab-btn-siec" data-tab="siec" role="tab" aria-selected="false" aria-controls="tab-siec">Sieć</button>
-      <button class="tab-btn active" id="tab-btn-spoleczenstwo" data-tab="spoleczenstwo" role="tab" aria-selected="true" aria-controls="tab-spoleczenstwo">Żabka a Polska</button>
+      <button class="tab-btn active" id="tab-btn-siec" data-tab="siec" role="tab" aria-selected="true" aria-controls="tab-siec">Sieć</button>
+      <button class="tab-btn" id="tab-btn-spoleczenstwo" data-tab="spoleczenstwo" role="tab" aria-selected="false" aria-controls="tab-spoleczenstwo">Żabka a Polska</button>
     </div>
   </div>
 </nav>
@@ -103,7 +103,7 @@
 <!-- ============ SIEC ============ -->
 <main id="main-content">
 <h1 class="sr-only">Żabka w liczbach – interaktywny atlas sieci sklepów w Polsce</h1>
-<div id="tab-siec" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-siec" tabindex="0">
+<div id="tab-siec" class="tab-panel active" role="tabpanel" aria-labelledby="tab-btn-siec" tabindex="0">
 <div class="section-wrap">
 
   <!-- HERO -->
@@ -259,7 +259,6 @@
       <div class="gran-right">
         <div class="map-container">
           <div id="map-granular-woj"></div>
-          <button id="h3-hexbin-toggle" class="map-overlay-btn" title="Przełącz hexagonalny podgląd gęstości H3 resolution 9">H3</button>
         </div>
       </div>
     </div>
@@ -398,7 +397,7 @@
 </div>
 
 <!-- ============ SPOLECZENSTWO ============ -->
-<div id="tab-spoleczenstwo" class="tab-panel active" role="tabpanel" aria-labelledby="tab-btn-spoleczenstwo" tabindex="0">
+<div id="tab-spoleczenstwo" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-spoleczenstwo" tabindex="0">
 <div class="section-wrap">
 
   <!-- HERO spoleczenstwo -->

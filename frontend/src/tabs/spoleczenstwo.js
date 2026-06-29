@@ -362,6 +362,7 @@ function _drawNbl(data){
       borderRadius:2,borderWidth:0
     }]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      layout:{padding:{right:72,top:4}},
       plugins:{legend:{display:false},
         tooltip:{callbacks:{label:ctx=>{const d=rows[ctx.dataIndex];if(!d)return[];return [
           `mediana ${d.median_m.toLocaleString('pl-PL')} m`,

@@ -309,17 +309,17 @@ export function renderGrowthMap(){
     try {
       growthMap=createMap('map-growth',{
         center:[19.3,52.05],zoom:5.6,minZoom:5,maxZoom:9,
-        pitch:38,bearing:0,
-        dragRotate:true,pitchWithRotate:true,touchPitch:true,
+        pitch:0,bearing:0,
+        dragRotate:false,pitchWithRotate:false,touchPitch:false,
         maxBounds:[[13.6,48.8],[24.2,55.0]],
-        cooperativeGestures:true,   // ctrl+scroll to zoom; page scrolls otherwise
+        cooperativeGestures:true,
       });
       MAPS['map-growth']=growthMap;
 
       if(!el.querySelector('.map-zoom-hint')){
         const hint=document.createElement('div');
         hint.className='map-zoom-hint';
-        hint.textContent='ctrl + scroll przybliża · prawy przycisk obraca';
+        hint.textContent='ctrl + scroll przybliża';
         el.appendChild(hint);
       }
       if(!el.querySelector('.map-reset-btn')){
@@ -327,7 +327,7 @@ export function renderGrowthMap(){
         rb.className='map-reset-btn';rb.type='button';
         rb.textContent='Reset widoku';
         rb.setAttribute('aria-label','Resetuj widok mapy');
-        rb.addEventListener('click',()=>{growthMap.easeTo({pitch:38,bearing:0,zoom:5.6,center:[19.3,52.05],duration:600})});
+        rb.addEventListener('click',()=>{growthMap.easeTo({pitch:0,bearing:0,zoom:5.6,center:[19.3,52.05],duration:600})});
         el.appendChild(rb);
       }
 
@@ -342,19 +342,30 @@ export function renderGrowthMap(){
         // era colour steps mirror the old era() helper; circle-blur produces the
         // density halo that used to be hand-painted onto Canvas 2D per cluster.
         // circle-pitch-alignment:map lays the dots on the tilted surface (3D).
+        // glow halo layer — same dots, larger + blurry, drawn first so the sharp dot sits on top
+        growthMap.addLayer({
+          id:'stores-glow',type:'circle',source:'stores',
+          paint:{
+            'circle-radius':4.5,
+            'circle-color':['step',['get','year'],
+              '#2b531a', 2010,'#4a8a22', 2020,'#74bd2a', 2023,'#a6e84a'],
+            'circle-opacity':0.18,
+            'circle-blur':1,
+          },
+        });
         growthMap.addLayer({
           id:'stores-dots',type:'circle',source:'stores',
           paint:{
             'circle-radius':1.7,
             'circle-color':['step',['get','year'],
               '#2b531a', 2010,'#4a8a22', 2020,'#74bd2a', 2023,'#a6e84a'],
-            'circle-opacity':0.72,
-            'circle-blur':0.35,
-            'circle-pitch-alignment':'map',
+            'circle-opacity':0.82,
+            'circle-blur':0.2,
           },
         });
         // start empty so the sweep animates dots in year by year
         growthMap.setFilter('stores-dots',['<=',['get','year'],GROWTH_MIN-1]);
+        growthMap.setFilter('stores-glow',['<=',['get','year'],GROWTH_MIN-1]);
         play();
       });
       window.addEventListener('resize',()=>{drawCalendar(slider?+slider.value:GROWTH_MAX)});
@@ -372,13 +383,16 @@ export function renderGrowthMap(){
   // grid, and shimmer the glow across the last 35% of the timeline.
   function setYear(yr,now){
     if(growthMap.getLayer('stores-dots'))growthMap.setFilter('stores-dots',['<=',['get','year'],yr]);
+    if(growthMap.getLayer('stores-glow'))growthMap.setFilter('stores-glow',['<=',['get','year'],yr]);
     if(yrLabel)yrLabel.textContent=yr;
     drawCalendar(yr);
     if(now&&growthMap.getLayer('stores-dots')){
       const progress=(yr-GROWTH_MIN)/(GROWTH_MAX-GROWTH_MIN);
       const glowGain=Math.max(0,(progress-0.65)/0.35);
+      const glowOpacity=0.18+0.12*glowGain;
       const blur=glowGain>0?0.35+0.25*Math.sin(now/600)*glowGain:0.35;
-      growthMap.setPaintProperty('stores-dots','circle-blur',blur);
+      growthMap.setPaintProperty('stores-dots','circle-blur',blur*0.5);
+      growthMap.setPaintProperty('stores-glow','circle-opacity',glowOpacity);
     }
   }
 
@@ -1086,26 +1100,8 @@ async function renderWojMap(){
         _wojMap.getCanvas().style.cursor='';
         if(_wojTip)_wojTip.style.display='none';
       });
-      // H3 hexbin source + layers (hidden by default, toggled by #h3-hexbin-toggle)
-      _wojMap.addSource('h3-hexbins',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
-      _wojMap.addLayer({
-        id:'h3-hex-fill',type:'fill',source:'h3-hexbins',
-        layout:{visibility:'none'},
-        paint:{
-          'fill-color':['interpolate',['linear'],['get','count'],
-            1,'#1e4019', 5,'#2d6324', 15,'#4a9228', 50,'#72c133', 150,'#a6e84a'],
-          'fill-opacity':0.78,
-        },
-      });
-      _wojMap.addLayer({
-        id:'h3-hex-line',type:'line',source:'h3-hexbins',
-        layout:{visibility:'none'},
-        paint:{'line-color':'#0a120a','line-width':0.4,'line-opacity':0.5},
-      });
-
       fitPoland(_wojMap,6);
       _wojSrcReady=true;
-      if(_h3Active)_applyH3Visibility();
     });
     } catch (e) {
       if (e instanceof WebGLUnavailableError) {
@@ -1126,42 +1122,6 @@ function _setActive(group,btn){
   document.querySelectorAll(`#${group} .gran-btn`).forEach(b=>{
     b.classList.toggle('active',b===btn);
     b.setAttribute('aria-pressed',b===btn?'true':'false');
-  });
-}
-
-/* ---- H3 hexbin toggle ---- */
-let _h3Active=false,_h3Fetched=false;
-
-function _applyH3Visibility(){
-  if(!_wojMap)return;
-  const vis=_h3Active?'visible':'none';
-  if(_wojMap.getLayer('h3-hex-fill'))_wojMap.setLayoutProperty('h3-hex-fill','visibility',vis);
-  if(_wojMap.getLayer('h3-hex-line'))_wojMap.setLayoutProperty('h3-hex-line','visibility',vis);
-  // Fade the voivodeship fill so hexagons read clearly
-  if(_wojMap.getLayer('gran-woj-fill')){
-    _wojMap.setPaintProperty('gran-woj-fill','fill-opacity',
-      _h3Active?0.18:['case',['boolean',['feature-state','hover'],false],0.98,0.86]);
-  }
-}
-
-export function wireH3Toggle(){
-  const btn=document.getElementById('h3-hexbin-toggle');
-  if(!btn||btn._wiredH3)return;
-  btn._wiredH3=true;
-  btn.addEventListener('click',async()=>{
-    _h3Active=!_h3Active;
-    btn.classList.toggle('active',_h3Active);
-    if(_h3Active&&!_h3Fetched){
-      try{
-        const data=await fetch('/api/geo/h3-hexbins').then(r=>r.json());
-        if(_wojMap&&_wojMap.getSource('h3-hexbins'))_wojMap.getSource('h3-hexbins').setData(data);
-        _h3Fetched=true;
-      }catch(e){
-        console.warn('[H3] fetch failed',e);
-        _h3Active=false;btn.classList.remove('active');return;
-      }
-    }
-    _applyH3Visibility();
   });
 }
 

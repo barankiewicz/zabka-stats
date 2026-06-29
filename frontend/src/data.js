@@ -24,51 +24,49 @@ function clearSkel() {
   document.querySelectorAll('[data-skel-applied]').forEach(el=>{el.classList.remove('skel');delete el.dataset.skelApplied});
 }
 
-// Core bucket: everything the default tab (spoleczenstwo / "Żabka a Polska")
-// plus the shared KPI/header need. The heavy per-tab payloads (stores-timeline,
-// amphibians, the edge-case facts) are deferred to loadTabData() so they stay
-// off the critical path on first paint.
+// Core bucket: the minimum set of data needed for the SIEC tab first paint
+// (hero count-up, stat strip, growth chart, GRAN map, Atlas). Heavy
+// spoleczenstwo-only payloads (economics, density, inpost, streets, gmina
+// leaders, nbl) are deferred to loadSpoleczenstwo() so they don't block the
+// default tab.
 let _coreDone = false;
 export async function loadCore() {
   if (_coreDone) return;
   _coreDone = true;
   applySkel();
   const [
-    summary, wojGeo, economics, sunday, density, merrychef, inpost, perCapita, section3, openingHours,
-    commonStreets, gminaLeaders, neighborByLevel, coverageFunnel, neighborStats,
+    summary, wojGeo, networkGrowth, networkOrigin, neighborStats,
+    coverageFunnel, perCapita, section3, openingHours,
   ] = await Promise.allSettled([
     fetchJSON(`${BASE}/stats/summary`),
     fetchJSON(`${BASE}/geo/voivodeships`),
-    fetchJSON(`${BASE}/stats/powiat-economics`),
-    fetchJSON(`${BASE}/stats/sunday-by-voivodeship`),
-    fetchJSON(`${BASE}/stats/voivodeship-density`),
-    fetchJSON(`${BASE}/stats/voivodeship`),
-    fetchJSON(`${BASE}/stats/inpost-vs-zabka`),
+    fetchJSON(`${BASE}/stats/network-growth`),
+    fetchJSON(`${BASE}/stats/network-origin`),
+    fetchJSON(`${BASE}/stats/neighbor-stats`),
+    fetchJSON(`${BASE}/stats/coverage-funnel`),
     fetchJSON(`${BASE}/stats/per-capita`),
     fetchJSON(`${BASE}/stats/section3-rare`),
     fetchJSON(`${BASE}/stats/opening-hours`),
-    fetchJSON(`${BASE}/stats/common-streets?limit=15`),
-    fetchJSON(`${BASE}/stats/gmina-leaders?limit=12`),
-    fetchJSON(`${BASE}/stats/neighbor-by-level?level=voivodeship&sort=asc`),
-    fetchJSON(`${BASE}/stats/coverage-funnel`),
-    fetchJSON(`${BASE}/stats/neighbor-stats`),
   ]);
   Object.assign(M, {
-    summary:               val(summary, {total_active:0, cities_count:0, merrychef_pct:0, sunday_pct:0, h24_count:0}),
-    woj_geo:               val(wojGeo, {type:'FeatureCollection', features:[]}),
-    powiat_economics:      val(economics, []),
-    sunday_by_voivodeship: val(sunday, []),
-    voivodeship_density:   val(density, []),
-    voivodeship_merrychef: val(merrychef, []),
-    inpost_vs_zabka:       val(inpost, []),
-    per_capita:            val(perCapita, []),
-    section3_rare:         val(section3, {}),
-    opening_hours:         val(openingHours, []),
-    common_streets:        val(commonStreets, {streets:[], distinct:0}),
-    gmina_leaders:         val(gminaLeaders, {per_1k:[], per_km2:[], national_per_1k:null}),
-    neighbor_by_level:     val(neighborByLevel, {rows:[], total:0, level:'voivodeship'}),
-    coverage_funnel:       val(coverageFunnel, []),
-    neighbor_stats:        val(neighborStats, {}),
+    summary:          val(summary, {total_active:0, cities_count:0, merrychef_pct:0, sunday_pct:0, h24_count:0}),
+    woj_geo:          val(wojGeo, {type:'FeatureCollection', features:[]}),
+    network_growth:   val(networkGrowth, []),
+    network_origin:   val(networkOrigin, {}),
+    neighbor_stats:   val(neighborStats, {}),
+    coverage_funnel:  val(coverageFunnel, []),
+    per_capita:       val(perCapita, []),
+    section3_rare:    val(section3, {}),
+    opening_hours:    val(openingHours, []),
+    // pre-fill keys that spoleczenstwo reads so they're never undefined
+    powiat_economics:      [],
+    sunday_by_voivodeship: [],
+    voivodeship_density:   [],
+    voivodeship_merrychef: [],
+    inpost_vs_zabka:       [],
+    common_streets:        {streets:[], distinct:0},
+    gmina_leaders:         {per_1k:[], per_km2:[], national_per_1k:null},
+    neighbor_by_level:     {rows:[], total:0, level:'voivodeship'},
     timeline_monthly:      [],
   });
   clearSkel();
@@ -79,28 +77,20 @@ const _tabLoaded = new Set();
 export async function loadTabData(tab) {
   if (_tabLoaded.has(tab)) return;
   _tabLoaded.add(tab);
-  if (tab === 'siec')  await loadSiec();
-  else if (tab === 'edge')  await loadEdge();
-  // 'spoleczenstwo' is fully covered by the core bucket.
+  if (tab === 'siec')           await loadSiec();
+  else if (tab === 'spoleczenstwo') await loadSpoleczenstwo();
 }
 
 async function loadSiec() {
   const [
-    networkGrowth, networkOrigin, storesTimeline, openingHours, growthByVoiv,
-    cityFirst, topCities, openingsMonthly, coverageFunnel, powiatCoverage, neighborStats,
-    kraniec, elevation, parksStores, twins, amphibians,
+    storesTimeline, openingsMonthly, cityFirst, topCities,
+    powiatCoverage, kraniec, elevation, parksStores, twins, amphibians,
   ] = await Promise.allSettled([
-    fetchJSON(`${BASE}/stats/network-growth`),
-    fetchJSON(`${BASE}/stats/network-origin`),
     fetchJSON(`${BASE}/stats/stores-timeline`),
-    fetchJSON(`${BASE}/stats/opening-hours`),
-    fetchJSON(`${BASE}/stats/growth-by-voivodeship`),
+    fetchJSON(`${BASE}/stats/openings-monthly`),
     fetchJSON(`${BASE}/stats/city-first-opening`),
     fetchJSON(`${BASE}/stats/top-cities?limit=20`),
-    fetchJSON(`${BASE}/stats/openings-monthly`),
-    fetchJSON(`${BASE}/stats/coverage-funnel`),
     fetchJSON(`${BASE}/stats/powiat-coverage`),
-    fetchJSON(`${BASE}/stats/neighbor-stats`),
     fetchJSON(`${BASE}/stats/kraniec-facts`),
     fetchJSON(`${BASE}/stats/elevation`),
     fetchJSON(`${BASE}/stats/parks-stores`),
@@ -109,43 +99,42 @@ async function loadSiec() {
   ]);
   const kf = val(kraniec, {facts:[], backdrop:[]});
   Object.assign(M, {
-    network_growth:        val(networkGrowth, []),
-    network_origin:        val(networkOrigin, {}),
-    stores_timeline:       val(storesTimeline, {}),
-    opening_hours:         val(openingHours, {}),
-    growth_by_voivodeship: val(growthByVoiv, []),
-    city_first_opening:    val(cityFirst, []),
-    top_cities:            val(topCities, []),
-    openings_monthly:      val(openingsMonthly, []),
-    coverage_funnel:       val(coverageFunnel, []),
-    powiat_coverage:       val(powiatCoverage, {total:0, covered:0, dots:[]}),
-    neighbor_stats:        val(neighborStats, {}),
-    kraniec_facts:         kf.facts || [],
-    points_sample:         kf.backdrop || [],
-    elevation:             val(elevation, {}),
-    parks_stores:          val(parksStores, []),
-    twins:                 val(twins, {within_50m:0, within_100m:0, within_200m:0, total:0, closest_pairs:[], same_address:[], points:[], points_50:[]}),
-    amphibian_extremes:    val(amphibians, {}),
+    stores_timeline:   val(storesTimeline, {}),
+    openings_monthly:  val(openingsMonthly, []),
+    city_first_opening: val(cityFirst, []),
+    top_cities:        val(topCities, []),
+    powiat_coverage:   val(powiatCoverage, {total:0, covered:0, dots:[]}),
+    kraniec_facts:     kf.facts || [],
+    points_sample:     kf.backdrop || [],
+    elevation:         val(elevation, {}),
+    parks_stores:      val(parksStores, []),
+    twins:             val(twins, {within_50m:0, within_100m:0, within_200m:0, total:0, closest_pairs:[], same_address:[], points:[], points_50:[]}),
+    amphibian_extremes: val(amphibians, {}),
   });
 }
 
-async function loadEdge() {
-  const [kraniec, elevation, neighborStats, parksStores, twins, amphibians] = await Promise.allSettled([
-    fetchJSON(`${BASE}/stats/kraniec-facts`),
-    fetchJSON(`${BASE}/stats/elevation`),
-    fetchJSON(`${BASE}/stats/neighbor-stats`),
-    fetchJSON(`${BASE}/stats/parks-stores`),
-    fetchJSON(`${BASE}/stats/twins`),
-    fetchJSON(`${BASE}/stats/amphibians`),
+async function loadSpoleczenstwo() {
+  const [
+    economics, sunday, density, merrychef, inpost, commonStreets,
+    gminaLeaders, neighborByLevel,
+  ] = await Promise.allSettled([
+    fetchJSON(`${BASE}/stats/powiat-economics`),
+    fetchJSON(`${BASE}/stats/sunday-by-voivodeship`),
+    fetchJSON(`${BASE}/stats/voivodeship-density`),
+    fetchJSON(`${BASE}/stats/voivodeship`),
+    fetchJSON(`${BASE}/stats/inpost-vs-zabka`),
+    fetchJSON(`${BASE}/stats/common-streets?limit=15`),
+    fetchJSON(`${BASE}/stats/gmina-leaders?limit=12`),
+    fetchJSON(`${BASE}/stats/neighbor-by-level?level=voivodeship&sort=asc`),
   ]);
-  const kf = val(kraniec, {facts:[], backdrop:[]});
   Object.assign(M, {
-    kraniec_facts:      kf.facts || [],
-    points_sample:      kf.backdrop || [],
-    elevation:          val(elevation, {}),
-    neighbor_stats:     val(neighborStats, {}),
-    parks_stores:       val(parksStores, []),
-    twins:              val(twins, {within_50m:0, within_100m:0, within_200m:0, total:0, closest_pairs:[], same_address:[], points:[], points_50:[]}),
-    amphibian_extremes: val(amphibians, {}),
+    powiat_economics:      val(economics, []),
+    sunday_by_voivodeship: val(sunday, []),
+    voivodeship_density:   val(density, []),
+    voivodeship_merrychef: val(merrychef, []),
+    inpost_vs_zabka:       val(inpost, []),
+    common_streets:        val(commonStreets, {streets:[], distinct:0}),
+    gmina_leaders:         val(gminaLeaders, {per_1k:[], per_km2:[], national_per_1k:null}),
+    neighbor_by_level:     val(neighborByLevel, {rows:[], total:0, level:'voivodeship'}),
   });
 }

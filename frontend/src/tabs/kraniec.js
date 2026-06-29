@@ -22,7 +22,7 @@ const COL = {
   history:    '#a6e84a',
 };
 
-const HOME = [52.05, 19.3], HOME_Z = 6;
+const HOME = [19.3, 52.05], HOME_Z = 6;
 
 let _krDone = false, _krMap = null, _select = null, _highlight = null;
 export function selectFact(id) { if (_select) _select(id); }

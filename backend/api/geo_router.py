@@ -2,7 +2,6 @@ import json
 import math
 from pathlib import Path
 
-import h3
 from litestar import Response, Router, get
 from litestar.exceptions import HTTPException
 from litestar.params import FromQuery
@@ -379,39 +378,6 @@ async def voivodeship_density() -> list[VoivodeshipDensityResponseItem]:
         for r in rows if r[0]
     ]
 
-@get("/geo/h3-hexbins")
-@cached(ttl=3600)
-async def h3_hexbins() -> dict:
-    """H3 resolution-9 hexagon counts as a GeoJSON FeatureCollection.
-
-    Each feature is one H3 cell with a `count` property. Suitable for a
-    MapLibre fill layer — cells are coloured by store density without any
-    administrative boundary bias.
-    """
-    rows = client.execute("""
-        SELECT h3_index_9, COUNT(*) AS cnt
-        FROM locations
-        WHERE deleted_at IS NULL AND h3_index_9 IS NOT NULL
-        GROUP BY h3_index_9
-    """).fetchall()
-
-    features = []
-    for cell, cnt in rows:
-        try:
-            boundary = h3.cell_to_boundary(cell)
-        except Exception:
-            continue
-        ring = [[lng, lat] for lat, lng in boundary]
-        ring.append(ring[0])
-        features.append({
-            "type": "Feature",
-            "properties": {"count": cnt},
-            "geometry": {"type": "Polygon", "coordinates": [ring]},
-        })
-
-    return {"type": "FeatureCollection", "features": features}
-
-
 router = Router(
     path="",
     route_handlers=[
@@ -423,6 +389,5 @@ router = Router(
         by_dimension,
         gmina_leaders,
         voivodeship_density,
-        h3_hexbins,
     ]
 )
