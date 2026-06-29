@@ -30,13 +30,13 @@ Cron (raz dziennie o 3:00):
   0 3 * * * cd /home/alice/zabka-dashboard && python -m backend.daily_etl >> logs/etl.log 2>&1
 """
 
+import argparse
 import os
 import sys
-import argparse
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from backend.etl.pipeline import run   # reeksport: from backend.daily_etl import run
+from backend.etl.pipeline import run  # reeksport: from backend.daily_etl import run
 
 __all__ = ["run", "main"]
 

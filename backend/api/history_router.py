@@ -1,11 +1,13 @@
 """History API endpoints (DuckDB)."""
 
-from typing import Optional
+
 from litestar import Router, get
 from litestar.exceptions import HTTPException
-from litestar.params import FromQuery, FromPath
-from backend.database_ch import client
+from litestar.params import FromPath, FromQuery
+
 from backend.cache import cached
+from backend.database_ch import client
+
 
 @get("/history/location/{location_id:int}")
 @cached(ttl=3600)
@@ -53,8 +55,8 @@ async def get_location_history(
 @get("/changes/monthly")
 @cached(ttl=3600)
 async def get_monthly_changes(
-    year: FromQuery[Optional[int]] = None,
-    voivodeship: FromQuery[Optional[str]] = None,
+    year: FromQuery[int | None] = None,
+    voivodeship: FromQuery[str | None] = None,
 ) -> dict:
     """Get monthly change statistics (created and deleted events only)."""
     where_clauses = []
@@ -118,7 +120,7 @@ async def get_monthly_changes(
 @get("/changes/voivodeship")
 @cached(ttl=3600)
 async def get_voivodeship_changes(
-    month: FromQuery[Optional[str]] = None,
+    month: FromQuery[str | None] = None,
 ) -> dict:
     """Get change statistics aggregated by voivodeship."""
     where = ""

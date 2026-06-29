@@ -4,12 +4,9 @@ Real-time data from Open-Meteo, OpenLightMap, Lightningmaps.
 No caching to DB - always fresh!
 """
 
-import requests
-import asyncio
-import math
-from typing import Dict, List, Optional, Tuple
-from functools import lru_cache
 from datetime import datetime, timedelta
+
+import requests
 
 # APIs
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
@@ -40,7 +37,7 @@ VOIVODESHIP_CENTROIDS = {
 _weather_in_memory_cache = {}
 _weather_cache_expiry = None
 
-def get_all_voivodeship_weather_cached() -> Dict[str, Dict]:
+def get_all_voivodeship_weather_cached() -> dict[str, dict]:
     """
     Get current weather for all 16 Polish voivodeship centroids in a single call.
     Caches the results in Redis or in-memory.
@@ -125,7 +122,7 @@ def get_all_voivodeship_weather_cached() -> Dict[str, Dict]:
     return _weather_in_memory_cache or {}
 
 
-def get_weather_for_location(lat: float, lon: float, voivodeship: str = None) -> Dict:
+def get_weather_for_location(lat: float, lon: float, voivodeship: str = None) -> dict:
     """
     Get current weather for a location from Open-Meteo. Uses voivodeship-level cached weather.
     """
@@ -191,7 +188,7 @@ def get_weather_for_location(lat: float, lon: float, voivodeship: str = None) ->
     }
 
 
-def get_light_pollution(lat: float, lon: float) -> Dict:
+def get_light_pollution(lat: float, lon: float) -> dict:
     """
     Get light pollution data from OpenLightMap.
     Returns: {
@@ -255,7 +252,7 @@ def get_light_pollution(lat: float, lon: float) -> Dict:
         }
 
 
-def get_nearby_lightning(lat: float, lon: float, radius_km: float = 50) -> Dict:
+def get_nearby_lightning(lat: float, lon: float, radius_km: float = 50) -> dict:
     """
     Get recent lightning strikes within radius.
     """
@@ -309,7 +306,7 @@ def get_nearby_lightning(lat: float, lon: float, radius_km: float = 50) -> Dict:
         }
 
 
-async def get_extremes_with_live_data(locations: List[Dict]) -> Dict:
+async def get_extremes_with_live_data(locations: list[dict]) -> dict:
     """
     Find extreme locations and fetch their live weather/AQ data using cached/optimized lookups.
     """

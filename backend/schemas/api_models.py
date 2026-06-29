@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional, Dict, Any
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field
 
 # --- Shared & Base Schemas ---
 
@@ -19,13 +20,13 @@ class StoreOriginItem(BaseModel):
     city: str
     voivodeship: str
     street: str
-    first_opening_date: Optional[str]
-    lat: Optional[float]
-    lon: Optional[float]
+    first_opening_date: str | None
+    lat: float | None
+    lon: float | None
 
 class NetworkOriginResponse(BaseModel):
-    oldest: Dict[str, Any]
-    newest: Dict[str, Any]
+    oldest: dict[str, Any]
+    newest: dict[str, Any]
     new_this_month: int
 
 class StoreTimelineRange(BaseModel):
@@ -33,16 +34,16 @@ class StoreTimelineRange(BaseModel):
     max: int
 
 class StoreTimelineMilestones(BaseModel):
-    m1000: Optional[int] = Field(None, alias="1000")
-    m2000: Optional[int] = Field(None, alias="2000")
-    m5000: Optional[int] = Field(None, alias="5000")
-    m10000: Optional[int] = Field(None, alias="10000")
+    m1000: int | None = Field(None, alias="1000")
+    m2000: int | None = Field(None, alias="2000")
+    m5000: int | None = Field(None, alias="5000")
+    m10000: int | None = Field(None, alias="10000")
 
     model_config = ConfigDict(populate_by_name=True)
 
 class StoreTimelineResponse(BaseModel):
-    stores: List[List[Any]]
-    undated: List[List[float]]
+    stores: list[list[Any]]
+    undated: list[list[float]]
     year_range: StoreTimelineRange
     milestones: StoreTimelineMilestones
 
@@ -117,7 +118,7 @@ class InPostVsZabkaByLevelResponseItem(BaseModel):
     ratio: float
 
 class InPostVsZabkaByLevelResponse(BaseModel):
-    rows: List[InPostVsZabkaByLevelResponseItem]
+    rows: list[InPostVsZabkaByLevelResponseItem]
     total: int
     level: str
 
@@ -136,16 +137,16 @@ class ElevationExtremeItem(BaseModel):
     elevation_meters: float
 
 class ElevationPercentiles(BaseModel):
-    p5: Optional[int]
-    p95: Optional[int]
+    p5: int | None
+    p95: int | None
 
 class ElevationHistogramItem(BaseModel):
     bucket_m: int
     cnt: int
 
 class ElevationResponse(BaseModel):
-    extremes: List[ElevationExtremeItem]
-    histogram: List[ElevationHistogramItem]
+    extremes: list[ElevationExtremeItem]
+    histogram: list[ElevationHistogramItem]
     percentiles: ElevationPercentiles
 
 # --- Neighbor Schemas ---
@@ -164,7 +165,7 @@ class NeighborDistribution(BaseModel):
     median_m: float
     avg_m: float
     max_m: float
-    buckets: List[NeighborBucket]
+    buckets: list[NeighborBucket]
 
 class NeighborStatsResponse(BaseModel):
     loner: LonerStore
@@ -179,7 +180,7 @@ class NeighborByLevelItem(BaseModel):
     avg_m: int
 
 class NeighborByLevelResponse(BaseModel):
-    rows: List[NeighborByLevelItem]
+    rows: list[NeighborByLevelItem]
     total: int
     level: str
     metric: str
@@ -204,10 +205,10 @@ class TwinsResponse(BaseModel):
     within_100m: int
     within_200m: int
     total: int
-    closest_pairs: List[Dict[str, Any]]
-    same_address: List[SameAddressItem]
-    points: List[TwinPoint]
-    points_50: List[TwinPoint]
+    closest_pairs: list[dict[str, Any]]
+    same_address: list[SameAddressItem]
+    points: list[TwinPoint]
+    points_50: list[TwinPoint]
 
 # --- Kraniec Facts Schemas ---
 
@@ -225,17 +226,17 @@ class KraniecFactItem(BaseModel):
     type: str
 
 class KraniecFactsResponse(BaseModel):
-    facts: List[KraniecFactItem]
-    backdrop: List[List[float]]
+    facts: list[KraniecFactItem]
+    backdrop: list[list[float]]
 
 # --- Ecology / Amphibians Schemas ---
 
 class FarthestFromFrog(BaseModel):
-    city: Optional[str]
-    voivodeship: Optional[str]
-    nearest_amphibian_km: Optional[float]
-    latitude: Optional[float]
-    longitude: Optional[float]
+    city: str | None
+    voivodeship: str | None
+    nearest_amphibian_km: float | None
+    latitude: float | None
+    longitude: float | None
 
 class MostFroggy(BaseModel):
     city: str
@@ -261,19 +262,19 @@ class AmphibianTop10Item(BaseModel):
     occ: int
 
 class AmphibianExtremesResponse(BaseModel):
-    gbif_total: Optional[int]
-    median_occurrences: Optional[int]
+    gbif_total: int | None
+    median_occurrences: int | None
     has_enriched_data: bool
     most_froggy: MostFroggy
-    zero_frog_count: Optional[int]
+    zero_frog_count: int | None
     farthest_from_frog: FarthestFromFrog
-    voivodeship_names: List[str]
-    stores: List[List[Any]]
-    scatter_sample: List[List[int]]
-    distribution: List[AmphibianDistributionItem]
-    by_voivodeship: List[AmphibianByVoivodeshipItem]
-    top10: List[AmphibianTop10Item]
-    gbif_obs: List[Any]
+    voivodeship_names: list[str]
+    stores: list[list[Any]]
+    scatter_sample: list[list[int]]
+    distribution: list[AmphibianDistributionItem]
+    by_voivodeship: list[AmphibianByVoivodeshipItem]
+    top10: list[AmphibianTop10Item]
+    gbif_obs: list[Any]
 
 class H24CityItem(BaseModel):
     city: str
@@ -288,7 +289,7 @@ class ParkTop3Item(BaseModel):
 class Section3Parks(BaseModel):
     count: int
     total: int
-    top3: List[ParkTop3Item]
+    top3: list[ParkTop3Item]
 
 class Section3Void(BaseModel):
     value: float
@@ -322,39 +323,39 @@ class PhysicalStreetItem(BaseModel):
     cnt: int
 
 class Section3RareResponse(BaseModel):
-    h24_cities: List[H24CityItem]
-    h24_points: List[List[float]]
+    h24_cities: list[H24CityItem]
+    h24_points: list[list[float]]
     parks: Section3Parks
     void: Section3Void
-    frog_streets: List[FrogStreetItem]
+    frog_streets: list[FrogStreetItem]
     frog_streets_count: int
-    west_wall_points: List[List[float]]
+    west_wall_points: list[list[float]]
     powiats_covered: int
-    powiat_range: List[PowiatRangeItem]
+    powiat_range: list[PowiatRangeItem]
     civic_streets: CivicStreets
-    physical_streets: List[PhysicalStreetItem]
+    physical_streets: list[PhysicalStreetItem]
 
 # --- Geo / Coverage Schemas ---
 
 class PowiatCoverageResponse(BaseModel):
     total: int
     covered: int
-    dots: List[List[float]]
+    dots: list[list[float]]
 
 class ByDimensionItem(BaseModel):
     name: str
     cnt: int
-    population: Optional[int]
-    area_km2: Optional[float]
-    per_1k: Optional[float]
-    per_km2: Optional[float]
-    lat: Optional[float]
-    lon: Optional[float]
+    population: int | None
+    area_km2: float | None
+    per_1k: float | None
+    per_km2: float | None
+    lat: float | None
+    lon: float | None
     voivodeship: str
-    geo_id: Optional[str]
+    geo_id: str | None
 
 class ByDimensionResponse(BaseModel):
-    rows: List[ByDimensionItem]
+    rows: list[ByDimensionItem]
     total: int
     dim: str
     metric: str
@@ -382,15 +383,15 @@ class GminaLeadersItem(BaseModel):
     name: str
     voivodeship: str
     cnt: int
-    population: Optional[int]
-    area_km2: Optional[float]
-    per_1k: Optional[float]
-    per_km2: Optional[float]
+    population: int | None
+    area_km2: float | None
+    per_1k: float | None
+    per_km2: float | None
 
 class GminaLeadersResponse(BaseModel):
-    per_1k: List[GminaLeadersItem]
-    per_km2: List[GminaLeadersItem]
-    national_per_1k: Optional[float]
+    per_1k: list[GminaLeadersItem]
+    per_km2: list[GminaLeadersItem]
+    national_per_1k: float | None
 
 # --- Legacy/Stats Router Duplications ---
 
@@ -400,14 +401,14 @@ class TopStreetItem(BaseModel):
     count: int
 
 class TopStreetsResponse(BaseModel):
-    data: List[TopStreetItem]
+    data: list[TopStreetItem]
 
 class GrowthTrendItem(BaseModel):
     date: str
     count: int
 
 class GrowthTrendResponse(BaseModel):
-    data: List[GrowthTrendItem]
+    data: list[GrowthTrendItem]
 
 class SundayClosedStoreItem(BaseModel):
     city: str
@@ -424,6 +425,6 @@ class CommonStreetItem(BaseModel):
     cnt: int
 
 class CommonStreetsResponse(BaseModel):
-    streets: List[CommonStreetItem]
+    streets: list[CommonStreetItem]
     distinct: int
 

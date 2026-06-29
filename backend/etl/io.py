@@ -7,20 +7,20 @@ DuckDB i przeladowanie cache Redis. Cala styczna z siecia, dyskiem i baza zyje
 tutaj; wzbogacenia (etl/sources) operuja juz tylko na liscie wierszy.
 """
 
+import json
 import os
 import re
-import json
 import time
 from collections import defaultdict
 from datetime import date, datetime
 
-import requests
+import h3
 import numpy as np
 import polars as pl
-import h3
+import requests
 
-from backend.etl.geo import EARTH_KM, poland_rings
 from backend.database_ch import ENRICHMENT_COLUMNS
+from backend.etl.geo import EARTH_KM, poland_rings
 
 DB_PATH = os.getenv("ZABKA_DB", "data/zabka.duckdb")
 # Zrodlo danych Zabki - publiczny locator. Nadpisywalny przez env.
@@ -280,6 +280,7 @@ def farthest_point_from_any_zabka(lats, lons, woj_geo: dict,
     (problem najwiekszego pustego kola). Zwraca {lat, lon, dist_km}.
     """
     from sklearn.neighbors import BallTree
+
     from backend.etl.geo import ring_contains
 
     pts = np.radians(np.column_stack([lats, lons]))

@@ -1086,8 +1086,26 @@ async function renderWojMap(){
         _wojMap.getCanvas().style.cursor='';
         if(_wojTip)_wojTip.style.display='none';
       });
+      // H3 hexbin source + layers (hidden by default, toggled by #h3-hexbin-toggle)
+      _wojMap.addSource('h3-hexbins',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+      _wojMap.addLayer({
+        id:'h3-hex-fill',type:'fill',source:'h3-hexbins',
+        layout:{visibility:'none'},
+        paint:{
+          'fill-color':['interpolate',['linear'],['get','count'],
+            1,'#1e4019', 5,'#2d6324', 15,'#4a9228', 50,'#72c133', 150,'#a6e84a'],
+          'fill-opacity':0.78,
+        },
+      });
+      _wojMap.addLayer({
+        id:'h3-hex-line',type:'line',source:'h3-hexbins',
+        layout:{visibility:'none'},
+        paint:{'line-color':'#0a120a','line-width':0.4,'line-opacity':0.5},
+      });
+
       fitPoland(_wojMap,6);
       _wojSrcReady=true;
+      if(_h3Active)_applyH3Visibility();
     });
     } catch (e) {
       if (e instanceof WebGLUnavailableError) {
@@ -1108,6 +1126,42 @@ function _setActive(group,btn){
   document.querySelectorAll(`#${group} .gran-btn`).forEach(b=>{
     b.classList.toggle('active',b===btn);
     b.setAttribute('aria-pressed',b===btn?'true':'false');
+  });
+}
+
+/* ---- H3 hexbin toggle ---- */
+let _h3Active=false,_h3Fetched=false;
+
+function _applyH3Visibility(){
+  if(!_wojMap)return;
+  const vis=_h3Active?'visible':'none';
+  if(_wojMap.getLayer('h3-hex-fill'))_wojMap.setLayoutProperty('h3-hex-fill','visibility',vis);
+  if(_wojMap.getLayer('h3-hex-line'))_wojMap.setLayoutProperty('h3-hex-line','visibility',vis);
+  // Fade the voivodeship fill so hexagons read clearly
+  if(_wojMap.getLayer('gran-woj-fill')){
+    _wojMap.setPaintProperty('gran-woj-fill','fill-opacity',
+      _h3Active?0.18:['case',['boolean',['feature-state','hover'],false],0.98,0.86]);
+  }
+}
+
+export function wireH3Toggle(){
+  const btn=document.getElementById('h3-hexbin-toggle');
+  if(!btn||btn._wiredH3)return;
+  btn._wiredH3=true;
+  btn.addEventListener('click',async()=>{
+    _h3Active=!_h3Active;
+    btn.classList.toggle('active',_h3Active);
+    if(_h3Active&&!_h3Fetched){
+      try{
+        const data=await fetch('/api/geo/h3-hexbins').then(r=>r.json());
+        if(_wojMap&&_wojMap.getSource('h3-hexbins'))_wojMap.getSource('h3-hexbins').setData(data);
+        _h3Fetched=true;
+      }catch(e){
+        console.warn('[H3] fetch failed',e);
+        _h3Active=false;btn.classList.remove('active');return;
+      }
+    }
+    _applyH3Visibility();
   });
 }
 

@@ -1,12 +1,13 @@
-import os
 import json
+import os
 import re
 import time
-import math
-import requests
+
 import numpy as np
+import requests
 
 from backend.etl.geo import wgs84_to_puwg1992
+
 
 class GugikGeoResolver:
     """Klasa odpowiedzialna za mapowanie punktów (sklepów/paczkomatów) na województwa, powiaty i gminy z GUS.
@@ -73,7 +74,7 @@ class GugikGeoResolver:
     def _load_cache(self) -> dict:
         if os.path.exists(self.cache_path):
             try:
-                with open(self.cache_path, "r", encoding="utf-8") as f:
+                with open(self.cache_path, encoding="utf-8") as f:
                     return json.load(f)
             except Exception:
                 pass

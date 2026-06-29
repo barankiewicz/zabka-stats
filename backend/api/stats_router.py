@@ -1,39 +1,40 @@
 import re
 from collections import Counter, defaultdict
-from typing import List, Optional, Dict, Any
+
 from litestar import Router, get, post
 from litestar.params import FromQuery
-from backend.database_ch import client
+
+from backend.api.demographics import get_voiv_population
 from backend.cache import cached, clear_cache
+from backend.database_ch import client
 from backend.schemas.api_models import (
-    SummaryResponse,
-    NetworkGrowthItem,
-    NetworkOriginResponse,
-    StoreTimelineResponse,
-    StoreTimelineRange,
-    StoreTimelineMilestones,
+    CityFirstOpeningItem,
+    CommonStreetItem,
+    CommonStreetsResponse,
     GrowthByVoivodeshipResponseItem,
-    PerCapitaResponseItem,
-    TopCityItem,
-    OpeningSeasonalityResponseItem,
-    OpeningHoursPatternItem,
-    VoivodeshipStatsResponseItem,
-    PowiatEconomicsItem,
-    SundayByVoivodeshipResponseItem,
-    InPostVsZabkaResponseItem,
+    GrowthTrendItem,
+    GrowthTrendResponse,
     InPostVsZabkaByLevelResponse,
     InPostVsZabkaByLevelResponseItem,
-    CommonStreetsResponse,
-    CommonStreetItem,
+    InPostVsZabkaResponseItem,
+    NetworkGrowthItem,
+    NetworkOriginResponse,
+    OpeningHoursPatternItem,
+    OpeningSeasonalityResponseItem,
     OpeningsMonthlyItem,
+    PerCapitaResponseItem,
+    PowiatEconomicsItem,
+    StoreTimelineMilestones,
+    StoreTimelineRange,
+    StoreTimelineResponse,
+    SummaryResponse,
+    SundayByVoivodeshipResponseItem,
     SundayClosedStoreItem,
-    TopStreetsResponse,
+    TopCityItem,
     TopStreetItem,
-    GrowthTrendResponse,
-    GrowthTrendItem,
-    CityFirstOpeningItem
+    TopStreetsResponse,
+    VoivodeshipStatsResponseItem,
 )
-from backend.api.demographics import get_voiv_population
 
 SUNDAY_CLOSED_PCT = {
     "dolnośląskie": 10.6, "zachodniopomorskie": 9.3, "lubuskie": 9.1,
@@ -91,7 +92,7 @@ async def summary() -> SummaryResponse:
 
 @get("/stats/network-growth")
 @cached(ttl=3600)
-async def network_growth() -> List[NetworkGrowthItem]:
+async def network_growth() -> list[NetworkGrowthItem]:
     rows = client.execute("""
         SELECT
             YEAR(first_opening_date) AS year,
@@ -203,7 +204,7 @@ async def stores_timeline() -> StoreTimelineResponse:
 
 @get("/stats/growth-by-voivodeship")
 @cached(ttl=3600)
-async def growth_by_voivodeship() -> List[GrowthByVoivodeshipResponseItem]:
+async def growth_by_voivodeship() -> list[GrowthByVoivodeshipResponseItem]:
     rows = client.execute("""
         SELECT voivodeship, YEAR(first_opening_date) AS yr, COUNT(*) AS new_stores
         FROM locations
@@ -215,7 +216,7 @@ async def growth_by_voivodeship() -> List[GrowthByVoivodeshipResponseItem]:
 
 @get("/stats/per-capita")
 @cached(ttl=3600)
-async def per_capita() -> List[PerCapitaResponseItem]:
+async def per_capita() -> list[PerCapitaResponseItem]:
     rows = client.execute("""
         SELECT voivodeship, COUNT(*) AS stores
         FROM locations
@@ -244,7 +245,7 @@ async def per_capita() -> List[PerCapitaResponseItem]:
 
 @get("/stats/city-first-opening")
 @cached(ttl=3600)
-async def city_first_opening() -> List[CityFirstOpeningItem]:
+async def city_first_opening() -> list[CityFirstOpeningItem]:
     rows = client.execute("""
         WITH first_by_city AS (
             SELECT city, MIN(first_opening_date) AS first_date
@@ -265,7 +266,7 @@ async def city_first_opening() -> List[CityFirstOpeningItem]:
 
 @get("/stats/top-cities")
 @cached(ttl=1800)
-async def top_cities(limit: FromQuery[int] = 20) -> List[TopCityItem]:
+async def top_cities(limit: FromQuery[int] = 20) -> list[TopCityItem]:
     rows = client.execute("""
         SELECT city, COUNT(*) AS cnt, voivodeship
         FROM locations
@@ -278,7 +279,7 @@ async def top_cities(limit: FromQuery[int] = 20) -> List[TopCityItem]:
 
 @get("/stats/opening-seasonality")
 @cached(ttl=3600)
-async def opening_seasonality() -> List[OpeningSeasonalityResponseItem]:
+async def opening_seasonality() -> list[OpeningSeasonalityResponseItem]:
     rows = client.execute("""
         SELECT
             MONTH(first_opening_date) AS month,
@@ -293,7 +294,7 @@ async def opening_seasonality() -> List[OpeningSeasonalityResponseItem]:
 
 @get("/stats/opening-hours")
 @cached(ttl=3600)
-async def opening_hours() -> List[OpeningHoursPatternItem]:
+async def opening_hours() -> list[OpeningHoursPatternItem]:
     rows = client.execute("""
         SELECT opening_hours_monsat AS pattern, COUNT(*) AS cnt
         FROM locations
@@ -304,7 +305,7 @@ async def opening_hours() -> List[OpeningHoursPatternItem]:
 
 @get("/stats/voivodeship")
 @cached(ttl=3600)
-async def voivodeship_stats() -> List[VoivodeshipStatsResponseItem]:
+async def voivodeship_stats() -> list[VoivodeshipStatsResponseItem]:
     rows = client.execute("""
         SELECT
             voivodeship,
@@ -323,7 +324,7 @@ async def voivodeship_stats() -> List[VoivodeshipStatsResponseItem]:
 
 @get("/stats/powiat-economics")
 @cached(ttl=3600)
-async def powiat_economics() -> List[PowiatEconomicsItem]:
+async def powiat_economics() -> list[PowiatEconomicsItem]:
     rows = client.execute("""
         SELECT
             dp.name AS powiat,
@@ -356,7 +357,7 @@ async def powiat_economics() -> List[PowiatEconomicsItem]:
 
 @get("/stats/sunday-by-voivodeship")
 @cached(ttl=3600)
-async def sunday_by_voivodeship() -> List[SundayByVoivodeshipResponseItem]:
+async def sunday_by_voivodeship() -> list[SundayByVoivodeshipResponseItem]:
     rows = client.execute("""
         SELECT
             voivodeship,
@@ -388,7 +389,7 @@ async def sunday_by_voivodeship() -> List[SundayByVoivodeshipResponseItem]:
 
 @get("/stats/inpost-vs-zabka")
 @cached(ttl=3600)
-async def inpost_vs_zabka() -> List[InPostVsZabkaResponseItem]:
+async def inpost_vs_zabka() -> list[InPostVsZabkaResponseItem]:
     zabka_rows = client.execute("""
         SELECT voivodeship, COUNT(*) AS cnt
         FROM locations WHERE deleted_at IS NULL GROUP BY voivodeship
@@ -600,7 +601,7 @@ async def common_streets(limit: FromQuery[int] = 15) -> CommonStreetsResponse:
 
 @get("/stats/openings-monthly")
 @cached(ttl=3600)
-async def openings_monthly() -> List[OpeningsMonthlyItem]:
+async def openings_monthly() -> list[OpeningsMonthlyItem]:
     rows = client.execute("""
         SELECT CAST(EXTRACT(year FROM first_opening_date) AS INT) AS y,
                CAST(EXTRACT(month FROM first_opening_date) AS INT) AS m,
@@ -613,7 +614,7 @@ async def openings_monthly() -> List[OpeningsMonthlyItem]:
     return [OpeningsMonthlyItem(year=r[0], month=r[1], cnt=r[2]) for r in rows]
 
 @get("/stats/sunday-closed-stores")
-async def sunday_closed_stores(voivodeship: FromQuery[str]) -> List[SundayClosedStoreItem]:
+async def sunday_closed_stores(voivodeship: FromQuery[str]) -> list[SundayClosedStoreItem]:
     rows = client.execute("""
         SELECT city, street, has_merrychef
         FROM locations
@@ -626,7 +627,7 @@ async def sunday_closed_stores(voivodeship: FromQuery[str]) -> List[SundayClosed
 
 @get("/stats/top-streets")
 @cached(ttl=1800)
-async def get_top_streets(limit: FromQuery[int] = 20, month: FromQuery[Optional[str]] = None) -> TopStreetsResponse:
+async def get_top_streets(limit: FromQuery[int] = 20, month: FromQuery[str | None] = None) -> TopStreetsResponse:
     params = []
     if month:
         where = "street IS NOT NULL AND strftime(created_at, '%Y-%m') <= ? AND (deleted_at IS NULL OR strftime(deleted_at, '%Y-%m') >= ?)"

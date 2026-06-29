@@ -1,18 +1,20 @@
 """Locations API endpoints (DuckDB)."""
 
-from typing import Optional
+
 from litestar import Router, get
 from litestar.exceptions import HTTPException
-from litestar.params import FromQuery, FromPath
-from backend.database_ch import client
+from litestar.params import FromPath, FromQuery
+
 from backend.cache import cached
+from backend.database_ch import client
+
 
 @get("/locations")
 @cached(ttl=3600)
 async def get_locations(
-    month: FromQuery[Optional[str]] = None,
-    voivodeship: FromQuery[Optional[str]] = None,
-    city: FromQuery[Optional[str]] = None,
+    month: FromQuery[str | None] = None,
+    voivodeship: FromQuery[str | None] = None,
+    city: FromQuery[str | None] = None,
     limit: FromQuery[int] = 100,
     offset: FromQuery[int] = 0,
 ) -> dict:
@@ -86,7 +88,7 @@ async def get_locations(
 @get("/locations/map")
 @cached(ttl=3600)
 async def get_locations_for_map_geojson(
-    month: FromQuery[Optional[str]] = None,
+    month: FromQuery[str | None] = None,
 ) -> dict:
     """
     Get locations for map visualization (GeoJSON).

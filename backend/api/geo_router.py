@@ -1,24 +1,30 @@
 import json
 import math
 from pathlib import Path
-from typing import List, Optional, Dict, Any
-from litestar import Router, get, Response
+
+import h3
+from litestar import Response, Router, get
 from litestar.exceptions import HTTPException
 from litestar.params import FromQuery
-from backend.database_ch import client
+
+from backend.api.demographics import (
+    get_voiv_area,
+    get_voiv_population,
+    load_demographics_from_db,
+)
 from backend.cache import cached
-from backend.etl.geo import build_polygon_index, assign_region, nearest_region
+from backend.database_ch import client
+from backend.etl.geo import assign_region, build_polygon_index, nearest_region
 from backend.schemas.api_models import (
-    PowiatCoverageResponse,
+    ByDimensionItem,
+    ByDimensionResponse,
     CityCoverageResponse,
     CoverageFunnelItem,
-    ByDimensionResponse,
-    ByDimensionItem,
-    GminaLeadersResponse,
     GminaLeadersItem,
-    VoivodeshipDensityResponseItem
+    GminaLeadersResponse,
+    PowiatCoverageResponse,
+    VoivodeshipDensityResponseItem,
 )
-from backend.api.demographics import get_voiv_population, get_voiv_area, load_demographics_from_db
 
 _GEO_DIR = Path(__file__).parent.parent.parent / "data" / "geo"
 
@@ -191,7 +197,7 @@ async def city_coverage() -> CityCoverageResponse:
 
 @get("/stats/coverage-funnel")
 @cached(ttl=3600)
-async def coverage_funnel() -> List[CoverageFunnelItem]:
+async def coverage_funnel() -> list[CoverageFunnelItem]:
     pc = await powiat_coverage()
     cc = await city_coverage()
     
@@ -232,7 +238,7 @@ async def by_dimension(
     off = max(0, int(offset))
 
     if dim == "city":
-        raw = client.execute(f"""
+        raw = client.execute("""
             SELECT c.name, COUNT(l.id), c.population, c.area_km2,
                    AVG(l.latitude), AVG(l.longitude), MAX(v.name), c.id
             FROM dim_city c
@@ -248,7 +254,7 @@ async def by_dimension(
                  "lat": r[4], "lon": r[5], "voivodeship": r[6], "geo_id": str(r[7])}
                 for r in raw]
     elif dim == "gmina":
-        raw = client.execute(f"""
+        raw = client.execute("""
             SELECT g.name, COUNT(l.id), g.population, g.area_km2,
                    AVG(l.latitude), AVG(l.longitude), MAX(v.name), g.id
             FROM dim_gmina g
@@ -359,7 +365,7 @@ async def gmina_leaders(limit: FromQuery[int] = 12) -> GminaLeadersResponse:
 
 @get("/stats/voivodeship-density")
 @cached(ttl=3600)
-async def voivodeship_density() -> List[VoivodeshipDensityResponseItem]:
+async def voivodeship_density() -> list[VoivodeshipDensityResponseItem]:
     rows = client.execute("""
         SELECT voivodeship, COUNT(*) AS stores
         FROM locations WHERE deleted_at IS NULL GROUP BY voivodeship
@@ -373,6 +379,39 @@ async def voivodeship_density() -> List[VoivodeshipDensityResponseItem]:
         for r in rows if r[0]
     ]
 
+@get("/geo/h3-hexbins")
+@cached(ttl=3600)
+async def h3_hexbins() -> dict:
+    """H3 resolution-9 hexagon counts as a GeoJSON FeatureCollection.
+
+    Each feature is one H3 cell with a `count` property. Suitable for a
+    MapLibre fill layer — cells are coloured by store density without any
+    administrative boundary bias.
+    """
+    rows = client.execute("""
+        SELECT h3_index_9, COUNT(*) AS cnt
+        FROM locations
+        WHERE deleted_at IS NULL AND h3_index_9 IS NOT NULL
+        GROUP BY h3_index_9
+    """).fetchall()
+
+    features = []
+    for cell, cnt in rows:
+        try:
+            boundary = h3.cell_to_boundary(cell)
+        except Exception:
+            continue
+        ring = [[lng, lat] for lat, lng in boundary]
+        ring.append(ring[0])
+        features.append({
+            "type": "Feature",
+            "properties": {"count": cnt},
+            "geometry": {"type": "Polygon", "coordinates": [ring]},
+        })
+
+    return {"type": "FeatureCollection", "features": features}
+
+
 router = Router(
     path="",
     route_handlers=[
@@ -384,5 +423,6 @@ router = Router(
         by_dimension,
         gmina_leaders,
         voivodeship_density,
+        h3_hexbins,
     ]
 )

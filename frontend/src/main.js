@@ -78,6 +78,7 @@ async function renderTab(tab){
     if(tab==='siec'){
       registerFilterCallbacks(null, mod.renderGranular, null);
       mod.renderSiec();
+      mod.wireH3Toggle();
     } else if(tab==='spoleczenstwo'){
       registerFilterCallbacks(null, null, mod.renderDumbbellByLevel);
       mod.renderSpoleczenstwo();

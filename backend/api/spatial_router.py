@@ -1,15 +1,16 @@
-from typing import List, Optional, Dict, Any
 from litestar import Router, get
 from litestar.params import FromQuery
-from backend.database_ch import client
+
 from backend.cache import cached
+from backend.database_ch import client
 from backend.schemas.api_models import (
     ElevationResponse,
-    NeighborStatsResponse,
     KraniecFactsResponse,
+    NeighborByLevelResponse,
+    NeighborStatsResponse,
     TwinsResponse,
-    NeighborByLevelResponse
 )
+
 
 @get("/stats/elevation")
 @cached(ttl=3600)
@@ -290,7 +291,7 @@ async def twins() -> TwinsResponse:
         {base}
     """).fetchone()
     
-    closest = client.execute(f"""
+    closest = client.execute("""
         SELECT city, street, MIN(nearest_neighbor_distance_meters) AS d
         FROM locations
         WHERE deleted_at IS NULL 
@@ -301,7 +302,7 @@ async def twins() -> TwinsResponse:
         LIMIT 8
     """).fetchall()
     
-    clusters = client.execute(f"""
+    clusters = client.execute("""
         SELECT city, street, COUNT(*) AS n
         FROM locations
         WHERE deleted_at IS NULL 
@@ -327,7 +328,7 @@ async def twins() -> TwinsResponse:
         wc = max(0, cap - wa - wb)
         if (wa + wb + wc) > cap:
             wc = max(0, cap - wa - wb)
-        sampled = client.execute(f"""
+        sampled = client.execute("""
             SELECT latitude, longitude, nearest_neighbor_distance_meters AS d,
                    city, street,
                    CASE
@@ -359,7 +360,7 @@ async def twins() -> TwinsResponse:
             else: cnt_c += 1
             if cnt_a + cnt_b + cnt_c >= cap: break
             
-    pts_50 = client.execute(f"""
+    pts_50 = client.execute("""
         SELECT latitude, longitude, nearest_neighbor_distance_meters AS d,
                city, street
         FROM locations

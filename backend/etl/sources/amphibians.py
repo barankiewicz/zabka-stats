@@ -1,17 +1,17 @@
 """Wzbogacenie: populacja plazow (GBIF) - bo Zabka to zaba. + fakt najbardziej zabiej Zabki."""
 
-import os
-import json
-import time
 import datetime
+import json
+import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 
-import requests
 import numpy as np
+import requests
 
 from backend.etl.base import Enricher
 from backend.etl.geo import EARTH_KM
-from backend.etl.io import USER_AGENT, HTTP_TIMEOUT, with_retries
+from backend.etl.io import HTTP_TIMEOUT, USER_AGENT, with_retries
 
 # Obserwacje plazow (Amphibia) w Polsce z GBIF. Per sklep: ile obserwacji w
 # promieniu oraz dystans do najblizszej. Tematyczny uklon do nazwy sieci.

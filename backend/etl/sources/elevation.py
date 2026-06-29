@@ -1,15 +1,15 @@
 """Wzbogacenie: wysokosc n.p.m. z GUGiK NMT (per punkt, cache, opt-in)."""
 
+import json
 import os
 import re
-import json
 import time
+
+import requests
 
 from backend.etl.base import Enricher
 from backend.etl.geo import wgs84_to_puwg1992
 from backend.etl.io import USER_AGENT
-
-import requests
 
 # --- numeryczny model terenu (GUGiK NMT, per punkt, cache) ---
 GUGIK_NMT_URL = os.getenv("GUGIK_NMT_URL", "https://services.gugik.gov.pl/nmt/")

@@ -1,7 +1,9 @@
 """Dashboard data aggregation endpoint (returns all data for frontend)."""
 
 from litestar import Router, get
+
 from backend.database_ch import client
+
 
 @get("/dashboard-data")
 async def get_dashboard_data() -> dict:

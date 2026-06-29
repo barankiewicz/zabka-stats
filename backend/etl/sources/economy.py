@@ -10,7 +10,7 @@ import time
 
 import requests
 
-from backend.etl.io import USER_AGENT, HTTP_TIMEOUT, with_retries
+from backend.etl.io import HTTP_TIMEOUT, USER_AGENT, with_retries
 
 # Without an API key GUS BDL allows 10 req/min (anonymous).
 # With a key: 100 req/min. Throttle to stay safely under the anonymous cap.

@@ -3,21 +3,21 @@ Administrative context API - voivodeship, powiat, city, country.
 Hierarchical aggregations for Polish administrative divisions.
 """
 
-from typing import Optional
+
 from litestar import Router, get
-from litestar.exceptions import HTTPException
-from litestar.params import FromQuery, FromPath
-from backend.database_ch import client
+from litestar.params import FromPath, FromQuery
+
 from backend.cache import cached
+from backend.database_ch import client
 from backend.live_data import (
-    get_weather_for_location,
-    get_light_pollution,
     get_nearby_lightning,
+    get_weather_for_location,
 )
+
 
 @get("/stats/by-powiat")
 @cached(ttl=3600)
-async def get_by_powiat(voivodeship: FromQuery[Optional[str]] = None) -> dict:
+async def get_by_powiat(voivodeship: FromQuery[str | None] = None) -> dict:
     """Get statistics aggregated by powiat (county)."""
 
     where_clauses = ["deleted_at IS NULL"]
@@ -62,7 +62,7 @@ async def get_by_powiat(voivodeship: FromQuery[Optional[str]] = None) -> dict:
 
 @get("/stats/by-city")
 @cached(ttl=3600)
-async def get_by_city(powiat: FromQuery[Optional[str]] = None, voivodeship: FromQuery[Optional[str]] = None) -> dict:
+async def get_by_city(powiat: FromQuery[str | None] = None, voivodeship: FromQuery[str | None] = None) -> dict:
     """Get statistics aggregated by city."""
 
     where_clauses = ["deleted_at IS NULL"]

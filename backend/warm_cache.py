@@ -15,10 +15,8 @@ import logging
 import os
 import sys
 import time
-from typing import Iterable
 
 import httpx
-
 
 # Endpoints the SPA fires on page load (core bucket) + a couple of tab buckets.
 # Keep this in sync with frontend/src/data.js.

@@ -1,13 +1,11 @@
 import json
 from pathlib import Path
-from typing import List, Any
+
 from litestar import Router, get
-from backend.database_ch import client
+
 from backend.cache import cached
-from backend.schemas.api_models import (
-    AmphibianExtremesResponse,
-    Section3RareResponse
-)
+from backend.database_ch import client
+from backend.schemas.api_models import AmphibianExtremesResponse, Section3RareResponse
 
 _GEO_DIR = Path(__file__).parent.parent.parent / "data" / "geo"
 _gbif_total_cache: int | None = None
@@ -335,7 +333,7 @@ async def section3_rare() -> Section3RareResponse:
 
 @get("/stats/parks-stores")
 @cached(ttl=3600)
-async def parks_stores() -> List[List[float]]:
+async def parks_stores() -> list[list[float]]:
     rows = client.execute("""
         SELECT latitude, longitude
         FROM locations

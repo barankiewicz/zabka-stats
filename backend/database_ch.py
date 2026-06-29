@@ -3,10 +3,10 @@ DuckDB database connection and initialization.
 """
 
 import json
-import duckdb
+import threading
 from pathlib import Path
 
-import threading
+import duckdb
 
 # Database path
 DB_PATH = Path(__file__).parent.parent / "data" / "zabka.duckdb"

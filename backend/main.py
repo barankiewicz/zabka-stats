@@ -13,28 +13,29 @@ Cached endpoints:
 - /api/history/* - Change history
 """
 
+import json
 import os
 import pathlib
-import json
 import subprocess
 from datetime import datetime
-from litestar import Litestar, get, post, Router
-from litestar.config.cors import CORSConfig
-from litestar.config.compression import CompressionConfig
-from litestar.static_files import create_static_files_router
-from litestar.response import File
-from litestar.exceptions import HTTPException
-from litestar.connection import Request
 
-from backend.database_ch import init_db, client, DB_PATH
-from backend.api.locations_router import router as locations_router
-from backend.api.history_router import router as history_router
+from litestar import Litestar, Router, get, post
+from litestar.config.compression import CompressionConfig
+from litestar.config.cors import CORSConfig
+from litestar.connection import Request
+from litestar.exceptions import HTTPException
+from litestar.response import File
+from litestar.static_files import create_static_files_router
+
 from backend.api.admin_router import router as admin_router
 from backend.api.dashboard_router import router as dashboard_router
-from backend.api.geo_router import router as geo_router
 from backend.api.ecology_router import router as ecology_router
+from backend.api.geo_router import router as geo_router
+from backend.api.history_router import router as history_router
+from backend.api.locations_router import router as locations_router
 from backend.api.spatial_router import router as spatial_router
 from backend.api.stats_router import router as stats_router
+from backend.database_ch import DB_PATH, client, init_db
 
 # API_TOKEN is set via environment variable
 API_TOKEN = os.getenv("API_TOKEN", "your-secret-token-change-me")
@@ -104,6 +105,46 @@ async def download_geojson() -> File:
         path=geojson_path,
         filename="wojewodztwa.geojson",
         media_type="application/geo+json"
+    )
+
+
+@get("/download/parquet")
+async def download_parquet() -> File:
+    """Export active locations to Parquet (ZSTD-compressed, ~1 MB).
+
+    DuckDB writes to a temp file via its native Parquet writer; the file is
+    served as a download and overwritten on each request. Column selection
+    mirrors the public schema minus the internal surrogate keys.
+    """
+    out = pathlib.Path("/tmp/zabka_locations.parquet")
+    import duckdb as _duckdb
+
+    con = _duckdb.connect(str(DB_PATH), read_only=True)
+    try:
+        con.execute(f"""
+            COPY (
+                SELECT
+                    store_id, city, street, voivodeship, powiat,
+                    voivodeship_id, powiat_id, gmina_id, miasto_id,
+                    latitude, longitude,
+                    has_merrychef, open_sunday, h24,
+                    opening_hours_monsat, opening_hours_sun,
+                    first_opening_date, is_visible,
+                    elevation_meters, is_in_nature_park,
+                    nearest_neighbor_distance_meters,
+                    amphibian_occurrences_5km, nearest_amphibian_km,
+                    h3_index_9, created_at
+                FROM locations
+                WHERE deleted_at IS NULL
+                ORDER BY voivodeship_id, powiat_id
+            ) TO '{out}' (FORMAT PARQUET, COMPRESSION ZSTD)
+        """)
+    finally:
+        con.close()
+    return File(
+        path=out,
+        filename="zabka_locations.parquet",
+        media_type="application/vnd.apache.parquet",
     )
 
 
@@ -190,6 +231,7 @@ api_router = Router(
         stats_router,
         download_database,
         download_geojson,
+        download_parquet,
         upload_snapshot,
     ]
 )
@@ -250,8 +292,9 @@ app = Litestar(
 )
 
 if __name__ == "__main__":
-    import uvicorn
     import multiprocessing
+
+    import uvicorn
 
     workers = int(os.getenv("UVICORN_WORKERS", max(2, multiprocessing.cpu_count())))
     uvicorn.run(

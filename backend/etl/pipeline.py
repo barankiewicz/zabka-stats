@@ -8,24 +8,32 @@ neutralne (None/False), zeby ksztalt danych byl staly.
 """
 
 import time
-from datetime import datetime, date
+from datetime import date, datetime
 from typing import Any
 
-import numpy as np
 import duckdb
+import numpy as np
 
 from backend.etl.io import (
-    DB_PATH, fetch_zabka_json, to_tabular, resolve_poland_boundaries,
-    farthest_point_from_any_zabka, load_to_duckdb, reload_cache,
-    load_parcel_lockers, load_dimensions, load_fun_facts,
-    load_dim_park, enforce_retention,
+    DB_PATH,
+    enforce_retention,
+    farthest_point_from_any_zabka,
+    fetch_zabka_json,
+    load_dim_park,
+    load_dimensions,
+    load_fun_facts,
+    load_parcel_lockers,
+    load_to_duckdb,
+    reload_cache,
+    resolve_poland_boundaries,
+    to_tabular,
 )
-from backend.etl.sources.neighbor import NeighborEnricher
 from backend.etl.sources.amphibians import AmphibiansEnricher
-from backend.etl.sources.parks import ParksEnricher
-from backend.etl.sources.economy import fetch_gus_economics, _norm_powiat
+from backend.etl.sources.economy import _norm_powiat, fetch_gus_economics
 from backend.etl.sources.elevation import ElevationEnricher
+from backend.etl.sources.neighbor import NeighborEnricher
 from backend.etl.sources.parcel_lockers import fetch_parcel_lockers
+from backend.etl.sources.parks import ParksEnricher
 
 
 def _build_geo_dims(rows: list[dict], lockers: list[dict], skip_gus: bool) -> tuple[list, list]:

@@ -5,15 +5,17 @@ wojewodztwo i powiat tym samym point-in-polygon co Żabki, miasto bierze z adres
 Bez ciezkich wzbogacen - to czysta encja do zestawien przez wspolne wymiary.
 """
 
-import os
 import json
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
 from backend.etl.io import (
-    USER_AGENT, HTTP_TIMEOUT, with_retries,
+    HTTP_TIMEOUT,
+    USER_AGENT,
+    with_retries,
 )
 
 INPOST_POINTS_URL = "https://api-shipx-pl.easypack24.net/v1/points"
