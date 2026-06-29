@@ -97,6 +97,8 @@ GEO_FILES=(
   data/geo/gminy.geojson
   data/geo/gmina_pop.json
   data/geo/miasta_pl.json
+  data/geo/administrative_division_gus.json
+  data/geo/amphibians_pl.json
 )
 NEED_SYNC=()
 for f in "${GEO_FILES[@]}"; do
