@@ -15,7 +15,6 @@ import subprocess
 from datetime import datetime
 
 from litestar import Litestar, Router, get, post
-from litestar.config.compression import CompressionConfig
 from litestar.config.cors import CORSConfig
 from litestar.connection import Request
 from litestar.exceptions import HTTPException
@@ -277,12 +276,11 @@ cors_config = CORSConfig(
     allow_headers=["*"],
 )
 
-compression_config = CompressionConfig(backend="gzip", minimum_size=1000)
-
+# Compression is handled by nginx (gzip_proxied any) in front of the app, so the
+# single uvicorn worker no longer spends CPU gzipping large payloads itself.
 app = Litestar(
     route_handlers=route_handlers,
     cors_config=cors_config,
-    compression_config=compression_config,
     on_startup=on_startup
 )
 
