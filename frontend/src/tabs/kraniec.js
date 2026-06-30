@@ -377,7 +377,7 @@ function buildMap() {
     showDots(null);
     document.querySelectorAll('#kr-rail .item').forEach(it => it.classList.remove('active'));
     document.querySelectorAll('.kr-fact-tile').forEach(it => it.classList.remove('active'));
-    _krMap.flyTo({ center: HOME, zoom: HOME_Z, duration: RM ? 0 : 1400 });
+    fitPoland(_krMap, 4, { duration: RM ? 0 : 1400 });   // same full-Poland view as initial load
     if (cap) cap.textContent = 'Kliknij zjawisko – mapa doleci i podświetli kropki.';
   };
 

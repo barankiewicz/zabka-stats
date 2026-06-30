@@ -129,8 +129,8 @@ export function showMapUnavailable(container, opts = {}) {
   container.appendChild(wrap);
 }
 
-export function fitPoland(map, padding = 6) {
-  try { map.fitBounds(PL_BOUNDS, { padding }); } catch (e) { /* map not ready */ }
+export function fitPoland(map, padding = 6, opts = {}) {
+  try { map.fitBounds(PL_BOUNDS, { padding, ...opts }); } catch (e) { /* map not ready */ }
 }
 
 // ---- Voivodeship base layers ----
