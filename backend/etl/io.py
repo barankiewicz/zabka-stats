@@ -640,8 +640,8 @@ def load_parcel_lockers(con, lockers: list, sid: int, src_date: str):
     
     # Filter to rows where values changed
     to_update_df = to_update_df.filter(
-        (pl.col("latitude") - pl.col("latitude_db")).abs() > 1e-5 |
-        (pl.col("longitude") - pl.col("longitude_db")).abs() > 1e-5 |
+        ((pl.col("latitude") - pl.col("latitude_db")).abs() > 1e-5) |
+        ((pl.col("longitude") - pl.col("longitude_db")).abs() > 1e-5) |
         (pl.col("voivodeship_id") != pl.col("voivodeship_id_db")) |
         (pl.col("powiat_id") != pl.col("powiat_id_db")) |
         (pl.col("miasto_id") != pl.col("miasto_id_db")) |
