@@ -105,42 +105,39 @@ async def get_by_city(powiat: FromQuery[str | None] = None, voivodeship: FromQue
 @get("/hierarchy/voivodeships")
 @cached(ttl=86400)
 async def get_voivodeships() -> dict:
-    """Get all voivodeships with their powiats and cities."""
+    """Get all voivodeships with their powiats and cities.
 
-    voivodeships = client.execute("""
-        SELECT DISTINCT voivodeship
+    One GROUP BY scan instead of the old ~330-query N+1 (1 + per-voivodeship +
+    per-powiat round-trips); the nested voiv -> powiat -> cities dict is
+    assembled in Python. Same ordering as before (voivodeship alphabetical,
+    powiats and cities by store count desc) with a name tiebreaker so equal
+    counts come out in a stable order.
+    """
+    from collections import defaultdict
+
+    rows = client.execute("""
+        SELECT voivodeship, powiat, city, COUNT(*) AS cnt
         FROM locations
         WHERE deleted_at IS NULL
-        ORDER BY voivodeship
+        GROUP BY voivodeship, powiat, city
     """).fetchall()
 
+    # voivodeship -> powiat -> [(city, cnt), ...]
+    tree: dict = defaultdict(lambda: defaultdict(list))
+    for voiv, powiat, city, cnt in rows:
+        tree[voiv][powiat].append((city, cnt))
+
     result = {}
-    for (voiv,) in voivodeships:
-        # Get powiats in this voivodeship
-        powiats_data = client.execute("""
-            SELECT DISTINCT powiat, COUNT(*) as count
-            FROM locations
-            WHERE voivodeship = ? AND deleted_at IS NULL
-            GROUP BY powiat
-            ORDER BY count DESC
-        """, [voiv]).fetchall()
-
+    for voiv in sorted(tree):                                   # alphabetical, as before
+        powiat_map = tree[voiv]
+        powiat_total = {p: sum(n for _, n in cities) for p, cities in powiat_map.items()}
         powiats = {}
-        for powiat, count in powiats_data:
-            # Get cities in this powiat
-            cities_data = client.execute("""
-                SELECT DISTINCT city, COUNT(*) as count
-                FROM locations
-                WHERE voivodeship = ? AND powiat = ? AND deleted_at IS NULL
-                GROUP BY city
-                ORDER BY count DESC
-            """, [voiv, powiat]).fetchall()
-
+        for powiat in sorted(powiat_map, key=lambda p: (-powiat_total[p], p or "")):  # count desc
+            cities = sorted(powiat_map[powiat], key=lambda cc: (-cc[1], cc[0] or ""))  # count desc
             powiats[powiat] = {
-                "count": count,
-                "cities": [{"city": c[0], "count": c[1]} for c in cities_data]
+                "count": powiat_total[powiat],
+                "cities": [{"city": c, "count": n} for c, n in cities],
             }
-
         result[voiv] = powiats
 
     return {
