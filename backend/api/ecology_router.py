@@ -191,7 +191,7 @@ async def section3_rare() -> Section3RareResponse:
     h24_cities = client.execute("""
         SELECT city, voivodeship, COUNT(*) AS cnt
         FROM locations WHERE deleted_at IS NULL AND h24 = true
-        GROUP BY city, voivodeship ORDER BY cnt DESC LIMIT 8
+        GROUP BY city, voivodeship ORDER BY cnt DESC, city, voivodeship LIMIT 8
     """).fetchall()
     h24_pts = client.execute("""
         SELECT latitude, longitude
@@ -208,8 +208,8 @@ async def section3_rare() -> Section3RareResponse:
         SELECT dp.name AS park_name, dp.type AS park_type, COUNT(*) AS cnt
         FROM locations l
         JOIN dim_park dp ON l.nature_park_id = dp.id
-        WHERE l.deleted_at IS NULL 
-        GROUP BY dp.name, dp.type ORDER BY cnt DESC LIMIT 3
+        WHERE l.deleted_at IS NULL
+        GROUP BY dp.name, dp.type ORDER BY cnt DESC, dp.name LIMIT 3
     """).fetchall()
     
     void_ff = client.execute("SELECT value, lat, lon FROM fun_facts WHERE key='farthest_from_zabka'").fetchone()
@@ -224,7 +224,7 @@ async def section3_rare() -> Section3RareResponse:
             OR LOWER(street) LIKE '%jeziorow%')
         ORDER BY
             CASE WHEN LOWER(street) LIKE '%żab%' THEN 0 ELSE 1 END,
-            city
+            city, street, latitude
         LIMIT 20
     """).fetchall()
     
@@ -239,9 +239,9 @@ async def section3_rare() -> Section3RareResponse:
             LEFT JOIN locations l ON l.powiat_id = dp.id AND l.deleted_at IS NULL 
             GROUP BY dp.name, dv.name HAVING cnt > 0
         )
-        SELECT * FROM (SELECT 'min' AS w, p, v, cnt FROM pc ORDER BY cnt ASC LIMIT 1)
+        SELECT * FROM (SELECT 'min' AS w, p, v, cnt FROM pc ORDER BY cnt ASC, p LIMIT 1)
         UNION ALL
-        SELECT * FROM (SELECT 'max', p, v, cnt FROM pc ORDER BY cnt DESC LIMIT 1)
+        SELECT * FROM (SELECT 'max', p, v, cnt FROM pc ORDER BY cnt DESC, p LIMIT 1)
     """).fetchall()
     
     west_wall = client.execute("""
@@ -283,7 +283,7 @@ async def section3_rare() -> Section3RareResponse:
         WHERE street_name != '' AND LENGTH(street_name) > 1
         GROUP BY street_name, city
         HAVING COUNT(*) >= 2
-        ORDER BY cnt DESC
+        ORDER BY cnt DESC, street_name, city
         LIMIT 15
     """).fetchall()
     
