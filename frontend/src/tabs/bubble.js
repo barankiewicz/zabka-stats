@@ -44,7 +44,11 @@ function fetchBubble(dim) {
 }
 
 function cleanName(n) {
-  n = String(n || '').replace(/^powiat\s+/i, '').trim();
+  n = String(n || '')
+    .replace(/^M\.st\.\s*/i, '')
+    .replace(/\s+od\s+\d{4}\s*$/i, '')
+    .replace(/^powiat\s+/i, '')
+    .trim();
   return n ? n.charAt(0).toUpperCase() + n.slice(1) : n;
 }
 

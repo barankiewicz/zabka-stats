@@ -197,16 +197,33 @@ async def city_coverage() -> CityCoverageResponse:
 @get("/stats/coverage-funnel")
 @cached(ttl=3600)
 async def coverage_funnel() -> list[CoverageFunnelItem]:
-    pc = await powiat_coverage()
-    cc = await city_coverage()
-    
+    # Inline the powiat/city/gmina queries directly; calling decorated route
+    # handlers as coroutines does not work (they are Litestar HTTPRouteHandler
+    # objects, not plain coroutines).
+
+    # Powiaty
+    pc_row = client.execute("""
+        SELECT COUNT(DISTINCT powiat_id) FROM locations
+        WHERE deleted_at IS NULL AND powiat_id IS NOT NULL
+    """).fetchone()
+    pc_covered = pc_row[0] if pc_row else 0
+    pc_total = 380
+
+    # Officially recognised cities (dim_city = 302 rows)
+    cc_total_row = client.execute("SELECT COUNT(*) FROM dim_city").fetchone()
+    cc_total = cc_total_row[0] if cc_total_row else 302
+    cc_covered_row = client.execute("""
+        SELECT COUNT(DISTINCT miasto_id) FROM locations
+        WHERE deleted_at IS NULL AND miasto_id IS NOT NULL
+    """).fetchone()
+    cc_covered = cc_covered_row[0] if cc_covered_row else 0
+
+    # Gminy
     total_gminas_row = client.execute("SELECT COUNT(*) FROM dim_gmina").fetchone()
     total_gminas = total_gminas_row[0] if total_gminas_row else 2479
-    
     row = client.execute("""
         SELECT COUNT(DISTINCT gmina_id) FROM locations
-        WHERE deleted_at IS NULL 
-          AND gmina_id IS NOT NULL
+        WHERE deleted_at IS NULL AND gmina_id IS NOT NULL
     """).fetchone()
     gminas_with = row[0] if row and row[0] else 0
 
@@ -214,10 +231,9 @@ async def coverage_funnel() -> list[CoverageFunnelItem]:
         return {"level": level, "with": w, "total": t,
                 "pct": round(100.0 * w / t, 1) if t else 0}
 
-    # Extract fields from schema classes returned by methods
     return [
-        CoverageFunnelItem(**node("powiaty", pc.covered, pc.total)),
-        CoverageFunnelItem(**node("miasta", cc.with_zabka, cc.total_cities)),
+        CoverageFunnelItem(**node("powiaty", pc_covered, pc_total)),
+        CoverageFunnelItem(**node("miasta", cc_covered, cc_total)),
         CoverageFunnelItem(**node("gminy", gminas_with, total_gminas)),
     ]
 

@@ -98,6 +98,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     btn.setAttribute('aria-selected','true');
     const tab=btn.dataset.tab;
     const tabEl=document.getElementById('tab-'+tab);
+    window.scrollTo({top:0,behavior:'instant'});
     tabEl.classList.add('active');
     STATE.tab=tab;
     resetTabReveals(tabEl);
@@ -114,5 +115,12 @@ document.addEventListener('DOMContentLoaded',()=>{
 // paint; per-tab heavy payloads (spoleczenstwo economics etc.) load on first click.
 RENDERED.add('siec');
 loadCore()
-  .then(()=>{renderKPI();setTimeout(()=>renderTab('siec'),120)})
+  .then(()=>{
+    renderKPI();
+    setTimeout(()=>{
+      renderTab('siec');
+      const siecEl=document.getElementById('tab-siec');
+      if(siecEl)resetTabReveals(siecEl);
+    },120);
+  })
   .catch(err=>console.error('loadCore failed:',err));

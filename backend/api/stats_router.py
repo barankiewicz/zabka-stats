@@ -498,39 +498,45 @@ async def inpost_vs_zabka_by_level(
                 "ratio": ratio,
             })
     elif level == "city":
-        zabka_rows = client.execute("""
-            SELECT voivodeship, city, COUNT(*) AS cnt
-            FROM locations WHERE deleted_at IS NULL 
-              AND city IS NOT NULL AND city <> ''
-            GROUP BY voivodeship, city HAVING COUNT(*) > 0
+        # Join via miasto_id to avoid city-name mismatches (e.g. "M.st.Warszawa od 2002"
+        # in dim_city vs "Warszawa" in locations).
+        city_rows = client.execute("""
+            SELECT
+                c.name AS city_name,
+                v.name AS voivodeship,
+                c.population,
+                COALESCE(z.cnt, 0) AS z_cnt,
+                COALESCE(pl.cnt, 0) AS p_cnt
+            FROM dim_city c
+            JOIN dim_voivodeship v ON v.id = c.voivodeship_id
+            LEFT JOIN (
+                SELECT miasto_id, COUNT(*) AS cnt
+                FROM locations
+                WHERE deleted_at IS NULL AND miasto_id IS NOT NULL
+                GROUP BY miasto_id
+            ) z ON z.miasto_id = c.id
+            LEFT JOIN (
+                SELECT miasto_id, COUNT(*) AS cnt
+                FROM parcel_lockers
+                WHERE deleted_at IS NULL AND miasto_id IS NOT NULL
+                GROUP BY miasto_id
+            ) pl ON pl.miasto_id = c.id
+            WHERE COALESCE(z.cnt, 0) > 0
+              AND COALESCE(pl.cnt, 0) > 0
+              AND c.population > 0
         """).fetchall()
-        locker_rows = client.execute("""
-            SELECT voivodeship, city, COUNT(*) AS cnt
-            FROM parcel_lockers
-            WHERE city IS NOT NULL AND city <> '' AND deleted_at IS NULL
-            GROUP BY voivodeship, city
-        """).fetchall()
-        locker_map = {}
-        for voiv, city, cnt in locker_rows:
-            locker_map.setdefault((voiv, city), 0)
-            locker_map[(voiv, city)] += int(cnt)
-        cg = _city_geo()["by"]
         rows = []
-        for voiv, city, z in zabka_rows:
-            z = int(z)
-            p = locker_map.get((voiv, city), 0)
-            if not p:
-                continue
-            g = cg.get((voiv, city.strip().lower()), {})
-            pop = g.get("population") or 0
-            if not pop:
-                continue
+        for city_name, voiv, pop, z, p in city_rows:
+            z, p, pop = int(z), int(p), int(pop)
+            # Strip GUS naming artefacts so Warsaw shows as "Warszawa"
+            display = re.sub(r'^\s*M\.st\.\s*', '', str(city_name or ''))
+            display = re.sub(r'\s+od\s+\d{4}\s*$', '', display).strip()
             ratio = round(p / z, 2) if z else 0.0
             rows.append({
-                "name": city, "voivodeship": voiv,
+                "name": display, "voivodeship": voiv,
                 "zabki": z, "paczkomaty": p, "population": pop,
-                "zabki_per_100k": round(z * 100000 / pop, 1) if pop else 0.0,
-                "lockers_per_100k": round(p * 100000 / pop, 1) if pop else 0.0,
+                "zabki_per_100k": round(z * 100000 / pop, 1),
+                "lockers_per_100k": round(p * 100000 / pop, 1),
                 "ratio": ratio,
             })
     elif level == "gmina":

@@ -105,7 +105,8 @@ function renderInpostMap(){
         nf.properties._t=Math.max(0,Math.min(1,1-(isNaN(norm)?0.5:norm)));
         const rr=typeof d.ratio==='number'?d.ratio.toFixed(2):String(d.ratio);
         nf.properties._label=rr.replace('.',',')+'x';
-        nf.properties._name=f.properties.nazwa||'';
+        const _rn=f.properties.nazwa||'';
+        nf.properties._name=_rn?_rn[0].toUpperCase()+_rn.slice(1):_rn;
         const z=(d.zabki_per_100k||0).toFixed(1), p=(d.lockers_per_100k||0).toFixed(1);
         nf.properties._tip=`<div style="font-weight:700;font-size:13px;margin-bottom:3px">${nf.properties._name}</div>`+
           `<div style="font-size:12px;color:#93a487">Żabka: ${z}/100k</div>`+
@@ -294,11 +295,12 @@ export function renderGminaLeaders(){
       borderRadius:2,borderWidth:0,maxBarThickness:20
     }]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      animation:{duration:0},
       layout:{padding:{right:60,top:8,bottom:8}},
       plugins:{legend:{display:false},
         tooltip:{enabled:false},
         barLabels:{decimals:2,color:C.muted},
-        annot:{refLines:[]}},
+        annot:{refLines:natRef}},
       scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},
         y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
     }
@@ -491,8 +493,9 @@ export function renderDumbbell(data){
     const lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
     lbl.setAttribute('x',PAD_L-6);lbl.setAttribute('y',y+3.5);lbl.setAttribute('text-anchor','end');
     lbl.setAttribute('fill',isFiltered?'#3a3a5a':'#c8c8d8');lbl.setAttribute('font-size',FONT_LABEL);
-    const name=d.name||d.voivodeship||'';
-    lbl.textContent=name;
+    const rawName=d.name||d.voivodeship||'';
+    const name=rawName.replace(/^M\.st\.\s*/i,'').replace(/\s+od\s+\d{4}\s*$/i,'').replace(/^powiat\s+/i,'').trim();
+    lbl.textContent=name?name[0].toUpperCase()+name.slice(1):rawName;
     svg.appendChild(lbl);
     const rb=document.createElementNS('http://www.w3.org/2000/svg','text');
     rb.setAttribute('x',PAD_L+W_CHART+4);rb.setAttribute('y',y+3);
@@ -511,7 +514,8 @@ export function renderDumbbell(data){
     const idx=Math.round((svgY-22)/ROW);
     if(idx>=0&&idx<arr.length){
       const d=arr[idx];
-      const name=d.name||d.voivodeship||'';
+      const rawTip=d.name||d.voivodeship||'';
+      const name=rawTip.replace(/^M\.st\.\s*/i,'').replace(/\s+od\s+\d{4}\s*$/i,'').replace(/^powiat\s+/i,'').trim()||rawTip;
       const z=(d.zabki_per_100k||0).toFixed(1);
       const p=(d.lockers_per_100k||0).toFixed(1);
       const ratio=typeof d.ratio==='number'?d.ratio.toFixed(2):String(d.ratio||'–');

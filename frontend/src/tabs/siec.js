@@ -308,7 +308,7 @@ export function renderGrowthMap(){
   if(!growthMap){
     try {
       growthMap=createMap('map-growth',{
-        center:[19.3,52.05],zoom:5.6,minZoom:5,maxZoom:9,
+        center:[19.3,52.05],zoom:5.0,minZoom:4.5,maxZoom:9,
         pitch:0,bearing:0,
         dragRotate:false,pitchWithRotate:false,touchPitch:false,
         maxBounds:[[13.6,48.8],[24.2,55.0]],
@@ -327,7 +327,7 @@ export function renderGrowthMap(){
         rb.className='map-reset-btn';rb.type='button';
         rb.textContent='Reset widoku';
         rb.setAttribute('aria-label','Resetuj widok mapy');
-        rb.addEventListener('click',()=>{growthMap.easeTo({pitch:0,bearing:0,zoom:5.6,center:[19.3,52.05],duration:600})});
+        rb.addEventListener('click',()=>{growthMap.easeTo({pitch:0,bearing:0,zoom:5.0,center:[19.3,52.05],duration:600})});
         el.appendChild(rb);
       }
 
@@ -837,6 +837,13 @@ const PAGE=20;
 let _gDim='powiat',_gMetric='count',_gSort='desc',_gRows=[],_gTotal=0,_gOffset=0;
 let _gAvg=null,_gMedian=null,_gSum=0;
 
+// Capitalize first letter and strip GUS naming artefacts (M.st., " od YYYY", "powiat ").
+function capName(n){
+  if(!n)return n;
+  n=String(n).replace(/^M\.st\.\s*/i,'').replace(/\s+od\s+\d{4}\s*$/i,'').replace(/^powiat\s+/i,'').trim();
+  return n?n[0].toUpperCase()+n.slice(1):n;
+}
+
 const _dimCache=new Map();
 function fetchDim(dim,metric,sort,limit,offset){
   const key=`${dim}|${metric}|${sort}|${limit}|${offset}`;
@@ -902,7 +909,7 @@ function drawGranularChart(){
   if(_wojMap)setTimeout(()=>{_wojMap.resize&&_wojMap.resize();},0);
 
   // Labels + data: append POZOSTALE for non-count metrics when not all rows are shown
-  let labels=rows.map(d=>d.name);
+  let labels=rows.map(d=>capName(d.name));
   let data=rows.map(d=>d[vk]);
   let _hasPozostale=false;
   if(!_isCount()&&_gDim!=='voivodeship'&&!_gOffset&&_gRows.length<_gTotal&&_gAvg!=null){
@@ -1002,7 +1009,7 @@ function _setWojData(rows,metric,inverted){
       const v=r[vk];
       const t=(vmax>vmin)?(v-vmin)/(vmax-vmin):0.5;
       nf.properties._t=inverted?(1-t):t;
-      nf.properties._name=r.name||f.properties.nazwa||'';
+      nf.properties._name=capName(r.name||f.properties.nazwa||'');
       nf.properties._val=_wFmtVal(r);
       let label;
       if(metric==='count')label=fmt(Math.round(v));
@@ -1087,7 +1094,7 @@ async function renderWojMap(){
         const p=fs.properties||{};
         if(p._name){
           ensureTip();
-          _wojTip.innerHTML=`<div style="font-family:var(--font-display);font-weight:700;font-size:13px;margin-bottom:3px">${p._name}</div>`+
+          _wojTip.innerHTML=`<div style="font-family:var(--font-display);font-weight:700;font-size:13px;margin-bottom:3px">${capName(p._name)}</div>`+
             `<div style="font-size:12px;color:#93a487">${p._val||''}</div>`;
           _wojTip.style.left=(e.originalEvent.clientX+14)+'px';
           _wojTip.style.top=(e.originalEvent.clientY+14)+'px';
