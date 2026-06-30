@@ -4,13 +4,17 @@ import { CHARTS } from './state.js';
 export function era(yr){if(yr<=2009)return'#2b531a';if(yr<=2019)return'#4a8a22';if(yr<=2022)return'#74bd2a';return'#a6e84a'}
 export function eraName(yr){if(yr<=2009)return'Wczesna siec';if(yr<=2019)return'Wzrost';if(yr<=2022)return'Przyspieszenie';return'Boom'}
 export function fmt(n){return(+n).toLocaleString('pl-PL')}
-// Display-case a place name. GUS voivodeship names arrive ALL-CAPS
-// ("MAZOWIECKIE"); render them as "Mazowieckie" (capital per space-separated
-// word, lowercase tail so hyphenated names stay Polish-correct:
-// "WARMIŃSKO-MAZURSKIE" -> "Warmińsko-mazurskie"). Names that are not all-caps
-// (lowercase powiats like "poznański", already title-cased cities like
-// "Nowy Sącz") only get their first letter capitalised, leaving the rest intact.
+// Display-case a place name and strip GUS naming artefacts. The dictionary
+// carries names like "Powiat bocheński", "M.st. Warszawa" and "... od 2013";
+// none of that belongs on a chart label. After stripping: voivodeship names
+// arrive ALL-CAPS ("MAZOWIECKIE") and become "Mazowieckie" (capital per
+// space-separated word, lowercase tail so hyphenated names stay Polish-correct:
+// "WARMIŃSKO-MAZURSKIE" -> "Warmińsko-mazurskie"); names that are not all-caps
+// (lowercase powiats like "bocheński", already title-cased cities like
+// "Nowy Sącz") only get their first letter capitalised, rest left intact.
 export function capName(n){
+  if(!n)return n;
+  n=String(n).replace(/^powiat\s+/i,'').replace(/^M\.st\.\s*/i,'').replace(/\s+od\s+\d{4}\s*$/i,'').trim();
   if(!n)return n;
   if(n===n.toUpperCase())
     return n.toLowerCase().split(' ').map(w=>w?w[0].toUpperCase()+w.slice(1):w).join(' ');

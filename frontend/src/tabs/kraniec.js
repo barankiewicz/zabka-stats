@@ -272,42 +272,38 @@ function buildMap() {
     if (!_dotRaf) _dotRaf = requestAnimationFrame(_dotLoop);
   }
 
-  // Unified hover tooltip: a DOM element anchored to the hovered item. Works
-  // for the rail list and the KPI/ep panels regardless of the map library.
-  let _tipEl = null;
-  function showTip(f, targetEl) {
-    if (_tipEl) { _tipEl.remove(); _tipEl = null; }
-    const tip = document.createElement('div');
-    tip.className = 'kr-tip-cluster';
-    tip.style.position = 'fixed';
-    tip.style.setProperty('--c', COL[f.g] || '#84c341');
-    tip.innerHTML = `<div class="krtc-v">${f.val}</div><div class="krtc-l">${f.lab}</div>`;
-    document.body.appendChild(tip);
-    const r = targetEl.getBoundingClientRect();
-    tip.style.left = (r.left + r.width / 2) + 'px';
-    tip.style.top = (r.top - 10) + 'px';
-    _tipEl = tip;
+  // Hovering a rail entry or a KPI/panel tile previews the fact ON THE MAP -
+  // the same popup you get hovering the point itself, and the dot cloud for
+  // cluster facts - instead of a separate DOM tooltip. A pinned (clicked) fact
+  // is left untouched; leaving the hover restores whatever was pinned.
+  function _restoreDots() {
+    const af = activeId ? FACT_BY_ID[activeId] : null;
+    showDots(af && af.type === 'cluster' ? af.id : null);
   }
-  function hideTip() { if (_tipEl) { _tipEl.remove(); _tipEl = null; } }
+  function hoverFact(f) {
+    if (!f || activeId === f.id) return;
+    if (f.type === 'cluster') { showDots(f.id); return; }
+    const m = markers[f.id];
+    if (m) { setActiveMarker(f.id); m.popup.setLngLat([f.lon, f.lat]).addTo(_krMap); }
+  }
+  function unhoverFact(f) {
+    if (!f || activeId === f.id) return;
+    if (f.type === 'cluster') { _restoreDots(); return; }
+    const m = markers[f.id];
+    if (m) { setActiveMarker(activeId); m.popup.remove(); }
+  }
 
   const railEl = document.getElementById('kr-rail');
   if (railEl) {
     railEl.addEventListener('mouseover', e => {
       const it = e.target.closest('.item');
-      if (!it) return;
-      const f = FACTS.find(x => x.id === it.dataset.id);
-      if (f) showTip(f, it);
+      if (it) hoverFact(FACTS.find(x => x.id === it.dataset.id));
     });
     railEl.addEventListener('mouseout', e => {
-      if (!e.target.closest('.item')) return;
-      hideTip();
+      const it = e.target.closest('.item');
+      if (it) unhoverFact(FACTS.find(x => x.id === it.dataset.id));
     });
   }
-  const panelIds = [
-    'edge-kpi-h24-tile', 'edge-kpi-parks-tile', 'edge-kpi-frogrecord-tile',
-    'edge-kpi-void-tile', 'edge-kpi-oldest-tile', 'edge-kpi-farthestfrog-tile',
-    'ep-highest', 'ep-lowest', 'ep-isolated', 'ep-zerofrog-panel', 'ep-frog-panel',
-  ];
   const panelFactMap = {
     'edge-kpi-h24-tile': 'h24', 'edge-kpi-parks-tile': 'parks',
     'edge-kpi-frogrecord-tile': 'frogrecord', 'edge-kpi-void-tile': 'void',
@@ -315,14 +311,12 @@ function buildMap() {
     'ep-highest': 'highest', 'ep-lowest': 'lowest', 'ep-isolated': 'isolated',
     'ep-zerofrog-panel': 'zerofrog', 'ep-frog-panel': 'frog',
   };
-  panelIds.forEach(pid => {
+  Object.keys(panelFactMap).forEach(pid => {
     const el = document.getElementById(pid);
     if (!el) return;
-    el.addEventListener('mouseover', () => {
-      const f = FACTS.find(x => x.id === panelFactMap[pid]);
-      if (f) showTip(f, el);
-    });
-    el.addEventListener('mouseout', () => hideTip());
+    const getF = () => FACTS.find(x => x.id === panelFactMap[pid]);
+    el.addEventListener('mouseover', () => hoverFact(getF()));
+    el.addEventListener('mouseout', () => unhoverFact(getF()));
   });
 
   const markers = {};   // factId -> {marker, el, mkEl, popup}

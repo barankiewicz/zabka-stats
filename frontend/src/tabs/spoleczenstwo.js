@@ -341,7 +341,7 @@ function _drawNbl(data){
   const sub=document.getElementById('nbl-sub');
   if(sub)sub.textContent=`${metric==='median_m'?'Mediana':'Średnia'} odległości do najbliższej Żabki, według ${_NBL_LABEL[_nblLevel]}`;
 
-  const labels=rows.map(d=>d.name);
+  const labels=rows.map(d=>capName(d.name));
   const vals=rows.map(d=>d[metric]);
   const bgs=rows.map((_,i)=>_ipRamp(1-i/Math.max(rows.length-1,1)));
 
