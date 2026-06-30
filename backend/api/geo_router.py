@@ -30,10 +30,34 @@ _GEO_DIR = Path(__file__).parent.parent.parent / "data" / "geo"
 _VOIV_AREA = None
 _POW_GEO = None
 _GMINA_AGG = None
+_GEO_BYTES: dict = {}   # filename -> raw bytes (boundary geojson, read once)
+
+
+def _geo_bytes(filename: str):
+    """Boundary geojson held in memory, read from disk once. These files are
+    static (they only change on a rare boundary refresh + restart), and the
+    endpoints serving them return a raw Response that the Redis cache can't
+    store - so without this every request re-read the file off disk."""
+    if filename not in _GEO_BYTES:
+        path = _GEO_DIR / filename
+        _GEO_BYTES[filename] = path.read_bytes() if path.exists() else None
+    return _GEO_BYTES[filename]
+
 
 # --- Startup Event ---
 async def startup_geo() -> None:
     load_demographics_from_db()
+    # Warm the lazy caches so no request pays the build cost on first hit -
+    # _pow_geo in particular point-in-polygons every powiat against the
+    # voivodeship index, which is too much to do on a request thread.
+    try:
+        _voiv_area()
+        _pow_geo()
+        _gmina_agg()
+        _geo_bytes("wojewodztwa.geojson")
+        _geo_bytes("powiaty.geojson")
+    except Exception as e:
+        print(f"[startup_geo] cache warm skipped: {e}")
 
 startup_handlers = [startup_geo]
 
@@ -131,20 +155,18 @@ def _gmina_agg():
 # --- Endpoints ---
 
 @get("/geo/voivodeships")
-@cached(ttl=86400)
 async def geo_voivodeships() -> Response:
-    path = _GEO_DIR / "wojewodztwa.geojson"
-    if not path.exists():
+    data = _geo_bytes("wojewodztwa.geojson")
+    if data is None:
         raise HTTPException(status_code=404, detail="Voivodeships boundary file not found")
-    return Response(content=path.read_bytes(), media_type="application/json")
+    return Response(content=data, media_type="application/json")
 
 @get("/geo/powiats")
-@cached(ttl=86400)
 async def geo_powiats() -> Response:
-    path = _GEO_DIR / "powiaty.geojson"
-    if not path.exists():
+    data = _geo_bytes("powiaty.geojson")
+    if data is None:
         raise HTTPException(status_code=404, detail="Powiats boundary file not found")
-    return Response(content=path.read_bytes(), media_type="application/json")
+    return Response(content=data, media_type="application/json")
 
 @get("/stats/powiat-coverage")
 @cached(ttl=86400)
