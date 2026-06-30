@@ -1,11 +1,12 @@
 import re
 from collections import Counter, defaultdict
 
-from litestar import Router, get, post
+from litestar import Response, Router, get, post
 from litestar.params import FromQuery
+from litestar.serialization import encode_json
 
 from backend.api.demographics import get_voiv_population
-from backend.cache import cached, clear_cache
+from backend.cache import cached, clear_cache, get_cached_blob, set_cached_blob
 from backend.database_ch import client
 from backend.schemas.api_models import (
     CityFirstOpeningItem,
@@ -144,25 +145,31 @@ async def network_origin() -> NetworkOriginResponse:
     )
 
 @get("/stats/stores-timeline")
-@cached(ttl=3600)
-async def stores_timeline() -> StoreTimelineResponse:
+async def stores_timeline() -> Response:
+    # ~13k [lat,lon,year] triples + milestones (~300 KB). Cache the serialized
+    # string and serve it pre-encoded, so warm hits skip the DB scans, the 13k
+    # Python build, and the dict-cache re-parse/re-encode. Bytes are unchanged.
+    cached_blob = get_cached_blob("stores_timeline")
+    if cached_blob is not None:
+        return Response(cached_blob, media_type="application/json")
+
     dated = client.execute("""
         SELECT latitude, longitude, YEAR(first_opening_date) AS yr
         FROM locations
-        WHERE deleted_at IS NULL 
+        WHERE deleted_at IS NULL
           AND first_opening_date IS NOT NULL
           AND latitude IS NOT NULL
         ORDER BY yr ASC
     """).fetchall()
-    
+
     undated = client.execute("""
         SELECT latitude, longitude
         FROM locations
-        WHERE deleted_at IS NULL 
+        WHERE deleted_at IS NULL
           AND first_opening_date IS NULL
           AND latitude IS NOT NULL
     """).fetchall()
-    
+
     milestones_rows = client.execute("""
         WITH yr_counts AS (
             SELECT YEAR(first_opening_date) AS y, COUNT(*) AS cnt
@@ -181,26 +188,27 @@ async def stores_timeline() -> StoreTimelineResponse:
             MIN(CASE WHEN cum >= 10000 THEN y END)
         FROM running
     """).fetchone()
-    
+
     m = milestones_rows if milestones_rows else (None, None, None, None)
-    year_vals = [r[2] for r in dated if r[2] is not None]
-    
-    return StoreTimelineResponse(
-        stores=[[round(r[0], 4), round(r[1], 4), int(r[2])] for r in dated],
-        undated=[[round(r[0], 4), round(r[1], 4)] for r in undated],
-        year_range=StoreTimelineRange(
-            min=int(min(year_vals)) if year_vals else 1998,
-            max=int(max(year_vals)) if year_vals else 2026
-        ),
-        milestones=StoreTimelineMilestones(
-            **{
-                "1000": int(m[0]) if m[0] else None,
-                "2000": int(m[1]) if m[1] else None,
-                "5000": int(m[2]) if m[2] else None,
-                "10000": int(m[3]) if m[3] else None
-            }
-        )
-    )
+    # `dated` is ordered by year asc, so the range is just the first/last row -
+    # no need to build and scan a 13k-element list for min/max.
+    year_min = int(dated[0][2]) if dated else 1998
+    year_max = int(dated[-1][2]) if dated else 2026
+
+    payload = {
+        "stores": [[round(r[0], 4), round(r[1], 4), int(r[2])] for r in dated],
+        "undated": [[round(r[0], 4), round(r[1], 4)] for r in undated],
+        "year_range": {"min": year_min, "max": year_max},
+        "milestones": {
+            "m1000": int(m[0]) if m[0] else None,
+            "m2000": int(m[1]) if m[1] else None,
+            "m5000": int(m[2]) if m[2] else None,
+            "m10000": int(m[3]) if m[3] else None,
+        },
+    }
+    blob = encode_json(payload)
+    set_cached_blob("stores_timeline", blob, ttl=3600)
+    return Response(blob, media_type="application/json")
 
 @get("/stats/growth-by-voivodeship")
 @cached(ttl=3600)
