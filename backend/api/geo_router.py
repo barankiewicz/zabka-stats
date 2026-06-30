@@ -228,7 +228,7 @@ async def coverage_funnel() -> list[CoverageFunnelItem]:
     gminas_with = row[0] if row and row[0] else 0
 
     def node(level, w, t):
-        return {"level": level, "with": w, "total": t,
+        return {"level": level, "covered": w, "total": t,
                 "pct": round(100.0 * w / t, 1) if t else 0}
 
     return [

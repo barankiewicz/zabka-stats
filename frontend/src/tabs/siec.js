@@ -3,7 +3,7 @@ import * as Plot from '@observablehq/plot';
 import { maplibregl, createMap, addVoivodeshipLayers, fitPoland, wojCentroids, wojRamp, hexWithAlpha, featureBBoxCenter as _bboxCenter, showMapUnavailable, WebGLUnavailableError } from '../maplibre-map.js';
 import { C, STATE } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
-import { era, fmt, getFont, destroyChart } from '../utils.js';
+import { era, fmt, getFont, destroyChart, capName as capCase } from '../utils.js';
 import { fetchJSON } from '../data.js';
 import { renderBubble } from './bubble.js';
 import { renderKraniec } from './kraniec.js';
@@ -710,7 +710,7 @@ export function renderPowiatCoverage(){
   const pc=M.powiat_coverage||{};
   const funnel=M.coverage_funnel||[];
   const node=funnel.find(f=>f.level===_pcLevel)
-    || (_pcLevel==='powiaty'?{with:pc.covered,total:pc.total,pct:100}:{with:0,total:0,pct:0});
+    || (_pcLevel==='powiaty'?{covered:pc.covered,total:pc.total,pct:100}:{covered:0,total:0,pct:0});
   const pct=node.pct!=null?node.pct:0;
   const setT=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.textContent=v};
   setT('powiat-cap',_PC_CAP[_pcLevel]||'');   // label can snap
@@ -739,10 +739,10 @@ export function renderPowiatCoverage(){
 
   if(!_pcState){
     _pcState={dots,target,greenness:target.map(g=>g?1:0),
-      pct,cov:node.with||0,tot:node.total||0,
-      pctT:pct,covT:node.with||0,totT:node.total||0,hover:null,raf:0};
+      pct,cov:node.covered||0,tot:node.total||0,
+      pctT:pct,covT:node.covered||0,totT:node.total||0,hover:null,raf:0};
   }else{
-    Object.assign(_pcState,{dots,target,pctT:pct,covT:node.with||0,totT:node.total||0});
+    Object.assign(_pcState,{dots,target,pctT:pct,covT:node.covered||0,totT:node.total||0});
   }
   const S=_pcState;
 
@@ -837,11 +837,11 @@ const PAGE=20;
 let _gDim='powiat',_gMetric='count',_gSort='desc',_gRows=[],_gTotal=0,_gOffset=0;
 let _gAvg=null,_gMedian=null,_gSum=0;
 
-// Capitalize first letter and strip GUS naming artefacts (M.st., " od YYYY", "powiat ").
+// Strip GUS naming artefacts (M.st., " od YYYY", "powiat ") then display-case.
 function capName(n){
   if(!n)return n;
   n=String(n).replace(/^M\.st\.\s*/i,'').replace(/\s+od\s+\d{4}\s*$/i,'').replace(/^powiat\s+/i,'').trim();
-  return n?n[0].toUpperCase()+n.slice(1):n;
+  return capCase(n);
 }
 
 const _dimCache=new Map();

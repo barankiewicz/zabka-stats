@@ -373,11 +373,9 @@ class CityCoverageResponse(BaseModel):
 
 class CoverageFunnelItem(BaseModel):
     level: str
-    with_val: int = Field(alias="with")
+    covered: int
     total: int
     pct: float
-
-    model_config = ConfigDict(populate_by_name=True)
 
 class GminaLeadersItem(BaseModel):
     name: str

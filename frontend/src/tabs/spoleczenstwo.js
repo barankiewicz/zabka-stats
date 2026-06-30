@@ -2,7 +2,7 @@ import Chart from 'chart.js/auto';
 import { maplibregl, createMap, fitPoland, featureBBoxCenter, showMapUnavailable, WebGLUnavailableError } from '../maplibre-map.js';
 import { C, STATE } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
-import { fmt, getFont, destroyChart, startTabParticles } from '../utils.js';
+import { fmt, getFont, destroyChart, startTabParticles, capName } from '../utils.js';
 import { renderEcon } from './econ.js';
 
 
@@ -495,7 +495,7 @@ export function renderDumbbell(data){
     lbl.setAttribute('fill',isFiltered?'#3a3a5a':'#c8c8d8');lbl.setAttribute('font-size',FONT_LABEL);
     const rawName=d.name||d.voivodeship||'';
     const name=rawName.replace(/^M\.st\.\s*/i,'').replace(/\s+od\s+\d{4}\s*$/i,'').replace(/^powiat\s+/i,'').trim();
-    lbl.textContent=name?name[0].toUpperCase()+name.slice(1):rawName;
+    lbl.textContent=name?capName(name):rawName;
     svg.appendChild(lbl);
     const rb=document.createElementNS('http://www.w3.org/2000/svg','text');
     rb.setAttribute('x',PAD_L+W_CHART+4);rb.setAttribute('y',y+3);

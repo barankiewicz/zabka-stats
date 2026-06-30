@@ -4,6 +4,18 @@ import { CHARTS } from './state.js';
 export function era(yr){if(yr<=2009)return'#2b531a';if(yr<=2019)return'#4a8a22';if(yr<=2022)return'#74bd2a';return'#a6e84a'}
 export function eraName(yr){if(yr<=2009)return'Wczesna siec';if(yr<=2019)return'Wzrost';if(yr<=2022)return'Przyspieszenie';return'Boom'}
 export function fmt(n){return(+n).toLocaleString('pl-PL')}
+// Display-case a place name. GUS voivodeship names arrive ALL-CAPS
+// ("MAZOWIECKIE"); render them as "Mazowieckie" (capital per space-separated
+// word, lowercase tail so hyphenated names stay Polish-correct:
+// "WARMIŃSKO-MAZURSKIE" -> "Warmińsko-mazurskie"). Names that are not all-caps
+// (lowercase powiats like "poznański", already title-cased cities like
+// "Nowy Sącz") only get their first letter capitalised, leaving the rest intact.
+export function capName(n){
+  if(!n)return n;
+  if(n===n.toUpperCase())
+    return n.toLowerCase().split(' ').map(w=>w?w[0].toUpperCase()+w.slice(1):w).join(' ');
+  return n[0].toUpperCase()+n.slice(1);
+}
 export function macroCol(v){return C[MACRO[v]]||C.green}
 // single production font set (the live switcher was removed; see CLAUDE.md ch.4)
 export function getFont(r){
