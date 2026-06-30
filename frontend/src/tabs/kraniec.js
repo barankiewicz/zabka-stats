@@ -284,7 +284,7 @@ function buildMap() {
     if (!f || activeId === f.id) return;
     if (f.type === 'cluster') { showDots(f.id); return; }
     const m = markers[f.id];
-    if (m) { setActiveMarker(f.id); m.popup.setLngLat([f.lon, f.lat]).addTo(_krMap); }
+    if (m) { setActiveMarker(f.id); m.popup.setLngLat([f.lon, f.lat]).addTo(_krMap); panPopupIntoView(m.popup); }
   }
   function unhoverFact(f) {
     if (!f || activeId === f.id) return;
@@ -433,7 +433,7 @@ function buildMap() {
         .setHTML(_popupHtml(f));
       marker.setPopup(popup);
       el.addEventListener('click', (ev) => { ev.stopPropagation(); selectFact(f.id); });
-      el.addEventListener('mouseenter', () => { if (activeId !== f.id) popup.setLngLat([f.lon, f.lat]).addTo(_krMap); });
+      el.addEventListener('mouseenter', () => { if (activeId !== f.id) { popup.setLngLat([f.lon, f.lat]).addTo(_krMap); panPopupIntoView(popup); } });
       el.addEventListener('mouseleave', () => { if (activeId !== f.id) popup.remove(); });
       markers[f.id] = { marker, el, mkEl, popup };
     });
@@ -472,6 +472,28 @@ function _popupHtml(f) {
     ${f.voiv ? `<div class="ps">${capName(f.voiv)}${f.street ? ' · ' + f.street : ''}</div>` : ''}
     <div class="pd">${f.desc}</div>
   </div>`;
+}
+
+// MapLibre popups don't auto-pan: a point near an edge gets its popup clipped by
+// the canvas. After a popup opens, measure it and nudge the map by exactly the
+// overflow so the whole tooltip is visible. Runs next frame so the popup DOM is
+// laid out before we measure.
+function panPopupIntoView(popup) {
+  if (!_krMap || !popup) return;
+  requestAnimationFrame(() => {
+    const el = popup.getElement();
+    if (!el || !_krMap) return;
+    const c = _krMap.getContainer().getBoundingClientRect();
+    const p = el.getBoundingClientRect();
+    const pad = 12;
+    let tx = 0, ty = 0;
+    if (p.left < c.left + pad) tx = (c.left + pad) - p.left;
+    else if (p.right > c.right - pad) tx = (c.right - pad) - p.right;
+    if (p.top < c.top + pad) ty = (c.top + pad) - p.top;
+    else if (p.bottom > c.bottom - pad) ty = (c.bottom - pad) - p.bottom;
+    // panBy(center offset) shifts content by the negative of that offset
+    if (tx || ty) _krMap.panBy([-tx, -ty], { duration: RM ? 0 : 300 });
+  });
 }
 
 function buildList() {
