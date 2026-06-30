@@ -340,21 +340,20 @@ Internal use only.
 
 # 2. Backend
 
-Litestar + DuckDB. Serves the analytics API over the Żabka data plus live data
-(weather, air quality). The data pipeline (ETL) is described in chapter 3.
+Litestar + DuckDB. Serves the analytics API over the Żabka data. The data
+pipeline (ETL) is described in chapter 3.
 
 ## 1. Tech stack
 
 - **Litestar** (async Python) - high-performance API server + static frontend serving.
 - **DuckDB** - embedded column store for analytics.
 - **Redis** (UNIX socket) - cache for aggregate responses.
-- **Live integrations:** Open-Meteo (weather), OpenLightMap (light pollution).
-  Geocoding/boundaries: offline point-in-polygon.
+- Geocoding/boundaries: offline point-in-polygon.
 
 Dependencies: `requirements.txt` (root). Main modules: `main.py` (app + CORS +
 health + snapshot upload), `database_ch.py` (connection + schema + column
-migration), `cache.py` (Redis cache decorator), `live_data.py` (live
-integrations), `api/` (routers), `etl/` (data pipeline, chapter 3).
+migration), `cache.py` (Redis cache decorator), `api/` (routers), `etl/` (data
+pipeline, chapter 3).
 
 ## 2. Database choice: DuckDB
 
@@ -371,7 +370,6 @@ anyway). Table schema with types: chapter 3.
 
 **Why:** sub-100 ms responses, no TCP overhead, local and safe.
 **Where:** `/api/stats/*`, `/api/changes/*`, `/api/trends/*` (TTL 3600 s).
-**Where NOT:** `/api/live/*` - always fresh, no cache.
 The ETL clears the cache after loading data; the backend rebuilds it on the next
 query. Config: `REDIS_SOCKET` (path to the UNIX socket). On the production VPS
 this is `/run/redis/redis-server.sock` (Debian `redis-server`, the `zabka` user is
@@ -1016,6 +1014,3 @@ to rendered content when its own data arrives. Never gate a chart on other chart
 - Timeout (> 8s): same as API failure.
 - Partial data badge (non-blocking): "218 sklepów bez daty otwarcia nie uwzględnionych"
   on the 1.1 growth chart.
-
-The live data endpoints (`/api/live/*`, weather / air quality / sky in `admin_router.py`)
-still exist on the backend but are not wired into the current two-tab layout.
