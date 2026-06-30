@@ -2,10 +2,12 @@
 
 from litestar import Router, get
 
+from backend.cache import cached
 from backend.database_ch import client
 
 
 @get("/dashboard-data")
+@cached(ttl=3600)
 async def get_dashboard_data() -> dict:
     """Get all aggregated data for dashboard in one call."""
 
