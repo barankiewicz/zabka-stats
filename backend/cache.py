@@ -32,6 +32,20 @@ except Exception as e:
     cache = None
 
 
+def _json_default(o: Any) -> Any:
+    """Make handler return values JSON-serializable for the cache.
+
+    Endpoints return Pydantic models (or lists of them); json.dumps can't encode
+    those, which is why caching was silently failing. model_dump(mode="json")
+    produces the same plain structure Litestar serializes on a cache miss, so the
+    cached (dict) and uncached (model) responses come out byte-identical.
+    """
+    md = getattr(o, "model_dump", None)
+    if callable(md):
+        return o.model_dump(mode="json")
+    raise TypeError(f"Object of type {type(o).__name__} is not JSON serializable")
+
+
 def get_cache(key: str) -> Any | None:
     if not cache:
         return None
@@ -47,7 +61,12 @@ def set_cache(key: str, value: Any, ttl: int = 3600) -> None:
     if not cache:
         return
     try:
-        cache.setex(key, ttl, json.dumps(value))
+        payload = json.dumps(value, default=_json_default)
+    except TypeError:
+        # Not cacheable (e.g. a raw Litestar Response) - skip, recompute next time.
+        return
+    try:
+        cache.setex(key, ttl, payload)
     except Exception as e:
         logger.warning("Redis set error for key %r: %s", key, e)
 
