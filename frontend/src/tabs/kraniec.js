@@ -357,7 +357,7 @@ function buildMap() {
     if (f.type !== 'cluster') showDots(null);
     if (cap) cap.innerHTML = `<b>${f.city || f.lab}</b> · ${f.val} – ${f.desc}`;
     if (withPopup && (f.type === 'point' || f.type === 'circle') && markers[f.id]) {
-      setTimeout(() => markers[f.id].popup.addTo(_krMap), RM ? 0 : 650);
+      setTimeout(() => markers[f.id].popup.setLngLat([f.lon, f.lat]).addTo(_krMap), RM ? 0 : 650);
     }
   }
 
@@ -439,7 +439,7 @@ function buildMap() {
         .setHTML(_popupHtml(f));
       marker.setPopup(popup);
       el.addEventListener('click', (ev) => { ev.stopPropagation(); selectFact(f.id); });
-      el.addEventListener('mouseenter', () => { if (activeId !== f.id) popup.addTo(_krMap); });
+      el.addEventListener('mouseenter', () => { if (activeId !== f.id) popup.setLngLat([f.lon, f.lat]).addTo(_krMap); });
       el.addEventListener('mouseleave', () => { if (activeId !== f.id) popup.remove(); });
       markers[f.id] = { marker, el, mkEl, popup };
     });
