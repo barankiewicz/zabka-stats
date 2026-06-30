@@ -71,14 +71,16 @@ async def amphibians() -> AmphibianExtremesResponse:
           AND amphibian_occurrences_5km IS NOT NULL
     """).fetchone()
     
-    # Per-store sample for beeswarm/map
+    # Per-store sample for beeswarm/map. Deterministic subset (hash of the PK)
+    # instead of USING SAMPLE, so the same 5000 stores come back every run -
+    # stable output that Redis can cache meaningfully across ETL recomputes.
     stores_db = client.execute("""
         SELECT latitude, longitude,
                COALESCE(amphibian_occurrences_5km, 0) AS occ,
                COALESCE(nearest_amphibian_km, 0) AS near_km,
                COALESCE(voivodeship, '') AS voivodeship
-        FROM locations WHERE deleted_at IS NULL 
-        USING SAMPLE 5000
+        FROM locations WHERE deleted_at IS NULL
+        ORDER BY hash(store_id) LIMIT 5000
     """).fetchall()
     
     # Voivodeship name -> index mapping
@@ -98,9 +100,9 @@ async def amphibians() -> AmphibianExtremesResponse:
             SELECT store_id, latitude, longitude,
                    COALESCE(amphibian_occurrences_5km, 0) AS occ
             FROM locations
-            WHERE deleted_at IS NULL 
+            WHERE deleted_at IS NULL
               AND amphibian_occurrences_5km IS NOT NULL
-            USING SAMPLE 200
+            ORDER BY hash(store_id) LIMIT 200
         ) a
         LEFT JOIN locations b
           ON b.deleted_at IS NULL
