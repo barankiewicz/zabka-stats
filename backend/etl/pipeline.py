@@ -94,7 +94,7 @@ def _skip(rows: list[dict], columns: list[str], neutral: dict[str, Any], msg: st
             r.setdefault(col, neutral.get(col))
 
 
-def run(no_geocode: bool = False, limit: int | None = None,
+def run(no_geocode: bool = False,
         fallback: str | None = None, skip_parks: bool = False, skip_gus: bool = False,
         elevation: bool = False, skip_amphibians: bool = False,
         skip_paczkomaty: bool = False) -> None:
@@ -185,8 +185,8 @@ def run(no_geocode: bool = False, limit: int | None = None,
             "most_froggy_zabka": froggy,
         }
 
-        sid = load_to_duckdb(con, rows, meta)
-        load_parcel_lockers(con, lockers, sid, src_date)
+        load_to_duckdb(con, rows, meta)
+        load_parcel_lockers(con, lockers, src_date)
         load_dimensions(con, dim_powiat, dim_voiv)
         load_dim_park(con, parks_enricher.parks())
         load_fun_facts(con, fun)

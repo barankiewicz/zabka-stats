@@ -457,7 +457,7 @@ GDOŚ parks get their own dimension (`dim_park`), linked from `locations` by
     powiat_id        -> dim_powiat.id          name
     gmina_id         -> dim_gmina.id           voivodeship_id -> dim_voivodeship.id
     miasto_id        -> dim_city.id            powiat_id      -> dim_powiat.id
-    operator, type, city, lat, lon, status     population
+    external_id, status, lat, lon              population
                                                area_km2
   fun_facts (key, lat, lon, value)
     - interesting facts, no relations        dim_city
@@ -743,7 +743,7 @@ Detailed logic, caching, and exceptions for the ingestion and enrichment sources
 
 ### 4.1. Data Quality & Caveats
 - **`first_opening_date` (1.7% / 218 nulls):** Reflects the opening date of stores *currently active*. Closed historical stores are missing, so early years (1998–2015) remain underrepresented in time-series (treat as "surviving cohort growth").
-- **Opening Hours / `is_visible`:** 3.3% (433 stores) are missing hours. `is_visible` is null for 0.4% (53 stores), defaults to FALSE.
+- **Opening Hours / `is_visible`:** 3.3% (433 stores) are missing hours. `is_visible` is null for 0.4% (53 stores); the ETL leaves those NULL (not coerced to FALSE).
 - **Enrichments & Economics:** 100% complete with zero nulls.
 
 ### 4.2. Key Proximity & Terrain Distributions

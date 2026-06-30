@@ -18,7 +18,6 @@ Kroki sieciowe sa best-effort - gdy zrodla brak, kolumna zostaje pusta.
 Uruchomienie:
   python -m backend.daily_etl                 # pelny przebieg (bez wysokosci)
   python -m backend.daily_etl --no-geocode    # pomin geokodowanie (szybki test)
-  python -m backend.daily_etl --limit 500     # geokoduj tylko N sklepow (test)
   python -m backend.daily_etl --skip-parks --skip-gus  # bez wzbogacen sieciowych
   python -m backend.daily_etl --elevation     # dolacz wysokosc GUGiK (13k+ zapytan, cache)
 
@@ -44,7 +43,6 @@ __all__ = ["run", "main"]
 def main():
     ap = argparse.ArgumentParser(description="Dzienny ETL Żabki")
     ap.add_argument("--no-geocode", action="store_true", help="pomin geokodowanie")
-    ap.add_argument("--limit", type=int, help="geokoduj tylko N nowych sklepow (test)")
     ap.add_argument("--fallback", help="lokalny JSON gdy pobieranie zawiedzie")
     ap.add_argument("--skip-parks", action="store_true", help="pomin parki/otuliny GDOŚ")
     ap.add_argument("--skip-gus", action="store_true", help="pomin ekonomie GUS BDL")
@@ -55,7 +53,7 @@ def main():
     ap.add_argument("--skip-paczkomaty", action="store_true",
                     help="pomin paczkomaty InPost (osobna encja)")
     args = ap.parse_args()
-    run(no_geocode=args.no_geocode, limit=args.limit,
+    run(no_geocode=args.no_geocode,
         fallback=args.fallback,
         skip_parks=args.skip_parks,
         skip_gus=args.skip_gus, elevation=args.elevation,

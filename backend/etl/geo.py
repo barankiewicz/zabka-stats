@@ -79,54 +79,6 @@ def nearest_region(lon, lat, index):
     return best
 
 
-# nazwa parku z dowolnego sensownego klucza properties
-_PARK_NAME_KEYS = ("nazwa", "name", "NAZWA", "Name", "nazwa_pl", "nazwaParku", "NAZWAPARKU")
-
-
-def polygon_index_named(gj: dict) -> list:
-    """Jak build_polygon_index, ale nazwa z dowolnego sensownego klucza properties.
-    Zwraca [(nazwa, bbox, [pierscienie])]."""
-    index = []
-    for feat in gj.get("features", []):
-        props = feat.get("properties", {}) or {}
-        name = next((props[k] for k in _PARK_NAME_KEYS if props.get(k)), None)
-        geom = feat.get("geometry") or {}
-        gtype, coords = geom.get("type"), geom.get("coordinates", [])
-        rings = []
-        if gtype == "Polygon":
-            rings = [coords[0]]
-        elif gtype == "MultiPolygon":
-            rings = [poly[0] for poly in coords]
-        if not rings:
-            continue
-        xs = [pt[0] for rg in rings for pt in rg]
-        ys = [pt[1] for rg in rings for pt in rg]
-        index.append((name, (min(xs), min(ys), max(xs), max(ys)), rings))
-    return index
-
-
-def geojson_points(gj: dict) -> list:
-    """Reprezentatywne punkty [lat, lon] z dowolnej geometrii.
-    Punkty wprost; poligony przez centroid pierscienia (wystarczy do progu 50 m)."""
-    pts = []
-    for feat in gj.get("features", []):
-        geom = feat.get("geometry") or {}
-        t, c = geom.get("type"), geom.get("coordinates")
-        if not c:
-            continue
-        if t == "Point":
-            pts.append((c[1], c[0]))
-        elif t == "MultiPoint":
-            pts.extend((p[1], p[0]) for p in c)
-        elif t in ("Polygon", "MultiPolygon"):
-            ring = c[0][0] if t == "MultiPolygon" else c[0]
-            if ring:
-                xs = [p[0] for p in ring]
-                ys = [p[1] for p in ring]
-                pts.append((sum(ys) / len(ys), sum(xs) / len(xs)))
-    return pts
-
-
 def poland_rings(woj_geo: dict) -> list:
     """Wyciagnij wszystkie zewnetrzne pierscienie wojewodztw jako liste pierscieni."""
     rings = []

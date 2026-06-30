@@ -102,9 +102,7 @@ def fetch_parcel_lockers() -> list:
     out = []
     for p in pts:
         out.append({
-            "operator": "InPost",
             "external_id": p.get("external_id"),
-            "type": p.get("type"),
             "city": p.get("city"),
             "voivodeship": None,
             "powiat": None,

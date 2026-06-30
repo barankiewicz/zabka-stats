@@ -253,14 +253,13 @@ def resolve_poland_boundaries(raw) -> dict:
     geokodowaniu. Opcjonalnie nadpisywalne polem `woj_geo` w zrodle lub plikiem."""
     woj_geo = raw.get("woj_geo") if isinstance(raw, dict) else None
     if not woj_geo:
-        for cand in ("data/woj_geo.json", "test/dashboard_data.json"):
-            if os.path.exists(cand):
-                with open(cand, encoding="utf-8") as f:
-                    wj = json.load(f)
-                woj_geo = wj.get("woj_geo", wj) if isinstance(wj, dict) else None
-                if woj_geo:
-                    print(f"[farthest] granice Polski z {cand}")
-                    break
+        cand = "data/woj_geo.json"
+        if os.path.exists(cand):
+            with open(cand, encoding="utf-8") as f:
+                wj = json.load(f)
+            woj_geo = wj.get("woj_geo", wj) if isinstance(wj, dict) else None
+            if woj_geo:
+                print(f"[farthest] granice Polski z {cand}")
     if not woj_geo:
         try:
             woj_geo = load_geojson(GEOJSON_WOJ, "wojewodztwa.geojson")
@@ -501,12 +500,6 @@ def load_to_duckdb(con, rows: list, meta: dict):
 
     active = con.execute("SELECT COUNT(*) FROM locations WHERE deleted_at IS NULL").fetchone()[0]
     print(f"[load] snapshot ({src_date}): {len(rows):,} incoming, {active:,} active in DB")
-    return 1
-
-
-def record_history(con, sid: int, src_date: str):
-    """Zapisz narodziny/zgony Żabek - no-op w nowym modelu SCD Type 2."""
-    pass
 
 
 # ---------------------------------------------------------------------------
@@ -543,7 +536,7 @@ def reload_cache():
 # ---------------------------------------------------------------------------
 # LOAD: paczkomaty (osobna encja) + wymiary geograficzne
 # ---------------------------------------------------------------------------
-def load_parcel_lockers(con, lockers: list, sid: int, src_date: str):
+def load_parcel_lockers(con, lockers: list, src_date: str):
     """Zapisz paczkomaty w tabeli parcel_lockers.
     Porównuje biezace aktywne paczkomaty z wejsciowymi:
     - nowe sa wstawiane (created_at = source_date)
@@ -689,7 +682,7 @@ def enforce_retention(con, src_date: str, months: int = 6):
     cutoff = (date.fromisoformat(str(src_date)) - relativedelta(months=months)).isoformat()
     
     deleted_locs = con.execute("DELETE FROM locations WHERE deleted_at < ?", [cutoff]).rowcount or 0
-    deleted_lockers = con.execute("DELETE FROM parcel_lockers WHERE source_date < ?", [cutoff]).rowcount or 0
+    deleted_lockers = con.execute("DELETE FROM parcel_lockers WHERE deleted_at < ?", [cutoff]).rowcount or 0
     print(f"[retencja] usunieto {deleted_locs} usunietych sklepow i {deleted_lockers} paczkomatow starszych niz {cutoff}")
 
 
