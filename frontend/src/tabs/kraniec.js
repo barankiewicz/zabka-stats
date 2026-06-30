@@ -4,7 +4,7 @@
 // na wpis zeby nie przeciazac CPU.
 import { maplibregl, createMap, fitPoland, pointsToFC, geoCircle, boundsOf, showMapUnavailable, WebGLUnavailableError } from '../maplibre-map.js';
 import { M, MAPS } from '../state.js';
-import { fmt } from '../utils.js';
+import { fmt, capName } from '../utils.js';
 
 const RM = window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches;
 
@@ -475,7 +475,7 @@ function _popupHtml(f) {
     <div class="pk">${f.lab}</div>
     <div class="pv">${f.val}</div>
     ${f.city ? `<div class="pc">${f.city}</div>` : ''}
-    ${f.voiv ? `<div class="ps">${f.voiv}${f.street ? ' · ' + f.street : ''}</div>` : ''}
+    ${f.voiv ? `<div class="ps">${capName(f.voiv)}${f.street ? ' · ' + f.street : ''}</div>` : ''}
     <div class="pd">${f.desc}</div>
   </div>`;
 }
@@ -506,7 +506,7 @@ function buildList() {
         <div class="sub">${f.id === 'frog' && f.street
           ? f.city + ' · ' + f.street
           : f.city
-            ? f.city + (f.voiv ? ' · ' + f.voiv : '')
+            ? f.city + (f.voiv ? ' · ' + capName(f.voiv) : '')
             : (f.short || f.desc)}</div>
       </div>`;
     it.onclick = () => selectFact(f.id);

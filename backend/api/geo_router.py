@@ -164,7 +164,10 @@ async def powiat_coverage() -> PowiatCoverageResponse:
         GROUP BY miasto_id
     """).fetchall()
     dots = [[round(r[0], 4), round(r[1], 4)] for r in raw if r[0] is not None and r[1] is not None]
-    total = 380
+    # 314 proper (land) powiats - cities with powiat rights are merged into their
+    # surrounding land powiat at level 2, so dim_powiat is the right denominator.
+    total_row = client.execute("SELECT COUNT(*) FROM dim_powiat").fetchone()
+    total = total_row[0] if total_row else 314
     covered = len(dots)
     return PowiatCoverageResponse(total=total, covered=covered, dots=dots)
 
@@ -207,7 +210,9 @@ async def coverage_funnel() -> list[CoverageFunnelItem]:
         WHERE deleted_at IS NULL AND powiat_id IS NOT NULL
     """).fetchone()
     pc_covered = pc_row[0] if pc_row else 0
-    pc_total = 380
+    # 314 proper (land) powiats; cities with powiat rights are merged in at level 2.
+    pc_total_row = client.execute("SELECT COUNT(*) FROM dim_powiat").fetchone()
+    pc_total = pc_total_row[0] if pc_total_row else 314
 
     # Officially recognised cities (dim_city = 302 rows)
     cc_total_row = client.execute("SELECT COUNT(*) FROM dim_city").fetchone()

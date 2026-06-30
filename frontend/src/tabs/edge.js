@@ -1,7 +1,7 @@
 import Chart from 'chart.js/auto';
 import { C } from '../config.js';
 import { M, CHARTS } from '../state.js';
-import { fmt, getFont, destroyChart, startTabParticles } from '../utils.js';
+import { fmt, getFont, destroyChart, startTabParticles, capName } from '../utils.js';
 import { selectFact } from './kraniec.js';
 
 function _updateEdgeHeroLede(){
@@ -96,7 +96,7 @@ function renderCiekawostkiFarthestFrog(){
   }
   const subEl=document.getElementById('edge-kpi-farthestfrog-sub');
   if(subEl)
-    subEl.textContent=ff.city+(ff.voivodeship?', '+ff.voivodeship:'');
+    subEl.textContent=ff.city+(ff.voivodeship?', '+capName(ff.voivodeship):'');
 }
 
 // ===== CIEKAWOSTKI: Physical streets (top street+city pairs) =====
@@ -264,7 +264,7 @@ export function renderEdgeKPIs() {
   if (loner.nearest_neighbor_distance_meters) {
     const km = (loner.nearest_neighbor_distance_meters / 1000).toFixed(1).replace('.', ',');
     set('ep-isolated-val', `${km} km`);
-    if (loner.city) set('ep-isolated-city', `${loner.city}${loner.voivodeship ? ', ' + loner.voivodeship : ''}`);
+    if (loner.city) set('ep-isolated-city', `${loner.city}${loner.voivodeship ? ', ' + capName(loner.voivodeship) : ''}`);
     if (loner.street) set('ep-isolated-street', loner.street);
   }
 
@@ -293,13 +293,13 @@ export function renderEdgeKPIs() {
     if (top) {
       const val = (Math.round(top.elevation_meters * 10) / 10).toFixed(1).replace('.', ',') + ' m';
       set('ep-highest-val', val);
-      if (top.city) set('ep-highest-city', `${top.city}${top.voivodeship ? ', ' + top.voivodeship : ''}`);
+      if (top.city) set('ep-highest-city', `${top.city}${top.voivodeship ? ', ' + capName(top.voivodeship) : ''}`);
       if (top.street) set('ep-highest-street', top.street);
     }
     if (bot) {
       const val = String(bot.elevation_meters).replace('.', ',') + ' m';
       set('ep-lowest-val', val);
-      if (bot.city) set('ep-lowest-city', `${bot.city}${bot.voivodeship ? ', ' + bot.voivodeship : ''}`);
+      if (bot.city) set('ep-lowest-city', `${bot.city}${bot.voivodeship ? ', ' + capName(bot.voivodeship) : ''}`);
       if (bot.street) set('ep-lowest-street', bot.street);
     }
   }
@@ -308,7 +308,7 @@ export function renderEdgeKPIs() {
   const frogStreets = s3.frog_streets || [];
   if (frogStreets.length) {
     const crown = frogStreets[0];
-    if (crown.city) set('ep-frogstreet-city', `${crown.city}${crown.voivodeship ? ', ' + crown.voivodeship : ''}`);
+    if (crown.city) set('ep-frogstreet-city', `${crown.city}${crown.voivodeship ? ', ' + capName(crown.voivodeship) : ''}`);
     const cnt = s3.frog_streets_count || frogStreets.length;
     set('ep-frogstreet-note', `Żabka przy ulicy Zielonej Żabki – jeden z ${cnt} sklepów na ulicach z żabim motywem.`);
   }
@@ -319,7 +319,7 @@ export function renderEdgeKPIs() {
     const km = (Math.round(ff.nearest_amphibian_km * 100) / 100).toFixed(2).replace('.', ',');
     set('edge-kpi-farthestfrog', km + '<span class="stat-unit"> km</span>');
     const subEl = document.getElementById('edge-kpi-farthestfrog-sub');
-    if (subEl) subEl.textContent = ff.city + (ff.voivodeship ? ', ' + ff.voivodeship : '');
+    if (subEl) subEl.textContent = ff.city + (ff.voivodeship ? ', ' + capName(ff.voivodeship) : '');
   }
 }
 

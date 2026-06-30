@@ -286,17 +286,16 @@ def farthest_point_from_any_zabka(lats, lons, woj_geo: dict,
     tree = BallTree(pts, metric="haversine")
     raw_rings = poland_rings(woj_geo)
 
-    # Subsample rings to speed up ray casting and precompute bboxes
+    # Precompute a bbox per ring for a cheap reject before the full ray cast.
+    # NB: do NOT subsample the rings - dropping vertices collapses narrow salients
+    # like the Bieszczady tip (SE), so the deepest void point there would test as
+    # "outside Poland" and the search would miss the real ~46.5 km maximum.
     prepared_rings = []
     for r in raw_rings:
-        # Take every 20th coordinate to speed up, keep the first/last
-        sub = r[::20]
-        if not sub or sub[-1] != r[-1]:
-            sub.append(r[-1])
-        xs = [pt[0] for pt in sub]
-        ys = [pt[1] for pt in sub]
+        xs = [pt[0] for pt in r]
+        ys = [pt[1] for pt in r]
         bbox = (min(xs), min(ys), max(xs), max(ys))
-        prepared_rings.append((bbox, sub))
+        prepared_rings.append((bbox, r))
 
     def point_in_prepared(lon, lat):
         inside = False
