@@ -760,7 +760,7 @@ Detailed logic, caching, and exceptions for the ingestion and enrichment sources
 - **F7 (Standardization):** 91.7% of stores run standard 06:00-23:00 Mon-Sat hours.
 - **F9 (Amphibians):** Prime forest (Białowieża) has 425 observations vs urban Ursynów at 2,028. 5.1% of stores have 0 nearby.
 - **F10 (h24 border):** 32 stores total; heavily concentrated near motorway/border junctions (e.g. Lubuskie / Świnoujście).
-- **F11 (Powiats & Addresses):** 370/370 powiats covered. Most common street name is "Rynek" (222 stores), then Kościuszki (193).
+- **F11 (Powiats & Addresses):** 314/314 land powiats covered (cities with powiat rights are merged into their land powiat at level 2). Most common street name is "Rynek" (222 stores), then Kościuszki (193).
 - **F12 (Frog Streets):** 24 stores on frog/wetland streets (e.g., Zielonej Żabki 7 in Żabia Wola).
 
 ---
