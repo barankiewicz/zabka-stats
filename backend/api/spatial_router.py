@@ -430,6 +430,7 @@ async def neighbor_by_level(
     out = [{"name": r[0], "voivodeship": r[1] or "", "n": int(r[2]),
             "median_m": int(r[3] or 0), "avg_m": int(r[4] or 0)} for r in rows]
     sort_key = "avg_m" if metric == "avg_m" else "median_m"
+    out.sort(key=lambda x: x["name"] or "")                       # stable tiebreak
     out.sort(key=lambda x: x[sort_key], reverse=(sort != "asc"))
     lim = max(1, min(int(limit), 100))
     return NeighborByLevelResponse(

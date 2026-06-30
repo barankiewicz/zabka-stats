@@ -352,6 +352,9 @@ async def by_dimension(
 
     keyf = {"per1k": lambda x: x["per_1k"] or 0,
             "per_km2": lambda x: x["per_km2"] or 0}.get(metric, lambda x: x["cnt"] or 0)
+    # name pre-sort + stable metric sort => deterministic tie order, so paging
+    # (offset/limit) returns the same rows across recomputes. Same values.
+    rows.sort(key=lambda r: r.get("name") or "")
     rows.sort(key=keyf, reverse=(sort != "asc"))
     full_vals = [keyf(r) for r in rows]
     if full_vals:

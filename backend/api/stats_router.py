@@ -583,6 +583,7 @@ async def inpost_vs_zabka_by_level(
     else:
         return InPostVsZabkaByLevelResponse(rows=[], total=0, level=level)
 
+    rows.sort(key=lambda x: (x["name"] or "", x["voivodeship"] or ""))   # stable tiebreak
     rows.sort(key=lambda x: x["ratio"] if sort != "asc" else -x["ratio"])
     total = len(rows)
     return InPostVsZabkaByLevelResponse(
