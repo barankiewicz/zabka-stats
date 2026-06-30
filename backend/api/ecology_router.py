@@ -93,7 +93,7 @@ async def amphibians() -> AmphibianExtremesResponse:
     
     # Scatter sample
     scatter_db = client.execute("""
-        SELECT a.occ, COUNT(b.id) AS density
+        SELECT a.occ, COUNT(b.store_id) AS density
         FROM (
             SELECT store_id, latitude, longitude,
                    COALESCE(amphibian_occurrences_5km, 0) AS occ
@@ -247,7 +247,7 @@ async def section3_rare() -> Section3RareResponse:
         FROM locations
         WHERE deleted_at IS NULL 
           AND voivodeship IN ('dolnoslaskie', 'zachodniopomorskie', 'lubuskie')
-        ORDER BY hash(id)
+        ORDER BY hash(store_id)
         LIMIT 240
     """).fetchall()
     

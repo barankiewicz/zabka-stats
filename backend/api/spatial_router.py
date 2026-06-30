@@ -340,7 +340,7 @@ async def twins() -> TwinsResponse:
             WHERE deleted_at IS NULL 
               AND nearest_neighbor_distance_meters IS NOT NULL
               AND nearest_neighbor_distance_meters <= 200
-            ORDER BY hash(id)
+            ORDER BY hash(store_id)
         """).fetchall()
         
         cnt_a = cnt_b = cnt_c = 0
@@ -367,7 +367,7 @@ async def twins() -> TwinsResponse:
         WHERE deleted_at IS NULL 
           AND nearest_neighbor_distance_meters IS NOT NULL
           AND nearest_neighbor_distance_meters <= 50
-        ORDER BY hash(id)
+        ORDER BY hash(store_id)
         LIMIT 200
     """).fetchall()
     
