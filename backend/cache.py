@@ -57,6 +57,28 @@ def get_cache(key: str) -> Any | None:
         return None
 
 
+def get_cached_blob(key: str) -> str | None:
+    """Fetch a pre-serialized string payload (no JSON decode). For large, already
+    JSON-encoded responses we cache the string and return it verbatim, skipping
+    the parse + re-encode round-trip that get_cache/set_cache would force."""
+    if not cache:
+        return None
+    try:
+        return cache.get(key)
+    except Exception as e:
+        logger.warning("Redis get_blob error for key %r: %s", key, e)
+        return None
+
+
+def set_cached_blob(key: str, blob: str | bytes, ttl: int = 3600) -> None:
+    if not cache:
+        return
+    try:
+        cache.setex(key, ttl, blob)
+    except Exception as e:
+        logger.warning("Redis set_blob error for key %r: %s", key, e)
+
+
 def set_cache(key: str, value: Any, ttl: int = 3600) -> None:
     if not cache:
         return

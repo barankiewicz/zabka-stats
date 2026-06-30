@@ -1,11 +1,12 @@
 """Locations API endpoints (DuckDB)."""
 
 
-from litestar import Router, get
+from litestar import Response, Router, get
 from litestar.exceptions import HTTPException
 from litestar.params import FromPath, FromQuery
+from litestar.serialization import encode_json
 
-from backend.cache import cached
+from backend.cache import cached, get_cached_blob, set_cached_blob
 from backend.database_ch import client
 
 
@@ -86,13 +87,24 @@ async def get_locations(
 
 
 @get("/locations/map")
-@cached(ttl=3600)
 async def get_locations_for_map_geojson(
     month: FromQuery[str | None] = None,
-) -> dict:
+) -> Response:
     """
     Get locations for map visualization (GeoJSON).
+
+    This is the largest response in the API (~3.6 MB, all ~13k stores). We
+    serialize the FeatureCollection once and cache the JSON *string*, then return
+    it verbatim as a pre-serialized Response - so warm hits skip the DB query,
+    the 13k-feature Python build, and the re-parse/re-encode the dict cache would
+    otherwise pay on every request. Output bytes are unchanged (same fields, same
+    encoder as the rest of the API).
     """
+    cache_key = f"locations_map:{month or '_current'}"
+    cached_blob = get_cached_blob(cache_key)
+    if cached_blob is not None:
+        return Response(cached_blob, media_type="application/json")
+
     params = []
     if month:
         where = "strftime(created_at, '%Y-%m') <= ? AND (deleted_at IS NULL OR strftime(deleted_at, '%Y-%m') >= ?)"
@@ -101,7 +113,7 @@ async def get_locations_for_map_geojson(
         where = "deleted_at IS NULL"
 
     results = client.execute(f"""
-        SELECT store_id, store_id, city, voivodeship, street, latitude, longitude,
+        SELECT store_id, city, voivodeship, street, latitude, longitude,
                has_merrychef, open_sunday, h24
         FROM locations
         WHERE {where}
@@ -109,30 +121,29 @@ async def get_locations_for_map_geojson(
 
     features = []
     for r in results:
-        if r[5] and r[6]:  # latitude and longitude
+        if r[4] and r[5]:  # latitude and longitude
             features.append({
                 "type": "Feature",
                 "geometry": {
                     "type": "Point",
-                    "coordinates": [r[6], r[5]]  # [lon, lat]
+                    "coordinates": [r[5], r[4]]  # [lon, lat]
                 },
                 "properties": {
                     "id": r[0],
                     "name": "Żabka",
-                    "store_id": r[1],
-                    "city": r[2],
-                    "voivodeship": r[3],
-                    "street": r[4],
-                    "has_merrychef": bool(r[7]),
-                    "open_sunday": bool(r[8]),
-                    "h24": bool(r[9]),
+                    "store_id": r[0],
+                    "city": r[1],
+                    "voivodeship": r[2],
+                    "street": r[3],
+                    "has_merrychef": bool(r[6]),
+                    "open_sunday": bool(r[7]),
+                    "h24": bool(r[8]),
                 }
             })
 
-    return {
-        "type": "FeatureCollection",
-        "features": features
-    }
+    blob = encode_json({"type": "FeatureCollection", "features": features})
+    set_cached_blob(cache_key, blob, ttl=3600)
+    return Response(blob, media_type="application/json")
 
 
 @get("/locations/{location_id:str}")
