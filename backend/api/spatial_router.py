@@ -330,37 +330,48 @@ async def twins() -> TwinsResponse:
         wc = max(0, cap - wa - wb)
         if (wa + wb + wc) > cap:
             wc = max(0, cap - wa - wb)
+        # Keep the first wa/wb/wc of each bucket in hash order, then emit them in
+        # global hash order. The per-bucket row_number() lets DuckDB materialize
+        # only the ~360 kept rows instead of sorting+shipping the full <=200m set
+        # (3-4k rows) for Python to throw most away. Same rows, same order.
         sampled = client.execute("""
-            SELECT latitude, longitude, nearest_neighbor_distance_meters AS d,
-                   city, street,
-                   CASE
-                     WHEN nearest_neighbor_distance_meters <= 50 THEN 'a'
-                     WHEN nearest_neighbor_distance_meters <= 100 THEN 'b'
-                     ELSE 'c'
-                   END AS bucket
-            FROM locations
-            WHERE deleted_at IS NULL 
-              AND nearest_neighbor_distance_meters IS NOT NULL
-              AND nearest_neighbor_distance_meters <= 200
-            ORDER BY hash(store_id)
-        """).fetchall()
-        
-        cnt_a = cnt_b = cnt_c = 0
-        for r in sampled:
-            b = r[5]
-            if b == 'a' and cnt_a >= wa: continue
-            if b == 'b' and cnt_b >= wb: continue
-            if b == 'c' and cnt_c >= wc: continue
-            out_pts.append({
+            SELECT latitude, longitude, d, city, street, bucket FROM (
+                SELECT latitude, longitude,
+                       nearest_neighbor_distance_meters AS d, city, street,
+                       CASE
+                         WHEN nearest_neighbor_distance_meters <= 50 THEN 'a'
+                         WHEN nearest_neighbor_distance_meters <= 100 THEN 'b'
+                         ELSE 'c'
+                       END AS bucket,
+                       row_number() OVER (
+                           PARTITION BY CASE
+                               WHEN nearest_neighbor_distance_meters <= 50 THEN 'a'
+                               WHEN nearest_neighbor_distance_meters <= 100 THEN 'b'
+                               ELSE 'c'
+                           END
+                           ORDER BY hash(store_id)
+                       ) AS rn,
+                       hash(store_id) AS h
+                FROM locations
+                WHERE deleted_at IS NULL
+                  AND nearest_neighbor_distance_meters IS NOT NULL
+                  AND nearest_neighbor_distance_meters <= 200
+            )
+            WHERE (bucket = 'a' AND rn <= ?)
+               OR (bucket = 'b' AND rn <= ?)
+               OR (bucket = 'c' AND rn <= ?)
+            ORDER BY h
+        """, [wa, wb, wc]).fetchall()
+
+        out_pts = [
+            {
                 "lat": r[0], "lon": r[1],
                 "distance_m": int(r[2]),
                 "city": r[3], "street": r[4] or "",
-                "bucket": b,
-            })
-            if b == 'a': cnt_a += 1
-            elif b == 'b': cnt_b += 1
-            else: cnt_c += 1
-            if cnt_a + cnt_b + cnt_c >= cap: break
+                "bucket": r[5],
+            }
+            for r in sampled
+        ]
             
     pts_50 = client.execute("""
         SELECT latitude, longitude, nearest_neighbor_distance_meters AS d,
