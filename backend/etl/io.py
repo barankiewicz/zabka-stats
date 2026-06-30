@@ -537,11 +537,12 @@ def reload_cache():
 # LOAD: paczkomaty (osobna encja) + wymiary geograficzne
 # ---------------------------------------------------------------------------
 def load_parcel_lockers(con, lockers: list, src_date: str):
-    """Zapisz paczkomaty w tabeli parcel_lockers.
-    Porównuje biezace aktywne paczkomaty z wejsciowymi:
-    - nowe sa wstawiane (created_at = source_date)
-    - brakujace sa soft-deletowane (deleted_at = source_date)
-    - istniejace aktywne sa aktualizowane w miejscu gdy ulegly zmianie.
+    """Zapisz paczkomaty w tabeli parcel_lockers (model jak locations: external_id
+    jest kluczem glownym, jeden wiersz na paczkomat).
+    - nowe: INSERT z created_at = source_date
+    - istniejace: UPDATE wszystkich pol oprocz created_at (ON CONFLICT)
+    - brakujace: soft-delete (deleted_at = source_date)
+    - wroty (deleted -> obecny): deleted_at = NULL (przywrocone przez ON CONFLICT)
     """
     from backend.database_ch import ensure_extra_tables
     ensure_extra_tables(con)
@@ -552,13 +553,13 @@ def load_parcel_lockers(con, lockers: list, src_date: str):
     src_dt = datetime.fromisoformat(src_date)
     
     # Drop secondary indexes to avoid index corruption/fatal errors during bulk update
-    for idx in ("idx_lockers_voiv_id", "idx_lockers_powiat_id", "idx_lockers_miasto_id", "idx_lockers_gmina_id", "idx_lockers_deleted_at", "idx_lockers_external_id"):
+    for idx in ("idx_lockers_voiv_id", "idx_lockers_powiat_id", "idx_lockers_miasto_id", "idx_lockers_gmina_id", "idx_lockers_deleted_at"):
         try:
             con.execute(f"DROP INDEX IF EXISTS {idx}")
         except Exception:
             pass
 
-    # 1. Load incoming rows into Polars DataFrame
+    # Incoming rows -> Polars, deduped on the natural key (external_id).
     schema = {
         "external_id": pl.Utf8,
         "source_date": pl.Utf8,
@@ -568,10 +569,8 @@ def load_parcel_lockers(con, lockers: list, src_date: str):
         "powiat_id": pl.Int32,
         "miasto_id": pl.Int32,
         "gmina_id": pl.Int32,
-        "status": pl.Utf8
+        "status": pl.Utf8,
     }
-
-    # Ensure all columns present
     for L in lockers:
         L["source_date"] = src_date
         for col in schema:
@@ -580,85 +579,47 @@ def load_parcel_lockers(con, lockers: list, src_date: str):
 
     incoming_df = pl.DataFrame(lockers, schema=schema)
     incoming_df = incoming_df.filter(pl.col("external_id").is_not_null()).unique(subset=["external_id"])
+    con.register("incoming_lockers", incoming_df)
 
-    # 2. Get active database records into Polars DataFrame
-    active_arrow = con.execute("""
-        SELECT id, external_id, latitude, longitude, voivodeship_id, powiat_id, miasto_id, gmina_id, status 
-        FROM parcel_lockers 
-        WHERE deleted_at IS NULL
-    """).to_arrow_table()
-    if active_arrow.num_rows == 0:
-        active_df = pl.DataFrame(schema={
-            "id": pl.Int64, "external_id": pl.Utf8, "latitude": pl.Float64, "longitude": pl.Float64,
-            "voivodeship_id": pl.Int32, "powiat_id": pl.Int32, "miasto_id": pl.Int32, "gmina_id": pl.Int32, "status": pl.Utf8
-        })
-    else:
-        active_df = pl.from_arrow(active_arrow)
+    # Soft-delete: active in DB but absent from this snapshot.
+    deleted = con.execute("""
+        UPDATE parcel_lockers
+        SET deleted_at = ?
+        WHERE external_id NOT IN (SELECT external_id FROM incoming_lockers)
+          AND deleted_at IS NULL
+    """, [src_dt]).rowcount
+    if deleted and deleted > 0:
+        print(f"[paczkomaty] soft-deleted {deleted} parcel lockers")
 
-    # 3. Soft-deletes: active in DB, but not in incoming data
-    to_delete_df = active_df.join(incoming_df, on="external_id", how="anti")
-    if not to_delete_df.is_empty():
-        con.register("to_delete_df", to_delete_df)
-        con.execute("""
-            UPDATE parcel_lockers 
-            SET deleted_at = ?
-            FROM to_delete_df 
-            WHERE parcel_lockers.id = to_delete_df.id
-        """, [src_dt])
-        con.unregister("to_delete_df")
-        print(f"[paczkomaty] soft-deleted {len(to_delete_df)} parcel lockers")
+    # Upsert on external_id: insert new, update existing in place. created_at is
+    # preserved (not in the SET list); a returning locker is revived (deleted_at = NULL).
+    con.execute("""
+        INSERT INTO parcel_lockers (
+            external_id, source_date, latitude, longitude,
+            voivodeship_id, powiat_id, miasto_id, gmina_id, status,
+            created_at, deleted_at
+        )
+        SELECT
+            external_id, CAST(source_date AS DATE), latitude, longitude,
+            voivodeship_id, powiat_id, miasto_id, gmina_id, status,
+            ? AS created_at,
+            CAST(NULL AS TIMESTAMP) AS deleted_at
+        FROM incoming_lockers
+        ON CONFLICT (external_id) DO UPDATE SET
+            source_date = excluded.source_date,
+            latitude = excluded.latitude,
+            longitude = excluded.longitude,
+            voivodeship_id = excluded.voivodeship_id,
+            powiat_id = excluded.powiat_id,
+            miasto_id = excluded.miasto_id,
+            gmina_id = excluded.gmina_id,
+            status = excluded.status,
+            deleted_at = NULL
+    """, [src_dt])
+    con.unregister("incoming_lockers")
 
-    # 4. Inserts: incoming, but not in active DB
-    to_insert_df = incoming_df.join(active_df, on="external_id", how="anti")
-    if not to_insert_df.is_empty():
-        con.register("to_insert_df", to_insert_df)
-        con.execute("""
-            INSERT INTO parcel_lockers (
-                id, external_id, source_date, latitude, longitude, 
-                voivodeship_id, powiat_id, miasto_id, gmina_id, status, 
-                created_at, deleted_at
-            )
-            SELECT 
-                nextval('seq_parcel_lockers'),
-                external_id, CAST(source_date AS DATE), latitude, longitude, 
-                voivodeship_id, powiat_id, miasto_id, gmina_id, status, 
-                ? as created_at, CAST(NULL AS TIMESTAMP) as deleted_at
-            FROM to_insert_df
-        """, [src_dt])
-        con.unregister("to_insert_df")
-        print(f"[paczkomaty] inserted {len(to_insert_df):,} new parcel lockers")
-
-    # 5. Updates: incoming, and also in active DB
-    to_update_df = incoming_df.join(active_df, on="external_id", how="inner", suffix="_db")
-    
-    # Filter to rows where values changed
-    to_update_df = to_update_df.filter(
-        ((pl.col("latitude") - pl.col("latitude_db")).abs() > 1e-5) |
-        ((pl.col("longitude") - pl.col("longitude_db")).abs() > 1e-5) |
-        (pl.col("voivodeship_id") != pl.col("voivodeship_id_db")) |
-        (pl.col("powiat_id") != pl.col("powiat_id_db")) |
-        (pl.col("miasto_id") != pl.col("miasto_id_db")) |
-        (pl.col("gmina_id") != pl.col("gmina_id_db")) |
-        (pl.col("status") != pl.col("status_db"))
-    )
-
-    if not to_update_df.is_empty():
-        con.register("to_update_df", to_update_df)
-        con.execute("""
-            UPDATE parcel_lockers SET
-                source_date = CAST(u.source_date AS DATE),
-                latitude = u.latitude,
-                longitude = u.longitude,
-                voivodeship_id = u.voivodeship_id,
-                powiat_id = u.powiat_id,
-                miasto_id = u.miasto_id,
-                gmina_id = u.gmina_id,
-                status = u.status
-            FROM to_update_df AS u
-            WHERE parcel_lockers.id = u.id
-        """)
-        con.unregister("to_update_df")
-        print(f"[paczkomaty] updated {len(to_update_df)} existing parcel lockers")
+    active = con.execute("SELECT COUNT(*) FROM parcel_lockers WHERE deleted_at IS NULL").fetchone()[0]
+    print(f"[paczkomaty] {len(incoming_df):,} incoming, {active:,} active in DB")
 
     # Recreate secondary indexes
     for stmt in (
@@ -667,7 +628,6 @@ def load_parcel_lockers(con, lockers: list, src_date: str):
         "CREATE INDEX IF NOT EXISTS idx_lockers_miasto_id ON parcel_lockers(miasto_id)",
         "CREATE INDEX IF NOT EXISTS idx_lockers_gmina_id ON parcel_lockers(gmina_id)",
         "CREATE INDEX IF NOT EXISTS idx_lockers_deleted_at ON parcel_lockers(deleted_at)",
-        "CREATE INDEX IF NOT EXISTS idx_lockers_external_id ON parcel_lockers(external_id)",
     ):
         try:
             con.execute(stmt)

@@ -395,7 +395,7 @@ async def inpost_vs_zabka() -> list[InPostVsZabkaResponseItem]:
         FROM locations WHERE deleted_at IS NULL GROUP BY voivodeship
     """).fetchall()
     locker_rows = client.execute("""
-        SELECT dv.name, COUNT(pl.id) AS cnt
+        SELECT dv.name, COUNT(pl.external_id) AS cnt
         FROM dim_voivodeship dv
         LEFT JOIN parcel_lockers pl ON pl.voivodeship_id = dv.id AND pl.deleted_at IS NULL
         GROUP BY dv.name
@@ -442,7 +442,7 @@ async def inpost_vs_zabka_by_level(
             FROM locations WHERE deleted_at IS NULL GROUP BY voivodeship
         """).fetchall()
         locker_rows = client.execute("""
-            SELECT dv.name, COUNT(pl.id) AS cnt
+            SELECT dv.name, COUNT(pl.external_id) AS cnt
             FROM dim_voivodeship dv
             LEFT JOIN parcel_lockers pl ON pl.voivodeship_id = dv.id AND pl.deleted_at IS NULL
             GROUP BY dv.name
@@ -474,7 +474,7 @@ async def inpost_vs_zabka_by_level(
             GROUP BY dp.id, dp.name, v.name, dp.population
         """).fetchall()
         locker_rows = client.execute("""
-            SELECT dp.name, v.name, COUNT(pl.id)
+            SELECT dp.name, v.name, COUNT(pl.external_id)
             FROM dim_powiat dp
             JOIN dim_voivodeship v ON v.id = dp.voivodeship_id
             JOIN parcel_lockers pl ON pl.powiat_id = dp.id AND pl.deleted_at IS NULL
@@ -549,7 +549,7 @@ async def inpost_vs_zabka_by_level(
             GROUP BY g.id, g.name, v.name, g.population
         """).fetchall()
         locker_rows = client.execute("""
-            SELECT g.name, v.name, COUNT(pl.id)
+            SELECT g.name, v.name, COUNT(pl.external_id)
             FROM dim_gmina g
             JOIN dim_voivodeship v ON v.id = g.voivodeship_id
             JOIN parcel_lockers pl ON pl.powiat_id = g.powiat_id AND pl.deleted_at IS NULL

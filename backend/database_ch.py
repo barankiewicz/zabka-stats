@@ -25,11 +25,6 @@ def _run_all_ddl(con):
     if 'locations' not in table_names:
         print("Creating DuckDB schema...")
 
-        try:
-            con.execute("CREATE SEQUENCE IF NOT EXISTS seq_parcel_lockers START 1")
-        except Exception:
-            pass
-
         # store_id is the natural PK (one row per physical store, no surrogate int id).
         # created_at = first-seen timestamp (never overwritten on upsert).
         # deleted_at = when the store vanished from the source (NULL = active).
@@ -272,22 +267,79 @@ def _seed_administrative_division(con) -> None:
     print(f"[schema] seeded administrative_division with {len(rows)} rows")
 
 
+def _migrate_parcel_lockers_pk(con):
+    """One-time migration: rebuild parcel_lockers keyed on external_id.
+
+    The old schema had a surrogate `id INTEGER PRIMARY KEY` and the load path
+    could insert the same external_id many times (one full copy per ETL run),
+    so prod ended up with ~10 duplicates of every locker. The table now mirrors
+    locations: external_id is the PK, one row per locker, SCD2 via created_at /
+    deleted_at. This collapses any duplicates to the freshest active row.
+    Idempotent: a no-op once the table already has external_id as its PK.
+    """
+    exists = con.execute(
+        "SELECT count(*) FROM information_schema.tables WHERE table_name = 'parcel_lockers'"
+    ).fetchone()[0]
+    if not exists:
+        return
+    cols = [r[0] for r in con.execute(
+        "SELECT column_name FROM information_schema.columns WHERE table_name = 'parcel_lockers'"
+    ).fetchall()]
+    if "id" not in cols:
+        return  # already migrated
+
+    print("[migrate] rebuilding parcel_lockers with external_id as primary key (dedup)")
+    con.execute("DROP TABLE IF EXISTS parcel_lockers_new")
+    con.execute("""
+        CREATE TABLE parcel_lockers_new (
+            external_id VARCHAR PRIMARY KEY,
+            source_date DATE,
+            latitude DOUBLE,
+            longitude DOUBLE,
+            voivodeship_id INTEGER,
+            powiat_id INTEGER,
+            miasto_id INTEGER,
+            gmina_id INTEGER,
+            status VARCHAR,
+            created_at TIMESTAMP,
+            deleted_at TIMESTAMP
+        )
+    """)
+    # Keep one row per external_id: prefer an active row, then the newest, then
+    # the highest surrogate id as the final tie-break.
+    con.execute("""
+        INSERT INTO parcel_lockers_new
+        SELECT external_id, source_date, latitude, longitude,
+               voivodeship_id, powiat_id, miasto_id, gmina_id, status,
+               created_at, deleted_at
+        FROM (
+            SELECT *, row_number() OVER (
+                PARTITION BY external_id
+                ORDER BY (deleted_at IS NULL) DESC, created_at DESC, id DESC
+            ) AS rn
+            FROM parcel_lockers
+            WHERE external_id IS NOT NULL
+        )
+        WHERE rn = 1
+    """)
+    kept = con.execute("SELECT count(*) FROM parcel_lockers_new").fetchone()[0]
+    con.execute("DROP TABLE parcel_lockers")
+    con.execute("ALTER TABLE parcel_lockers_new RENAME TO parcel_lockers")
+    print(f"[migrate] parcel_lockers rebuilt: {kept:,} unique lockers")
+
+
 def ensure_extra_tables(con):
     """Tabela faktow paczkomatow (osobna encja, jak locations) + krotkie wymiary
     geograficzne (dim_powiat, dim_voivodeship). Z poziomu wymiarow pisze sie
     zapytania zestawiajace Żabki i paczkomaty (JOIN po powiat/voivodeship).
     Bezpieczne do wielokrotnego wywolania."""
-    # Sequences may be missing on databases that predate parcel_lockers.
-    for seq in ("seq_locations", "seq_parcel_lockers"):
-        try:
-            con.execute(f"CREATE SEQUENCE IF NOT EXISTS {seq} START 1")
-        except Exception:
-            pass
-
+    # parcel_lockers mirrors locations: external_id is the natural PK (one row per
+    # physical locker, no surrogate int id). created_at = first-seen, never
+    # overwritten on upsert; deleted_at = when the locker left the source.
+    _migrate_parcel_lockers_pk(con)
     con.execute("""
         CREATE TABLE IF NOT EXISTS parcel_lockers (
-            id INTEGER PRIMARY KEY DEFAULT nextval('seq_parcel_lockers'),
-            external_id VARCHAR,
+            external_id VARCHAR PRIMARY KEY,
             source_date DATE,
             latitude DOUBLE,
             longitude DOUBLE,

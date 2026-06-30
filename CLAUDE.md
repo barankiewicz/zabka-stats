@@ -452,12 +452,12 @@ GDOŚ parks get their own dimension (`dim_park`), linked from `locations` by
     h3_index_9                                 name
                                                population
   parcel_lockers (parcel lockers)
-    id (PK)                                  dim_gmina
+    external_id (PK)                         dim_gmina
     voivodeship_id   -> dim_voivodeship.id     id (PK)
     powiat_id        -> dim_powiat.id          name
     gmina_id         -> dim_gmina.id           voivodeship_id -> dim_voivodeship.id
     miasto_id        -> dim_city.id            powiat_id      -> dim_powiat.id
-    external_id, status, lat, lon              population
+    status, lat, lon, created_at, deleted_at   population
                                                area_km2
   fun_facts (key, lat, lon, value)
     - interesting facts, no relations        dim_city
@@ -593,8 +593,7 @@ A second fact table parallel to `locations`. Tracks inserts and deletes as SCD T
 
 | Column | Type | Origin | Rule |
 |---|---|---|---|
-| id | INTEGER (PK) | ETL | primary key (generated via seq_parcel_lockers) |
-| external_id | VARCHAR | SOURCE | unique locker code/identifier |
+| external_id | VARCHAR (PK) | SOURCE | unique locker code/identifier (natural primary key, one row per locker) |
 | source_date | DATE | SOURCE | date of the locker data snapshot |
 | latitude | DOUBLE | SOURCE | geographical latitude |
 | longitude | DOUBLE | SOURCE | geographical longitude |
