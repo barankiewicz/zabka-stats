@@ -198,7 +198,12 @@ under a non-root `zabka` user.
 `127.0.0.1:8000`, with a Let's Encrypt cert (certbot `--nginx`, auto-renew via the
 `certbot.timer`) and a 80->443 redirect. Port 8000 is not exposed - the firewall
 (ufw) allows only SSH, 80, and 443; the backend is reachable only over loopback
-behind nginx.
+behind nginx. nginx also handles **gzip** for API/JSON and the JS/CSS bundle
+(`gzip_proxied any`, types include `application/json` and `text/javascript`) so
+the single worker never spends CPU compressing - the app sends plain bytes and
+nginx compresses on the way out. A small 2 s **microcache** (`proxy_cache` +
+`proxy_cache_lock`) sits in front of `/api/` to absorb bursts before Redis warms.
+Full config: `deploy/nginx_zabka.conf`.
 
 **SSH hardening.** Key-only auth (`PasswordAuthentication no`), root login
 disabled (`PermitRootLogin no`), and sshd moved off the default port to **420**
@@ -376,6 +381,33 @@ this is `/run/redis/redis-server.sock` (Debian `redis-server`, the `zabka` user 
 in the `redis` group; the systemd unit passes `REDIS_SOCKET` and waits on
 `redis-server.service`). Redis is optional: if the socket is missing (for example
 a bare local checkout), `cache.py` logs it and the app runs without a cache.
+
+**How the `@cached` decorator stores values.** Handlers return Pydantic models,
+which `json.dumps` cannot encode, so `set_cache` passes a `default` that calls
+`model_dump(mode="json")` - the same plain structure Litestar emits, so the
+cached and uncached responses are byte-identical. The two largest payloads
+(`/api/locations/map` ~3.6 MB, `/api/stats/stores-timeline` ~300 KB) skip the
+decorator and instead cache the **pre-serialized JSON string** (via
+`get_cached_blob`/`set_cached_blob`) and return it as a raw `Response`, so warm
+hits avoid re-parsing and re-encoding the blob on every request.
+
+**Cached responses are reproducible.** Anything that fed a cache used to drift
+between recomputes (random `USING SAMPLE`, `ORDER BY` ties) now uses a
+deterministic subset (`ORDER BY hash(store_id) LIMIT n`) and stable name
+tiebreakers, so the value cached after one ETL run is identical to the next - the
+cache is meaningful, not a coin flip.
+
+**Lazy caches warmed at startup.** The voivodeship/powiat area indexes
+(`_pow_geo`, `_voiv_area`, `_gmina_agg`) and the boundary geojson bytes are built
+in `startup_geo()` (a Litestar `on_startup` hook) rather than on the first
+request, so no user thread pays the point-in-polygon build cost. The boundary
+files (`/api/geo/voivodeships`, `/api/geo/powiats`) are held in memory and served
+from there, not re-read from disk per request.
+
+**Compression is nginx's job, not the app's.** The single uvicorn worker no
+longer gzips responses (the Litestar `CompressionConfig` was removed); nginx does
+it with `gzip_proxied any` (see the nginx section in chapter 1). This frees the
+CPU from compressing the big payloads on every request.
 
 ## 4. API
 

@@ -7,9 +7,9 @@ An interactive, high-performance spatial analytics platform for tracking the den
 [![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org)
 [![duckdb](https://img.shields.io/badge/database-DuckDB-orange.svg)](https://duckdb.org)
-[![database size](https://img.shields.io/badge/database%20size-22.01%20MB-blue.svg)](https://github.com/barankiewicz/zabka-stats)
-[![locations](https://img.shields.io/badge/locations-13%2C177-orange.svg)](https://github.com/barankiewicz/zabka-stats)
-[![parcel lockers](https://img.shields.io/badge/parcel%20lockers-31%2C950-brightgreen.svg)](https://github.com/barankiewicz/zabka-stats)
+[![database size](https://img.shields.io/badge/database%20size-47.8%20MB-blue.svg)](https://github.com/barankiewicz/zabka-stats)
+[![locations](https://img.shields.io/badge/locations-13%2C192-orange.svg)](https://github.com/barankiewicz/zabka-stats)
+[![parcel lockers](https://img.shields.io/badge/parcel%20lockers-31%2C852-brightgreen.svg)](https://github.com/barankiewicz/zabka-stats)
 [![query time](https://img.shields.io/badge/avg%20query%20time-%3C5ms-yellow.svg)](https://github.com/barankiewicz/zabka-stats)
 [![uptime](https://img.shields.io/badge/uptime-100%25-green.svg)](https://github.com/barankiewicz/zabka-stats)
 
@@ -25,12 +25,10 @@ By cross-referencing locations of over **13,100+ active convenience stores** (Ż
 
 ## 2. The Dashboard & Verified Findings
 
-The dashboard is structured into four interactive storytelling layers:
+The dashboard is structured into two interactive storytelling tabs:
 
-*   **Sieć (Network):** Growth history, calendar heatmaps of store openings, and administrative rankings (Voivodeships, Powiats, Gminas, and Cities).
-*   **Społeczeństwo (Society):** Scatter plots correlating store density against average salaries and unemployment rates, alongside an InPost vs. Żabka competitiveness index.
-*   **Edge Case'y (Edge Cases):** Curiosities, geographic extremes (e.g., elevation analysis and park overlaps), and the "Void" analysis.
-*   **Płazy (Amphibians):** A playful look at the density of ecological frog occurrences (GBIF database) near Żabka stores.
+*   **Sieć (Network):** Growth history, calendar heatmaps of store openings, administrative rankings (Voivodeships, Powiats, Gminas, Cities), and the *Atlas krańców* of geographic extremes - elevation, the largest "Void", park overlaps, and the playful look at ecological frog occurrences (GBIF) near stores (edge cases and amphibians are folded in here).
+*   **Żabka a Polska (Society):** Scatter plots correlating store density against average salaries and unemployment rates, alongside an InPost vs. Żabka competitiveness index.
 
 ### Key Insights You Can Get:
 *   **F1 - Survival Cohort Growth:** 45.4% of currently active stores opened since 2023. The oldest active store is in Swarzędz (opened in October 1998).
@@ -44,8 +42,8 @@ The dashboard is structured into four interactive storytelling layers:
 
 ## 3. Tech Stack
 
-*   **Frontend:** Vite, Vanilla HTML5/CSS3 (Curated dark mode), Chart.js (Interactive charts), Leaflet.js (Vector polygons and canvas overlays), ECharts (Economic scatters).
-*   **Backend:** FastAPI (Python 3.13), Uvicorn server, Redis cache.
+*   **Frontend:** Vite, Vanilla HTML5/CSS3 (Curated dark mode), Chart.js (Interactive charts), MapLibre GL JS (tile-free dark vector maps), ECharts (Economic scatters), D3 (force bubble), Observable Plot.
+*   **Backend:** Litestar (Python 3.13, async), Uvicorn. Redis caches every aggregate response (TTL 1 h, cleared by the ETL); nginx in front handles gzip + a 2 s microcache, so warm queries return in single-digit ms.
 *   **Database:** DuckDB (Ultra-fast local analytics database).
 
 ---
@@ -94,12 +92,13 @@ Stores historical and current convenience store records.
 *   `nearest_neighbor_distance_meters` (INTEGER) - Distance to closest store.
 *   `created_at`, `deleted_at` (TIMESTAMP) - Validity window.
 
-#### `parcel_lockers` (Fact Table)
-Stores latest snapshot of InPost parcel lockers.
-*   `id` (INTEGER - PK)
+#### `parcel_lockers` (Fact Table - SCD Type 2)
+InPost parcel lockers, modeled exactly like `locations`.
+*   `external_id` (VARCHAR - PK) - natural key, one row per locker (no surrogate id, no duplicates).
 *   `latitude`, `longitude` (DOUBLE)
 *   `voivodeship_id`, `powiat_id`, `miasto_id`, `gmina_id` (INTEGER) - FKs.
-*   `status`, `operator` (VARCHAR)
+*   `status` (VARCHAR)
+*   `created_at`, `deleted_at` (TIMESTAMP) - validity window (NULL `deleted_at` = active).
 
 #### `administrative_division` (Dimension Table)
 Consolidated dictionary for 16 Voivodeships, 314 Powiats, 2,479 Gminas, and 302 Cities.
@@ -134,7 +133,7 @@ Materialized during the ETL run to allow instant frontend filtering without expe
 
 ## 6. API Reference
 
-The backend serves 17 endpoints. Key JSON endpoints include:
+The backend serves a set of read-only JSON endpoints (all cached in Redis). Key ones include:
 
 *   `GET /api/stats/summary` - Core KPI statistics.
 *   `GET /api/geo/voivodeships` - Serves `wojewodztwa.geojson`.
@@ -186,11 +185,12 @@ This project encourages open data exploration. The entire compiled dataset is av
 
 ### Dataset Downloads
 You can download the raw datasets directly via the API when the server is running:
-*   **Raw DuckDB Database:** [http://localhost:8000/api/download/database](http://localhost:8000/api/download/database) - Downloads `zabka.duckdb` (~28.7 MB), which contains the fully populated, enriched tables.
-*   **Voivodeship GeoJSON:** [http://localhost:8000/api/download/geojson](http://localhost:8000/api/download/geojson) - Downloads `wojewodztwa.geojson` (~16.9 MB), containing precalculated spatial boundaries.
+*   **Raw DuckDB Database:** [http://localhost:8000/api/download/database](http://localhost:8000/api/download/database) - Downloads `zabka.duckdb` (~48 MB), which contains the fully populated, enriched tables.
+*   **Voivodeship GeoJSON:** [http://localhost:8000/api/download/geojson](http://localhost:8000/api/download/geojson) - Downloads `wojewodztwa.geojson` (~160 KB), containing simplified voivodeship boundaries.
+*   **Parquet export:** [http://localhost:8000/api/download/parquet](http://localhost:8000/api/download/parquet) - Active locations as ZSTD-compressed Parquet (~1 MB).
 
 ### Connect as Read-Only Guest
-Because DuckDB is an embedded database, concurrent write processes are restricted, but multiple read-only connections are fully supported. To query the database without locking the application server, you should connect with read-only access.
+Because DuckDB is an embedded database, concurrent write processes are restricted, but multiple read-only connections are fully supported. To query the database without locking the backend server, you should connect with read-only access.
 
 #### Option A: DuckDB Command Line Interface (CLI)
 Start the CLI in read-only mode by passing the `-readonly` flag:
@@ -202,8 +202,8 @@ Example query to find the top 5 powiats with the highest number of stores per 10
 SELECT 
     name, 
     population, 
-    COUNT(l.id) AS store_count, 
-    ROUND(COUNT(l.id) * 10000.0 / population, 2) AS stores_per_10k
+    COUNT(l.store_id) AS store_count, 
+    ROUND(COUNT(l.store_id) * 10000.0 / population, 2) AS stores_per_10k
 FROM administrative_division ad
 JOIN locations l ON l.powiat_id = ad.id
 WHERE ad.level = 2 AND l.deleted_at IS NULL
@@ -237,7 +237,7 @@ print(df)
 To inspect the tables, views, and schemas using a graphical client:
 1. Create a new **DuckDB** connection.
 2. Set the database path to `data/zabka.duckdb`.
-3. In connection properties, check **Read-Only** (or add `read_only=true` to the driver connection parameters) to ensure it does not conflict with the active FastAPI server.
+3. In connection properties, check **Read-Only** (or add `read_only=true` to the driver connection parameters) to ensure it does not conflict with the active backend server.
 
 ---
 
