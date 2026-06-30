@@ -267,10 +267,12 @@ async def kraniec_facts() -> KraniecFactsResponse:
             "zoom": 9, "type": "void",
         })
         
+    # Deterministic 2000-point backdrop (hash of the PK) instead of USING SAMPLE,
+    # so the same points come back every run and Redis caches a stable answer.
     backdrop = client.execute("""
         SELECT latitude, longitude
-        FROM locations WHERE deleted_at IS NULL 
-        USING SAMPLE 2000
+        FROM locations WHERE deleted_at IS NULL
+        ORDER BY hash(store_id) LIMIT 2000
     """).fetchall()
     
     return KraniecFactsResponse(
