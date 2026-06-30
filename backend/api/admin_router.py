@@ -149,20 +149,10 @@ async def get_voivodeships() -> dict:
 async def get_location_context(lat: FromPath[float], lon: FromPath[float]) -> dict:
     """Get administrative context for coordinates using nearest location."""
 
-    # Find nearest location to get context
+    # 1) nearest store to the point (no window functions, just the distance sort)
     nearest = client.execute("""
-        SELECT
-            'Żabka' AS name,
-            l.street,
-            l.city,
-            l.powiat,
-            l.voivodeship,
-            COUNT(*) OVER (PARTITION BY l.voivodeship_id) as voiv_count,
-            COUNT(*) OVER (PARTITION BY l.powiat_id) as powiat_count,
-            COUNT(*) OVER (PARTITION BY l.city) as city_count,
-            l.gmina_id,
-            g.name AS gmina_name,
-            COUNT(*) OVER (PARTITION BY l.gmina_id) as gmina_count
+        SELECT l.street, l.city, l.powiat, l.voivodeship,
+               l.voivodeship_id, l.powiat_id, l.gmina_id, g.name AS gmina_name
         FROM locations l
         LEFT JOIN dim_gmina g ON g.id = l.gmina_id
         WHERE l.deleted_at IS NULL
@@ -171,23 +161,35 @@ async def get_location_context(lat: FromPath[float], lon: FromPath[float]) -> di
         LIMIT 1
     """, [lat, lat, lon, lon]).fetchone()
 
-
     if not nearest:
         return {"error": "No locations found"}
 
-    row = nearest
+    street, city, powiat, voiv, vid, pid, gid, gmina_name = nearest
+
+    # 2) the four "stores in this unit" counts in a single pass. IS NOT DISTINCT
+    # FROM reproduces the old COUNT(*) OVER (PARTITION BY ...) semantics exactly,
+    # including the NULL-partition case, but without four window aggregations.
+    counts = client.execute("""
+        SELECT
+            SUM(CASE WHEN voivodeship_id IS NOT DISTINCT FROM ? THEN 1 ELSE 0 END),
+            SUM(CASE WHEN powiat_id      IS NOT DISTINCT FROM ? THEN 1 ELSE 0 END),
+            SUM(CASE WHEN city           IS NOT DISTINCT FROM ? THEN 1 ELSE 0 END),
+            SUM(CASE WHEN gmina_id       IS NOT DISTINCT FROM ? THEN 1 ELSE 0 END)
+        FROM locations WHERE deleted_at IS NULL
+    """, [vid, pid, city, gid]).fetchone()
+
     return {
-        "nearest_location": row[0],
-        "street": row[1],
-        "city": row[2],
-        "city_count": int(row[7]),
-        "powiat": row[3],
-        "powiat_count": int(row[6]),
-        "gmina": row[9],
-        "gmina_id": int(row[8]) if row[8] is not None else None,
-        "gmina_count": int(row[10]) if row[10] is not None else 0,
-        "voivodeship": row[4],
-        "voivodeship_count": int(row[5]),
+        "nearest_location": "Żabka",
+        "street": street,
+        "city": city,
+        "city_count": int(counts[2]),
+        "powiat": powiat,
+        "powiat_count": int(counts[1]),
+        "gmina": gmina_name,
+        "gmina_id": int(gid) if gid is not None else None,
+        "gmina_count": int(counts[3]) if counts[3] is not None else 0,
+        "voivodeship": voiv,
+        "voivodeship_count": int(counts[0]),
         "country": "Polska",
         "coordinates": {"lat": lat, "lon": lon},
     }
