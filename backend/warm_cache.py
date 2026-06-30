@@ -18,34 +18,42 @@ import time
 
 import httpx
 
-# Endpoints the SPA fires on page load (core bucket) + a couple of tab buckets.
-# Keep this in sync with frontend/src/data.js.
+# Endpoints the SPA fires on page load, with the EXACT query params it uses -
+# the Redis cache key includes the params, so warming must hit the same URLs or
+# the warmed keys won't match what the dashboard requests. Keep in sync with
+# frontend/src/data.js (the loadCore / loadSiec / loadSpoleczenstwo buckets).
 PATHS: list[tuple[str, str]] = [
-    # core bucket - default tab "Społeczeństwo"
-    ("/api/stats/summary",                    "core-summary"),
-    ("/api/geo/voivodeships",                 "core-geo-voiv"),
-    ("/api/stats/powiat-economics",           "core-powiat-econ"),
-    ("/api/stats/sunday-by-voivodeship",      "core-sunday"),
-    ("/api/stats/voivodeship-density",        "core-density"),
-    ("/api/stats/voivodeship",                "core-voivodeship"),
-    ("/api/stats/inpost-vs-zabka",            "core-inpost"),
-    ("/api/stats/per-capita",                 "core-per-capita"),
-    ("/api/stats/section3-rare",              "core-section3"),
-    ("/api/stats/opening-hours",              "core-opening-hours"),
-    # tab "Historia" - loadSiec
-    ("/api/stats/network-growth",             "siec-network-growth"),
-    ("/api/stats/network-origin",             "siec-network-origin"),
-    ("/api/stats/stores-timeline",            "siec-stores-timeline"),
-    ("/api/stats/growth-by-voivodeship",      "siec-growth-by-voiv"),
-    ("/api/stats/city-first-opening",         "siec-city-first"),
-    ("/api/stats/top-cities?limit=20",        "siec-top-cities"),
-    ("/api/stats/openings-monthly",           "siec-openings-monthly"),
-    ("/api/stats/powiat-coverage",            "siec-powiat-coverage"),
-    ("/api/stats/neighbor-stats",             "siec-neighbor-stats"),
-    # tab "EDGE CASE'Y" - loadEdge (subset - the cheap ones)
-    ("/api/stats/kraniec-facts",              "edge-kraniec"),
-    ("/api/stats/elevation",                  "edge-elevation"),
-    ("/api/stats/amphibians",                 "edge-amphibians"),
+    # shared / core
+    ("/api/stats/summary",                              "summary"),
+    ("/api/geo/voivodeships",                           "geo-voiv"),
+    ("/api/stats/powiat-economics",                     "powiat-econ"),
+    ("/api/stats/per-capita",                           "per-capita"),
+    ("/api/stats/inpost-vs-zabka",                      "inpost"),
+    ("/api/stats/coverage-funnel",                      "coverage-funnel"),
+    ("/api/stats/voivodeship",                          "voivodeship"),
+    ("/api/stats/voivodeship-density",                  "voiv-density"),
+    ("/api/stats/sunday-by-voivodeship",                "sunday-by-voiv"),
+    ("/api/stats/opening-hours",                        "opening-hours"),
+    # SIEĆ tab
+    ("/api/stats/network-growth",                       "network-growth"),
+    ("/api/stats/network-origin",                       "network-origin"),
+    ("/api/stats/stores-timeline",                      "stores-timeline"),
+    ("/api/stats/openings-monthly",                     "openings-monthly"),
+    ("/api/stats/city-first-opening",                   "city-first"),
+    ("/api/stats/top-cities?limit=20",                  "top-cities"),
+    ("/api/stats/powiat-coverage",                      "powiat-coverage"),
+    ("/api/stats/neighbor-stats",                       "neighbor-stats"),
+    ("/api/stats/kraniec-facts",                        "kraniec"),
+    ("/api/stats/elevation",                            "elevation"),
+    ("/api/stats/amphibians",                           "amphibians"),
+    ("/api/stats/parks-stores",                         "parks-stores"),
+    ("/api/stats/twins",                                "twins"),
+    ("/api/stats/section3-rare",                        "section3"),
+    ("/api/stats/by-dimension?dim=city&metric=count&sort=desc&limit=60", "bubble-cities"),
+    # ŻABKA A POLSKA tab
+    ("/api/stats/common-streets?limit=15",              "common-streets"),
+    ("/api/stats/gmina-leaders?limit=12",               "gmina-leaders"),
+    ("/api/stats/neighbor-by-level?level=voivodeship&sort=asc", "nbl-voiv"),
 ]
 
 

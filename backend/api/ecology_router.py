@@ -22,6 +22,17 @@ def _gbif_total() -> int | None:
         _gbif_total_cache = None
     return _gbif_total_cache
 
+
+# Warm the ~1 MB amphibians JSON read at startup so the first /stats/amphibians
+# request doesn't pay the parse on a request thread (same idea as the geo caches).
+async def startup_ecology() -> None:
+    try:
+        _gbif_total()
+    except Exception as e:
+        print(f"[startup_ecology] warm skipped: {e}")
+
+startup_handlers = [startup_ecology]
+
 @get("/stats/amphibians")
 @cached(ttl=3600)
 async def amphibians() -> AmphibianExtremesResponse:
