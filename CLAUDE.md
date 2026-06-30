@@ -398,11 +398,19 @@ tiebreakers, so the value cached after one ETL run is identical to the next - th
 cache is meaningful, not a coin flip.
 
 **Lazy caches warmed at startup.** The voivodeship/powiat area indexes
-(`_pow_geo`, `_voiv_area`, `_gmina_agg`) and the boundary geojson bytes are built
-in `startup_geo()` (a Litestar `on_startup` hook) rather than on the first
-request, so no user thread pays the point-in-polygon build cost. The boundary
-files (`/api/geo/voivodeships`, `/api/geo/powiats`) are held in memory and served
-from there, not re-read from disk per request.
+(`_pow_geo`, `_voiv_area`, `_gmina_agg`), the boundary geojson bytes, and the
+~1 MB amphibians GBIF count (`_gbif_total`) are built in `on_startup` hooks
+(`startup_geo`, `startup_ecology`) rather than on the first request, so no user
+thread pays the build/parse cost. The boundary files (`/api/geo/voivodeships`,
+`/api/geo/powiats`) are held in memory and served from there, not re-read from
+disk per request. Each router that needs warming exposes a `startup_handlers`
+list; `main.py` gathers them into the app's `on_startup`.
+
+**Post-ETL cache warming.** `backend/warm_cache.py` (run by the cron right after
+the daily ETL restarts the backend) fires the exact set of URLs the SPA loads -
+with the same query params, since the Redis key includes them - so the first
+visitor in the hour after the 03:00 ETL gets warm hits instead of repopulating
+the cache cold. Keep its `PATHS` in sync with `frontend/src/data.js`.
 
 **Compression is nginx's job, not the app's.** The single uvicorn worker no
 longer gzips responses (the Litestar `CompressionConfig` was removed); nginx does
