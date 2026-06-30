@@ -675,17 +675,6 @@ def load_parcel_lockers(con, lockers: list, src_date: str):
             pass
 
 
-def enforce_retention(con, src_date: str, months: int = 6):
-    """Rolling window: trzymaj tylko dane z ostatnich `months` miesiecy.
-    Usuwa soft-deletowane lokalizacje i paczkomaty starsze niz prog."""
-    from dateutil.relativedelta import relativedelta
-    cutoff = (date.fromisoformat(str(src_date)) - relativedelta(months=months)).isoformat()
-    
-    deleted_locs = con.execute("DELETE FROM locations WHERE deleted_at < ?", [cutoff]).rowcount or 0
-    deleted_lockers = con.execute("DELETE FROM parcel_lockers WHERE deleted_at < ?", [cutoff]).rowcount or 0
-    print(f"[retencja] usunieto {deleted_locs} usunietych sklepow i {deleted_lockers} paczkomatow starszych niz {cutoff}")
-
-
 def load_dimensions(con, dim_powiat: list, dim_voivodeship: list):
     """Aktualizuje wymiary geograficzne (populacja, płaca, bezrobocie) 
     w tabeli administrative_division na bazie danych z GUS.

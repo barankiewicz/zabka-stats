@@ -16,7 +16,6 @@ import numpy as np
 
 from backend.etl.io import (
     DB_PATH,
-    enforce_retention,
     farthest_point_from_any_zabka,
     fetch_zabka_json,
     load_dim_park,
@@ -190,7 +189,6 @@ def run(no_geocode: bool = False,
         load_dimensions(con, dim_powiat, dim_voiv)
         load_dim_park(con, parks_enricher.parks())
         load_fun_facts(con, fun)
-        enforce_retention(con, src_date, months=6)
     finally:
         con.close()
 
