@@ -3,7 +3,7 @@
 // (np. h24, parki, sciana zachodnia, sklepy tuz obok). Trzymane w M, cap 360
 // na wpis zeby nie przeciazac CPU.
 import { M, MAPS } from '../state.js';
-import { fmt, capName, whenVisible } from '../utils.js';
+import { fmt, capName, whenVisible, debounce } from '../utils.js';
 
 // MapLibre (~280 KB gz) is loaded lazily, only when the Atlas map nears view.
 let maplibregl, createMap, fitPoland, pointsToFC, geoCircle, boundsOf, showMapUnavailable, WebGLUnavailableError;
@@ -452,7 +452,7 @@ async function buildMap() {
 
   // keep the map sized when its container reveals / resizes
   new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting && _krMap) _krMap.resize(); }), { threshold: 0.1 }).observe(node);
-  window.addEventListener('resize', () => { if (_krMap) _krMap.resize(); });
+  window.addEventListener('resize', debounce(() => { if (_krMap) _krMap.resize(); }));
   setTimeout(() => { if (_krMap) _krMap.resize(); }, 300);
   } catch (e) {
     if (e instanceof WebGLUnavailableError) {

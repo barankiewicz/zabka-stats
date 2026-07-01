@@ -66,6 +66,15 @@ export function whenVisible(el, fn, rootMargin='400px'){
   io.observe(el);
 }
 
+// Coalesce a rapid-fire event (resize in particular) into one call after
+// `wait` ms of quiet. A drag-resize fires dozens of native 'resize' events per
+// second; without this every chart/map resize handler (Chart.js relayout,
+// MapLibre re-render, manual canvas rebuild) ran on every single one of them.
+export function debounce(fn, wait=150){
+  let t=null;
+  return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), wait); };
+}
+
 // Ambient particle field for tab hero sections.
 // rgb: [r,g,b] base color; count: number of particles.
 // Returns a cancel function.
@@ -101,7 +110,7 @@ export function startTabParticles(canvasId,[r,g,b]=[132,195,65],count=55){
   raf=requestAnimationFrame(frame);
   if(!cv._tabParticleResize){
     cv._tabParticleResize=true;
-    window.addEventListener('resize',size);
+    window.addEventListener('resize',debounce(size));
   }
   return()=>cancelAnimationFrame(raf);
 }

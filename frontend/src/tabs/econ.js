@@ -8,6 +8,7 @@ import { GridComponent, TooltipComponent, VisualMapContinuousComponent, MarkPoin
 import { CanvasRenderer } from 'echarts/renderers';
 echartsUse([ScatterChart, LineChart, BarChart, GridComponent, TooltipComponent, VisualMapContinuousComponent, MarkPointComponent, CanvasRenderer]);
 import { M } from '../state.js';
+import { debounce } from '../utils.js';
 
 const RM = window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches;
 const fmtPop = p => p >= 1e6 ? (p / 1e6).toFixed(2) + ' mln' : Math.round(p / 1000) + ' tys.';
@@ -101,7 +102,7 @@ function buildScatter(cfg) {
         markPoint: { symbol: 'circle', symbolSize: 1, silent: true, animationDelay: RM ? 0 : 1450, label: { color: '#eef3e6', fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 500, backgroundColor: 'rgba(12,22,11,.85)', borderColor: 'rgba(140,200,80,.3)', borderWidth: 1, borderRadius: 4, padding: [4, 9], formatter: p => p.data.txt }, data: cfg.heroes } }
     ]
   });
-  window.addEventListener('resize', () => chart.resize());
+  window.addEventListener('resize', debounce(() => chart.resize()));
 }
 
 function buildBar(cfg) {
@@ -116,7 +117,7 @@ function buildBar(cfg) {
     yAxis: { type: 'category', data: cfg.cats, inverse: true, axisLabel: { color: '#eef3e6', fontFamily: 'IBM Plex Sans', fontSize: 10 }, axisLine: { lineStyle: { color: 'rgba(140,200,80,.2)' } }, axisTick: { show: false } },
     series: [{ type: 'bar', barWidth: '48%', data: cfg.vals.map((v, i) => ({ value: v, itemStyle: { color: cfg.cols[i], borderRadius: [0, 4, 4, 0] } })), label: { show: true, position: 'right', color: '#eef3e6', fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 500, formatter: p => p.value.toFixed(3) } }]
   });
-  window.addEventListener('resize', () => chart.resize());
+  window.addEventListener('resize', debounce(() => chart.resize()));
 }
 
 function _setDC(id, v) { const el = document.getElementById(id); if (el && v != null) el.dataset.count = v; }

@@ -2,7 +2,7 @@ import Chart from 'chart.js/auto';
 import * as Plot from '@observablehq/plot';
 import { C, STATE } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
-import { era, fmt, getFont, destroyChart, capName as capCase, whenVisible } from '../utils.js';
+import { era, fmt, getFont, destroyChart, capName as capCase, whenVisible, debounce } from '../utils.js';
 
 // MapLibre is ~280 KB gz; load it lazily (only when a map nears the viewport)
 // instead of on first paint. These bindings are filled by ensureMaplibre().
@@ -114,7 +114,7 @@ function startHeroParticles(){
   } else { start(); }
   if(!startHeroParticles._wired){
     startHeroParticles._wired=true;
-    window.addEventListener('resize',size);
+    window.addEventListener('resize',debounce(size));
   }
 }
 
@@ -389,7 +389,7 @@ export async function renderGrowthMap(){
         growthMap.setFilter('stores-glow',['<=',['get','year'],GROWTH_MIN-1]);
         play();
       });
-      window.addEventListener('resize',()=>{drawCalendar(slider?+slider.value:GROWTH_MAX)});
+      window.addEventListener('resize',debounce(()=>{drawCalendar(slider?+slider.value:GROWTH_MAX)}));
     } catch (e) {
       if (e instanceof WebGLUnavailableError) {
         showMapUnavailable(el, { message: 'Mapa ekspansji niedostępna' });
@@ -578,7 +578,7 @@ export function drawFingerprintFlat(){
     const hint=document.getElementById('fpf-hint');
     if(hint)cv.addEventListener('mousemove',()=>hint.classList.add('hidden'),{once:true});
   }
-  if(!cv._fpfResize){cv._fpfResize=true;window.addEventListener('resize',()=>drawFingerprintFlat())}
+  if(!cv._fpfResize){cv._fpfResize=true;window.addEventListener('resize',debounce(()=>drawFingerprintFlat()))}
 }
 
 function renderFpFlat(ctx){
@@ -734,6 +734,7 @@ export function renderGrowthChart(){
 let _pcLevel='powiaty';
 const _PC_CAP={powiaty:'powiatów ma Żabkę',miasta:'miast ma Żabkę',gminy:'gmin ma Żabkę'};
 let _pcState=null;   // persistent so a level switch animates instead of jumping
+let _pcOutline=null; // cached offscreen render of the static voivodeship outline
 
 export function renderPowiatCoverage(){
   const pc=M.powiat_coverage||{};
@@ -778,17 +779,27 @@ export function renderPowiatCoverage(){
   const RED=[232,105,61],GRN=[132,195,65],LIME=[166,232,74];
   const lerp=(a,b,t)=>Math.round(a+(b-a)*t);
 
-  function drawMap(now){
-    ctx.clearRect(0,0,W,H);
+  // The voivodeship outline never changes frame-to-frame (only the dot colors
+  // do), so it's traced once per size into an offscreen canvas and blitted -
+  // instead of re-stroking every ring of every polygon on every animation
+  // frame (which used to run for as long as a hover was active).
+  if(!_pcOutline||_pcOutline.width!==W||_pcOutline.height!==H){
+    _pcOutline=document.createElement('canvas');
+    _pcOutline.width=W;_pcOutline.height=H;
+    const octx=_pcOutline.getContext('2d');
     const wg=M.woj_geo;
     if(wg&&wg.features){
-      ctx.strokeStyle='rgba(132,195,65,.16)';ctx.lineWidth=0.8;
+      octx.strokeStyle='rgba(132,195,65,.16)';octx.lineWidth=0.8;
       wg.features.forEach(f=>{const g=f.geometry||{};
         const polys=g.type==='MultiPolygon'?g.coordinates:g.type==='Polygon'?[g.coordinates]:[];
-        polys.forEach(poly=>{const ring=poly[0];if(!ring)return;ctx.beginPath();
-          ring.forEach((pt,k)=>{const[x,y]=P(pt[1],pt[0]);k?ctx.lineTo(x,y):ctx.moveTo(x,y)});
-          ctx.closePath();ctx.stroke()})});
+        polys.forEach(poly=>{const ring=poly[0];if(!ring)return;octx.beginPath();
+          ring.forEach((pt,k)=>{const[x,y]=P(pt[1],pt[0]);k?octx.lineTo(x,y):octx.moveTo(x,y)});
+          octx.closePath();octx.stroke()})});
     }
+  }
+  function drawMap(now){
+    ctx.clearRect(0,0,W,H);
+    ctx.drawImage(_pcOutline,0,0);
     const EFFECT_R=46,BASE_R=1.6,MAX_R=2.5,hover=S.hover;
     S.dots.forEach(([x,y],i)=>{
       const gn=S.greenness[i];
@@ -844,7 +855,7 @@ export function renderPowiatCoverage(){
     cv.addEventListener('mouseleave',()=>{_pcState.hover=null;
       if(!_pcState.raf)_pcState.raf=requestAnimationFrame(step)});
   }
-  if(!cv._pcResize){cv._pcResize=true;window.addEventListener('resize',()=>{_pcState=null;renderPowiatCoverage()})}
+  if(!cv._pcResize){cv._pcResize=true;window.addEventListener('resize',debounce(()=>{_pcState=null;renderPowiatCoverage()}))}
 }
 
 function wirePowiatLevel(){

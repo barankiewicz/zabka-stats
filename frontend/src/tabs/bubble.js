@@ -11,6 +11,7 @@ import {
 // Reference it so the named import is not tree-shaken away.
 void _ensureTransition;
 import { C } from '../config.js';
+import { debounce } from '../utils.js';
 
 // Force-directed "volumetric" bubble chart of the network (one bubble per
 // powiat/miasto, size = store count, plus a "Pozostałe" bubble for the tail).
@@ -80,7 +81,7 @@ export async function renderBubble() {
       .filter(e => e.type !== 'wheel' || e.ctrlKey)
       .on('zoom', e => { _transform = e.transform; _group.attr('transform', e.transform); });
     _svg.call(_zoom);
-    if (!_wired) { _wired = true; window.addEventListener('resize', () => { if (_sim) _sim.alpha(0.2).restart(); }); }
+    if (!_wired) { _wired = true; window.addEventListener('resize', debounce(() => { if (_sim) _sim.alpha(0.2).restart(); })); }
   }
   draw(await fetchBubble(_dim), stage);
 }
