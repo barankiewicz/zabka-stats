@@ -203,7 +203,14 @@ behind nginx. nginx also handles **gzip** for API/JSON and the JS/CSS bundle
 the single worker never spends CPU compressing - the app sends plain bytes and
 nginx compresses on the way out. A small 2 s **microcache** (`proxy_cache` +
 `proxy_cache_lock`) sits in front of `/api/` to absorb bursts before Redis warms.
-Full config: `deploy/nginx_zabka.conf`.
+Static assets carry long-lived `Cache-Control`: hashed JS/CSS under `/assets/`
+get `immutable, max-age=31536000` (the content hash is the cache key, so this
+is always safe); unhashed `public/` files (favicon, OG image, logos,
+robots.txt, sitemap.xml) get `max-age=86400, must-revalidate`; `index.html`
+stays `no-cache` so a deploy is picked up immediately. Full config:
+`deploy/nginx_zabka.conf` - **note it is not auto-deployed**, `deploy/deploy.sh`
+only ships the app; nginx config changes must be copied to the VPS by hand and
+reloaded (`nginx -t` then `systemctl reload nginx`).
 
 **SSH hardening.** Key-only auth (`PasswordAuthentication no`), root login
 disabled (`PermitRootLogin no`), and sshd moved off the default port to **420**
