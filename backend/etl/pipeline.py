@@ -7,13 +7,16 @@ DuckDB -> wyczysc cache. Pominiete kroki ustawiaja swoje kolumny na wartosci
 neutralne (None/False), zeby ksztalt danych byl staly.
 """
 
+import json
 import time
 from datetime import date, datetime
+from pathlib import Path
 from typing import Any
 
 import duckdb
 import numpy as np
 
+from backend.etl.geo import region_centroids
 from backend.etl.io import (
     DB_PATH,
     farthest_point_from_any_zabka,
@@ -33,6 +36,19 @@ from backend.etl.sources.elevation import ElevationEnricher
 from backend.etl.sources.neighbor import NeighborEnricher
 from backend.etl.sources.parcel_lockers import fetch_parcel_lockers
 from backend.etl.sources.parks import ParksEnricher
+
+_GEO_DIR = Path(__file__).parent.parent.parent / "data" / "geo"
+
+
+def _load_powiat_centroids() -> dict:
+    """{normalized_powiat_name: (lon, lat)} from the local powiaty.geojson
+    (380 land + city polygons), keyed with the same normalizer GUS economics
+    uses so it lines up with dim_powiat regardless of the 'powiat'/'m.' prefix."""
+    path = _GEO_DIR / "powiaty.geojson"
+    if not path.exists():
+        return {}
+    geojson = json.loads(path.read_text(encoding="utf-8"))
+    return region_centroids(geojson, _norm_powiat)
 
 
 def _build_geo_dims(rows: list[dict], lockers: list[dict], skip_gus: bool) -> tuple[list, list]:
@@ -68,17 +84,23 @@ def _build_geo_dims(rows: list[dict], lockers: list[dict], skip_gus: bool) -> tu
             return d[(voiv, key)]
         return dfb.get(key)
 
+    centroids = _load_powiat_centroids()
     dim_powiat, pop_by_voiv = [], {}
     for pid, (powiat, vid) in sorted(powiat_map.items()):
         voiv = voiv_map[vid]
         key = _norm_powiat(powiat)
         p = _lookup(popul, pop_fb, voiv, key)
         pop_i = int(p) if p is not None else None
+        lon, lat = centroids.get(key, (None, None))
         dim_powiat.append((pid, powiat, vid, pop_i,
                            _lookup(salary, sal_fb, voiv, key),
-                           _lookup(unempl, une_fb, voiv, key)))
+                           _lookup(unempl, une_fb, voiv, key),
+                           lon, lat))
         if pop_i is not None:
             pop_by_voiv[voiv] = pop_by_voiv.get(voiv, 0) + pop_i
+    missing = sum(1 for p in dim_powiat if p[6] is None)
+    if missing:
+        print(f"[dims] centroid nie znaleziony dla {missing}/{len(dim_powiat)} powiatow")
             
     dim_voiv = [(vid, name, pop_by_voiv.get(name)) for vid, name in sorted(voiv_map.items())]
     print(f"[dims] {len(dim_voiv)} wojewodztw, {len(dim_powiat)} powiatow (klucze numeryczne)")

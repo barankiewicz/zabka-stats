@@ -656,8 +656,12 @@ def load_dimensions(con, dim_powiat: list, dim_voivodeship: list):
         con.executemany("UPDATE administrative_division SET population = ? WHERE id = ?", payload_voiv)
         
     if dim_powiat:
-        payload_pow = [(p[3], p[4], p[5], p[0]) for p in dim_powiat]
-        con.executemany("UPDATE administrative_division SET population = ?, avg_salary = ?, unemployment_rate = ? WHERE id = ?", payload_pow)
+        payload_pow = [(p[3], p[4], p[5], p[6], p[7], p[0]) for p in dim_powiat]
+        con.executemany(
+            "UPDATE administrative_division SET population = ?, avg_salary = ?, "
+            "unemployment_rate = ?, centroid_lon = ?, centroid_lat = ? WHERE id = ?",
+            payload_pow,
+        )
         
     print(f"[dims] Zaktualizowano dane GUS dla {len(dim_voivodeship)} wojewodztw i {len(dim_powiat)} powiatow w administrative_division")
 

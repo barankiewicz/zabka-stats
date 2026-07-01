@@ -79,6 +79,67 @@ def nearest_region(lon, lat, index):
     return best
 
 
+def _shoelace_area(ring) -> float:
+    """Signed area of a ring (shoelace formula); sign carries winding direction."""
+    n = len(ring)
+    s = 0.0
+    for i in range(n):
+        x0, y0 = ring[i][0], ring[i][1]
+        x1, y1 = ring[(i + 1) % n][0], ring[(i + 1) % n][1]
+        s += x0 * y1 - x1 * y0
+    return s / 2
+
+
+def polygon_centroid(rings: list) -> tuple:
+    """Area-weighted centroid of the largest ring by area. For an elongated or
+    concave powiat the centroid can land slightly outside the polygon - acceptable
+    here, the result only needs to sketch the shape of Poland on a scatter, it is
+    never hit-tested against geometry."""
+    ring = max(rings, key=lambda r: abs(_shoelace_area(r)))
+    a = _shoelace_area(ring)
+    if abs(a) < 1e-12:
+        xs = [p[0] for p in ring]
+        ys = [p[1] for p in ring]
+        return sum(xs) / len(xs), sum(ys) / len(ys)
+    cx = cy = 0.0
+    n = len(ring)
+    for i in range(n):
+        x0, y0 = ring[i][0], ring[i][1]
+        x1, y1 = ring[(i + 1) % n][0], ring[(i + 1) % n][1]
+        cross = x0 * y1 - x1 * y0
+        cx += (x0 + x1) * cross
+        cy += (y0 + y1) * cross
+    return cx / (6 * a), cy / (6 * a)
+
+
+def region_centroids(geojson: dict, normalize) -> dict:
+    """{normalize(nazwa): (lon, lat)} for every polygon feature in a boundary
+    geojson. On a name collision (e.g. a land powiat and an unrelated feature
+    normalizing to the same key) the larger polygon wins, so a small sliver never
+    overrides the real area."""
+    out, areas = {}, {}
+    for feat in geojson.get("features", []):
+        name = feat.get("properties", {}).get("nazwa")
+        if not name:
+            continue
+        geom = feat.get("geometry", {})
+        gtype, coords = geom.get("type"), geom.get("coordinates", [])
+        rings = []
+        if gtype == "Polygon":
+            rings = [coords[0]]
+        elif gtype == "MultiPolygon":
+            rings = [poly[0] for poly in coords]
+        if not rings:
+            continue
+        key = normalize(name)
+        area = sum(abs(_shoelace_area(r)) for r in rings)
+        if key in out and areas.get(key, 0) >= area:
+            continue
+        out[key] = polygon_centroid(rings)
+        areas[key] = area
+    return out
+
+
 def poland_rings(woj_geo: dict) -> list:
     """Wyciagnij wszystkie zewnetrzne pierscienie wojewodztw jako liste pierscieni."""
     rings = []

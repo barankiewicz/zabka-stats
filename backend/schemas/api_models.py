@@ -84,6 +84,7 @@ class VoivodeshipStatsResponseItem(BaseModel):
     mc_pct: float
 
 class PowiatEconomicsItem(BaseModel):
+    powiat_id: int
     powiat: str
     voivodeship: str
     avg_salary: float
@@ -91,6 +92,8 @@ class PowiatEconomicsItem(BaseModel):
     population: int
     stores: int
     per_1k: float
+    lon: float | None = None
+    lat: float | None = None
 
 class SundayByVoivodeshipResponseItem(BaseModel):
     voivodeship: str

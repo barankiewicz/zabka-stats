@@ -364,9 +364,15 @@ def ensure_extra_tables(con):
             unemployment_rate DOUBLE,
             voivodeship_id INTEGER,
             powiat_id INTEGER,
-            gus_id VARCHAR
+            gus_id VARCHAR,
+            centroid_lon DOUBLE,
+            centroid_lat DOUBLE
         )
     """)
+    # Migracja kolumn na istniejacej bazie - musi wykonac sie przed utworzeniem
+    # widoku dim_powiat ponizej, ktory je selectuje.
+    con.execute("ALTER TABLE administrative_division ADD COLUMN IF NOT EXISTS centroid_lon DOUBLE")
+    con.execute("ALTER TABLE administrative_division ADD COLUMN IF NOT EXISTS centroid_lat DOUBLE")
 
     # Wymiar parku/otuliny (GDOŚ) - locations wskazuje przez nature_park_id.
     con.execute("""
@@ -411,7 +417,8 @@ def ensure_extra_tables(con):
     con.execute("DROP VIEW IF EXISTS dim_powiat")
     con.execute("""
         CREATE VIEW dim_powiat AS
-        SELECT id, name, voivodeship_id, population, avg_salary, unemployment_rate, area_km2
+        SELECT id, name, voivodeship_id, population, avg_salary, unemployment_rate, area_km2,
+               centroid_lon, centroid_lat
         FROM administrative_division
         WHERE level = 2
     """)
