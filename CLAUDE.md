@@ -1005,8 +1005,12 @@ Right: "Połowa Żabek otwarta od 2023". Wrong: "Rozkład dat otwarcia".
 
 **Grid:** 12-column CSS Grid, 16px gap. Desktop-first (>= 1280px). Tablet (768-1279px):
 two-column pairs stack vertically, Section 3 cards go 2-column, maps shrink to ~380px.
-Mobile (< 768px): graceful degradation — maps, dual scatter, beeswarm, stacked area
-replaced by static text summaries; banner prompts user to open on a wider screen.
+Mobile (< 768px): grids reflow to 1-2 columns and maps/charts shrink via media
+queries (`src/style.css`), but there is no static-text fallback or narrow-screen
+banner - the full maps, D3 bubble, and ECharts scatters still render at phone
+widths. Touch interactions (map ctrl+scroll hints, drag-to-zoom) are unchanged
+from desktop, so some affordances (e.g. "ctrl + scroll przybliża") don't apply
+on touch.
 
 **Cross-filter:** Single global state `STATE.filter` (`src/filter.js`), voivodeship only.
 Set by clicking a GRAN ranking row. Render callbacks are registered per tab in `main.js`

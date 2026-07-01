@@ -1,4 +1,4 @@
-import Chart from 'chart.js/auto';
+import Chart from '../chartjs-setup.js';
 import { C, STATE } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
 import { era, fmt, getFont, destroyChart, capName as capCase, whenVisible, debounce } from '../utils.js';
@@ -515,6 +515,8 @@ function fpRamp(t){
   return`rgb(${Math.round(a[0]+(b[0]-a[0])*u)},${Math.round(a[1]+(b[1]-a[1])*u)},${Math.round(a[2]+(b[2]-a[2])*u)})`;
 }
 
+let _fpfStatic=null; // offscreen canvas: background + gridlines + all year curves (redrawn only on data/resize)
+
 export function drawFingerprintFlat(){
   const cv=document.getElementById('canvas-fingerprint-flat');if(!cv)return;
   const W=cv.offsetWidth||900;
@@ -538,6 +540,7 @@ export function drawFingerprintFlat(){
   const H=padT+DEFORM+(n-1)*rowH+padB;
   cv.width=W;cv.height=H;cv.style.height=H+'px';
   fpfData={W,H,padL,padR,padT,padB,plotW,rowH,DEFORM,byYear,sortedYears,yearData};
+  _drawFpfStatic();
   renderFpFlat(ctx);
 
   const tt=document.getElementById('fpf-tooltip');
@@ -580,9 +583,15 @@ export function drawFingerprintFlat(){
   if(!cv._fpfResize){cv._fpfResize=true;window.addEventListener('resize',debounce(()=>drawFingerprintFlat()))}
 }
 
-function renderFpFlat(ctx){
-  if(!fpfData)return;
+// Background + gridlines + all N-year curves, drawn once into an offscreen
+// canvas. This is the expensive part (n years x 72 segments each); mousemove
+// used to re-run all of it on every event just to move a guide line. Now
+// mousemove only blits this cached bitmap + strokes one dashed line.
+function _drawFpfStatic(){
   const{W,H,padL,padB,plotW,rowH,DEFORM,byYear,sortedYears}=fpfData;
+  if(!_fpfStatic)_fpfStatic=document.createElement('canvas');
+  _fpfStatic.width=W;_fpfStatic.height=H;
+  const ctx=_fpfStatic.getContext('2d');
   ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
 
   const n=sortedYears.length;
@@ -621,6 +630,17 @@ function renderFpFlat(ctx){
     ctx.fillText(yr,padL-8,yBase);
   }
   ctx.textAlign='left';ctx.textBaseline='alphabetic';
+}
+
+function renderFpFlat(ctx){
+  if(!fpfData||!_fpfStatic)return;
+  const{W,H,padL,padB,plotW,DEFORM,sortedYears}=fpfData;
+  ctx.clearRect(0,0,W,H);
+  ctx.drawImage(_fpfStatic,0,0);
+
+  const n=sortedYears.length;
+  const baseY=i=>H-padB-i*fpfData.rowH;
+  const plotTop=baseY(n-1)-DEFORM,plotBottom=baseY(0);
 
   // tasteful vertical guide through the cursor on hover
   if(fpfData.hoverX!=null){
@@ -1001,7 +1021,26 @@ function drawGranularChart(){
     legEl.innerHTML=parts.join('');
   }
 
-  destroyChart('granular');
+  const barLabelsOpt=_isCount()?{thousands:true,color:C.muted}
+    :_gMetric==='per1k'?{decimals:2,color:C.muted,suffix:' żab./1k'}
+    :{decimals:3,color:C.muted,suffix:' żab./km²'};
+
+  // Every dim/metric/sort/filter change used to destroy+recreate this chart,
+  // paying a full teardown + entry animation on each click. Update the
+  // existing instance in place (new labels/data/colors, no animation) instead
+  // - only build fresh on first render. Row COUNT can change freely between
+  // updates (voivodeship=16 vs powiat=314); Chart.js handles a shrinking or
+  // growing labels/data array fine as long as both arrays are replaced together.
+  const existing=CHARTS['granular'];
+  if(existing){
+    existing.data.labels=labels;
+    const ds=existing.data.datasets[0];
+    ds.data=data;ds.backgroundColor=colors;ds.hoverBackgroundColor=colors.map(()=>C.greenBright);
+    existing.options.plugins.barLabels=barLabelsOpt;
+    existing.options.plugins.annot.refLines=refLines;
+    existing.update('none');
+    return;
+  }
   CHARTS['granular']=new Chart(document.getElementById('chart-granular'),{
     type:'bar',
     data:{labels,datasets:[{
@@ -1010,12 +1049,11 @@ function drawGranularChart(){
     }]},
     options:{
       indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:48,top:28}},
+      animation:{duration:0},
       plugins:{
         legend:{display:false},
         tooltip:{enabled:false},
-        barLabels:_isCount()?{thousands:true,color:C.muted}
-          :_gMetric==='per1k'?{decimals:2,color:C.muted,suffix:' żab./1k'}
-          :{decimals:3,color:C.muted,suffix:' żab./km²'},
+        barLabels:barLabelsOpt,
         annot:{refLines},
       },
       scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
@@ -1219,85 +1257,4 @@ export function wireGranular(){
   grp('gran-sort','sort',(v,btn)=>{_gSort=v;_setActive('gran-sort',btn);renderGranular()});
   const more=document.getElementById('gran-more');
   if(more&&!more._wired){more._wired=true;more.addEventListener('click',loadMoreGranular)}
-}
-
-/* ---------------- 1.4a clock -> donut "Niedziela handlowa po zabkowemu" ----- */
-
-export function drawClock(){
-  const cv=document.getElementById('canvas-clock');if(!cv)return;
-  const S=220;
-  cv.width=S;cv.height=S;
-  const ctx=cv.getContext('2d');
-  ctx.clearRect(0,0,S,S);
-  const cx=S/2,cy=S/2;
-
-  const sum=M.summary||{};
-  const total=+(sum.total_active||sum.total||0);
-  const sunOpen=+(sum.open_sunday||0);
-  const pctOpen=total>0?Math.min(1,sunOpen/total):0;
-
-  const R0=S/2-10;
-  const r0=Math.round(R0*0.60);
-  const s=cv._clockAnimScale||1;
-  const R=Math.round(R0*s);
-  const r=Math.round(r0*s);
-  const startA=-Math.PI/2;
-  const openEnd=startA+2*Math.PI*pctOpen;
-  const closedEnd=startA+2*Math.PI;
-
-  // Background ring (closed stores grey/dark)
-  ctx.beginPath();
-  ctx.arc(cx,cy,R,openEnd,closedEnd);
-  ctx.arc(cx,cy,r,closedEnd,openEnd,true);
-  ctx.closePath();
-  ctx.fillStyle='#2d3a29';
-  ctx.fill();
-
-  // Open-sunday arc (green, ~95%)
-  ctx.beginPath();
-  ctx.arc(cx,cy,R,startA,openEnd);
-  ctx.arc(cx,cy,r,openEnd,startA,true);
-  ctx.closePath();
-  ctx.fillStyle='#84c341';
-  ctx.fill();
-
-  // Subtle inner highlight on green arc
-  ctx.beginPath();
-  ctx.arc(cx,cy,R-1,startA,openEnd);
-  ctx.arc(cx,cy,r+1,openEnd,startA,true);
-  ctx.closePath();
-  ctx.fillStyle='rgba(166,232,74,0.10)';
-  ctx.fill();
-
-  // Center: percentage + label (stays same size/position when ring scales)
-  const pctStr=`${(pctOpen*100).toFixed(1).replace('.',',')}%`;
-  ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.fillStyle='#eef3e6';
-  ctx.font=`800 ${Math.round(S*0.145)}px '${getFont('display')}',sans-serif`;
-  ctx.fillText(pctStr,cx,cy-S*0.065);
-  ctx.font=`500 ${Math.round(S*0.063)}px '${getFont('body')}',sans-serif`;
-  ctx.fillStyle='#93a487';
-  ctx.fillText('otwarte',cx,cy+S*0.08);
-
-  // Hover handlers — ring smoothly scales on canvas, text stays
-  if(!cv._clockHoverInit){
-    cv._clockHoverInit=true;
-    cv.addEventListener('mouseenter',()=>ringScaleAnim(cv,1.1,350));
-    cv.addEventListener('mouseleave',()=>ringScaleAnim(cv,1.0,350));
-  }
-}
-
-function ringScaleAnim(cv,target,dur){
-  if(cv._ringRaf){cancelAnimationFrame(cv._ringRaf);cv._ringRaf=0}
-  const startS=cv._clockAnimScale||1;
-  const t0=performance.now();
-  function tick(){
-    const t=Math.min((performance.now()-t0)/dur,1);
-    const e=1-Math.pow(1-t,3); // easeOutCubic
-    cv._clockAnimScale=startS+(target-startS)*e;
-    drawClock();
-    if(t<1)cv._ringRaf=requestAnimationFrame(tick);
-    else{cv._clockAnimScale=target;cv._ringRaf=0}
-  }
-  tick();
 }

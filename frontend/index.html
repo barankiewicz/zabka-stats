@@ -77,7 +77,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&display=swap">
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- Non-blocking: media="print" doesn't hold up first render, then the onload
+     handler swaps it to "all" once the stylesheet (a cross-origin request to
+     Google Fonts) actually arrives. noscript covers JS-disabled as a
+     synchronous fallback. -->
+<link rel="stylesheet" media="print" onload="this.media='all'"
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap"></noscript>
 <script type="speculationrules">
 {"prerender":[{"where":{"href_matches":"/methodology.html"},"eagerness":"moderate"}]}
 </script>
@@ -90,8 +96,8 @@
   <div class="nav-inner">
     <a class="brand" href="#top"><span class="brand-dot"></span>Żabka w liczbach</a>
     <div class="tab-nav" role="tablist" aria-label="Sekcje dashboardu">
-      <button class="tab-btn active" id="tab-btn-siec" data-tab="siec" role="tab" aria-selected="true" aria-controls="tab-siec">Sieć</button>
-      <button class="tab-btn" id="tab-btn-spoleczenstwo" data-tab="spoleczenstwo" role="tab" aria-selected="false" aria-controls="tab-spoleczenstwo">Żabka a Polska</button>
+      <button class="tab-btn active" id="tab-btn-siec" data-tab="siec" role="tab" aria-selected="true" aria-controls="tab-siec" tabindex="0">Sieć</button>
+      <button class="tab-btn" id="tab-btn-spoleczenstwo" data-tab="spoleczenstwo" role="tab" aria-selected="false" aria-controls="tab-spoleczenstwo" tabindex="-1">Żabka a Polska</button>
     </div>
   </div>
 </nav>
@@ -466,7 +472,7 @@
           </div>
         </div>
         <div id="inpost-dumbbell" style="flex:1;overflow-y:hidden;min-height:0"></div>
-        <div style="display:flex;gap:14px;padding:6px 0 2px;font-size:11px;color:#5a5a6a;flex-shrink:0">
+        <div style="display:flex;gap:14px;padding:6px 0 2px;font-size:11px;color:#93a487;flex-shrink:0">
           <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#84c341;margin-right:4px;vertical-align:middle"></span>Żabka/100k</span>
           <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f2a359;margin-right:4px;vertical-align:middle"></span>InPost/100k</span>
         </div>

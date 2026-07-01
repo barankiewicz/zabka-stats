@@ -1,4 +1,4 @@
-import Chart from 'chart.js/auto';
+import Chart from '../chartjs-setup.js';
 // MapLibre (~280 KB gz) loaded lazily, only when the InPost choropleth nears view.
 let maplibregl, createMap, fitPoland, featureBBoxCenter, showMapUnavailable, WebGLUnavailableError;
 let _mlibP;
@@ -33,8 +33,10 @@ function renderSpolecKPIs(){
 
   if(dens.length&&s&&s.total_active){
     const totalArea=dens.reduce((a,r)=>a+(r.area_km2||0),0);
-    const per100=(+s.total_active)/totalArea*100;
-    set('spol-kpi-density',`${per100.toFixed(2).replace('.',',')}<span class="stat-unit">/100km²</span>`);
+    if(totalArea>0){
+      const per100=(+s.total_active)/totalArea*100;
+      set('spol-kpi-density',`${per100.toFixed(2).replace('.',',')}<span class="stat-unit">/100km²</span>`);
+    }
   }
 
   const gminy=(M.coverage_funnel||[]).find(r=>r.level==='gminy');
@@ -486,7 +488,7 @@ export function renderDumbbell(data){
     svg.appendChild(line);
     const lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
     lbl.setAttribute('x',x);lbl.setAttribute('y',12);lbl.setAttribute('text-anchor','middle');
-    lbl.setAttribute('fill','#7a7a90');lbl.setAttribute('font-size',FONT_GRID);
+    lbl.setAttribute('fill','#93a487');lbl.setAttribute('font-size',FONT_GRID);
     lbl.textContent=(maxV*f).toFixed(0);svg.appendChild(lbl);
   });
   arr.forEach((d,i)=>{
@@ -515,8 +517,9 @@ export function renderDumbbell(data){
     svg.appendChild(lbl);
     const rb=document.createElementNS('http://www.w3.org/2000/svg','text');
     rb.setAttribute('x',PAD_L+W_CHART+4);rb.setAttribute('y',y+3);
-    rb.setAttribute('fill','#5a5a6a');rb.setAttribute('font-size',FONT_RATIO);
-    rb.textContent=d.ratio+'x';svg.appendChild(rb);
+    rb.setAttribute('fill','#93a487');rb.setAttribute('font-size',FONT_RATIO);
+    const ratioTxt=typeof d.ratio==='number'?d.ratio.toFixed(2).replace('.',','):String(d.ratio||'–');
+    rb.textContent=ratioTxt+'x';svg.appendChild(rb);
   });
   if(!_dbTip){
     _dbTip=document.createElement('div');

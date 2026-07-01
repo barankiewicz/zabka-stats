@@ -1,4 +1,4 @@
-import Chart from 'chart.js/auto';
+import Chart from './chartjs-setup.js';
 import './style.css';
 import { annotPlugin, barValueLabels, C, STATE } from './config.js';
 import { M, CHARTS, MAPS, RENDERED } from './state.js';
@@ -19,6 +19,7 @@ function tabModule(tab) {
   if (!_mods[tab]) _mods[tab] = TAB_LOADERS[tab]();
   return _mods[tab];
 }
+const _pending = new Set(); // tabs with a renderTab() currently in flight - blocks re-entrant double-clicks without permanently blocking retries after a failure
 
 Chart.register(annotPlugin);
 Chart.register(barValueLabels);
@@ -71,7 +72,33 @@ function resetTabReveals(tabEl){
   });
 }
 
+// Tab-level error banner: shown when a tab fails to load/render so the user
+// isn't left staring at a permanently blank panel with no recourse. aria-live
+// so screen reader users hear about the failure without hunting for it.
+function showTabError(tabEl, onRetry){
+  hideTabError(tabEl);
+  const banner=document.createElement('div');
+  banner.className='tab-load-error';
+  banner.setAttribute('role','alert');
+  banner.setAttribute('aria-live','polite');
+  banner.style.cssText='margin:24px;padding:16px 18px;border:1px solid rgba(232,105,61,.35);'+
+    'background:rgba(232,105,61,.08);border-radius:10px;color:var(--ink);font-family:var(--font-body);';
+  banner.innerHTML='<div style="margin-bottom:10px">Nie udało się załadować danych tej zakładki. Sprawdź połączenie i spróbuj ponownie.</div>';
+  const btn=document.createElement('button');
+  btn.type='button';btn.className='btn';btn.textContent='Spróbuj ponownie';
+  btn.addEventListener('click',()=>{hideTabError(tabEl);onRetry();});
+  banner.appendChild(btn);
+  tabEl.prepend(banner);
+}
+function hideTabError(tabEl){
+  const el=tabEl.querySelector('.tab-load-error');
+  if(el)el.remove();
+}
+
 async function renderTab(tab){
+  if(_pending.has(tab))return;   // already loading this tab - ignore a re-entrant call
+  _pending.add(tab);
+  const tabEl=document.getElementById('tab-'+tab);
   try {
     await loadTabData(tab);          // fetch this tab's endpoints (cached after first open)
     const mod = await tabModule(tab); // download + parse this tab's chunk
@@ -83,27 +110,53 @@ async function renderTab(tab){
       mod.renderSpoleczenstwo();
       mod.wireInpostLevel();
     }
+    RENDERED.add(tab);
+    if(tabEl)hideTabError(tabEl);
   } catch(err){
     console.error(`renderTab(${tab}) failed:`, err);
+    RENDERED.delete(tab);   // allow a retry - do NOT leave the tab permanently blank
+    _mods[tab]=null;        // the chunk import may have been what failed; let it retry too
+    if(tabEl)showTabError(tabEl,()=>renderTab(tab));
     return;
+  } finally {
+    _pending.delete(tab);
   }
   setTimeout(initIdOverlays,300);
 }
 
-document.querySelectorAll('.tab-btn').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    document.querySelectorAll('.tab-btn').forEach(b=>{b.classList.remove('active');b.setAttribute('aria-selected','false');});
-    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
-    btn.classList.add('active');
-    btn.setAttribute('aria-selected','true');
-    const tab=btn.dataset.tab;
-    const tabEl=document.getElementById('tab-'+tab);
-    window.scrollTo({top:0,behavior:'instant'});
-    tabEl.classList.add('active');
-    STATE.tab=tab;
-    resetTabReveals(tabEl);
-    if(!RENDERED.has(tab)){RENDERED.add(tab);setTimeout(()=>renderTab(tab),60)}
-    setTimeout(()=>Object.values(MAPS).forEach(m=>m&&(m.resize&&m.resize())),200);
+const _tabBtns=Array.from(document.querySelectorAll('.tab-btn'));
+
+function activateTab(btn){
+  _tabBtns.forEach(b=>{b.classList.remove('active');b.setAttribute('aria-selected','false');b.setAttribute('tabindex','-1');});
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  btn.setAttribute('aria-selected','true');
+  btn.setAttribute('tabindex','0');
+  const tab=btn.dataset.tab;
+  const tabEl=document.getElementById('tab-'+tab);
+  window.scrollTo({top:0,behavior:'instant'});
+  tabEl.classList.add('active');
+  STATE.tab=tab;
+  resetTabReveals(tabEl);
+  if(!RENDERED.has(tab)){setTimeout(()=>renderTab(tab),60)}
+  setTimeout(()=>Object.values(MAPS).forEach(m=>m&&(m.resize&&m.resize())),200);
+}
+
+_tabBtns.forEach((btn,i)=>{
+  btn.addEventListener('click',()=>activateTab(btn));
+  // WAI-ARIA tablist keyboard pattern: Left/Right/Home/End move focus AND
+  // activate (automatic-activation model - fine for two tabs), with roving
+  // tabindex so only the active tab is a Tab-key stop.
+  btn.addEventListener('keydown',e=>{
+    let j=null;
+    if(e.key==='ArrowRight'||e.key==='ArrowDown')j=(i+1)%_tabBtns.length;
+    else if(e.key==='ArrowLeft'||e.key==='ArrowUp')j=(i-1+_tabBtns.length)%_tabBtns.length;
+    else if(e.key==='Home')j=0;
+    else if(e.key==='End')j=_tabBtns.length-1;
+    if(j==null)return;
+    e.preventDefault();
+    _tabBtns[j].focus();
+    activateTab(_tabBtns[j]);
   });
 });
 
@@ -112,8 +165,10 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 
 // SIEC is the default tab. loadCore() fetches only what SIEC needs for first
-// paint; per-tab heavy payloads (spoleczenstwo economics etc.) load on first click.
-RENDERED.add('siec');
+// paint; per-tab heavy payloads (spoleczenstwo economics etc.) load on first
+// click. renderTab() itself adds 'siec' to RENDERED once it actually succeeds
+// (see renderTab) - not marked eagerly, so a failure here can still be retried
+// via the tab button.
 loadCore()
   .then(()=>{
     renderKPI();
