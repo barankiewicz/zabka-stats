@@ -1,9 +1,19 @@
 import Chart from 'chart.js/auto';
 import * as Plot from '@observablehq/plot';
-import { maplibregl, createMap, addVoivodeshipLayers, fitPoland, wojCentroids, wojRamp, hexWithAlpha, featureBBoxCenter as _bboxCenter, showMapUnavailable, WebGLUnavailableError } from '../maplibre-map.js';
 import { C, STATE } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
-import { era, fmt, getFont, destroyChart, capName as capCase } from '../utils.js';
+import { era, fmt, getFont, destroyChart, capName as capCase, whenVisible } from '../utils.js';
+
+// MapLibre is ~280 KB gz; load it lazily (only when a map nears the viewport)
+// instead of on first paint. These bindings are filled by ensureMaplibre().
+let maplibregl, createMap, addVoivodeshipLayers, fitPoland, _bboxCenter, showMapUnavailable, WebGLUnavailableError;
+let _mlibP;
+function ensureMaplibre(){
+  return _mlibP ??= import('../maplibre-map.js').then(m=>{
+    ({ maplibregl, createMap, addVoivodeshipLayers, fitPoland, showMapUnavailable, WebGLUnavailableError } = m);
+    _bboxCenter = m.featureBBoxCenter;
+  });
+}
 import { fetchJSON } from '../data.js';
 import { renderBubble } from './bubble.js';
 import { renderKraniec } from './kraniec.js';
@@ -17,7 +27,7 @@ export function renderSiec(){
   renderStatStrip();
   renderOrigins();
   renderBubble();
-  renderGrowthMap();
+  whenVisible(document.getElementById('map-growth'), renderGrowthMap);
   drawFingerprintFlat();
   renderGrowthChart();
   wireGranular();
@@ -292,8 +302,9 @@ function _storesToGeoJSON(stores){
   return {type:'FeatureCollection',features};
 }
 
-export function renderGrowthMap(){
+export async function renderGrowthMap(){
   const el=document.getElementById('map-growth');if(!el)return;
+  await ensureMaplibre();
   const stores=(M.stores_timeline&&M.stores_timeline.stores)||[];
   buildCalData();
   const yrLabel=document.getElementById('growth-year');
@@ -970,7 +981,7 @@ const _WOJ_FILL_STOPS=[
 
 // Module-level state so hover handlers always see the live metric/sort even
 // after the closure that created them is gone.
-let _wojMap=null,_wojSrcReady=false;
+let _wojMap=null,_wojSrcReady=false,_wojPending=false;
 let _wojByName=new Map(),_wojById=new Map();
 let _wojVmin=0,_wojVmax=1,_wojInverted=false,_wojMetricLive='count';
 let _wojTip=null;
@@ -1049,8 +1060,17 @@ function _refreshWojLabels(features){
 
 async function renderWojMap(){
   const el=document.getElementById('map-granular-woj');if(!el||!M.woj_geo)return;
-
   if(!_wojMap){
+    if(_wojPending)return;              // build scheduled / in progress
+    _wojPending=true;
+    whenVisible(el, ()=>_buildWojMap(el));   // defer MapLibre until on-screen
+    return;
+  }
+  _fillWoj();
+}
+
+async function _buildWojMap(el){
+  await ensureMaplibre();
     try {
       _wojMap=createMap('map-granular-woj',{
         center:[19.3,52.05],zoom:5.7,minZoom:4,maxZoom:9,
@@ -1113,17 +1133,19 @@ async function renderWojMap(){
     } catch (e) {
       if (e instanceof WebGLUnavailableError) {
         showMapUnavailable(el, { message: 'Mapa województw niedostępna' });
-        _wojMap = null;
+        _wojMap = null; _wojPending = false;
         return;
       }
       throw e;
     }
-  }
+  _fillWoj();
+}
 
+async function _fillWoj(){
   const res=await fetchDim('voivodeship',_gMetric,'desc',16,0);
   const rows=res.rows||[];
   const push=()=>{ if(_wojMap&&_wojMap.getSource('gran-woj')) _setWojData(rows,_gMetric,_gSort==='asc'); };
-  if(_wojSrcReady)push(); else _wojMap.once('load',push);
+  if(_wojSrcReady)push(); else if(_wojMap)_wojMap.once('load',push);
 }
 function _setActive(group,btn){
   document.querySelectorAll(`#${group} .gran-btn`).forEach(b=>{

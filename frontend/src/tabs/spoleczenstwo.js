@@ -1,8 +1,15 @@
 import Chart from 'chart.js/auto';
-import { maplibregl, createMap, fitPoland, featureBBoxCenter, showMapUnavailable, WebGLUnavailableError } from '../maplibre-map.js';
+// MapLibre (~280 KB gz) loaded lazily, only when the InPost choropleth nears view.
+let maplibregl, createMap, fitPoland, featureBBoxCenter, showMapUnavailable, WebGLUnavailableError;
+let _mlibP;
+function ensureMaplibre(){
+  return _mlibP ??= import('../maplibre-map.js').then(m=>{
+    ({ maplibregl, createMap, fitPoland, featureBBoxCenter, showMapUnavailable, WebGLUnavailableError } = m);
+  });
+}
 import { C, STATE } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
-import { fmt, getFont, destroyChart, startTabParticles, capName } from '../utils.js';
+import { fmt, getFont, destroyChart, startTabParticles, capName, whenVisible } from '../utils.js';
 import { renderEcon } from './econ.js';
 
 
@@ -81,11 +88,13 @@ function _refreshIpLabels(features){
   });
 }
 
-function renderInpostMap(){
+async function renderInpostMap(){
   const data=M.inpost_vs_zabka||[];
   if(!data.length||!M.woj_geo||!M.woj_geo.features||!M.woj_geo.features.length)return;
   if(MAPS['map-inpost'])return;
   const el=document.getElementById('map-inpost');if(!el)return;
+  await ensureMaplibre();
+  if(MAPS['map-inpost'])return;   // re-check after async gap (avoid double build)
 
   const byName={};
   data.forEach(d=>{byName[(d.voivodeship||'').toLowerCase()]=d});
@@ -175,7 +184,7 @@ export function renderSpoleczenstwo(){
     startTabParticles('particles-spoleczenstwo',[188,224,58],60);
   }
   renderSpolecKPIs();
-  renderInpostMap();
+  whenVisible(document.getElementById('map-inpost'), renderInpostMap);   // defer MapLibre until on-screen
   // Update lead paragraph with live totals
   const leadEl=document.getElementById('ec-lead-totals');
   if(leadEl&&M.summary&&M.section3_rare){

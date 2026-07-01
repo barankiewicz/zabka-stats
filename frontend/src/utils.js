@@ -53,6 +53,19 @@ export function showNoData(id, msg){
 }
 export function projectPL(lat,lon,W,H){return{x:(lon-14.1)/(24.2-14.1)*W,y:(1-(lat-49)/(54.9-49))*H}}
 
+// Run fn once, when el first scrolls near the viewport (400px pre-margin). Used
+// to defer the heavy MapLibre chunk (~280 KB gz) until a map is actually about
+// to be seen, instead of loading it on first paint. Falls back to running
+// immediately where IntersectionObserver is unavailable.
+export function whenVisible(el, fn, rootMargin='400px'){
+  if(!el)return;
+  if(typeof IntersectionObserver==='undefined'){fn();return;}
+  const io=new IntersectionObserver((entries,obs)=>{
+    for(const e of entries){if(e.isIntersecting){obs.disconnect();fn();break;}}
+  },{rootMargin});
+  io.observe(el);
+}
+
 // Ambient particle field for tab hero sections.
 // rgb: [r,g,b] base color; count: number of particles.
 // Returns a cancel function.

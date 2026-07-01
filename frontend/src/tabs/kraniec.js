@@ -2,9 +2,17 @@
 // Hover NIE skacze - dopiero klik. Kazdy wpis moze renderowac kropki
 // (np. h24, parki, sciana zachodnia, sklepy tuz obok). Trzymane w M, cap 360
 // na wpis zeby nie przeciazac CPU.
-import { maplibregl, createMap, fitPoland, pointsToFC, geoCircle, boundsOf, showMapUnavailable, WebGLUnavailableError } from '../maplibre-map.js';
 import { M, MAPS } from '../state.js';
-import { fmt, capName } from '../utils.js';
+import { fmt, capName, whenVisible } from '../utils.js';
+
+// MapLibre (~280 KB gz) is loaded lazily, only when the Atlas map nears view.
+let maplibregl, createMap, fitPoland, pointsToFC, geoCircle, boundsOf, showMapUnavailable, WebGLUnavailableError;
+let _mlibP;
+function ensureMaplibre(){
+  return _mlibP ??= import('../maplibre-map.js').then(m=>{
+    ({ maplibregl, createMap, fitPoland, pointsToFC, geoCircle, boundsOf, showMapUnavailable, WebGLUnavailableError } = m);
+  });
+}
 
 const RM = window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches;
 
@@ -212,13 +220,14 @@ export function renderKraniec() {
   if (_krDone) { if (_krMap) setTimeout(() => _krMap.resize && _krMap.resize(), 120); return; }
   _krDone = true;
   _updateKrDataCounts();
-  buildMap();
+  whenVisible(document.getElementById('kr-map'), buildMap);   // defer MapLibre until the Atlas is on-screen
   buildList();
   wirePanels();
 }
 
-function buildMap() {
+async function buildMap() {
   const node = document.getElementById('kr-map'); if (!node) return;
+  await ensureMaplibre();
   try {
   _krMap = createMap('kr-map', {
     center: HOME, zoom: HOME_Z, minZoom: 5, maxZoom: 13,
