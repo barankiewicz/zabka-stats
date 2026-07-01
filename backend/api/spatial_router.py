@@ -12,9 +12,9 @@ from backend.schemas.api_models import (
 )
 
 
-@get("/stats/elevation")
+@get("/stats/elevation", sync_to_thread=True)
 @cached(ttl=3600)
-async def elevation() -> ElevationResponse:
+def elevation() -> ElevationResponse:
     # Extremes
     top = client.execute("""
         SELECT city, voivodeship, street, elevation_meters
@@ -67,9 +67,9 @@ async def elevation() -> ElevationResponse:
         percentiles={"p5": p5, "p95": p95}
     )
 
-@get("/stats/neighbor-stats")
+@get("/stats/neighbor-stats", sync_to_thread=True)
 @cached(ttl=3600)
-async def neighbor_stats() -> NeighborStatsResponse:
+def neighbor_stats() -> NeighborStatsResponse:
     loner = client.execute("""
         SELECT city, voivodeship, street, nearest_neighbor_distance_meters
         FROM locations WHERE deleted_at IS NULL 
@@ -124,9 +124,9 @@ async def neighbor_stats() -> NeighborStatsResponse:
         zero_distance_count=int(zero_dist[0] or 0) if zero_dist else 0,
     )
 
-@get("/stats/kraniec-facts")
+@get("/stats/kraniec-facts", sync_to_thread=True)
 @cached(ttl=3600)
-async def kraniec_facts() -> KraniecFactsResponse:
+def kraniec_facts() -> KraniecFactsResponse:
     compass = client.execute("""
         SELECT * FROM (
             SELECT 'N' AS dir, city, voivodeship, street, latitude, longitude
@@ -280,9 +280,9 @@ async def kraniec_facts() -> KraniecFactsResponse:
         backdrop=[[round(float(r[0]), 4), round(float(r[1]), 4)] for r in backdrop],
     )
 
-@get("/stats/twins")
+@get("/stats/twins", sync_to_thread=True)
 @cached(ttl=3600)
-async def twins() -> TwinsResponse:
+def twins() -> TwinsResponse:
     base = "FROM locations WHERE deleted_at IS NULL AND nearest_neighbor_distance_meters IS NOT NULL"
     agg = client.execute(f"""
         SELECT
@@ -400,9 +400,9 @@ async def twins() -> TwinsResponse:
         ]
     )
 
-@get("/stats/neighbor-by-level")
+@get("/stats/neighbor-by-level", sync_to_thread=True)
 @cached(ttl=3600)
-async def neighbor_by_level(
+def neighbor_by_level(
     level: FromQuery[str] = "voivodeship",
     sort: FromQuery[str] = "desc",
     metric: FromQuery[str] = "median_m",

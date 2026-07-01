@@ -114,13 +114,13 @@
 
   <!-- HERO -->
   <header class="historia-hero reveal">
-    <canvas id="hero-particles" class="hero-particles"></canvas>
+    <canvas id="hero-particles" class="hero-particles" aria-hidden="true"></canvas>
     <div class="hero-inner">
       <div class="hero-eyebrow" id="hero-eyebrow-siec">Atlas Żabki · migawka</div>
       <div class="hero-number" id="hero-number">12 323</div>
       <div class="hero-number-label">aktywnych sklepów w Polsce</div>
       <h2 class="hero-h1">Żabka jest wszędzie. Mamy na to twarde dane.</h2>
-      <p class="hero-lede">Połowa dzisiejszej sieci powstała po 2022 roku. Oto jak trzynaście tysięcy sklepów rozlało się po Polsce, rok po roku.</p>
+      <p class="hero-lede">45,4% dzisiejszej sieci powstało od 2023 roku. Oto jak trzynaście tysięcy sklepów rozlało się po Polsce, rok po roku.</p>
     </div>
   </header>
 
@@ -170,7 +170,7 @@
         </div>
       </div>
       <div class="growth-cal-wrap">
-        <canvas id="canvas-calendar" class="growth-cal"></canvas>
+        <canvas id="canvas-calendar" class="growth-cal" aria-label="Kalendarz otwarć sklepów miesiąc po miesiącu, 1998–2026. Ciemniejsze pola oznaczają więcej otwarć w danym miesiącu."></canvas>
       </div>
     </div>
     <div class="growth-slider-wrap">
@@ -184,8 +184,8 @@
   <!-- 1.1 merged growth chart (directly under the map) -->
   <div class="card si-reveal" style="margin-bottom:16px">
     <div class="card-title" data-debug-id="1.1" style="margin-bottom:4px">Kiedy otwarto sklepy, które wciąż działają</div>
-    <div class="card-sub" style="margin-bottom:10px">Słupki: nowe sklepy w roku (prawa oś). Linia: zmiana rok do roku % (lewa oś).</div>
-    <div class="chart-wrap" style="height:340px"><canvas id="chart-growth"></canvas></div>
+    <div class="card-sub" style="margin-bottom:10px">Słupki: nowe sklepy w roku (oś po lewej). Linia: zmiana rok do roku % (bez własnej osi – najedź kursorem po wartość).</div>
+    <div class="chart-wrap" style="height:340px"><canvas id="chart-growth" aria-label="Wykres wzrostu sieci: słupki pokazują liczbę nowych sklepów w każdym roku 1998–2026, linia pokazuje zmianę rok do roku w procentach."></canvas></div>
     <div class="survival-note">Bias przeżywalności: tylko <em>aktywne</em> sklepy — zamknięte wypadły z datasetu. Wczesne lata (1998–2010) niedoszacowane. 218 sklepów bez daty pominięto.</div>
   </div>
 
@@ -217,7 +217,7 @@
 
   <!-- 1.1f-flat: fingerprint unrolled - X = direction, Y = year -->
   <div class="card fp-card si-reveal" style="margin-bottom:16px">
-    <div class="card-title" data-debug-id="1.1f-flat">Odcisk wyprostowany – słoje lat od N do N</div>
+    <div class="card-title" data-debug-id="1.1f-flat">Odcisk wyprostowany – słoje lat, kierunek N–E–S–W–N</div>
     <div class="card-sub">Te same dane, rozwinięte z układu biegunowego: oś X to kierunek (N–E–S–W–N), oś Y to rok. Każdy słój to jeden rok, a wybrzuszenie to dominujący kierunek ekspansji. Najedź na słój po szczegóły.</div>
     <div class="fingerprint-wrap" style="display:block">
       <canvas id="canvas-fingerprint-flat" style="display:block;width:100%;height:520px;cursor:crosshair" aria-label="Odcisk wyprostowany: każdy poziomy słój to rok 1998–2026, wybrzuszenie w lewo lub prawo pokazuje dominujący kierunek ekspansji sieci w danym roku (N–E–S–W–N). Najedź na słój żeby zobaczyć szczegóły."></canvas>
@@ -320,6 +320,7 @@
         </div>
         <div id="kr-map">
         </div>
+        <div class="map-zoom-hint"><span class="hint-mouse">ctrl + scroll przybliża</span><span class="hint-touch">dwoma palcami przesuwasz i przybliżasz</span></div>
       </div>
       <div class="rail">
         <div class="rail-scroll" id="kr-rail"></div>
@@ -377,11 +378,11 @@
       </div>
       <div class="powiat-cover">
         <div class="powiat-stat">
-          <canvas id="powiat-donut" class="powiat-donut" width="200" height="200"></canvas>
+          <canvas id="powiat-donut" class="powiat-donut" width="200" height="200" aria-label="Wykres kołowy: odsetek jednostek administracyjnych z co najmniej jedną Żabką."></canvas>
           <div class="powiat-frac"><span id="powiat-covered">380</span><span class="powiat-of">/<span id="powiat-total">380</span></span></div>
           <div class="powiat-cap" id="powiat-cap">powiatów ma Żabkę</div>
         </div>
-        <canvas id="canvas-powiat-map" class="powiat-map"></canvas>
+        <canvas id="canvas-powiat-map" class="powiat-map" aria-label="Mapa Polski: zielone jednostki mają Żabkę, czerwone nie mają."></canvas>
       </div>
     </div>
     <div class="card">
@@ -411,7 +412,7 @@
 
   <!-- HERO spoleczenstwo -->
   <header class="tab-hero reveal" id="hero-spoleczenstwo">
-    <canvas class="hero-particles" id="particles-spoleczenstwo"></canvas>
+    <canvas class="hero-particles" id="particles-spoleczenstwo" aria-hidden="true"></canvas>
     <div class="hero-inner">
       <div class="hero-eyebrow">Żabka a Polska · Kultura i naród</div>
       <div class="hero-number tab-hero-num" id="hero-num-spoleczenstwo">46,52<span class="stat-unit"> km</span></div>
@@ -507,14 +508,14 @@
         </div>
       </div>
     </div>
-    <div class="chart-wrap" id="nbl-chart-wrap" style="height:440px"><canvas id="chart-nbl"></canvas></div>
+    <div class="chart-wrap" id="nbl-chart-wrap" style="height:440px"><canvas id="chart-nbl" aria-label="Wykres słupkowy: odległość do najbliższego sklepu wg wybranego poziomu geograficznego i metryki."></canvas></div>
     <div class="caveat" id="nbl-caveat">Mediana jest odporna na pojedyncze samotne sklepy; średnią zawyżają wartości skrajne (w podkarpackiem średnia to ~1,8 km, a mediana 459 m).</div>
     </div>
     <div class="card" style="display:flex;flex-direction:column">
       <div class="card-title">Połowa sieci ma sąsiadkę bliżej niż 300 m</div>
       <div class="card-sub">Rozkład odległości do najbliższego sklepu (k-NN).</div>
       <div style="flex:1;display:flex;flex-direction:column;justify-content:center">
-      <div class="chart-wrap" style="height:380px"><canvas id="spol-knnChart"></canvas></div>
+      <div class="chart-wrap" style="height:380px"><canvas id="spol-knnChart" aria-label="Histogram: rozkład odległości do najbliższego sklepu, mediana 299 m, średnia 942 m."></canvas></div>
       <div class="gran-ref-legend" id="spol-knn-legend" style="margin-top:8px"></div>
       <div class="statline" style="margin-top:6px"><span>maks. <b id="spol-knn-stat-max">-</b></span></div>
       </div>
@@ -526,7 +527,7 @@
     <div class="card">
       <div class="card-title" data-debug-id="STREETS">Ulice z największą liczbą Żabek</div>
       <div class="card-sub" id="streets-sub">Konkretna ulica i miasto, nie sama nazwa – łącznie <span id="streets-distinct">13 168</span> sklepów</div>
-      <div class="chart-wrap" style="height:500px"><canvas id="chart-streets"></canvas></div>
+      <div class="chart-wrap" style="height:500px"><canvas id="chart-streets" aria-label="Wykres słupkowy: ulice z największą liczbą sklepów Żabka w Polsce, z podaną nazwą ulicy i miasta."></canvas></div>
     </div>
     <div class="card">
       <div class="gran-left-head">
@@ -539,7 +540,7 @@
           <button aria-pressed="false" class="gran-btn" data-gmetric="per_km2">Na km²</button>
         </div>
       </div>
-      <div class="chart-wrap" style="height:500px"><canvas id="chart-gmina-lead"></canvas></div>
+      <div class="chart-wrap" style="height:500px"><canvas id="chart-gmina-lead" aria-label="Wykres słupkowy: gminy z największą liczbą sklepów na mieszkańca lub na km², wg wybranej metryki."></canvas></div>
       <div class="caveat" id="gmina-lead-caveat">Liczba mieszkańców to zameldowani, a latem w kurortach jest ich wielokrotnie więcej. I o to właśnie chodzi: sieć idzie za turystą, nie za meldunkiem.</div>
     </div>
   </div>

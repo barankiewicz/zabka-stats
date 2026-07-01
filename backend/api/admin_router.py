@@ -11,9 +11,9 @@ from backend.cache import cached
 from backend.database_ch import client
 
 
-@get("/stats/by-powiat")
+@get("/stats/by-powiat", sync_to_thread=True)
 @cached(ttl=3600)
-async def get_by_powiat(voivodeship: FromQuery[str | None] = None) -> dict:
+def get_by_powiat(voivodeship: FromQuery[str | None] = None) -> dict:
     """Get statistics aggregated by powiat (county)."""
 
     where_clauses = ["deleted_at IS NULL"]
@@ -56,9 +56,9 @@ async def get_by_powiat(voivodeship: FromQuery[str | None] = None) -> dict:
         "data": by_voiv
     }
 
-@get("/stats/by-city")
+@get("/stats/by-city", sync_to_thread=True)
 @cached(ttl=3600)
-async def get_by_city(powiat: FromQuery[str | None] = None, voivodeship: FromQuery[str | None] = None) -> dict:
+def get_by_city(powiat: FromQuery[str | None] = None, voivodeship: FromQuery[str | None] = None) -> dict:
     """Get statistics aggregated by city."""
 
     where_clauses = ["deleted_at IS NULL"]
@@ -102,9 +102,9 @@ async def get_by_city(powiat: FromQuery[str | None] = None, voivodeship: FromQue
         ]
     }
 
-@get("/hierarchy/voivodeships")
+@get("/hierarchy/voivodeships", sync_to_thread=True)
 @cached(ttl=86400)
-async def get_voivodeships() -> dict:
+def get_voivodeships() -> dict:
     """Get all voivodeships with their powiats and cities.
 
     One GROUP BY scan instead of the old ~330-query N+1 (1 + per-voivodeship +
@@ -144,9 +144,9 @@ async def get_voivodeships() -> dict:
         "hierarchy": result
     }
 
-@get("/context/{lat:float}/{lon:float}")
+@get("/context/{lat:float}/{lon:float}", sync_to_thread=True)
 @cached(ttl=86400)
-async def get_location_context(lat: FromPath[float], lon: FromPath[float]) -> dict:
+def get_location_context(lat: FromPath[float], lon: FromPath[float]) -> dict:
     """Get administrative context for coordinates using nearest location."""
 
     # 1) nearest store to the point (no window functions, just the distance sort)
@@ -194,9 +194,9 @@ async def get_location_context(lat: FromPath[float], lon: FromPath[float]) -> di
         "coordinates": {"lat": lat, "lon": lon},
     }
 
-@get("/fun/extremes")
+@get("/fun/extremes", sync_to_thread=True)
 @cached(ttl=3600)
-async def get_extremes() -> dict:
+def get_extremes() -> dict:
     """Get extreme points - najfajniejsze Żabki!"""
 
     northernmost = client.execute("""
@@ -249,9 +249,9 @@ async def get_extremes() -> dict:
         "_najbardziej_zachód": format_location(westernmost),
     }
 
-@get("/stats/administrative-summary")
+@get("/stats/administrative-summary", sync_to_thread=True)
 @cached(ttl=3600)
-async def get_administrative_summary() -> dict:
+def get_administrative_summary() -> dict:
     """Summary: country → voivodeships → powiats → cities."""
 
     return {

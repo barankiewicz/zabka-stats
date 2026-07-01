@@ -58,15 +58,23 @@ registerFilterCallbacks(renderKPI, null, null);
 function revealAll(){document.querySelectorAll('.reveal').forEach((el,i)=>setTimeout(()=>el.classList.add('shown'),80+i*50))}
 setTimeout(revealAll,100);
 
+// One IntersectionObserver per tab panel, reused across activations - without
+// this, every tab click created a brand new observer watching the same
+// (never-unmounted) elements, and the old ones just kept piling up.
+const _revealObservers=new WeakMap();
+
 function resetTabReveals(tabEl){
   const revEls=Array.from(tabEl.querySelectorAll('[class*="-reveal"]'));
   const showEls=Array.from(tabEl.querySelectorAll('.reveal'));
   revEls.forEach(el=>el.classList.remove('in'));
   showEls.forEach(el=>el.classList.remove('shown'));
+  const prevObs=_revealObservers.get(tabEl);
+  if(prevObs)prevObs.disconnect();
   requestAnimationFrame(()=>{
     const obs=new IntersectionObserver((entries)=>{
       entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');obs.unobserve(e.target);}});
     },{threshold:.12});
+    _revealObservers.set(tabEl,obs);
     revEls.forEach(el=>obs.observe(el));
     showEls.forEach((el,i)=>setTimeout(()=>el.classList.add('shown'),60+i*50));
   });

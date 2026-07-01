@@ -3,6 +3,7 @@ Redis caching wrapper.
 Uses UNIX socket for speed & security.
 """
 
+import inspect
 import json
 import logging
 import os
@@ -108,23 +109,47 @@ def clear_cache(pattern: str = "*") -> None:
         logger.warning("Redis clear_cache error (pattern=%r): %s", pattern, e)
 
 
+def _cache_key(func, args, kwargs) -> str:
+    # Serialize serializable positional arguments and sorted keyword arguments
+    args_serializable = [arg for arg in args if isinstance(arg, (int, float, str, bool, type(None)))]
+    key_data = {
+        "args": args_serializable,
+        "kwargs": {k: v for k, v in sorted(kwargs.items())}
+    }
+    return f"{func.__name__}:{json.dumps(key_data, sort_keys=True)}"
+
+
 def cached(ttl: int = 3600):
-    """Decorator to cache function results."""
+    """Decorator to cache function results.
+
+    Preserves whether the wrapped function is sync or async: most route
+    handlers here are plain sync functions (blocking DuckDB calls) that
+    Litestar runs in its own thread pool, and forcing them into an async
+    wrapper here would silently undo that - `await func(...)` on a sync
+    function raises TypeError, since calling it already returns the result
+    rather than a coroutine to await.
+    """
     def decorator(func):
+        if inspect.iscoroutinefunction(func):
+            @wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                key = _cache_key(func, args, kwargs)
+                cached_val = get_cache(key)
+                if cached_val is not None:
+                    return cached_val
+                result = await func(*args, **kwargs)
+                set_cache(key, result, ttl)
+                return result
+            return async_wrapper
+
         @wraps(func)
-        async def async_wrapper(*args, **kwargs):
-            # Serialize serializable positional arguments and sorted keyword arguments
-            args_serializable = [arg for arg in args if isinstance(arg, (int, float, str, bool, type(None)))]
-            key_data = {
-                "args": args_serializable,
-                "kwargs": {k: v for k, v in sorted(kwargs.items())}
-            }
-            key = f"{func.__name__}:{json.dumps(key_data, sort_keys=True)}"
+        def sync_wrapper(*args, **kwargs):
+            key = _cache_key(func, args, kwargs)
             cached_val = get_cache(key)
             if cached_val is not None:
                 return cached_val
-            result = await func(*args, **kwargs)
+            result = func(*args, **kwargs)
             set_cache(key, result, ttl)
             return result
-        return async_wrapper
+        return sync_wrapper
     return decorator

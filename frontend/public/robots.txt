@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /api/
 
-Sitemap: https://zabka-stats.barankiewicz.dev/sitemap.xml
+Sitemap: https://zabkozbior.barankiewicz.dev/sitemap.xml

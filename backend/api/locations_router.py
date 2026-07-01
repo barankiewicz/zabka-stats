@@ -10,9 +10,9 @@ from backend.cache import cached, get_cached_blob, set_cached_blob
 from backend.database_ch import client
 
 
-@get("/locations")
+@get("/locations", sync_to_thread=True)
 @cached(ttl=3600)
-async def get_locations(
+def get_locations(
     month: FromQuery[str | None] = None,
     voivodeship: FromQuery[str | None] = None,
     city: FromQuery[str | None] = None,
@@ -86,8 +86,8 @@ async def get_locations(
     }
 
 
-@get("/locations/map")
-async def get_locations_for_map_geojson(
+@get("/locations/map", sync_to_thread=True)
+def get_locations_for_map_geojson(
     month: FromQuery[str | None] = None,
 ) -> Response:
     """
@@ -146,9 +146,9 @@ async def get_locations_for_map_geojson(
     return Response(blob, media_type="application/json")
 
 
-@get("/locations/{location_id:str}")
+@get("/locations/{location_id:str}", sync_to_thread=True)
 @cached(ttl=3600)
-async def get_location(location_id: FromPath[str]) -> dict:
+def get_location(location_id: FromPath[str]) -> dict:
     """Get a specific location by store_id."""
     result = client.execute("""
         SELECT store_id, 'Żabka' AS name, city, voivodeship, street, latitude, longitude,

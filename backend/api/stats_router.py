@@ -68,9 +68,9 @@ def _city_geo():
 
 # --- Endpoints ---
 
-@get("/stats/summary")
+@get("/stats/summary", sync_to_thread=True)
 @cached(ttl=3600)
-async def summary() -> SummaryResponse:
+def summary() -> SummaryResponse:
     r = client.execute("""
         SELECT
             COUNT(*) AS total_active,
@@ -91,9 +91,9 @@ async def summary() -> SummaryResponse:
         h24_count=int(r[4] or 0)
     )
 
-@get("/stats/network-growth")
+@get("/stats/network-growth", sync_to_thread=True)
 @cached(ttl=3600)
-async def network_growth() -> list[NetworkGrowthItem]:
+def network_growth() -> list[NetworkGrowthItem]:
     rows = client.execute("""
         SELECT
             YEAR(first_opening_date) AS year,
@@ -109,9 +109,9 @@ async def network_growth() -> list[NetworkGrowthItem]:
     return [NetworkGrowthItem(year=int(r[0]), new_stores=int(r[1]), cumulative=int(r[2]))
             for r in rows]
 
-@get("/stats/network-origin")
+@get("/stats/network-origin", sync_to_thread=True)
 @cached(ttl=3600)
-async def network_origin() -> NetworkOriginResponse:
+def network_origin() -> NetworkOriginResponse:
     oldest = client.execute("""
         SELECT city, voivodeship, street, first_opening_date, latitude, longitude
         FROM locations
@@ -144,8 +144,8 @@ async def network_origin() -> NetworkOriginResponse:
         new_this_month=int(new_month[0] or 0) if new_month else 0
     )
 
-@get("/stats/stores-timeline")
-async def stores_timeline() -> Response:
+@get("/stats/stores-timeline", sync_to_thread=True)
+def stores_timeline() -> Response:
     # ~13k [lat,lon,year] triples + milestones (~300 KB). Cache the serialized
     # string and serve it pre-encoded, so warm hits skip the DB scans, the 13k
     # Python build, and the dict-cache re-parse/re-encode. Bytes are unchanged.
@@ -210,9 +210,9 @@ async def stores_timeline() -> Response:
     set_cached_blob("stores_timeline", blob, ttl=3600)
     return Response(blob, media_type="application/json")
 
-@get("/stats/growth-by-voivodeship")
+@get("/stats/growth-by-voivodeship", sync_to_thread=True)
 @cached(ttl=3600)
-async def growth_by_voivodeship() -> list[GrowthByVoivodeshipResponseItem]:
+def growth_by_voivodeship() -> list[GrowthByVoivodeshipResponseItem]:
     rows = client.execute("""
         SELECT voivodeship, YEAR(first_opening_date) AS yr, COUNT(*) AS new_stores
         FROM locations
@@ -222,9 +222,9 @@ async def growth_by_voivodeship() -> list[GrowthByVoivodeshipResponseItem]:
     return [GrowthByVoivodeshipResponseItem(voivodeship=r[0] or "", yr=int(r[1]), new_stores=int(r[2]))
             for r in rows if r[0]]
 
-@get("/stats/per-capita")
+@get("/stats/per-capita", sync_to_thread=True)
 @cached(ttl=3600)
-async def per_capita() -> list[PerCapitaResponseItem]:
+def per_capita() -> list[PerCapitaResponseItem]:
     rows = client.execute("""
         SELECT voivodeship, COUNT(*) AS stores
         FROM locations
@@ -251,9 +251,9 @@ async def per_capita() -> list[PerCapitaResponseItem]:
     result.sort(key=lambda x: -x.per_1k)
     return result
 
-@get("/stats/city-first-opening")
+@get("/stats/city-first-opening", sync_to_thread=True)
 @cached(ttl=3600)
-async def city_first_opening() -> list[CityFirstOpeningItem]:
+def city_first_opening() -> list[CityFirstOpeningItem]:
     rows = client.execute("""
         WITH first_by_city AS (
             SELECT city, MIN(first_opening_date) AS first_date
@@ -272,9 +272,9 @@ async def city_first_opening() -> list[CityFirstOpeningItem]:
     return [CityFirstOpeningItem(yr=int(r[0]), new_cities=int(r[1]), cumulative_cities=int(r[2]))
             for r in rows]
 
-@get("/stats/top-cities")
+@get("/stats/top-cities", sync_to_thread=True)
 @cached(ttl=1800)
-async def top_cities(limit: FromQuery[int] = 20) -> list[TopCityItem]:
+def top_cities(limit: FromQuery[int] = 20) -> list[TopCityItem]:
     rows = client.execute("""
         SELECT city, COUNT(*) AS cnt, voivodeship
         FROM locations
@@ -285,9 +285,9 @@ async def top_cities(limit: FromQuery[int] = 20) -> list[TopCityItem]:
     """, [max(1, min(limit, 200))]).fetchall()
     return [TopCityItem(city=r[0], cnt=int(r[1]), voivodeship=r[2] or "") for r in rows]
 
-@get("/stats/opening-seasonality")
+@get("/stats/opening-seasonality", sync_to_thread=True)
 @cached(ttl=3600)
-async def opening_seasonality() -> list[OpeningSeasonalityResponseItem]:
+def opening_seasonality() -> list[OpeningSeasonalityResponseItem]:
     rows = client.execute("""
         SELECT
             MONTH(first_opening_date) AS month,
@@ -300,9 +300,9 @@ async def opening_seasonality() -> list[OpeningSeasonalityResponseItem]:
     months_pl = ['Sty', 'Lut', 'Mar', 'Kwi', 'Maj', 'Cze', 'Lip', 'Sie', 'Wrz', 'Paz', 'Lis', 'Gru']
     return [OpeningSeasonalityResponseItem(month=int(r[0]), label=months_pl[int(r[0]) - 1], cnt=int(r[1])) for r in rows]
 
-@get("/stats/opening-hours")
+@get("/stats/opening-hours", sync_to_thread=True)
 @cached(ttl=3600)
-async def opening_hours() -> list[OpeningHoursPatternItem]:
+def opening_hours() -> list[OpeningHoursPatternItem]:
     rows = client.execute("""
         SELECT opening_hours_monsat AS pattern, COUNT(*) AS cnt
         FROM locations
@@ -311,9 +311,9 @@ async def opening_hours() -> list[OpeningHoursPatternItem]:
     """).fetchall()
     return [OpeningHoursPatternItem(pattern=r[0], cnt=int(r[1])) for r in rows]
 
-@get("/stats/voivodeship")
+@get("/stats/voivodeship", sync_to_thread=True)
 @cached(ttl=3600)
-async def voivodeship_stats() -> list[VoivodeshipStatsResponseItem]:
+def voivodeship_stats() -> list[VoivodeshipStatsResponseItem]:
     rows = client.execute("""
         SELECT
             voivodeship,
@@ -330,42 +330,47 @@ async def voivodeship_stats() -> list[VoivodeshipStatsResponseItem]:
                                          mc_count=int(r[2] or 0), mc_pct=float(r[3] or 0))
             for r in rows if r[0]]
 
-@get("/stats/powiat-economics")
+@get("/stats/powiat-economics", sync_to_thread=True)
 @cached(ttl=3600)
-async def powiat_economics() -> list[PowiatEconomicsItem]:
+def powiat_economics() -> list[PowiatEconomicsItem]:
     rows = client.execute("""
         SELECT
+            dp.id AS powiat_id,
             dp.name AS powiat,
             dv.name AS voivodeship,
             COALESCE(dp.avg_salary, 0) AS avg_salary,
             COALESCE(dp.unemployment_rate, 0) AS unemployment_rate,
             COALESCE(dp.population, 0) AS population,
-            COUNT(l.store_id) AS stores
+            COUNT(l.store_id) AS stores,
+            dp.centroid_lon, dp.centroid_lat
         FROM dim_powiat dp
         JOIN dim_voivodeship dv ON dp.voivodeship_id = dv.id
-        LEFT JOIN locations l ON l.powiat_id = dp.id AND l.deleted_at IS NULL 
-        GROUP BY dp.name, dv.name, dp.avg_salary, dp.unemployment_rate, dp.population
+        LEFT JOIN locations l ON l.powiat_id = dp.id AND l.deleted_at IS NULL
+        GROUP BY dp.id, dp.name, dv.name, dp.avg_salary, dp.unemployment_rate, dp.population,
+                 dp.centroid_lon, dp.centroid_lat
         HAVING COUNT(l.store_id) > 0
         ORDER BY dp.name
     """).fetchall()
     result = []
     for r in rows:
-        pop = int(r[4]) if r[4] else 0
-        stores = int(r[5])
+        pop = int(r[5]) if r[5] else 0
+        stores = int(r[6])
         per_1k = round(stores * 1000 / pop, 3) if pop > 0 else 0.0
         result.append(
             PowiatEconomicsItem(
-                powiat=r[0], voivodeship=r[1],
-                avg_salary=float(r[2] or 0),
-                unemployment_rate=float(r[3] or 0),
-                population=pop, stores=stores, per_1k=per_1k
+                powiat_id=int(r[0]), powiat=r[1], voivodeship=r[2],
+                avg_salary=float(r[3] or 0),
+                unemployment_rate=float(r[4] or 0),
+                population=pop, stores=stores, per_1k=per_1k,
+                lon=float(r[7]) if r[7] is not None else None,
+                lat=float(r[8]) if r[8] is not None else None,
             )
         )
     return result
 
-@get("/stats/sunday-by-voivodeship")
+@get("/stats/sunday-by-voivodeship", sync_to_thread=True)
 @cached(ttl=3600)
-async def sunday_by_voivodeship() -> list[SundayByVoivodeshipResponseItem]:
+def sunday_by_voivodeship() -> list[SundayByVoivodeshipResponseItem]:
     rows = client.execute("""
         SELECT
             voivodeship,
@@ -395,9 +400,9 @@ async def sunday_by_voivodeship() -> list[SundayByVoivodeshipResponseItem]:
         )
     return result
 
-@get("/stats/inpost-vs-zabka")
+@get("/stats/inpost-vs-zabka", sync_to_thread=True)
 @cached(ttl=3600)
-async def inpost_vs_zabka() -> list[InPostVsZabkaResponseItem]:
+def inpost_vs_zabka() -> list[InPostVsZabkaResponseItem]:
     zabka_rows = client.execute("""
         SELECT voivodeship, COUNT(*) AS cnt
         FROM locations WHERE deleted_at IS NULL GROUP BY voivodeship
@@ -433,9 +438,9 @@ async def inpost_vs_zabka() -> list[InPostVsZabkaResponseItem]:
     result.sort(key=lambda x: -x.ratio)
     return result
 
-@get("/stats/inpost-vs-zabka-by-level")
+@get("/stats/inpost-vs-zabka-by-level", sync_to_thread=True)
 @cached(ttl=3600)
-async def inpost_vs_zabka_by_level(
+def inpost_vs_zabka_by_level(
     level: FromQuery[str] = "voivodeship",
     sort: FromQuery[str] = "desc",
     limit: FromQuery[int] = 20,
@@ -592,9 +597,9 @@ async def inpost_vs_zabka_by_level(
         level=level
     )
 
-@get("/stats/common-streets")
+@get("/stats/common-streets", sync_to_thread=True)
 @cached(ttl=3600)
-async def common_streets(limit: FromQuery[int] = 15) -> CommonStreetsResponse:
+def common_streets(limit: FromQuery[int] = 15) -> CommonStreetsResponse:
     rows = client.execute("""
         SELECT street FROM locations
         WHERE deleted_at IS NULL 
@@ -614,9 +619,9 @@ async def common_streets(limit: FromQuery[int] = 15) -> CommonStreetsResponse:
                for k, c in counts.most_common(lim)]
     return CommonStreetsResponse(streets=streets, distinct=len(counts))
 
-@get("/stats/openings-monthly")
+@get("/stats/openings-monthly", sync_to_thread=True)
 @cached(ttl=3600)
-async def openings_monthly() -> list[OpeningsMonthlyItem]:
+def openings_monthly() -> list[OpeningsMonthlyItem]:
     rows = client.execute("""
         SELECT CAST(EXTRACT(year FROM first_opening_date) AS INT) AS y,
                CAST(EXTRACT(month FROM first_opening_date) AS INT) AS m,
@@ -628,21 +633,23 @@ async def openings_monthly() -> list[OpeningsMonthlyItem]:
     """).fetchall()
     return [OpeningsMonthlyItem(year=r[0], month=r[1], cnt=r[2]) for r in rows]
 
-@get("/stats/sunday-closed-stores")
-async def sunday_closed_stores(voivodeship: FromQuery[str]) -> list[SundayClosedStoreItem]:
+@get("/stats/sunday-closed-stores", sync_to_thread=True)
+def sunday_closed_stores(voivodeship: FromQuery[str]) -> list[SundayClosedStoreItem]:
     rows = client.execute("""
         SELECT city, street, has_merrychef
         FROM locations
-        WHERE deleted_at IS NULL 
+        WHERE deleted_at IS NULL
           AND voivodeship = ?
           AND open_sunday = false
         ORDER BY city, street
+        LIMIT 1000
     """, [voivodeship]).fetchall()
     return [SundayClosedStoreItem(city=r[0], street=r[1] or "", has_merrychef=bool(r[2])) for r in rows]
 
-@get("/stats/top-streets")
+@get("/stats/top-streets", sync_to_thread=True)
 @cached(ttl=1800)
-async def get_top_streets(limit: FromQuery[int] = 20, month: FromQuery[str | None] = None) -> TopStreetsResponse:
+def get_top_streets(limit: FromQuery[int] = 20, month: FromQuery[str | None] = None) -> TopStreetsResponse:
+    limit = max(1, min(limit, 500))
     params = []
     if month:
         where = "street IS NOT NULL AND strftime(created_at, '%Y-%m') <= ? AND (deleted_at IS NULL OR strftime(deleted_at, '%Y-%m') >= ?)"
@@ -667,9 +674,9 @@ async def get_top_streets(limit: FromQuery[int] = 20, month: FromQuery[str | Non
         ]
     )
 
-@get("/trends/growth")
+@get("/trends/growth", sync_to_thread=True)
 @cached(ttl=3600)
-async def get_growth_trend() -> GrowthTrendResponse:
+def get_growth_trend() -> GrowthTrendResponse:
     results = client.execute("""
         WITH daily_changes AS (
             SELECT CAST(created_at AS DATE) as event_date, 1 as change
@@ -696,8 +703,8 @@ async def get_growth_trend() -> GrowthTrendResponse:
         ]
     )
 
-@post("/cache/clear")
-async def clear_all_cache() -> dict:
+@post("/cache/clear", sync_to_thread=True)
+def clear_all_cache() -> dict:
     clear_cache("*")
     return {"status": "cache cleared"}
 

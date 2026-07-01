@@ -45,7 +45,7 @@ def _geo_bytes(filename: str):
 
 
 # --- Startup Event ---
-async def startup_geo() -> None:
+def startup_geo() -> None:
     load_demographics_from_db()
     # Warm the lazy caches so no request pays the build cost on first hit -
     # _pow_geo in particular point-in-polygons every powiat against the
@@ -166,23 +166,23 @@ def _gmina_agg():
 
 # --- Endpoints ---
 
-@get("/geo/voivodeships")
-async def geo_voivodeships() -> Response:
+@get("/geo/voivodeships", sync_to_thread=True)
+def geo_voivodeships() -> Response:
     data = _geo_bytes("wojewodztwa.geojson")
     if data is None:
         raise HTTPException(status_code=404, detail="Voivodeships boundary file not found")
     return Response(content=data, media_type="application/json")
 
-@get("/geo/powiats")
-async def geo_powiats() -> Response:
+@get("/geo/powiats", sync_to_thread=True)
+def geo_powiats() -> Response:
     data = _geo_bytes("powiaty.geojson")
     if data is None:
         raise HTTPException(status_code=404, detail="Powiats boundary file not found")
     return Response(content=data, media_type="application/json")
 
-@get("/stats/powiat-coverage")
+@get("/stats/powiat-coverage", sync_to_thread=True)
 @cached(ttl=86400)
-async def powiat_coverage() -> PowiatCoverageResponse:
+def powiat_coverage() -> PowiatCoverageResponse:
     raw = client.execute("""
         SELECT AVG(latitude), AVG(longitude) 
         FROM locations 
@@ -205,9 +205,9 @@ async def powiat_coverage() -> PowiatCoverageResponse:
     covered = len(dots)
     return PowiatCoverageResponse(total=total, covered=covered, dots=dots)
 
-@get("/stats/city-coverage")
+@get("/stats/city-coverage", sync_to_thread=True)
 @cached(ttl=3600)
-async def city_coverage() -> CityCoverageResponse:
+def city_coverage() -> CityCoverageResponse:
     total_row = client.execute("SELECT COUNT(*) FROM dim_city").fetchone()
     total = total_row[0] if total_row else 302
     
@@ -231,9 +231,9 @@ async def city_coverage() -> CityCoverageResponse:
         zabka_localities=zab_localities
     )
 
-@get("/stats/coverage-funnel")
+@get("/stats/coverage-funnel", sync_to_thread=True)
 @cached(ttl=3600)
-async def coverage_funnel() -> list[CoverageFunnelItem]:
+def coverage_funnel() -> list[CoverageFunnelItem]:
     # Inline the powiat/city/gmina queries directly; calling decorated route
     # handlers as coroutines does not work (they are Litestar HTTPRouteHandler
     # objects, not plain coroutines).
@@ -276,9 +276,9 @@ async def coverage_funnel() -> list[CoverageFunnelItem]:
         CoverageFunnelItem(**node("gminy", gminas_with, total_gminas)),
     ]
 
-@get("/stats/by-dimension")
+@get("/stats/by-dimension", sync_to_thread=True)
 @cached(ttl=3600)
-async def by_dimension(
+def by_dimension(
     dim: FromQuery[str] = "voivodeship",
     metric: FromQuery[str] = "count",
     sort: FromQuery[str] = "desc",
@@ -389,9 +389,9 @@ async def by_dimension(
         sum=int(full_sum)
     )
 
-@get("/stats/gmina-leaders")
+@get("/stats/gmina-leaders", sync_to_thread=True)
 @cached(ttl=3600)
-async def gmina_leaders(limit: FromQuery[int] = 12) -> GminaLeadersResponse:
+def gmina_leaders(limit: FromQuery[int] = 12) -> GminaLeadersResponse:
     rows = _gmina_agg()
     per1k = sorted((r for r in rows if r.get("per_1k") and r.get("cnt", 0) >= 3),
                    key=lambda x: -x["per_1k"])[:max(1, min(int(limit), 30))]
@@ -421,9 +421,9 @@ async def gmina_leaders(limit: FromQuery[int] = 12) -> GminaLeadersResponse:
         national_per_1k=nat_per_1k
     )
 
-@get("/stats/voivodeship-density")
+@get("/stats/voivodeship-density", sync_to_thread=True)
 @cached(ttl=3600)
-async def voivodeship_density() -> list[VoivodeshipDensityResponseItem]:
+def voivodeship_density() -> list[VoivodeshipDensityResponseItem]:
     rows = client.execute("""
         SELECT voivodeship, COUNT(*) AS stores
         FROM locations WHERE deleted_at IS NULL GROUP BY voivodeship

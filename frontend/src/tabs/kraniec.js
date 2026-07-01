@@ -62,7 +62,7 @@ function buildFacts() {
   const total = M.summary && M.summary.total_active || 0;
   const h24Count = M.summary && M.summary.h24_count || (s3.h24_points || []).length || 0;
   const parks = s3.parks || {};
-  const voidVal = s3.void && s3.void.value != null ? s3.void.value : 46.52;
+  const voidVal = s3.void && s3.void.value != null ? s3.void.value : null;
   const out = [];
 
   // Kompas: 4 wpisy
@@ -133,14 +133,16 @@ function buildFacts() {
       desc: 'Najstarsza wciaz dzialajaca Zabka w sieci. Otwarta w ' + yr + ', w sieci od ' + age + ' lat.' });
   }
 
-  // Pustka
-  out.push({ id: 'void', g: 'void', grp: 'Pustka – biała plama', lab: 'Największa pustka',
-    val: String(voidVal).replace('.', ',') + ' km',
-    city: 'Bieszczady', voiv: 'podkarpackie', street: '49,01°N / 22,89°E',
-    lat: (s3.void && s3.void.lat != null) ? s3.void.lat : 49.01,
-    lon: (s3.void && s3.void.lon != null) ? s3.void.lon : 22.89,
-    zoom: 9, type: 'circle',
-    desc: 'Punkt w Bieszczadach oddalony o ' + String(voidVal).replace('.', ',') + ' km od jakiejkolwiek Żabki – największa biała plama na mapie.' });
+  // Pustka - tylko gdy API faktycznie zwrociło wartość (bez zgadywania liczby)
+  if (voidVal != null) {
+    out.push({ id: 'void', g: 'void', grp: 'Pustka – biała plama', lab: 'Największa pustka',
+      val: String(voidVal).replace('.', ',') + ' km',
+      city: 'Bieszczady', voiv: 'podkarpackie', street: '49,01°N / 22,89°E',
+      lat: (s3.void && s3.void.lat != null) ? s3.void.lat : 49.01,
+      lon: (s3.void && s3.void.lon != null) ? s3.void.lon : 22.89,
+      zoom: 9, type: 'circle',
+      desc: 'Punkt w Bieszczadach oddalony o ' + String(voidVal).replace('.', ',') + ' km od jakiejkolwiek Żabki – największa biała plama na mapie.' });
+  }
 
   // Plazy
   const mf = ae.most_froggy || {};

@@ -221,19 +221,21 @@ export function renderSpoleczenstwo(){
   const hEl=document.getElementById('hero-num-spoleczenstwo');
   if(hEl){
     const voidData=(M.section3_rare&&M.section3_rare.void)||null;
-    const target=voidData&&voidData.value!=null?+voidData.value:46.52;
-    const prefersReduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if(prefersReduced){
-      hEl.innerHTML=`${String(target).replace('.',',')}<span class="stat-unit"> km</span>`;
-    }else{
-      const from=0,dur=1800,start=performance.now();
-      (function step(now){
-        const t=Math.min(1,(now-start)/dur);
-        const e=t>=1?1:1-Math.pow(2,-14*t);
-        const v=from+(target-from)*e;
-        hEl.innerHTML=`${String(Math.round(v*100)/100).replace('.',',')}<span class="stat-unit"> km</span>`;
-        if(t<1)requestAnimationFrame(step);
-      })(performance.now());
+    if(voidData&&voidData.value!=null){
+      const target=+voidData.value;
+      const prefersReduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if(prefersReduced){
+        hEl.innerHTML=`${String(target).replace('.',',')}<span class="stat-unit"> km</span>`;
+      }else{
+        const from=0,dur=1800,start=performance.now();
+        (function step(now){
+          const t=Math.min(1,(now-start)/dur);
+          const e=t>=1?1:1-Math.pow(2,-14*t);
+          const v=from+(target-from)*e;
+          hEl.innerHTML=`${String(Math.round(v*100)/100).replace('.',',')}<span class="stat-unit"> km</span>`;
+          if(t<1)requestAnimationFrame(step);
+        })(performance.now());
+      }
     }
   }
   whenVisible(document.getElementById('ec-root'), async () => { const { renderEcon } = await ensureEcon(); renderEcon(); });

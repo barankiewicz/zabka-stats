@@ -6,9 +6,9 @@ from backend.cache import cached
 from backend.database_ch import client
 
 
-@get("/dashboard-data")
+@get("/dashboard-data", sync_to_thread=True)
 @cached(ttl=3600)
-async def get_dashboard_data() -> dict:
+def get_dashboard_data() -> dict:
     """Get all aggregated data for dashboard in one call."""
 
     # Summary

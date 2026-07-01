@@ -9,9 +9,9 @@ from backend.cache import cached
 from backend.database_ch import client
 
 
-@get("/history/location/{location_id:str}")
+@get("/history/location/{location_id:str}", sync_to_thread=True)
 @cached(ttl=3600)
-async def get_location_history(
+def get_location_history(
     location_id: FromPath[str],
     limit: FromQuery[int] = 100,
 ) -> dict:
@@ -52,9 +52,9 @@ async def get_location_history(
     }
 
 
-@get("/changes/monthly")
+@get("/changes/monthly", sync_to_thread=True)
 @cached(ttl=3600)
-async def get_monthly_changes(
+def get_monthly_changes(
     year: FromQuery[int | None] = None,
     voivodeship: FromQuery[str | None] = None,
 ) -> dict:
@@ -117,9 +117,9 @@ async def get_monthly_changes(
     }
 
 
-@get("/changes/voivodeship")
+@get("/changes/voivodeship", sync_to_thread=True)
 @cached(ttl=3600)
-async def get_voivodeship_changes(
+def get_voivodeship_changes(
     month: FromQuery[str | None] = None,
 ) -> dict:
     """Get change statistics aggregated by voivodeship."""
@@ -173,9 +173,9 @@ async def get_voivodeship_changes(
     }
 
 
-@get("/changes/timeline")
+@get("/changes/timeline", sync_to_thread=True)
 @cached(ttl=3600)
-async def get_deletion_timeline(
+def get_deletion_timeline(
     limit_months: FromQuery[int] = 12,
 ) -> dict:
     """Get timeline of deletions over the last N months."""

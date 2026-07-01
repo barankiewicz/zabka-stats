@@ -26,7 +26,7 @@ def _gbif_total() -> int | None:
 
 # Warm the ~1 MB amphibians JSON read at startup so the first /stats/amphibians
 # request doesn't pay the parse on a request thread (same idea as the geo caches).
-async def startup_ecology() -> None:
+def startup_ecology() -> None:
     try:
         _gbif_total()
     except Exception as e:
@@ -34,8 +34,8 @@ async def startup_ecology() -> None:
 
 startup_handlers = [startup_ecology]
 
-@get("/stats/amphibians")
-async def amphibians() -> Response:
+@get("/stats/amphibians", sync_to_thread=True)
+def amphibians() -> Response:
     cached_blob = get_cached_blob("amphibians_stats")
     if cached_blob is not None:
         return Response(cached_blob, media_type="application/json")
@@ -204,9 +204,9 @@ async def amphibians() -> Response:
     set_cached_blob("amphibians_stats", blob, ttl=3600)
     return Response(blob, media_type="application/json")
 
-@get("/stats/section3-rare")
+@get("/stats/section3-rare", sync_to_thread=True)
 @cached(ttl=3600)
-async def section3_rare() -> Section3RareResponse:
+def section3_rare() -> Section3RareResponse:
     h24_cities = client.execute("""
         SELECT city, voivodeship, COUNT(*) AS cnt
         FROM locations WHERE deleted_at IS NULL AND h24 = true
@@ -352,8 +352,8 @@ async def section3_rare() -> Section3RareResponse:
         ],
     )
 
-@get("/stats/parks-stores")
-async def parks_stores() -> Response:
+@get("/stats/parks-stores", sync_to_thread=True)
+def parks_stores() -> Response:
     cached_blob = get_cached_blob("parks_stores")
     if cached_blob is not None:
         return Response(cached_blob, media_type="application/json")

@@ -194,7 +194,7 @@ numpy, scikit-learn) cannot load their `.so` files there.
 `venv/bin/python -m backend.main` (uvicorn on `0.0.0.0:8000`), `Restart=on-failure`,
 under a non-root `zabka` user.
 
-**HTTPS via nginx.** nginx reverse-proxies `https://zabka-stats.barankiewicz.dev/` to
+**HTTPS via nginx.** nginx reverse-proxies `https://zabkozbior.barankiewicz.dev/` to
 `127.0.0.1:8000`, with a Let's Encrypt cert (certbot `--nginx`, auto-renew via the
 `certbot.timer`) and a 80->443 redirect. Port 8000 is not exposed - the firewall
 (ufw) allows only SSH, 80, and 443; the backend is reachable only over loopback
@@ -233,7 +233,7 @@ in the daily loop. Code reaches the VPS by `git pull`, not by CI deploy.
 `/usr/local/bin/goatcounter serve` (SQLite at `/home/zabka/goatcounter/goatcounter.sqlite3`,
 listening on `127.0.0.1:8081`). nginx proxies `/gc/` to it; GoatCounter is told about
 the path prefix via `-base-path /gc`. No cookies, no GDPR banner required. Dashboard:
-`https://zabka-stats.barankiewicz.dev/gc/` (login: `alicja.barankiewicz@formula5.com`,
+`https://zabkozbior.barankiewicz.dev/gc/` (login: `alicja.barankiewicz@formula5.com`,
 password in `/home/zabka/goatcounter/.gc_env`). The tracking script is inlined in
 `<head>` of both HTML pages and fires on every page load automatically.
 

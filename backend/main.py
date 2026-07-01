@@ -15,6 +15,7 @@ import subprocess
 from datetime import datetime
 
 from litestar import Litestar, Router, get, post
+from litestar.background_tasks import BackgroundTask
 from litestar.config.cors import CORSConfig
 from litestar.connection import Request
 from litestar.exceptions import HTTPException
@@ -31,8 +32,16 @@ from backend.api.spatial_router import router as spatial_router
 from backend.api.stats_router import router as stats_router
 from backend.database_ch import DB_PATH, client, init_db
 
-# API_TOKEN is set via environment variable
+# API_TOKEN is set via environment variable. The fallback below is a documented
+# local-dev convenience (see CLAUDE.md quick start) - warn loudly so it never
+# goes unnoticed in a deployed environment.
 API_TOKEN = os.getenv("API_TOKEN", "your-secret-token-change-me")
+if API_TOKEN == "your-secret-token-change-me":
+    print(
+        "WARNING: API_TOKEN is not set - /api/snapshot accepts the well-known "
+        "default token. Fine for local dev, unsafe in production. Set API_TOKEN "
+        "in the environment before deploying."
+    )
 
 # Initialize database
 try:
@@ -43,17 +52,17 @@ except Exception as e:
 
 
 # Health check
-@get("/health")
-async def health_check() -> dict:
+@get("/health", sync_to_thread=True)
+def health_check() -> dict:
     try:
-        result = client.execute("SELECT COUNT(*) FROM locations WHERE deleted_at IS NULL").fetchone()
-        location_count = result[0] if result else 0
+        location_count, city_count, locker_count = client.execute("""
+            SELECT
+                (SELECT COUNT(*) FROM locations WHERE deleted_at IS NULL),
+                (SELECT COUNT(DISTINCT city) FROM locations WHERE deleted_at IS NULL),
+                (SELECT COUNT(*) FROM parcel_lockers WHERE deleted_at IS NULL)
+        """).fetchone()
         db_size_mb = round(DB_PATH.stat().st_size / (1024 * 1024), 2) if DB_PATH.exists() else 0
-        
-        # Additional statistics for dynamic badges
-        city_count = client.execute("SELECT COUNT(DISTINCT city) FROM locations WHERE deleted_at IS NULL").fetchone()[0]
-        locker_count = client.execute("SELECT COUNT(*) FROM parcel_lockers WHERE deleted_at IS NULL").fetchone()[0]
-        
+
         return {
             "status": "healthy",
             "database": "DuckDB",
@@ -71,8 +80,8 @@ async def health_check() -> dict:
 
 
 # Public download endpoints (paths relative to /api/download/...)
-@get("/download/database")
-async def download_database() -> File:
+@get("/download/database", sync_to_thread=True)
+def download_database() -> File:
     """Download the raw DuckDB database file containing all populated tables."""
     if not DB_PATH.exists():
         raise HTTPException(
@@ -86,8 +95,8 @@ async def download_database() -> File:
     )
 
 
-@get("/download/geojson")
-async def download_geojson() -> File:
+@get("/download/geojson", sync_to_thread=True)
+def download_geojson() -> File:
     """Download the generated GeoJSON boundary file."""
     geojson_path = DB_PATH.parent / "geo" / "wojewodztwa.geojson"
     if not geojson_path.exists():
@@ -102,16 +111,23 @@ async def download_geojson() -> File:
     )
 
 
-@get("/download/parquet")
-async def download_parquet() -> File:
+@get("/download/parquet", sync_to_thread=True)
+def download_parquet() -> File:
     """Export active locations to Parquet (ZSTD-compressed, ~1 MB).
 
-    DuckDB writes to a temp file via its native Parquet writer; the file is
-    served as a download and overwritten on each request. Column selection
-    mirrors the public schema minus the internal surrogate keys.
+    DuckDB writes to a per-request temp file via its native Parquet writer;
+    the file is served as a download and deleted afterwards via a background
+    task, so concurrent requests don't race on a shared path and nothing
+    accumulates in /tmp. Column selection mirrors the public schema minus the
+    internal surrogate keys.
     """
-    out = pathlib.Path("/tmp/zabka_locations.parquet")
+    import tempfile
+
     import duckdb as _duckdb
+
+    fd, tmp_name = tempfile.mkstemp(suffix=".parquet", prefix="zabka_locations_")
+    os.close(fd)
+    out = pathlib.Path(tmp_name)
 
     con = _duckdb.connect(str(DB_PATH), read_only=True)
     try:
@@ -139,6 +155,7 @@ async def download_parquet() -> File:
         path=out,
         filename="zabka_locations.parquet",
         media_type="application/vnd.apache.parquet",
+        background=BackgroundTask(lambda: out.unlink(missing_ok=True)),
     )
 
 
@@ -305,7 +322,11 @@ except Exception as e:
     print(f"Note: Static files router could not be configured: {e}")
 
 cors_config = CORSConfig(
-    allow_origins=["*"],
+    allow_origins=[
+        "https://zabkozbior.barankiewicz.dev",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -320,11 +341,12 @@ app = Litestar(
 )
 
 if __name__ == "__main__":
-    import multiprocessing
-
     import uvicorn
 
-    workers = int(os.getenv("UVICORN_WORKERS", max(2, multiprocessing.cpu_count())))
+    # Single worker by design (see CLAUDE.md): startup handlers warm in-memory
+    # geo/ecology caches, and DuckDB is single-writer, so extra workers just
+    # duplicate that warm-up cost without adding throughput on this VPS.
+    workers = int(os.getenv("UVICORN_WORKERS", 1))
     uvicorn.run(
         "backend.main:app",
         host="0.0.0.0",
