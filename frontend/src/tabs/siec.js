@@ -89,7 +89,12 @@ function startHeroParticles(){
     a:Math.random()*0.5+0.18
   }));
   if(heroRaf)cancelAnimationFrame(heroRaf);
-  (function frame(){
+  let running=false,last=0;
+  function frame(now){
+    if(!running)return;
+    heroRaf=requestAnimationFrame(frame);
+    if(document.hidden||now-last<33)return;   // ~30fps, pause when tab hidden
+    last=now;
     ctx.clearRect(0,0,cv.width,cv.height);
     ctx.shadowColor='rgba(132,195,65,.8)';ctx.shadowBlur=8;
     ps.forEach(p=>{
@@ -100,8 +105,13 @@ function startHeroParticles(){
       ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
     });
     ctx.shadowBlur=0;
-    heroRaf=requestAnimationFrame(frame);
-  })();
+  }
+  const start=()=>{if(!running){running=true;last=0;heroRaf=requestAnimationFrame(frame);}};
+  const stop=()=>{running=false;if(heroRaf){cancelAnimationFrame(heroRaf);heroRaf=null;}};
+  // Only animate while the hero is on-screen; stop entirely once scrolled past.
+  if(typeof IntersectionObserver!=='undefined'){
+    new IntersectionObserver(es=>es.forEach(e=>e.isIntersecting?start():stop())).observe(cv);
+  } else { start(); }
   if(!startHeroParticles._wired){
     startHeroParticles._wired=true;
     window.addEventListener('resize',size);
@@ -392,11 +402,19 @@ export async function renderGrowthMap(){
 
   // Single entry for "show year Y": filter the WebGL dots, sync the calendar
   // grid, and shimmer the glow across the last 35% of the timeline.
+  let _lastYr=null;
   function setYear(yr,now){
-    if(growthMap.getLayer('stores-dots'))growthMap.setFilter('stores-dots',['<=',['get','year'],yr]);
-    if(growthMap.getLayer('stores-glow'))growthMap.setFilter('stores-glow',['<=',['get','year'],yr]);
-    if(yrLabel)yrLabel.textContent=yr;
-    drawCalendar(yr);
+    // Only rebuild the 13k-feature filter + calendar when the year actually
+    // changes. The sweep runs at 60fps but the year steps ~29 times, and the
+    // glow loop calls this 10x/s with an unchanged year - so this skips a huge
+    // amount of redundant setFilter work. The glow paint below still updates.
+    if(yr!==_lastYr){
+      if(growthMap.getLayer('stores-dots'))growthMap.setFilter('stores-dots',['<=',['get','year'],yr]);
+      if(growthMap.getLayer('stores-glow'))growthMap.setFilter('stores-glow',['<=',['get','year'],yr]);
+      if(yrLabel)yrLabel.textContent=yr;
+      drawCalendar(yr);
+      _lastYr=yr;
+    }
     if(now&&growthMap.getLayer('stores-dots')){
       const progress=(yr-GROWTH_MIN)/(GROWTH_MAX-GROWTH_MIN);
       const glowGain=Math.max(0,(progress-0.65)/0.35);
@@ -438,9 +456,9 @@ export async function renderGrowthMap(){
         setYear(GROWTH_MAX);
         if(slider)slider.value=GROWTH_MAX;
         growthRaf=null;
-        startGlowLoop();
-        // brief hold on the full map, then sweep again from the start
-        if(growthLoop)growthLoopTimer=setTimeout(()=>{if(growthLoop)play()},1000);
+        growthLoop=false;      // play the intro sweep once, then rest (replay via the button)
+        setPlaying(false);
+        startGlowLoop();       // keep the subtle glow shimmer alive while static
       }
     })(performance.now());
   }
