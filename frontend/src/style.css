@@ -582,7 +582,6 @@ canvas{display:block}
 @media(hover:none),(pointer:coarse){
   .hint-mouse{display:none}
   .hint-touch{display:inline}
-  .fpf-hint{display:none}
 }
 
 /* MOBILE HEIGHTS: the big desktop-sized map/canvas panels are fixed-px tall
@@ -595,4 +594,31 @@ canvas{display:block}
   .powiat-map{min-height:200px}
   .kr #kr-map{height:280px}
   .ip-col{height:300px}
+  #map-granular-woj{min-height:280px}
+
+  .nav-inner {
+    padding: 0 12px;
+    gap: 12px;
+  }
+  .tab-nav {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    min-width: 0;
+  }
+  .tab-nav::-webkit-scrollbar {
+    display: none;
+  }
+  .tab-btn {
+    font-size: 11.5px !important;
+    padding: 10px 14px !important;
+    flex-shrink: 0;
+  }
+
+  /* Bumping smallest text for mobile legibility */
+  .map-legend, .map-legend-axis, .map-legend-axis--vert,
+  .map-zoom-hint, .bubble-zoom-hint, .fpf-hint,
+  .gran-ref-legend, .woj-val-label-marker, .stat-kicker {
+    font-size: 11.5px !important;
+  }
 }

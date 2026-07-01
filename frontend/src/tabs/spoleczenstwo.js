@@ -172,6 +172,21 @@ async function renderInpostMap(){
       const p=fs.properties||{};
       if(p._tip){_ipTip.innerHTML=p._tip;_ipTip.style.left=(e.originalEvent.clientX+14)+'px';_ipTip.style.top=(e.originalEvent.clientY+14)+'px';_ipTip.style.display='block';}
     });
+    _ipMap.on('click','ip-woj-fill',e=>{
+      const fs=e.features&&e.features[0];if(!fs)return;
+      if(_hoverFid!=null)_ipMap.setFeatureState({source:'ip-woj',id:_hoverFid},{hover:false});
+      _hoverFid=fs.id;_ipMap.setFeatureState({source:'ip-woj',id:_hoverFid},{hover:true});
+      _ipMap.getCanvas().style.cursor='pointer';
+      const p=fs.properties||{};
+      if(p._tip){_ipTip.innerHTML=p._tip;_ipTip.style.left=(e.originalEvent.clientX+14)+'px';_ipTip.style.top=(e.originalEvent.clientY+14)+'px';_ipTip.style.display='block';}
+    });
+    _ipMap.on('click',e=>{
+      const features = _ipMap.queryRenderedFeatures(e.point, { layers: ['ip-woj-fill'] });
+      if (!features.length) {
+        if(_hoverFid!=null)_ipMap.setFeatureState({source:'ip-woj',id:_hoverFid},{hover:false});
+        _hoverFid=null;_ipMap.getCanvas().style.cursor='';_ipTip.style.display='none';
+      }
+    });
     _ipMap.on('mouseleave','ip-woj-fill',()=>{
       if(_hoverFid!=null)_ipMap.setFeatureState({source:'ip-woj',id:_hoverFid},{hover:false});
       _hoverFid=null;_ipMap.getCanvas().style.cursor='';_ipTip.style.display='none';
@@ -527,9 +542,11 @@ export function renderDumbbell(data){
     document.body.appendChild(_dbTip);
   }
   if(_dbTip)_dbTip.style.opacity='0';
-  svg.addEventListener('mousemove',(e)=>{
+  const handleMove = (e)=>{
     const r=svg.getBoundingClientRect();
-    const svgY=e.clientY-r.top;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const svgY=clientY-r.top;
     const idx=Math.round((svgY-22)/ROW);
     if(idx>=0&&idx<arr.length){
       const d=arr[idx];
@@ -543,13 +560,18 @@ export function renderDumbbell(data){
         `<span style="color:#f2a359">InPost: ${p}/100k</span>`+
         `<div style="color:#93a487;margin-top:2px">stosunek: ${ratio}x</div>`;
       _dbTip.style.opacity='1';
-      _dbTip.style.top=(e.clientY+14)+'px';
-      _dbTip.style.left=(e.clientX+14)+'px';
+      _dbTip.style.top=(clientY+14)+'px';
+      _dbTip.style.left=(clientX+14)+'px';
     } else {
       _dbTip.style.opacity='0';
     }
-  });
-  svg.addEventListener('mouseleave',()=>{if(_dbTip)_dbTip.style.opacity='0';});
+  };
+  const handleLeave = ()=>{if(_dbTip)_dbTip.style.opacity='0';};
+  svg.addEventListener('mousemove', handleMove);
+  svg.addEventListener('mouseleave', handleLeave);
+  svg.addEventListener('touchstart', handleMove, {passive:true});
+  svg.addEventListener('touchmove', handleMove, {passive:true});
+  svg.addEventListener('touchend', handleLeave);
   el.innerHTML='';el.appendChild(svg);
 }
 

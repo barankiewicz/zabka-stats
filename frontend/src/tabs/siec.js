@@ -555,12 +555,14 @@ export function drawFingerprintFlat(){
   const tt=document.getElementById('fpf-tooltip');
   if(tt&&!cv._fpfWired){
     cv._fpfWired=true;
-    cv.addEventListener('mousemove',e=>{
+    const handleMove = e => {
       if(!fpfData)return;
       const{padL,padB,plotW,rowH,sortedYears,byYear,yearData}=fpfData;
       const rect=cv.getBoundingClientRect();
-      const mx=(e.clientX-rect.left)*(fpfData.W/rect.width);
-      const my=(e.clientY-rect.top)*(fpfData.H/rect.height);
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      const mx=(clientX-rect.left)*(fpfData.W/rect.width);
+      const my=(clientY-rect.top)*(fpfData.H/rect.height);
       const n=sortedYears.length;
       const i=Math.round((fpfData.H-padB-my)/rowH);
       const fx=(mx-padL)/plotW;
@@ -577,17 +579,29 @@ export function drawFingerprintFlat(){
         const yd=yearData[yr];
         const col=fpRamp(n>1?i/(n-1):0);
         tt.style.display='block';
-        tt.style.left=Math.min(e.clientX-rect.left+12,fpfData.W-190)+'px';
-        tt.style.top=(e.clientY-rect.top-20)+'px';
+        tt.style.left=Math.min(clientX-rect.left+12,fpfData.W-190)+'px';
+        tt.style.top=(clientY-rect.top-20)+'px';
         tt.innerHTML=`<div style="color:${col};font-family:var(--font-display);font-weight:700;font-size:16px">${yr}</div>
           ${yd?`<div style="margin-top:6px;font-size:12px">Nowych: <span style="color:var(--ink);font-family:var(--font-mono)">${fmt(yd.new_stores)}</span></div>`:''}
           <div style="font-size:12px;margin-top:2px">Kursor: <span style="color:${C.teal};font-weight:600">${dirLabel}</span> (${fmt(bins[bin])})</div>
           <div style="font-size:12px;margin-top:2px">dominanta ROKU: <span style="color:${C.green};font-weight:600">${domLabel}</span></div>`;
       }else tt.style.display='none';
-    });
-    cv.addEventListener('mouseleave',()=>{tt.style.display='none';if(fpfData){fpfData.hoverX=null;renderFpFlat(ctx)}});
+    };
+    const handleLeave = () => {
+      tt.style.display='none';
+      if(fpfData){fpfData.hoverX=null;renderFpFlat(ctx)}
+    };
+    cv.addEventListener('mousemove', handleMove);
+    cv.addEventListener('mouseleave', handleLeave);
+    cv.addEventListener('touchstart', handleMove, {passive:true});
+    cv.addEventListener('touchmove', handleMove, {passive:true});
+    cv.addEventListener('touchend', handleLeave);
     const hint=document.getElementById('fpf-hint');
-    if(hint)cv.addEventListener('mousemove',()=>hint.classList.add('hidden'),{once:true});
+    if(hint){
+      const hideHint=()=>hint.classList.add('hidden');
+      cv.addEventListener('mousemove',hideHint,{once:true});
+      cv.addEventListener('touchstart',hideHint,{once:true});
+    }
   }
   if(!cv._fpfResize){cv._fpfResize=true;window.addEventListener('resize',debounce(()=>drawFingerprintFlat()))}
 }
@@ -901,11 +915,18 @@ export function renderPowiatCoverage(){
 
   if(!cv._pcHoverInit){
     cv._pcHoverInit=true;
-    cv.addEventListener('mousemove',e=>{const r=cv.getBoundingClientRect();
-      _pcState.hover=[e.clientX-r.left,e.clientY-r.top];
-      if(!_pcState.raf)_pcState.raf=requestAnimationFrame(step)});
-    cv.addEventListener('mouseleave',()=>{_pcState.hover=null;
-      if(!_pcState.raf)_pcState.raf=requestAnimationFrame(step)});
+    const handleMove = e=>{const r=cv.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      _pcState.hover=[clientX-r.left,clientY-r.top];
+      if(!_pcState.raf)_pcState.raf=requestAnimationFrame(step)};
+    const handleLeave = ()=>{_pcState.hover=null;
+      if(!_pcState.raf)_pcState.raf=requestAnimationFrame(step)};
+    cv.addEventListener('mousemove', handleMove);
+    cv.addEventListener('mouseleave', handleLeave);
+    cv.addEventListener('touchstart', handleMove, {passive:true});
+    cv.addEventListener('touchmove', handleMove, {passive:true});
+    cv.addEventListener('touchend', handleLeave);
   }
   if(!cv._pcResize){cv._pcResize=true;window.addEventListener('resize',debounce(()=>{_pcState=null;renderPowiatCoverage()}))}
 }
@@ -1218,6 +1239,32 @@ async function _buildWojMap(el){
           _wojTip.style.left=(e.originalEvent.clientX+14)+'px';
           _wojTip.style.top=(e.originalEvent.clientY+14)+'px';
           _wojTip.style.display='block';
+        }
+      });
+      _wojMap.on('click','gran-woj-fill',e=>{
+        const fs=e.features&&e.features[0];
+        if(!fs)return;
+        if(_hoverFid!=null)_wojMap.setFeatureState({source:'gran-woj',id:_hoverFid},{hover:false});
+        _hoverFid=fs.id;
+        _wojMap.setFeatureState({source:'gran-woj',id:_hoverFid},{hover:true});
+        _wojMap.getCanvas().style.cursor='pointer';
+        const p=fs.properties||{};
+        if(p._name){
+          ensureTip();
+          _wojTip.innerHTML=`<div style="font-family:var(--font-display);font-weight:700;font-size:13px;margin-bottom:3px">${capName(p._name)}</div>`+
+            `<div style="font-size:12px;color:#93a487">${p._val||''}</div>`;
+          _wojTip.style.left=(e.originalEvent.clientX+14)+'px';
+          _wojTip.style.top=(e.originalEvent.clientY+14)+'px';
+          _wojTip.style.display='block';
+        }
+      });
+      _wojMap.on('click',e=>{
+        const features = _wojMap.queryRenderedFeatures(e.point, { layers: ['gran-woj-fill'] });
+        if (!features.length) {
+          if(_hoverFid!=null)_wojMap.setFeatureState({source:'gran-woj',id:_hoverFid},{hover:false});
+          _hoverFid=null;
+          _wojMap.getCanvas().style.cursor='';
+          if(_wojTip)_wojTip.style.display='none';
         }
       });
       _wojMap.on('mouseleave','gran-woj-fill',()=>{
