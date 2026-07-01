@@ -8,7 +8,7 @@ import { GridComponent, TooltipComponent, VisualMapContinuousComponent, MarkPoin
 import { CanvasRenderer } from 'echarts/renderers';
 echartsUse([ScatterChart, LineChart, BarChart, GridComponent, TooltipComponent, VisualMapContinuousComponent, MarkPointComponent, CanvasRenderer]);
 import { M } from '../state.js';
-import { debounce } from '../utils.js';
+import { debounce, wireCountUp } from '../utils.js';
 
 const RM = window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches;
 const fmtPop = p => p >= 1e6 ? (p / 1e6).toFixed(2) + ' mln' : Math.round(p / 1000) + ' tys.';
@@ -248,15 +248,7 @@ export function renderEcon() {
   // ---- animations scoped to .ec ----
   const obsR = new IntersectionObserver((es) => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); obsR.unobserve(e.target); } }), { threshold: .16 });
   root.querySelectorAll('.ec-reveal').forEach(r => obsR.observe(r));
-  const countUp = el => {
-    const target = parseFloat(el.dataset.count), dec = parseInt(el.dataset.dec || '0'), suf = el.dataset.suffix || '';
-    const f = v => v.toLocaleString('pl-PL', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + suf;
-    if (RM) { el.textContent = f(target); return; }
-    const dur = 1300, t0 = performance.now();
-    (function step(t) { let p = Math.min(1, (t - t0) / dur); p = 1 - Math.pow(1 - p, 3); el.textContent = f(target * p); if (p < 1) requestAnimationFrame(step); })(t0);
-  };
-  const obsC = new IntersectionObserver((es) => es.forEach(e => { if (e.isIntersecting) { countUp(e.target); obsC.unobserve(e.target); } }), { threshold: .6 });
-  root.querySelectorAll('[data-count]').forEach(el => obsC.observe(el));
+  wireCountUp(root);
   const obsF = new IntersectionObserver((es) => es.forEach(e => { if (e.isIntersecting) { e.target.style.width = e.target.dataset.fill + '%'; obsF.unobserve(e.target); } }), { threshold: .6 });
   root.querySelectorAll('[data-fill]').forEach(el => obsF.observe(el));
   if (_econDone) return;   // charts only once

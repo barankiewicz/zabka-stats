@@ -1,7 +1,7 @@
 import Chart from '../chartjs-setup.js';
 import { C, STATE } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
-import { era, fmt, getFont, destroyChart, capName as capCase, whenVisible, debounce } from '../utils.js';
+import { era, fmt, getFont, destroyChart, capName as capCase, whenVisible, debounce, wireCountUp } from '../utils.js';
 
 // MapLibre is ~280 KB gz; load it lazily (only when a map nears the viewport)
 // instead of on first paint. These bindings are filled by ensureMaplibre().
@@ -38,6 +38,7 @@ export function renderSiec(){
   if(root){
     const obs=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');obs.unobserve(e.target);}}),{threshold:.12});
     root.querySelectorAll('.si-reveal').forEach(r=>obs.observe(r));
+    wireCountUp(root);
   }
   document.querySelectorAll('.tab-bridge-btn[data-goto]').forEach(btn=>{
     if(btn._wired)return;btn._wired=true;
@@ -131,13 +132,18 @@ export function renderStatStrip(){
   const toFirst=y1k!=null?y1k-firstYr:null;
   const last5=(y10k!=null&&y5k!=null)?y10k-y5k:null;
   // two split tiles: the slow first 1 000 vs the fast last 5 000
-  const setYears=(id,n)=>{const el=document.getElementById(id);if(el&&n!=null)el.innerHTML=`${n}<span class="stat-unit">${plYears(n)}</span>`};
+  const setYears=(id,n)=>{
+    const el=document.getElementById(id);if(!el||n==null)return;
+    const num=el.querySelector('.stat-num'),unit=document.getElementById(id+'-unit');
+    if(num)num.dataset.count=n;
+    if(unit)unit.textContent=plYears(n);
+  };
   setYears('stat-first1k',toFirst);
   setYears('stat-last5k',last5);
 
   const best=ng.reduce((a,b)=>b.new_stores>(a?a.new_stores:-1)?b:a,null);
   if(best){
-    const bv=document.getElementById('stat-bestyear');if(bv)bv.textContent=fmt(best.new_stores);
+    const bv=document.getElementById('stat-bestyear');if(bv)bv.dataset.count=best.new_stores;
     const perH=best.new_stores>0?8760/best.new_stores:0;
     const sub=document.getElementById('stat-bestyear-sub');
     if(sub)sub.textContent=`nowych w ${best.year} – co ~${perH.toFixed(1).replace('.',',')} h`;
@@ -146,19 +152,19 @@ export function renderStatStrip(){
   const ns=M.neighbor_stats;
   if(ns&&ns.distribution&&ns.distribution.median_m!=null){
     const el=document.getElementById('stat-neighmed');
-    if(el)el.innerHTML=`${fmt(Math.round(ns.distribution.median_m))}<span class="stat-unit"> m</span>`;
+    if(el)el.dataset.count=Math.round(ns.distribution.median_m);
   }
 
   const no=M.network_origin;
   if(no&&no.new_this_month!=null){
     const nmEl=document.getElementById('stat-new-month');
-    if(nmEl)nmEl.textContent=fmt(no.new_this_month);
+    if(nmEl)nmEl.dataset.count=no.new_this_month;
   }
   const citiesFunnel=M.coverage_funnel&&M.coverage_funnel.find(f=>f.level==='miasta');
   if(citiesFunnel){
     const ce=document.getElementById('stat-cities');
     const sub=document.getElementById('stat-cities-sub');
-    if(ce)ce.innerHTML=`${citiesFunnel.pct!=null?citiesFunnel.pct.toFixed(1).replace('.',','):'?'}<span class="stat-unit">%</span>`;
+    if(ce&&citiesFunnel.pct!=null)ce.dataset.count=citiesFunnel.pct;
     if(sub)sub.textContent=`z ${(citiesFunnel.total||0).toLocaleString('pl-PL')} polskich miast ma Żabkę`;
   }
   const s=M.summary;
@@ -177,14 +183,15 @@ export function renderStatStrip(){
 export function renderOrigins(){
   const o=M.network_origin;if(!o)return;
   const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null&&v!=='')el.textContent=v};
+  const setYear=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.dataset.count=v};
   if(o.newest){
-    set('origin-new-year',(o.newest.first_opening_date||'').slice(0,4));
+    setYear('origin-new-year',(o.newest.first_opening_date||'').slice(0,4));
     set('origin-new-city',o.newest.city);
     set('origin-new-street',o.newest.street);
     set('origin-new-date',plDate(o.newest.first_opening_date));
   }
   if(o.oldest){
-    set('origin-old-year',(o.oldest.first_opening_date||'').slice(0,4));
+    setYear('origin-old-year',(o.oldest.first_opening_date||'').slice(0,4));
     set('origin-old-city',o.oldest.city);
     set('origin-old-street',o.oldest.street);
     set('origin-old-date',plDate(o.oldest.first_opening_date));
@@ -224,9 +231,11 @@ function drawCalendar(uptoYear){
   const cv=document.getElementById('canvas-calendar');if(!cv||!calData)return;
   _calUptoYear=uptoYear;
 
-  // Derive row height from the fixed map height (520 px); derive cell width so
-  // the 12×29 grid is overall square: 12*cw = 29*ch  →  cw = ch*(years/12).
-  const H_REF=520; // matches .growth-map{height:520px}
+  // Derive row height from the map's actual rendered height (not a hardcoded
+  // constant, so this still matches .growth-map on narrower mobile breakpoints);
+  // derive cell width so the 12×29 grid is overall square: 12*cw = 29*ch  →
+  // cw = ch*(years/12).
+  const H_REF=document.getElementById('map-growth')?.offsetHeight||520;
   const years=GROWTH_MAX-GROWTH_MIN+1; // 29
   const padL=34,padT=14,padR=6,padB=10,gap=1.5;
   const ch=(H_REF-padT-padB)/years;
@@ -339,7 +348,7 @@ export async function renderGrowthMap(){
       if(!el.querySelector('.map-zoom-hint')){
         const hint=document.createElement('div');
         hint.className='map-zoom-hint';
-        hint.textContent='ctrl + scroll przybliża';
+        hint.innerHTML='<span class="hint-mouse">ctrl + scroll przybliża</span><span class="hint-touch">dwoma palcami przesuwasz i przybliżasz</span>';
         el.appendChild(hint);
       }
       if(!el.querySelector('.map-reset-btn')){

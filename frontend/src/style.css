@@ -215,6 +215,7 @@ canvas{display:block}
 /* GRANULARITY: split layout — left chart, right voivodeship choropleth */
 .gran-split{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:stretch}
 @media(max-width:900px){.gran-split{grid-template-columns:1fr}}
+.ip-col{height:440px}
 .gran-left{display:flex;flex-direction:column;gap:0;min-width:0}
 .gran-left-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:12px}
 .gran-left-head .card-title,.gran-left-head .card-sub{margin-bottom:0}
@@ -571,3 +572,27 @@ canvas{display:block}
 .spol-conclusion{border-top:1px solid var(--axis);margin-top:32px;padding:28px 0 8px}
 .spol-conclusion-head{font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--ink);letter-spacing:-.01em;margin-bottom:12px}
 .spol-conclusion p{font-size:14px;color:var(--muted);line-height:1.75;max-width:720px}
+
+/* MOBILE HINTS: mouse-only instructional text swapped or hidden on touch. The
+   bubble pinch-zoom already works via touch (d3-zoom handles it natively), so
+   it gets real touch copy; the fingerprint tooltip is still mousemove-only
+   (no tap handler yet), so its hint is hidden rather than promising a tap
+   interaction that doesn't exist. */
+.hint-touch{display:none}
+@media(hover:none),(pointer:coarse){
+  .hint-mouse{display:none}
+  .hint-touch{display:inline}
+  .fpf-hint{display:none}
+}
+
+/* MOBILE HEIGHTS: the big desktop-sized map/canvas panels are fixed-px tall
+   and don't shrink on their own — on a phone they eat most of the screen for
+   what's often a wide, short visual. These come last so they win over the
+   880px .kr #kr-map rule above at narrower widths too. */
+@media(max-width:600px){
+  .growth-map{height:280px}
+  #bubble-stage{height:300px}
+  .powiat-map{min-height:200px}
+  .kr #kr-map{height:280px}
+  .ip-col{height:300px}
+}

@@ -128,32 +128,32 @@
   <div class="stat-strip reveal">
     <div class="stat-tile">
       <div class="stat-kicker">Rozruch</div>
-      <div class="stat-big slow" id="stat-first1k">-<span class="stat-unit">lat</span></div>
+      <div class="stat-big slow" id="stat-first1k"><span class="stat-num" data-count="0">-</span><span class="stat-unit" id="stat-first1k-unit">lat</span></div>
       <div class="stat-sub">zajął pierwszy <b>1 000</b> sklepów</div>
     </div>
     <div class="stat-tile">
       <div class="stat-kicker">Przyspieszenie</div>
-      <div class="stat-big fast" id="stat-last5k">-<span class="stat-unit">lat</span></div>
+      <div class="stat-big fast" id="stat-last5k"><span class="stat-num" data-count="0">-</span><span class="stat-unit" id="stat-last5k-unit">lat</span></div>
       <div class="stat-sub">zajęły ostatnie <b>5 000</b> – tempo wystrzeliło</div>
     </div>
     <div class="stat-tile">
       <div class="stat-kicker">Rekord</div>
-      <div class="stat-big" id="stat-bestyear">-</div>
+      <div class="stat-big" id="stat-bestyear" data-count="0">-</div>
       <div class="stat-sub" id="stat-bestyear-sub">nowych w najlepszym roku</div>
     </div>
     <div class="stat-tile">
       <div class="stat-kicker">Najbliższy sąsiad</div>
-      <div class="stat-big" id="stat-neighmed">-<span class="stat-unit"> m</span></div>
+      <div class="stat-big"><span class="stat-num" id="stat-neighmed" data-count="0">-</span><span class="stat-unit"> m</span></div>
       <div class="stat-sub">mediana odległości do najbliższej Żabki</div>
     </div>
     <div class="stat-tile">
       <div class="stat-kicker">Miast z Żabką</div>
-      <div class="stat-big" id="stat-cities">-<span class="stat-unit">%</span></div>
+      <div class="stat-big"><span class="stat-num" id="stat-cities" data-count="0" data-dec="1">-</span><span class="stat-unit">%</span></div>
       <div class="stat-sub" id="stat-cities-sub">polskich miast ma Żabkę</div>
     </div>
     <div class="stat-tile">
       <div class="stat-kicker">Nowe w tym miesiącu</div>
-      <div class="stat-big" id="stat-new-month">-</div>
+      <div class="stat-big" id="stat-new-month" data-count="0">-</div>
       <div class="stat-sub">sklepów otwartych w ostatnim miesiącu</div>
     </div>
   </div>
@@ -197,7 +197,7 @@
       </div>
       <div class="origin-body">
         <div class="stat-kicker slow">Najstarsza (wciąż działa)</div>
-        <div class="origin-year slow" id="origin-old-year">1998</div>
+        <div class="origin-year slow" id="origin-old-year" data-count="1998">-</div>
         <div class="origin-place"><span id="origin-old-city">Swarzędz</span>, <span id="origin-old-street">Rynek 4/5</span></div>
         <div class="origin-note">otwarta <span id="origin-old-date">-</span> – i nadal na mapie</div>
       </div>
@@ -208,7 +208,7 @@
       </div>
       <div class="origin-body">
         <div class="stat-kicker fast">Najnowsza Żabka</div>
-        <div class="origin-year fast" id="origin-new-year">2026</div>
+        <div class="origin-year fast" id="origin-new-year" data-count="2026">-</div>
         <div class="origin-place"><span id="origin-new-city">Warszawa</span>, <span id="origin-new-street">Żytnia 64</span></div>
         <div class="origin-note">otwarta <span id="origin-new-date">-</span> – najświeższy punkt na mapie</div>
       </div>
@@ -274,32 +274,32 @@
   <div class="stat-strip reveal">
     <div class="stat-tile" id="edge-kpi-h24-tile" style="cursor:pointer" tabindex="0" role="button" aria-label="Sklepy 24/7 – pokaż na mapie">
       <div class="stat-kicker">Sklepy 24/7</div>
-      <div class="stat-big amber" id="edge-kpi-h24">-</div>
+      <div class="stat-big amber" id="edge-kpi-h24" data-count="0">-</div>
       <div class="stat-sub">nigdy nie zamknięte</div>
     </div>
     <div class="stat-tile" id="edge-kpi-parks-tile" style="cursor:pointer" tabindex="0" role="button" aria-label="Sklepy w parkach – pokaż na mapie">
       <div class="stat-kicker">W parkach</div>
-      <div class="stat-big" id="edge-kpi-parks">-</div>
+      <div class="stat-big" id="edge-kpi-parks" data-count="0">-</div>
       <div class="stat-sub">sklepów w parkach i rezerwatach</div>
     </div>
     <div class="stat-tile" id="edge-kpi-frogrecord-tile" style="cursor:pointer" tabindex="0" role="button" aria-label="Rekord płaza – pokaż na mapie">
       <div class="stat-kicker">Rekord płaza</div>
-      <div class="stat-big" style="color:var(--teal)" id="edge-kpi-frogrecord">-</div>
+      <div class="stat-big" style="color:var(--teal)" id="edge-kpi-frogrecord" data-count="0">-</div>
       <div class="stat-sub">obserwacji płazów przy jednej Żabce</div>
     </div>
     <div class="stat-tile" id="edge-kpi-void-tile" style="cursor:pointer" tabindex="0" role="button" aria-label="Pustka Bieszczad – pokaż na mapie">
       <div class="stat-kicker">Pustka Bieszczad</div>
-      <div class="stat-big" id="edge-kpi-void" style="color:#e8693d">46,5<span class="stat-unit"> km</span></div>
+      <div class="stat-big" style="color:#e8693d"><span class="stat-num" id="edge-kpi-void" data-count="46.52" data-dec="2">-</span><span class="stat-unit"> km</span></div>
       <div class="stat-sub">od najbliższej Żabki</div>
     </div>
     <div class="stat-tile" id="edge-kpi-oldest-tile" style="cursor:pointer" tabindex="0" role="button" aria-label="Najstarsza aktywna Żabka – pokaż na mapie">
       <div class="stat-kicker">Najstarsza aktywna</div>
-      <div class="stat-big" id="edge-kpi-oldest" style="color:var(--green-bright)">1998</div>
+      <div class="stat-big" id="edge-kpi-oldest" style="color:var(--green-bright)" data-count="1998">-</div>
       <div class="stat-sub" id="edge-kpi-oldest-sub">Swarzędz · działa od 28 lat</div>
     </div>
     <div class="stat-tile" id="edge-kpi-farthestfrog-tile" style="cursor:pointer" tabindex="0" role="button" aria-label="Najdalej od żaby – pokaż na mapie">
       <div class="stat-kicker">Najdalej od zaby</div>
-      <div class="stat-big" style="color:var(--teal)" id="edge-kpi-farthestfrog">-</div>
+      <div class="stat-big" style="color:var(--teal)" id="edge-kpi-farthestfrog" data-count="0" data-dec="2" data-suffix=" km">-</div>
       <div class="stat-sub" id="edge-kpi-farthestfrog-sub">do najbliższej obserwacji płaza</div>
     </div>
   </div>
@@ -333,25 +333,25 @@
       </div>
       <div class="edge-panel" id="ep-highest" style="cursor:pointer" tabindex="0" role="button" aria-label="Najwyżej położony sklep – pokaż na mapie">
         <div class="ep-eyebrow">Najwyżej n.p.m.</div>
-        <div class="ep-val amber" id="ep-highest-val">962,6 m</div>
+        <div class="ep-val amber" id="ep-highest-val" data-count="962.6" data-dec="1" data-suffix=" m">-</div>
         <div class="ep-city" id="ep-highest-city">Kościelisko, małopolskie</div>
         <div class="ep-street" id="ep-highest-street">Nędzy Kubińca 101</div>
       </div>
       <div class="edge-panel" id="ep-lowest" style="cursor:pointer" tabindex="0" role="button" aria-label="Sklep poniżej poziomu morza – pokaż na mapie">
         <div class="ep-eyebrow">Jedyna poniżej morza</div>
-        <div class="ep-val coral" id="ep-lowest-val">−1,5 m</div>
+        <div class="ep-val coral" id="ep-lowest-val" data-count="-1.5" data-dec="1" data-suffix=" m">-</div>
         <div class="ep-city" id="ep-lowest-city">Gdańsk (port), pomorskie</div>
         <div class="ep-street" id="ep-lowest-street">Przełom 12</div>
       </div>
       <div class="edge-panel" id="ep-isolated" style="cursor:pointer" tabindex="0" role="button" aria-label="Najbardziej odizolowany sklep – pokaż na mapie">
         <div class="ep-eyebrow">Najdalej od sąsiadki</div>
-        <div class="ep-val teal" id="ep-isolated-val">27,3 km</div>
+        <div class="ep-val teal" id="ep-isolated-val" data-count="27.3" data-dec="1" data-suffix=" km">-</div>
         <div class="ep-city" id="ep-isolated-city">Michałowo, podlaskie</div>
         <div class="ep-street" id="ep-isolated-street">Białostocka 2</div>
       </div>
       <div class="edge-panel" id="ep-zerofrog-panel" style="cursor:pointer" tabindex="0" role="button" aria-label="Sklep bez żab w pobliżu – pokaż na mapie">
         <div class="ep-eyebrow">Żabka bez żadnej żaby w pobliżu</div>
-        <div class="ep-val" id="ep-zerofrog-val" style="color:var(--teal)">-</div>
+        <div class="ep-val" id="ep-zerofrog-val" style="color:var(--teal)" data-count="0">-</div>
         <div class="ep-note" id="ep-zerofrog-note">sklepów bez ani jednej obserwacji płaza w 5 km</div>
       </div>
     </div>
@@ -386,7 +386,7 @@
         <div class="card-title" data-debug-id="BUBBLE">Z czego składa się sieć – miasta</div>
         <div class="card-sub">Wielkość bąbla to liczba sklepów. Przeciągnij; Ctrl + scroll przybliża. Małe jednostki trafiają do „Pozostałych".</div>
       </div>
-      <div id="bubble-stage"><div class="bubble-zoom-hint">ctrl + scroll przybliża</div></div>
+      <div id="bubble-stage"><div class="bubble-zoom-hint"><span class="hint-mouse">ctrl + scroll przybliża</span><span class="hint-touch">uszczypnij, by przybliżyć</span></div></div>
     </div>
   </div>
 
@@ -421,27 +421,27 @@
   <div class="stat-strip reveal" id="spol-kpi-strip">
     <div class="stat-tile">
       <div class="stat-kicker">Jeden sklep na</div>
-      <div class="stat-big" id="spol-kpi-residents">-<span class="stat-unit"> os.</span></div>
+      <div class="stat-big"><span class="stat-num" id="spol-kpi-residents" data-count="0">-</span><span class="stat-unit"> os.</span></div>
       <div class="stat-sub">mieszkańców Polski</div>
     </div>
     <div class="stat-tile">
       <div class="stat-kicker">Gęstość sieci</div>
-      <div class="stat-big" id="spol-kpi-density">-<span class="stat-unit">/100km²</span></div>
+      <div class="stat-big"><span class="stat-num" id="spol-kpi-density" data-count="0" data-dec="2">-</span><span class="stat-unit">/100km²</span></div>
       <div class="stat-sub">Żabek na każde 100 km² kraju</div>
     </div>
     <div class="stat-tile">
       <div class="stat-kicker">Pokrycie gmin</div>
-      <div class="stat-big" id="spol-kpi-gminy">-<span class="stat-unit">%</span></div>
+      <div class="stat-big"><span class="stat-num" id="spol-kpi-gminy" data-count="0" data-dec="1">-</span><span class="stat-unit">%</span></div>
       <div class="stat-sub">gmin ma co najmniej jedną Żabkę</div>
     </div>
     <div class="stat-tile">
       <div class="stat-kicker">InPost na Żabkę</div>
-      <div class="stat-big" id="spol-kpi-inpost">-<span class="stat-unit">x</span></div>
+      <div class="stat-big"><span class="stat-num" id="spol-kpi-inpost" data-count="0" data-dec="2">-</span><span class="stat-unit">x</span></div>
       <div class="stat-sub">paczkomatów na każdy sklep</div>
     </div>
     <div class="stat-tile">
       <div class="stat-kicker">Miast z Żabką</div>
-      <div class="stat-big" id="spol-kpi-cities">-</div>
+      <div class="stat-big" id="spol-kpi-cities" data-count="0">-</div>
       <div class="stat-sub">miejscowości z co najmniej 1 sklepem</div>
     </div>
     <div class="stat-tile">
@@ -456,12 +456,12 @@
     <div class="card-title" data-debug-id="2.3">Żabka vs InPost</div>
     <div class="card-sub">Pojedynek dwóch gigantów polskiej przestrzeni publicznej. Obaj robią co innego — Żabka to zakupy, InPost to odbiory paczek — ale oba rywalizują o ten sam metr kwadratowy ulicy.</div>
     <div class="gran-split" style="margin-top:16px">
-      <div style="display:flex;flex-direction:column;height:440px">
+      <div class="ip-col" style="display:flex;flex-direction:column">
         <div class="map-container" style="flex:1">
           <div id="map-inpost" style="height:100%;background:#08110a"></div>
         </div>
       </div>
-      <div style="display:flex;flex-direction:column;height:440px">
+      <div class="ip-col" style="display:flex;flex-direction:column">
         <div class="gran-left-head" style="margin-bottom:8px;flex-shrink:0">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <div class="gran-toggle" role="group" aria-label="Poziom geograficzny" id="inpost-level">

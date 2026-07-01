@@ -9,7 +9,7 @@ function ensureMaplibre(){
 }
 import { C, STATE } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
-import { fmt, getFont, destroyChart, startTabParticles, capName, whenVisible } from '../utils.js';
+import { fmt, getFont, destroyChart, startTabParticles, capName, whenVisible, wireCountUp } from '../utils.js';
 
 // econ.js pulls in ECharts (~180 KB gz); its two scatter chapters sit at the
 // very bottom of this tab, well below the fold, so load it only once that
@@ -23,38 +23,37 @@ function ensureEcon(){
 function renderSpolecKPIs(){
   const s=M.summary, pc=M.per_capita||[], dens=M.voivodeship_density||[], iv=M.inpost_vs_zabka||[];
 
-  const set=(id,html)=>{const el=document.getElementById(id);if(el)el.innerHTML=html};
+  const setCount=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.dataset.count=v};
 
   if(s&&pc.length&&s.total_active){
     const totalPop=pc.reduce((a,r)=>a+(r.population||0),0);
     const perStore=Math.round(totalPop/(+s.total_active));
-    set('spol-kpi-residents',`${perStore.toLocaleString('pl-PL')}<span class="stat-unit"> os.</span>`);
+    setCount('spol-kpi-residents',perStore);
   }
 
   if(dens.length&&s&&s.total_active){
     const totalArea=dens.reduce((a,r)=>a+(r.area_km2||0),0);
     if(totalArea>0){
       const per100=(+s.total_active)/totalArea*100;
-      set('spol-kpi-density',`${per100.toFixed(2).replace('.',',')}<span class="stat-unit">/100km²</span>`);
+      setCount('spol-kpi-density',per100);
     }
   }
 
   const gminy=(M.coverage_funnel||[]).find(r=>r.level==='gminy');
   if(gminy&&gminy.pct!=null){
-    set('spol-kpi-gminy',`${String(gminy.pct).replace('.',',')}<span class="stat-unit">%</span>`);
+    setCount('spol-kpi-gminy',gminy.pct);
   }
 
   if(iv.length){
     const totZ=iv.reduce((a,r)=>a+(r.zabki||0),0);
     const totP=iv.reduce((a,r)=>a+(r.paczkomaty||0),0);
     if(totZ){
-      const ratio=(totP/totZ).toFixed(2).replace('.',',');
-      set('spol-kpi-inpost',`${ratio}<span class="stat-unit">x</span>`);
+      setCount('spol-kpi-inpost',totP/totZ);
     }
   }
 
   if(s&&s.cities_count){
-    set('spol-kpi-cities',(+s.cities_count).toLocaleString('pl-PL'));
+    setCount('spol-kpi-cities',+s.cities_count);
   }
 
   const ohArr = Array.isArray(M.opening_hours) ? M.opening_hours : [];
@@ -63,7 +62,7 @@ function renderSpolecKPIs(){
     const oh23 = ohArr.filter(p => (p.pattern||'').includes('23:')).reduce((s,p) => s+(p.cnt||0), 0);
     if(ohTotal > 0) {
       const pct = Math.round(oh23/ohTotal*1000)/10;
-      set('spol-kpi-closed23', `${String(pct).replace('.',',')}<span class="stat-unit">%</span>`);
+      setCount('spol-kpi-closed23', pct);
     }
   }
 }
@@ -193,6 +192,7 @@ export function renderSpoleczenstwo(){
     startTabParticles('particles-spoleczenstwo',[188,224,58],60);
   }
   renderSpolecKPIs();
+  wireCountUp(document.getElementById('spol-kpi-strip'));
   whenVisible(document.getElementById('map-inpost'), renderInpostMap);   // defer MapLibre until on-screen
   // Update lead paragraph with live totals
   const leadEl=document.getElementById('ec-lead-totals');

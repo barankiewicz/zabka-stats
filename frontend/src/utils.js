@@ -75,6 +75,30 @@ export function debounce(fn, wait=150){
   return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), wait); };
 }
 
+// Animate KPI numbers climbing to their target once they scroll into view.
+// Elements are found via `root.querySelectorAll('[data-count]')`. Reads
+// el.dataset.count (target number), .dataset.dec (decimal places, default 0),
+// .dataset.suffix (plain string appended after the formatted number). Call
+// after setting .dataset.count so the target is ready when the observer fires.
+export function wireCountUp(root){
+  if(!root)return;
+  const nodes=root.querySelectorAll('[data-count]');
+  if(!nodes.length)return;
+  const prefersReduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const countUp=el=>{
+    const target=parseFloat(el.dataset.count);
+    if(Number.isNaN(target))return;
+    const dec=parseInt(el.dataset.dec||'0',10),suf=el.dataset.suffix||'';
+    const f=v=>v.toLocaleString('pl-PL',{minimumFractionDigits:dec,maximumFractionDigits:dec})+suf;
+    if(prefersReduced){el.textContent=f(target);return;}
+    const dur=1300,t0=performance.now();
+    (function step(t){let p=Math.min(1,(t-t0)/dur);p=1-Math.pow(1-p,3);el.textContent=f(target*p);if(p<1)requestAnimationFrame(step);})(t0);
+  };
+  if(typeof IntersectionObserver==='undefined'){nodes.forEach(countUp);return;}
+  const obs=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){countUp(e.target);obs.unobserve(e.target);}}),{threshold:.6});
+  nodes.forEach(el=>obs.observe(el));
+}
+
 // Ambient particle field for tab hero sections.
 // rgb: [r,g,b] base color; count: number of particles.
 // Returns a cancel function.
