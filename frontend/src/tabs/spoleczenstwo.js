@@ -10,7 +10,14 @@ function ensureMaplibre(){
 import { C, STATE } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
 import { fmt, getFont, destroyChart, startTabParticles, capName, whenVisible } from '../utils.js';
-import { renderEcon } from './econ.js';
+
+// econ.js pulls in ECharts (~180 KB gz); its two scatter chapters sit at the
+// very bottom of this tab, well below the fold, so load it only once that
+// section nears the viewport instead of on every tab-open.
+let _econModP;
+function ensureEcon(){
+  return _econModP ??= import('./econ.js');
+}
 
 
 function renderSpolecKPIs(){
@@ -212,7 +219,7 @@ export function renderSpoleczenstwo(){
       })(performance.now());
     }
   }
-  renderEcon();
+  whenVisible(document.getElementById('ec-root'), async () => { const { renderEcon } = await ensureEcon(); renderEcon(); });
   renderDumbbellByLevel();
   renderSpolKnn();
   renderStreets();
