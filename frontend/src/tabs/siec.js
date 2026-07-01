@@ -732,9 +732,12 @@ export function renderGrowthChart(){
           ticks: { color: C.muted },
         },
         y: {
+          // No explicit max: let Chart.js pick a round tick ceiling (matching
+          // Plot's rounder-looking axis) instead of clamping exactly to
+          // maxStores. Safe to do independently of the line, since yoy lives
+          // on its own hidden y1 axis scaled to maxYoy regardless of this one.
           title: { display: true, text: '↑ Nowe sklepy', color: C.muted },
           beginAtZero: true,
-          max: maxStores,
           grid: { color: C.axis },
           ticks: { color: C.muted },
         },
