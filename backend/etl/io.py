@@ -482,6 +482,16 @@ def load_to_duckdb(con, rows: list, meta: dict):
 
     con.unregister("incoming_df")
 
+    try:
+        print("[load] clustering/sorting table by deleted_at, voivodeship_id, powiat_id...")
+        con.execute("CREATE TEMP TABLE temp_locations AS SELECT * FROM locations ORDER BY deleted_at DESC, voivodeship_id, powiat_id")
+        con.execute("DELETE FROM locations")
+        con.execute("INSERT INTO locations SELECT * FROM temp_locations")
+        con.execute("DROP TABLE temp_locations")
+        print("[load] table clustering complete")
+    except Exception as e:
+        print(f"[load] warning: table clustering skipped: {e}")
+
     for stmt in (
         "CREATE INDEX IF NOT EXISTS idx_locations_city ON locations(city)",
         "CREATE INDEX IF NOT EXISTS idx_locations_deleted_at ON locations(deleted_at)",

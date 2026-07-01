@@ -3,32 +3,32 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Żabka w liczbach – interaktywny atlas sieci w Polsce</title>
+<title>Żabkozbiór – interaktywny atlas sieci w Polsce</title>
 <meta name="description" content="Interaktywny atlas sieci Żabka: gdzie, kiedy i jak rosła sieć ponad 13 tysięcy sklepów. Mapy, rankingi, ekonomia i ciekawostki na danych publicznych.">
 <meta name="robots" content="index,follow">
-<link rel="canonical" href="https://zabka-stats.barankiewicz.dev/">
+<link rel="canonical" href="https://zabkozbior.barankiewicz.dev/">
 <meta name="theme-color" content="#0a120a">
 
 <!-- Analityka: GoatCounter (self-hosted, /gc/) - bez cookies, bez GDPR bannera -->
-<script data-goatcounter="https://zabka-stats.barankiewicz.dev/gc/count" async src="https://zabka-stats.barankiewicz.dev/gc/count.js"></script>
+<script data-goatcounter="https://zabkozbior.barankiewicz.dev/gc/count" async src="https://zabkozbior.barankiewicz.dev/gc/count.js"></script>
 
 <!-- Open Graph -->
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Żabka w liczbach">
+<meta property="og:site_name" content="Żabkozbiór">
 <meta property="og:locale" content="pl_PL">
-<meta property="og:url" content="https://zabka-stats.barankiewicz.dev/">
-<meta property="og:title" content="Żabka w liczbach – interaktywny atlas sieci w Polsce">
+<meta property="og:url" content="https://zabkozbior.barankiewicz.dev/">
+<meta property="og:title" content="Żabkozbiór – interaktywny atlas sieci w Polsce">
 <meta property="og:description" content="Gdzie, kiedy i jak rosła sieć ponad 13 tysięcy sklepów Żabka. Mapy, rankingi, ekonomia i ciekawostki na danych publicznych.">
-<meta property="og:image" content="https://zabka-stats.barankiewicz.dev/og.png">
+<meta property="og:image" content="https://zabkozbior.barankiewicz.dev/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Interaktywny atlas sklepów Żabka w Polsce – ciemna mapa z lokalizacjami i wykresami">
 
 <!-- Twitter / X -->
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Żabka w liczbach – interaktywny atlas sieci w Polsce">
+<meta name="twitter:title" content="Żabkozbiór – interaktywny atlas sieci w Polsce">
 <meta name="twitter:description" content="Gdzie, kiedy i jak rosła sieć ponad 13 tysięcy sklepów Żabka. Mapy, rankingi, ekonomia i ciekawostki na danych publicznych.">
-<meta name="twitter:image" content="https://zabka-stats.barankiewicz.dev/og.png">
+<meta name="twitter:image" content="https://zabkozbior.barankiewicz.dev/og.png">
 <meta name="twitter:image:alt" content="Interaktywny atlas sklepów Żabka w Polsce – ciemna mapa z lokalizacjami i wykresami">
 
 <!-- Structured data: strona + zbiór danych (oryginalne dane = szansa na rich result) -->
@@ -38,9 +38,9 @@
   "@graph": [
     {
       "@type": "WebSite",
-      "@id": "https://zabka-stats.barankiewicz.dev/#website",
-      "name": "Żabka w liczbach",
-      "url": "https://zabka-stats.barankiewicz.dev/",
+      "@id": "https://zabkozbior.barankiewicz.dev/#website",
+      "name": "Żabkozbiór",
+      "url": "https://zabkozbior.barankiewicz.dev/",
       "description": "Interaktywny atlas sieci Żabka w Polsce na danych publicznych.",
       "inLanguage": "pl-PL"
     },
@@ -48,7 +48,7 @@
       "@type": "Dataset",
       "name": "Sieć Żabka w Polsce – lokalizacje i statystyki",
       "description": "Dane o ponad 13 tysiącach sklepów Żabka w Polsce: lokalizacje, daty otwarcia, gęstość, godziny otwarcia oraz korelacje z danymi GUS, GBIF, InPost i GUGiK.",
-      "url": "https://zabka-stats.barankiewicz.dev/",
+      "url": "https://zabkozbior.barankiewicz.dev/",
       "inLanguage": "pl-PL",
       "isAccessibleForFree": true,
       "keywords": ["Żabka", "sklepy convenience", "Polska", "mapa sklepów", "statystyki", "dane otwarte"],
@@ -59,15 +59,15 @@
       "creator": {
         "@type": "Person",
         "name": "Alicja Barankiewicz",
-        "url": "https://ala-barankiewicz.pl"
+        "url": "https://barankiewicz.dev"
       },
       "license": "https://creativecommons.org/licenses/by/4.0/",
       "distribution": [{
         "@type": "DataDownload",
         "encodingFormat": "application/json",
-        "contentUrl": "https://zabka-stats.barankiewicz.dev/api/locations/map"
+        "contentUrl": "https://zabkozbior.barankiewicz.dev/api/locations/map"
       }],
-      "isPartOf": { "@id": "https://zabka-stats.barankiewicz.dev/#website" }
+      "isPartOf": { "@id": "https://zabkozbior.barankiewicz.dev/#website" }
     }
   ]
 }
@@ -94,7 +94,7 @@
 
 <nav aria-label="Nawigacja główna">
   <div class="nav-inner">
-    <a class="brand" href="#top"><span class="brand-dot"></span>Żabka w liczbach</a>
+    <a class="brand" href="#top"><span class="brand-dot"></span>Żabkozbiór</a>
     <div class="tab-nav" role="tablist" aria-label="Sekcje dashboardu">
       <button class="tab-btn active" id="tab-btn-siec" data-tab="siec" role="tab" aria-selected="true" aria-controls="tab-siec" tabindex="0">Sieć</button>
       <button class="tab-btn" id="tab-btn-spoleczenstwo" data-tab="spoleczenstwo" role="tab" aria-selected="false" aria-controls="tab-spoleczenstwo" tabindex="-1">Żabka a Polska</button>
@@ -108,7 +108,7 @@
 
 <!-- ============ SIEC ============ -->
 <main id="main-content">
-<h1 class="sr-only">Żabka w liczbach – interaktywny atlas sieci sklepów w Polsce</h1>
+<h1 class="sr-only">Żabkozbiór – interaktywny atlas sieci sklepów w Polsce</h1>
 <div id="tab-siec" class="tab-panel active" role="tabpanel" aria-labelledby="tab-btn-siec" tabindex="0">
 <div class="section-wrap">
 
@@ -678,7 +678,7 @@
 
 <footer class="site-foot">
   <div class="section-wrap foot-inner">
-    <div class="foot-brand"><span class="brand-dot"></span>Żabka w liczbach</div>
+    <div class="foot-brand"><span class="brand-dot"></span>Żabkozbiór</div>
     <span class="foot-text">Zbudowane z danych publicznych · <a href="/methodology.html" class="foot-link">Metodyka</a></span>
     <div class="foot-right">
       <span class="foot-text">made with <span class="foot-heart">&#9829;</span> in Warsaw</span>

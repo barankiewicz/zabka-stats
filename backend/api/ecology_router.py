@@ -1,9 +1,10 @@
 import json
 from pathlib import Path
 
-from litestar import Router, get
+from litestar import Response, Router, get
+from litestar.serialization import encode_json
 
-from backend.cache import cached
+from backend.cache import cached, get_cached_blob, set_cached_blob
 from backend.database_ch import client
 from backend.schemas.api_models import AmphibianExtremesResponse, Section3RareResponse
 
@@ -34,8 +35,11 @@ async def startup_ecology() -> None:
 startup_handlers = [startup_ecology]
 
 @get("/stats/amphibians")
-@cached(ttl=3600)
-async def amphibians() -> AmphibianExtremesResponse:
+async def amphibians() -> Response:
+    cached_blob = get_cached_blob("amphibians_stats")
+    if cached_blob is not None:
+        return Response(cached_blob, media_type="application/json")
+
     # Summary stats
     total = client.execute("""
         SELECT COUNT(*), SUM(CASE WHEN h24 THEN 1 ELSE 0 END)
@@ -161,40 +165,44 @@ async def amphibians() -> AmphibianExtremesResponse:
         ORDER BY total_occ DESC LIMIT 10
     """).fetchall()
     
-    return AmphibianExtremesResponse(
-        gbif_total=_gbif_total(),
-        median_occurrences=int(round(float(median_row[0]))) if median_row and median_row[0] is not None else None,
-        has_enriched_data=has_amphibian_data,
-        most_froggy=most_froggy,
-        zero_frog_count=int(zero_count[0] or 0) if zero_count else None,
-        farthest_from_frog={
+    payload = {
+        "gbif_total": _gbif_total(),
+        "median_occurrences": int(round(float(median_row[0]))) if median_row and median_row[0] is not None else None,
+        "has_enriched_data": has_amphibian_data,
+        "most_froggy": most_froggy,
+        "zero_frog_count": int(zero_count[0] or 0) if zero_count else None,
+        "farthest_from_frog": {
             "city": farthest_ff[0] if farthest_ff else None,
             "voivodeship": farthest_ff[1] if farthest_ff else None,
             "nearest_amphibian_km": float(farthest_ff[2]) if farthest_ff else None,
             "latitude": float(farthest_ff[3]) if farthest_ff else None,
             "longitude": float(farthest_ff[4]) if farthest_ff else None,
         },
-        voivodeship_names=voiv_names,
-        stores=[
+        "voivodeship_names": voiv_names,
+        "stores": [
             [round(float(r[0]), 4), round(float(r[1]), 4), int(r[2]), round(float(r[3]), 2),
              voiv_idx.get(r[4], -1)]
             for r in stores_db
         ],
-        scatter_sample=[
+        "scatter_sample": [
             [int(r[1]), int(r[0])]
             for r in scatter_db
         ],
-        distribution=[{"bucket": r[0], "cnt": int(r[1])} for r in dist],
-        by_voivodeship=[
+        "distribution": [{"bucket": r[0], "cnt": int(r[1])} for r in dist],
+        "by_voivodeship": [
             {"voivodeship": r[0], "avg_occurrences": int(r[1] or 0), "stores": int(r[2])}
             for r in by_voiv if r[0]
         ],
-        top10=[
+        "top10": [
             {"city": r[0], "voivodeship": r[1], "occ": int(r[2])}
             for r in top10 if r[0]
         ],
-        gbif_obs=[],
-    )
+        "gbif_obs": [],
+    }
+    
+    blob = encode_json(payload)
+    set_cached_blob("amphibians_stats", blob, ttl=3600)
+    return Response(blob, media_type="application/json")
 
 @get("/stats/section3-rare")
 @cached(ttl=3600)
@@ -345,14 +353,21 @@ async def section3_rare() -> Section3RareResponse:
     )
 
 @get("/stats/parks-stores")
-@cached(ttl=3600)
-async def parks_stores() -> list[list[float]]:
+async def parks_stores() -> Response:
+    cached_blob = get_cached_blob("parks_stores")
+    if cached_blob is not None:
+        return Response(cached_blob, media_type="application/json")
+
     rows = client.execute("""
         SELECT latitude, longitude
         FROM locations
         WHERE is_in_nature_park = TRUE AND deleted_at IS NULL
     """).fetchall()
-    return [[round(float(r[0]), 6), round(float(r[1]), 6)] for r in rows]
+    
+    payload = [[round(float(r[0]), 6), round(float(r[1]), 6)] for r in rows]
+    blob = encode_json(payload)
+    set_cached_blob("parks_stores", blob, ttl=3600)
+    return Response(blob, media_type="application/json")
 
 router = Router(
     path="",
