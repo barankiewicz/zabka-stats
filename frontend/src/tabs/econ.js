@@ -178,8 +178,24 @@ function baseOption() {
 function buildAct1(ctx, gridBox) {
   return {
     grid: gridBox,
-    xAxis: { type: 'value', min: MAP_LON[0], max: MAP_LON[1], ...HIDDEN_AXIS_BITS, splitLine: { show: false } },
-    yAxis: { type: 'value', min: MAP_LAT[0], max: MAP_LAT[1], ...HIDDEN_AXIS_BITS, splitLine: { show: false } },
+    xAxis: {
+      type: 'value',
+      min: MAP_LON[0],
+      max: MAP_LON[1],
+      axisLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.2)' } },
+      axisTick: { show: true, lineStyle: { color: 'rgba(140,200,80,.3)' } },
+      axisLabel: { show: true, color: '#93a487', fontFamily: 'JetBrains Mono', fontSize: 10, formatter: v => v.toFixed(1) + '°E' },
+      splitLine: { show: false }
+    },
+    yAxis: {
+      type: 'value',
+      min: MAP_LAT[0],
+      max: MAP_LAT[1],
+      axisLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.2)' } },
+      axisTick: { show: true, lineStyle: { color: 'rgba(140,200,80,.3)' } },
+      axisLabel: { show: true, color: '#93a487', fontFamily: 'JetBrains Mono', fontSize: 10, formatter: v => v.toFixed(1) + '°N' },
+      splitLine: { show: false }
+    },
     series: [
       { id: 'trend', data: [] },
       { id: 'powiaty', type: 'scatter',
@@ -195,9 +211,25 @@ function buildAct2(ctx) {
     ctx.rows.reduce((b, r) => r.avg_salary > (b ? b.avg_salary : -Infinity) ? r : b, null)?.powiat_id,
   ]);
   return {
-    grid: { left: 40, right: 40, top: 60, bottom: 60 },
-    xAxis: { type: 'value', min: ctx.salaryMin, max: ctx.salaryMax, ...HIDDEN_AXIS_BITS, splitLine: { show: true, ...AXIS_LINE } },
-    yAxis: { type: 'value', min: -0.6, max: 0.6, ...HIDDEN_AXIS_BITS, splitLine: { show: false } },
+    grid: { left: 56, right: 40, top: 48, bottom: 48 },
+    xAxis: {
+      type: 'value',
+      min: ctx.salaryMin,
+      max: ctx.salaryMax,
+      axisLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.2)' } },
+      axisTick: { show: true, lineStyle: { color: 'rgba(140,200,80,.3)' } },
+      axisLabel: { show: true, color: '#93a487', fontFamily: 'JetBrains Mono', fontSize: 10, formatter: v => Math.round(v).toLocaleString('pl-PL') + ' zł' },
+      splitLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.08)' } }
+    },
+    yAxis: {
+      type: 'value',
+      min: -0.6,
+      max: 0.6,
+      axisLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.2)' } },
+      axisTick: { show: false },
+      axisLabel: { show: false },
+      splitLine: { show: false }
+    },
     series: [
       { id: 'trend', data: [] },
       { id: 'powiaty', type: 'scatter',
@@ -215,9 +247,25 @@ function buildAct2(ctx) {
 
 function buildAct3(ctx) {
   return {
-    grid: { left: 44, right: 24, top: 24, bottom: 56 },
-    xAxis: { type: 'value', min: ctx.salaryMin, max: ctx.salaryMax, ...HIDDEN_AXIS_BITS, splitLine: { show: true, ...AXIS_LINE } },
-    yAxis: { type: 'value', min: 0, max: ctx.ymax, ...HIDDEN_AXIS_BITS, splitLine: { show: true, ...AXIS_LINE } },
+    grid: { left: 56, right: 24, top: 48, bottom: 48 },
+    xAxis: {
+      type: 'value',
+      min: ctx.salaryMin,
+      max: ctx.salaryMax,
+      axisLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.2)' } },
+      axisTick: { show: true, lineStyle: { color: 'rgba(140,200,80,.3)' } },
+      axisLabel: { show: true, color: '#93a487', fontFamily: 'JetBrains Mono', fontSize: 10, formatter: v => Math.round(v).toLocaleString('pl-PL') + ' zł' },
+      splitLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.08)' } }
+    },
+    yAxis: {
+      type: 'value',
+      min: 0,
+      max: ctx.ymax,
+      axisLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.2)' } },
+      axisTick: { show: true, lineStyle: { color: 'rgba(140,200,80,.3)' } },
+      axisLabel: { show: true, color: '#93a487', fontFamily: 'JetBrains Mono', fontSize: 10, formatter: v => v.toFixed(2) },
+      splitLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.08)' } }
+    },
     series: [
       { id: 'trend', data: [[ctx.salaryMin, ctx.reg1.slope * ctx.salaryMin + ctx.reg1.intercept],
                              [ctx.salaryMax, ctx.reg1.slope * ctx.salaryMax + ctx.reg1.intercept]],
@@ -236,11 +284,24 @@ const QUARTILE_LABELS_SALARY = ['Q1 – najniższe zarobki', 'Q2 – niższe zar
 
 function buildAct4(ctx) {
   return {
-    grid: { left: 44, right: 24, top: 30, bottom: 56 },
-    xAxis: { type: 'category', data: QUARTILE_LABELS_SALARY, axisLine: AXIS_LINE,
-      axisTick: { show: false }, axisLabel: { show: true, color: '#93a487', fontFamily: 'IBM Plex Sans', fontSize: 10.5, interval: 0 },
-      splitLine: { show: false } },
-    yAxis: { type: 'value', min: 0, max: Math.max(...ctx.qSalaryMeans) * 1.2, ...HIDDEN_AXIS_BITS, splitLine: { show: true, ...AXIS_LINE } },
+    grid: { left: 56, right: 24, top: 48, bottom: 48 },
+    xAxis: {
+      type: 'category',
+      data: QUARTILE_LABELS_SALARY,
+      axisLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.2)' } },
+      axisTick: { show: false },
+      axisLabel: { show: true, color: '#93a487', fontFamily: 'IBM Plex Sans', fontSize: 10, interval: 0 },
+      splitLine: { show: false }
+    },
+    yAxis: {
+      type: 'value',
+      min: 0,
+      max: Math.max(...ctx.qSalaryMeans) * 1.2,
+      axisLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.2)' } },
+      axisTick: { show: true, lineStyle: { color: 'rgba(140,200,80,.3)' } },
+      axisLabel: { show: true, color: '#93a487', fontFamily: 'JetBrains Mono', fontSize: 10, formatter: v => v.toFixed(2) },
+      splitLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.08)' } }
+    },
     series: [
       { id: 'trend', data: [] },
       { id: 'powiaty', type: 'bar', barWidth: '52%',
@@ -255,9 +316,25 @@ function buildAct4(ctx) {
 
 function buildAct5(ctx) {
   return {
-    grid: { left: 44, right: 24, top: 24, bottom: 56 },
-    xAxis: { type: 'value', min: ctx.salaryMin, max: ctx.salaryMax, ...HIDDEN_AXIS_BITS, splitLine: { show: true, ...AXIS_LINE } },
-    yAxis: { type: 'value', min: 0, max: ctx.ymax, ...HIDDEN_AXIS_BITS, splitLine: { show: true, ...AXIS_LINE } },
+    grid: { left: 56, right: 24, top: 48, bottom: 48 },
+    xAxis: {
+      type: 'value',
+      min: ctx.salaryMin,
+      max: ctx.salaryMax,
+      axisLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.2)' } },
+      axisTick: { show: true, lineStyle: { color: 'rgba(140,200,80,.3)' } },
+      axisLabel: { show: true, color: '#93a487', fontFamily: 'JetBrains Mono', fontSize: 10, formatter: v => Math.round(v).toLocaleString('pl-PL') + ' zł' },
+      splitLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.08)' } }
+    },
+    yAxis: {
+      type: 'value',
+      min: 0,
+      max: ctx.ymax,
+      axisLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.2)' } },
+      axisTick: { show: true, lineStyle: { color: 'rgba(140,200,80,.3)' } },
+      axisLabel: { show: true, color: '#93a487', fontFamily: 'JetBrains Mono', fontSize: 10, formatter: v => v.toFixed(2) },
+      splitLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.08)' } }
+    },
     series: [
       { id: 'trend', data: [[ctx.salaryMin, ctx.reg1.slope * ctx.salaryMin + ctx.reg1.intercept],
                              [ctx.salaryMax, ctx.reg1.slope * ctx.salaryMax + ctx.reg1.intercept]],
@@ -278,9 +355,25 @@ function buildAct5(ctx) {
 
 function buildAct6(ctx) {
   return {
-    grid: { left: 44, right: 24, top: 24, bottom: 56 },
-    xAxis: { type: 'value', min: 0, max: ctx.unempMax, ...HIDDEN_AXIS_BITS, splitLine: { show: true, ...AXIS_LINE } },
-    yAxis: { type: 'value', min: 0, max: ctx.ymax, ...HIDDEN_AXIS_BITS, splitLine: { show: true, ...AXIS_LINE } },
+    grid: { left: 56, right: 24, top: 48, bottom: 48 },
+    xAxis: {
+      type: 'value',
+      min: 0,
+      max: ctx.unempMax,
+      axisLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.2)' } },
+      axisTick: { show: true, lineStyle: { color: 'rgba(140,200,80,.3)' } },
+      axisLabel: { show: true, color: '#93a487', fontFamily: 'JetBrains Mono', fontSize: 10, formatter: v => v.toFixed(1) + '%' },
+      splitLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.08)' } }
+    },
+    yAxis: {
+      type: 'value',
+      min: 0,
+      max: ctx.ymax,
+      axisLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.2)' } },
+      axisTick: { show: true, lineStyle: { color: 'rgba(140,200,80,.3)' } },
+      axisLabel: { show: true, color: '#93a487', fontFamily: 'JetBrains Mono', fontSize: 10, formatter: v => v.toFixed(2) },
+      splitLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.08)' } }
+    },
     series: [
       { id: 'trend', data: [[0, ctx.reg2.intercept], [ctx.unempMax, ctx.reg2.slope * ctx.unempMax + ctx.reg2.intercept]],
         lineStyle: { color: '#e8693d', width: 2, type: 'dashed', opacity: .7 } },
@@ -364,17 +457,49 @@ function initEconScene(ctx) {
     if (jump || RM) { opt.animationDurationUpdate = 0; opt.animationDelayUpdate = 0; }
     chart.setOption(opt);
     syncHud(id);
+
+    // Update active switcher button
+    const buttons = document.querySelectorAll('.econ-switcher__btn');
+    buttons.forEach(btn => {
+      const active = btn.dataset.act === id;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-selected', active ? 'true' : 'false');
+      btn.setAttribute('tabindex', active ? '0' : '-1');
+    });
+
+    // Update active description block with fade transition
+    const contents = document.querySelectorAll('.econ-desc-card__content');
+    contents.forEach(content => {
+      content.classList.toggle('is-active', content.dataset.act === id);
+    });
   }
 
-  const steps = Array.from(document.querySelectorAll('.econ-step'));
-  const io = new IntersectionObserver(entries => {
-    entries.forEach(e => {
-      if (!e.isIntersecting) return;
-      applyAct(e.target.dataset.act);
-      steps.forEach(s => s.classList.toggle('is-active', s === e.target));
+  // Initialize first act
+  applyAct('1');
+
+  // Setup tab switcher events (mouse/touch click + keyboard arrow keys)
+  const switcher = document.getElementById('econ-switcher');
+  if (switcher) {
+    const buttons = Array.from(switcher.querySelectorAll('.econ-switcher__btn'));
+    buttons.forEach((btn, index) => {
+      btn.addEventListener('click', () => {
+        applyAct(btn.dataset.act);
+      });
+      btn.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          const nextIdx = (index + 1) % buttons.length;
+          buttons[nextIdx].focus();
+          applyAct(buttons[nextIdx].dataset.act);
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          const prevIdx = (index - 1 + buttons.length) % buttons.length;
+          buttons[prevIdx].focus();
+          applyAct(buttons[prevIdx].dataset.act);
+        }
+      });
     });
-  }, { rootMargin: '-45% 0px -45% 0px', threshold: 0 });
-  steps.forEach(s => io.observe(s));
+  }
 
   const ro = new ResizeObserver(debounce(() => {
     chart.resize();

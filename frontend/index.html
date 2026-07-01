@@ -545,11 +545,21 @@
     </div>
   </div>
 
-  <!-- ================= ZABKA A POLSKA: scroll-driven scena ekonomiczna ================= -->
-  <section class="ec econ-scene" id="ec-root">
+  <!-- ================= ZABKA A POLSKA: interaktywny panel ekonomiczny ================= -->
+  <section class="ec econ-panel" id="ec-root">
 
-    <div class="econ-scene__sticky">
+    <div class="econ-panel__left">
       <div class="econ-scene__chart-wrap skel" id="econ-scene-chart-wrap">
+        <!-- Switcher Buttons positioned in the top-right corner of the chart wrap -->
+        <div class="econ-switcher" id="econ-switcher" role="tablist" aria-label="Wybór widoku wykresu">
+          <button class="econ-switcher__btn active" data-act="1" role="tab" aria-selected="true" tabindex="0">Mapa</button>
+          <button class="econ-switcher__btn" data-act="2" role="tab" aria-selected="false" tabindex="-1">Płaca (rozkład)</button>
+          <button class="econ-switcher__btn" data-act="3" role="tab" aria-selected="false" tabindex="-1">Płaca vs gęstość</button>
+          <button class="econ-switcher__btn" data-act="4" role="tab" aria-selected="false" tabindex="-1">Kwartyle płac</button>
+          <button class="econ-switcher__btn" data-act="5" role="tab" aria-selected="false" tabindex="-1">Wyjątki</button>
+          <button class="econ-switcher__btn" data-act="6" role="tab" aria-selected="false" tabindex="-1">Bezrobocie</button>
+        </div>
+
         <div id="econ-scene-chart" class="econ-scene__chart" role="img"
              aria-label="Wykres punktowy powiatów: płaca i bezrobocie a gęstość sieci Żabki. Korelacja z płacą dodatnia (ok. +0,4), z bezrobociem ujemna (ok. -0,35)."></div>
         <div class="econ-scene__hud" id="econ-scene-hud">
@@ -563,32 +573,35 @@
       </div>
     </div>
 
-    <div class="econ-scene__steps">
-      <article class="econ-step" data-act="1">
-        <h2>Polska, powiat po powiecie.</h2>
-        <p>Każda kropka to jeden powiat – <span id="econ-dot-count">314</span> w sumie. Kolor mówi, w którym regionie kraju leży. Reszta historii dopiero się zacznie.</p>
-      </article>
-      <article class="econ-step" data-act="2">
-        <h2>Ustawieni od najbiedniejszego do najbogatszego.</h2>
-        <p>Płaca rośnie w prawo. Teraz zobaczmy, co się stanie, gdy dołożymy gęstość sieci.</p>
-      </article>
-      <article class="econ-step" data-act="3">
-        <h2>Bogatsze powiaty, gęstsza sieć.</h2>
-        <p>To zestawienie poglądowe. Współczynnik r opisuje współwystępowanie, nie związek przyczynowy – Żabka nie unika biednych powiatów z premedytacją, tylko idzie za ruchem i gęstością zabudowy, a te akurat korelują z zamożnością.</p>
-      </article>
-      <article class="econ-step" data-act="4">
-        <h2>Gęstość rośnie kwartyl po kwartylu.</h2>
-        <p>Powiaty podzielone na cztery równe grupy według średniej płacy. Słupek po słupku gęstość rośnie – bez wyjątku.</p>
-      </article>
-      <article class="econ-step" data-act="5">
-        <h2>Wyjątki łamią regułę.</h2>
-        <p>Najgęstsza sieć stoi nie w najbogatszych powiatach, tylko w kurortach – kamieński (Międzyzdroje), tatrzański (Zakopane), Świnoujście. Tam sklepy obsługują turystów, nie mieszkańców. A lubiński, jeden z najbogatszych powiatów w Polsce dzięki miedzi KGHM, ma gęstość poniżej średniej. Bogactwo nie zawsze idzie w parze z tłumem na ulicy.</p>
-      </article>
-      <article class="econ-step" data-act="6">
-        <h2>Odwróć medal: bezrobocie.</h2>
-        <p>Druga strona tej samej historii, tym razem od strony rynku pracy. Tam, gdzie bezrobocie jest wysokie, sieć rzednie.</p>
-      </article>
+    <div class="econ-panel__right">
+      <div class="econ-desc-card" id="econ-desc-card">
+        <div class="econ-desc-card__content is-active" data-act="1">
+          <h2>Polska, powiat po powiecie.</h2>
+          <p>Każda kropka to jeden powiat – <span id="econ-dot-count">314</span> w sumie. Kolor mówi, w którym regionie kraju leży. Reszta historii dopiero się zacznie.</p>
+        </div>
+        <div class="econ-desc-card__content" data-act="2">
+          <h2>Ustawieni od najbiedniejszego do najbogatszego.</h2>
+          <p>Płaca rośnie w prawo. Teraz zobaczmy, co się stanie, gdy dołożymy gęstość sieci.</p>
+        </div>
+        <div class="econ-desc-card__content" data-act="3">
+          <h2>Bogatsze powiaty, gęstsza sieć.</h2>
+          <p>To zestawienie poglądowe. Współczynnik r opisuje współwystępowanie, nie związek przyczynowy – Żabka nie unika biednych powiatów z premedytacją, tylko idzie za ruchem i gęstością zabudowy, a te akurat korelują z zamożnością.</p>
+        </div>
+        <div class="econ-desc-card__content" data-act="4">
+          <h2>Gęstość rośnie kwartyl po kwartylu.</h2>
+          <p>Powiaty podzielone na cztery równe grupy według średniej płacy. Słupek po słupku gęstość rośnie – bez wyjątku.</p>
+        </div>
+        <div class="econ-desc-card__content" data-act="5">
+          <h2>Wyjątki łamią regułę.</h2>
+          <p>Najgęstsza sieć stoi nie w najbogatszych powiatach, tylko w kurortach – kamieński (Międzyzdroje), tatrzański (Zakopane), Świnoujście. Tam sklepy obsługują turystów, nie mieszkańców. A lubiński, jeden z najbogatszych powiatów w Polsce dzięki miedzi KGHM, ma gęstość poniżej średniej. Bogactwo nie zawsze idzie w parze z tłumem na ulicy.</p>
+        </div>
+        <div class="econ-desc-card__content" data-act="6">
+          <h2>Odwróć medal: bezrobocie.</h2>
+          <p>Druga strona tej samej historii, tym razem od strony rynku pracy. Tam, gdzie bezrobocie jest wysokie, sieć rzednie.</p>
+        </div>
+      </div>
     </div>
+  </section>
 
     <div class="stat-strip ec-reveal econ-kpis econ-scene__tiles" style="grid-template-columns:repeat(6,1fr)">
       <div class="stat-tile ec-reveal d1">

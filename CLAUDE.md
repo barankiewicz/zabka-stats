@@ -941,7 +941,7 @@ Imports `bubble.js` (D3 force chart), `kraniec.js` (Atlas krańców), `edge.js` 
 
 ### Tab ŻABKA A POLSKA (`spoleczenstwo.js`, default tab, render order)
 
-Imports `econ.js` (the scroll-driven ECharts economic scene).
+Imports `econ.js` (the interactive ECharts economic panel).
 
 | Ref | Library | Endpoint | What it shows |
 |---|---|---|---|
@@ -952,7 +952,7 @@ Imports `econ.js` (the scroll-driven ECharts economic scene).
 | kNN histogram | Chart.js (bar) | `/stats/neighbor-stats` | 6-bucket distribution of nearest-neighbor distance. Median 299m / avg 942m / max ~27.8km reference lines. |
 | STREETS | Chart.js (horizontal bar) | `/stats/common-streets?limit=15` | Busiest street names nationwide, dual-label y-axis (street name large, city small). Value labels at bar ends. |
 | GMINA-LEAD | Chart.js (horizontal bar) | `/stats/gmina-leaders?limit=12` | Top gminy by stores per 1000 residents (default) or per km² (metric toggle). Resorts lead per capita. National reference line on the per-1k view. |
-| ECON scroll-driven scene | ECharts (scatter + bar) | `/stats/powiat-economics` | "Polska, powiat po powiecie." Rebuild of the ECON chapters into a persistent ECharts scene morphing through 6 acts on scroll (map -> salary strip -> scatter -> quartile bars -> outliers -> unemployment scatter) using stable dot identities. |
+| ECON interactive panel | ECharts (scatter + bar) | `/stats/powiat-economics` | "Polska, powiat po powiecie." Rebuild of the ECON chapters into a persistent ECharts panel morphing through 6 acts via interactive switcher buttons or keyboard controls (map -> salary strip -> scatter -> quartile bars -> outliers -> unemployment scatter) using stable dot identities. |
 | Conclusion | DOM | — | "Co z tego wynika?" narrative close: Żabka follows money and crowds, not ideology. |
 
 ---
@@ -961,7 +961,7 @@ Imports `econ.js` (the scroll-driven ECharts economic scene).
 
 - **Chart.js 4.4.1** — vertical/horizontal bars, line, scatter, donut, histograms. The
   1.1 growth chart, GRAN ranking, NBL, kNN histogram, STREETS, GMINA-LEAD, POWIATY donut.
-- **ECharts** — the scroll-driven economic scene in `econ.js` (morphing scatter, map, and bars).
+- **ECharts** — the interactive economic panel in `econ.js` (morphing scatter, map, and bars).
   Bundled into the spoleczenstwo chunk.
 - **MapLibre GL JS 5.24** — all four dashboard maps: the SIEĆ growth map (a single
   WebGL circle layer for 13k+ stores, filtered by year, pitched to 38° for 3D),
@@ -1057,7 +1057,7 @@ to rendered content when its own data arrives. Never gate a chart on other chart
 | 2.3 InPost choropleth + dumbbell | ~420px |
 | NBL bar + kNN histogram | ~400px |
 | STREETS / GMINA-LEAD bars | ~420px |
-| ECON scroll-driven scene | ~560px |
+| ECON interactive panel | ~560px |
 | Edge KPI / card rows | ~220px per row |
 
 **Error states:**

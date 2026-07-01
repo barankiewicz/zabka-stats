@@ -395,46 +395,246 @@ canvas{display:block}
 .ec-reveal.d1{transition-delay:.06s}.ec-reveal.d2{transition-delay:.12s}.ec-reveal.d3{transition-delay:.18s}.ec-reveal.d4{transition-delay:.24s}.ec-reveal.d5{transition-delay:.30s}.ec-reveal.d6{transition-delay:.36s}
 @media(prefers-reduced-motion:reduce){.ec-reveal{opacity:1;transform:none;transition:none}.ec .bar-mini i{transition:none}}
 
-/* ===== "380 dots" scroll-driven econ scene: one ECharts instance morphing
-   through six acts (map -> strip -> scatter -> quartiles -> outliers -> axis
-   flip), scoped to .econ-scene ===== */
-.econ-scene{display:grid;grid-template-columns:62fr 34fr;gap:32px;align-items:start;margin-top:8px}
-.econ-scene__sticky{position:sticky;top:52px;height:calc(100vh - 52px);display:flex;align-items:center;padding:24px 0}
-.econ-scene__chart-wrap{position:relative;width:100%;height:min(560px,68vh);background:var(--surface);border:1px solid var(--axis);border-radius:var(--r);overflow:hidden}
-.econ-scene__chart{width:100%;height:100%}
-.econ-scene__hud{position:absolute;inset:0;pointer-events:none}
-.econ-hud__r{position:absolute;top:16px;right:16px;font-family:var(--font-mono);font-size:13px;font-weight:600;padding:6px 12px;border-radius:8px;background:rgba(12,22,11,.85);border:1px solid rgba(140,200,80,.3);color:var(--green-bright);opacity:0;transition:opacity .4s ease}
-.econ-hud__r.show{opacity:1}
-.econ-hud__r.neg{color:var(--amber);border-color:rgba(242,163,89,.35)}
-.econ-hud__axis{position:absolute;bottom:14px;left:16px;font-family:var(--font-mono);font-size:11px;color:var(--muted);letter-spacing:.04em;opacity:0;transition:opacity .4s ease}
-.econ-hud__axis.show{opacity:1}
-.econ-scene__error{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:var(--muted);font-size:13.5px;text-align:center;padding:20px;background:var(--surface)}
-.econ-scene__error[hidden]{display:none}
-.econ-scene__error button{font-family:var(--font-mono);font-size:12px;color:var(--green-bright);background:transparent;border:1px solid rgba(140,200,80,.3);border-radius:8px;padding:6px 14px;cursor:pointer}
-.econ-scene__error button:hover{background:rgba(132,195,65,.1)}
-
-.econ-scene__steps{display:flex;flex-direction:column}
-.econ-step{min-height:90vh;display:flex;flex-direction:column;justify-content:center;padding:40px 4px}
-.econ-step h2{font-family:var(--font-display);font-weight:800;letter-spacing:-.02em;font-size:clamp(20px,2.8vw,30px);line-height:1.15;margin:0 0 12px;color:var(--ink);transition:color .4s ease}
-.econ-step p{color:var(--muted);font-size:15.5px;line-height:1.65;max-width:52ch;margin:0}
-.econ-step.is-active h2{color:var(--green-bright)}
-
-.econ-scene__tiles{margin-top:8px}
-
-@media(max-width:1279px){
-  .econ-scene{grid-template-columns:1fr;gap:0}
-  .econ-scene__sticky{height:auto;padding:16px 0}
-  .econ-scene__chart-wrap{height:55vh}
-  .econ-step{min-height:60vh;padding:28px 4px}
+/* ===== "380 dots" interactive flat panel: one ECharts instance morphing
+   through six acts via tab switchers, scoped to .econ-panel ===== */
+.econ-panel {
+  display: grid;
+  grid-template-columns: 66fr 34fr;
+  gap: 32px;
+  align-items: stretch;
+  margin-top: 8px;
 }
-@media(max-width:767px){
-  .econ-scene__chart-wrap{height:48vh}
-  .econ-step{min-height:50vh}
-  .econ-step p{max-width:none}
-  .econ-hud__r{font-size:11.5px;padding:5px 10px}
+.econ-panel__left {
+  position: relative;
+  width: 100%;
 }
-@media(prefers-reduced-motion:reduce){
-  .econ-hud__r,.econ-hud__axis,.econ-step h2{transition:none}
+.econ-scene__chart-wrap {
+  position: relative;
+  width: 100%;
+  height: 560px;
+  background: var(--surface);
+  border: 1px solid var(--axis);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+.econ-scene__chart {
+  width: 100%;
+  height: 100%;
+}
+.econ-scene__hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.econ-hud__r {
+  position: absolute;
+  bottom: 14px;
+  right: 16px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(12, 22, 11, 0.85);
+  border: 1px solid rgba(140, 200, 80, 0.3);
+  color: var(--green-bright);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.econ-hud__r.show {
+  opacity: 1;
+}
+.econ-hud__r.neg {
+  color: var(--amber);
+  border-color: rgba(242, 163, 89, 0.35);
+}
+.econ-hud__axis {
+  position: absolute;
+  bottom: 14px;
+  left: 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.econ-hud__axis.show {
+  opacity: 1;
+}
+.econ-scene__error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13.5px;
+  text-align: center;
+  padding: 20px;
+  background: var(--surface);
+}
+.econ-scene__error[hidden] {
+  display: none;
+}
+.econ-scene__error button {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--green-bright);
+  background: transparent;
+  border: 1px solid rgba(140, 200, 80, 0.3);
+  border-radius: 8px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+.econ-scene__error button:hover {
+  background: rgba(132, 195, 65, 0.1);
+}
+
+.econ-panel__right {
+  display: flex;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--axis);
+  border-radius: var(--r);
+  padding: 32px;
+  box-sizing: border-box;
+}
+
+.econ-desc-card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.econ-desc-card__content {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%) translateX(15px);
+  width: 100%;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), visibility 0.4s;
+}
+
+.econ-desc-card__content.is-active {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-50%) translateX(0);
+}
+
+.econ-desc-card__content h2 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-size: clamp(20px, 2.8vw, 26px);
+  line-height: 1.25;
+  margin: 0 0 16px;
+  color: var(--green-bright);
+}
+
+.econ-desc-card__content p {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.65;
+  margin: 0;
+}
+
+.econ-switcher {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  background: rgba(12, 22, 11, 0.85);
+  border: 1px solid rgba(140, 200, 80, 0.3);
+  border-radius: 20px;
+  padding: 3px;
+  z-index: 10;
+  backdrop-filter: blur(8px);
+}
+
+.econ-switcher__btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.econ-switcher__btn:hover {
+  color: var(--ink);
+}
+
+.econ-switcher__btn.active {
+  background: var(--green-bright);
+  color: #0c160b;
+}
+
+.econ-scene__tiles {
+  margin-top: 24px;
+}
+
+@media(max-width:1279px) {
+  .econ-panel {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .econ-scene__chart-wrap {
+    height: 50vh;
+  }
+  .econ-panel__right {
+    padding: 24px;
+  }
+  .econ-desc-card__content {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    padding: 8px 0;
+    display: none;
+  }
+  .econ-desc-card__content.is-active {
+    display: block;
+    transform: none;
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+@media(max-width:767px) {
+  .econ-scene__chart-wrap {
+    height: 42vh;
+  }
+  .econ-hud__r {
+    font-size: 11.5px;
+    padding: 5px 10px;
+  }
+  .econ-switcher {
+    top: 8px;
+    right: 8px;
+    border-radius: 12px;
+  }
+  .econ-switcher__btn {
+    font-size: 10px;
+    padding: 3px 6px;
+    border-radius: 10px;
+  }
+}
+
+@media(prefers-reduced-motion:reduce) {
+  .econ-hud__r, .econ-hud__axis, .econ-desc-card__content {
+    transition: none;
+  }
 }
 
 /* ===== "Wartosci brzegowe" Atlas krancow, scoped to .kr ===== */
