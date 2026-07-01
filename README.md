@@ -30,14 +30,6 @@ The dashboard is structured into two interactive storytelling tabs:
 *   **Sieć (Network):** Growth history, calendar heatmaps of store openings, administrative rankings (Voivodeships, Powiats, Gminas, Cities), and the *Atlas krańców* of geographic extremes - elevation, the largest "Void", park overlaps, and the playful look at ecological frog occurrences (GBIF) near stores (edge cases and amphibians are folded in here).
 *   **Żabka a Polska (Society):** Scatter plots correlating store density against average salaries and unemployment rates, alongside an InPost vs. Żabka competitiveness index.
 
-### Key Insights You Can Get:
-*   **F1 - Survival Cohort Growth:** 45.4% of currently active stores opened since 2023. The oldest active store is in Swarzędz (opened in October 1998).
-*   **F3 - The Western Sunday Wall:** A distinct regional anomaly where stores in western Poland (e.g., Dolnośląskie at 10.6%) are up to 5x more likely to remain closed on Sundays compared to the rest of the country.
-*   **F4 - Silesia Density Outlier:** Śląskie voivodeship is a massive density outlier with **0.156 stores/km²** (nearly 4x the national average of 0.042/km²).
-*   **F5 - InPost East-West Dominance Reversal:** Eastern Poland (Podkarpackie) has 4.54 parcel lockers per store, whereas Western Poland (Zachodniopomorskie) has only 1.83.
-*   **F8 - Elevation Extremes:** The highest active store sits at **962.6m** (Kościelisko in the Tatry foothills), while the lowest is in the Gdańsk port area at **-1.5m** (below sea level).
-*   **F13 - Proximity:** Half of the entire store network lives within **300m** of another store, while the most isolated store sits **27.3 km** away from its nearest neighbor (Michałowo, Podlaskie).
-
 ---
 
 ## 3. Tech Stack
