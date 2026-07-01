@@ -102,7 +102,8 @@ function buildScatter(cfg) {
         markPoint: { symbol: 'circle', symbolSize: 1, silent: true, animationDelay: RM ? 0 : 1450, label: { color: '#eef3e6', fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 500, backgroundColor: 'rgba(12,22,11,.85)', borderColor: 'rgba(140,200,80,.3)', borderWidth: 1, borderRadius: 4, padding: [4, 9], formatter: p => p.data.txt }, data: cfg.heroes } }
     ]
   });
-  window.addEventListener('resize', debounce(() => chart.resize()));
+  const ro = new ResizeObserver(debounce(() => chart.resize(), 100));
+  ro.observe(node);
 }
 
 function buildBar(cfg) {
@@ -117,7 +118,8 @@ function buildBar(cfg) {
     yAxis: { type: 'category', data: cfg.cats, inverse: true, axisLabel: { color: '#eef3e6', fontFamily: 'IBM Plex Sans', fontSize: 10 }, axisLine: { lineStyle: { color: 'rgba(140,200,80,.2)' } }, axisTick: { show: false } },
     series: [{ type: 'bar', barWidth: '48%', data: cfg.vals.map((v, i) => ({ value: v, itemStyle: { color: cfg.cols[i], borderRadius: [0, 4, 4, 0] } })), label: { show: true, position: 'right', color: '#eef3e6', fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 500, formatter: p => p.value.toFixed(3) } }]
   });
-  window.addEventListener('resize', debounce(() => chart.resize()));
+  const ro = new ResizeObserver(debounce(() => chart.resize(), 100));
+  ro.observe(node);
 }
 
 function _setDC(id, v) { const el = document.getElementById(id); if (el && v != null) el.dataset.count = v; }

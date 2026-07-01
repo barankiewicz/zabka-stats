@@ -98,6 +98,17 @@ def _voiv_area():
                       for f in gj.get("features", [])}
     return _VOIV_AREA
 
+def _norm_voiv(name: str) -> str:
+    if not name:
+        return ""
+    s = name.lower().strip()
+    replacements = {
+        'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n', 'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z'
+    }
+    for k, v in replacements.items():
+        s = s.replace(k, v)
+    return s
+
 def _pow_geo():
     global _POW_GEO
     if _POW_GEO is None:
@@ -116,8 +127,9 @@ def _pow_geo():
             ys = [p[1] for r in rings for p in r]
             cx, cy = sum(xs) / len(xs), sum(ys) / len(ys)
             voiv = assign_region(cx, cy, woj_idx) or nearest_region(cx, cy, woj_idx)
+            voiv_norm = _norm_voiv(voiv)
             sname = _strip_pow(f["properties"].get("nazwa") or "").lower()
-            out[(voiv, sname)] = {"id": f["properties"].get("id"),
+            out[(voiv_norm, sname)] = {"id": f["properties"].get("id"),
                                   "area": round(sum(_ring_area_km2(r) for r in rings), 1)}
         _POW_GEO = out
     return _POW_GEO
@@ -337,7 +349,8 @@ async def by_dimension(
         for name, cnt, pop, lat, lon, voiv in raw:
             if dim == "powiat":
                 disp = _strip_pow(name)
-                g = geo.get((voiv, disp.lower()), {})
+                voiv_norm = _norm_voiv(voiv)
+                g = geo.get((voiv_norm, disp.lower()), {})
                 area, gid = g.get("area"), g.get("id")
             else:
                 disp, area, gid = name, varea.get(name) if varea else None, name

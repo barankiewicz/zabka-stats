@@ -293,7 +293,15 @@ async function buildMap() {
     if (!f || activeId === f.id) return;
     if (f.type === 'cluster') { showDots(f.id); return; }
     const m = markers[f.id];
-    if (m) { setActiveMarker(f.id); m.popup.setLngLat([f.lon, f.lat]).addTo(_krMap); panPopupIntoView(m.popup); }
+    if (m) {
+      setActiveMarker(f.id);
+      const zoomedOut = _krMap.getZoom() <= 7.5;
+      const onScreen = _krMap.getBounds().contains([f.lon, f.lat]);
+      if (zoomedOut || onScreen) {
+        m.popup.setLngLat([f.lon, f.lat]).addTo(_krMap);
+        panPopupIntoView(m.popup);
+      }
+    }
   }
   function unhoverFact(f) {
     if (!f || activeId === f.id) return;

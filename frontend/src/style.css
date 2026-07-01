@@ -621,4 +621,14 @@ canvas{display:block}
   .gran-ref-legend, .woj-val-label-marker, .stat-kicker {
     font-size: 11.5px !important;
   }
+
+  .atlas-kpis {
+    display: none !important;
+  }
+  .nbl-row {
+    grid-template-columns: 1fr !important;
+  }
+  .econ-kpis {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
 }

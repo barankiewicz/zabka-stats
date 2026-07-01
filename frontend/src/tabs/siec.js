@@ -915,12 +915,16 @@ export function renderPowiatCoverage(){
 
   if(!cv._pcHoverInit){
     cv._pcHoverInit=true;
-    const handleMove = e=>{const r=cv.getBoundingClientRect();
+    const handleMove = e=>{
+      if(!_pcState)return;
+      const r=cv.getBoundingClientRect();
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const clientY = e.touches ? e.touches[0].clientY : e.clientY;
       _pcState.hover=[clientX-r.left,clientY-r.top];
       if(!_pcState.raf)_pcState.raf=requestAnimationFrame(step)};
-    const handleLeave = ()=>{_pcState.hover=null;
+    const handleLeave = ()=>{
+      if(!_pcState)return;
+      _pcState.hover=null;
       if(!_pcState.raf)_pcState.raf=requestAnimationFrame(step)};
     cv.addEventListener('mousemove', handleMove);
     cv.addEventListener('mouseleave', handleLeave);
@@ -928,7 +932,7 @@ export function renderPowiatCoverage(){
     cv.addEventListener('touchmove', handleMove, {passive:true});
     cv.addEventListener('touchend', handleLeave);
   }
-  if(!cv._pcResize){cv._pcResize=true;window.addEventListener('resize',debounce(()=>{_pcState=null;renderPowiatCoverage()}))}
+  if(!cv._pcResize){cv._pcResize=true;window.addEventListener('resize',debounce(()=>{_pcOutline=null;renderPowiatCoverage()}))}
 }
 
 function wirePowiatLevel(){
