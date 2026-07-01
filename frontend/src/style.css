@@ -11,7 +11,7 @@
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   background:radial-gradient(ellipse 900px 700px at 10% 15%,rgba(0,192,96,.07) 0%,transparent 60%),
              radial-gradient(ellipse 700px 600px at 90% 85%,rgba(0,180,200,.05) 0%,transparent 55%)}
@@ -610,7 +610,7 @@ canvas{display:block}
     display: none;
   }
   .tab-btn {
-    font-size: 11.5px !important;
+    font-size: 12.5px !important;
     padding: 10px 14px !important;
     flex-shrink: 0;
   }
@@ -619,7 +619,7 @@ canvas{display:block}
   .map-legend, .map-legend-axis, .map-legend-axis--vert,
   .map-zoom-hint, .bubble-zoom-hint, .fpf-hint,
   .gran-ref-legend, .woj-val-label-marker, .stat-kicker {
-    font-size: 11.5px !important;
+    font-size: 12.5px !important;
   }
 
   .atlas-kpis {
