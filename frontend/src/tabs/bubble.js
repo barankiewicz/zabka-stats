@@ -134,8 +134,8 @@ function draw(res, stage) {
   _sim = forceSimulation(nodes)
     .force('x', forceX(w / 2).strength(0.07))
     .force('y', forceY(h / 2).strength(0.07))
-    .force('collide', forceCollide(d => rad(d) + 2.5).iterations(4))
-    .alphaDecay(0.018)
+    .force('collide', forceCollide(d => rad(d) + 2.5).iterations(2))
+    .alphaDecay(0.05)
     .on('tick', () => all.attr('transform', d => `translate(${d.x},${d.y})`));
 
   function dstart(e, d) { if (!e.active) _sim.alphaTarget(0.12).restart(); d.fx = d.x; d.fy = d.y; }
