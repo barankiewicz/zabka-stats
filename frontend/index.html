@@ -545,129 +545,82 @@
     </div>
   </div>
 
-  <!-- ================= ZABKA A POLSKA: placa + bezrobocie (infotainment) ================= -->
-  <section class="ec" id="ec-root">
+  <!-- ================= ZABKA A POLSKA: scroll-driven scena ekonomiczna ================= -->
+  <section class="ec econ-scene" id="ec-root">
 
-    <!-- ROZDZIAL 1: PLACA -->
-    <div class="ec-chapter">
-      <div class="ec-reveal">
-        <h2>Im wyższe zarobki,<br>tym więcej Żabek.</h2>
-        <p class="lead">To zestawienie poglądowe. Współczynnik r opisuje współwystępowanie, nie związek przyczynowy – Żabka nie unika biednych powiatów z premedytacją, tylko idzie za ruchem i gęstością zabudowy, a te akurat korelują z zamożnością.</p>
-      </div>
-
-      <div class="card ec-reveal">
-        <div class="chead">
-          <h3>Płaca vs gęstość sieci</h3>
-          
+    <div class="econ-scene__sticky">
+      <div class="econ-scene__chart-wrap skel" id="econ-scene-chart-wrap">
+        <div id="econ-scene-chart" class="econ-scene__chart" role="img"
+             aria-label="Wykres punktowy powiatów: płaca i bezrobocie a gęstość sieci Żabki. Korelacja z płacą dodatnia (ok. +0,4), z bezrobociem ujemna (ok. -0,35)."></div>
+        <div class="econ-scene__hud" id="econ-scene-hud">
+          <div class="econ-hud__r" id="econ-hud-r"></div>
+          <div class="econ-hud__axis" id="econ-hud-axis"></div>
         </div>
-        
-        <div id="scatter1" class="ec-chart"></div>
-      </div>
-
-      <div class="stat-strip ec-reveal econ-kpis" style="grid-template-columns:repeat(6,1fr);margin-top:16px;margin-bottom:0">
-        <div class="stat-tile ec-reveal d1">
-          <div class="stat-kicker">Najbogatsza ćwiartka</div>
-          <div class="stat-big" id="ec-fact-rich-share-num" data-count="58" data-dec="0" data-suffix="%">0</div>
-          <div class="stat-sub">sieci stoi w najbogatszej ćwiartce powiatów – najuboższa ma 10%</div>
+        <div class="econ-scene__error" id="econ-scene-error" hidden>
+          <p>Nie udało się załadować danych.</p>
+          <button type="button" id="econ-scene-retry">Spróbuj ponownie</button>
         </div>
-        <div class="stat-tile ec-reveal d2">
-          <div class="stat-kicker">Nożyce zamożności</div>
-          <div class="stat-big" id="ec-fact-ratio-num" data-count="2.1" data-dec="1" data-suffix="x">0</div>
-          <div class="stat-sub">sieć gęstsza w bogatszej ćwiartce niż w biedniejszej<i id="ec-fact-ratio-bar" data-fill="84" style="display:none"></i></div>
-        </div>
-        <div class="stat-tile ec-reveal d3">
-          <div class="stat-kicker">Korelacja z płacą</div>
-          <div class="stat-big" id="ec-fact-r-salary">-</div>
-          <div class="stat-sub">współczynnik r: płaca vs gęstość sieci</div>
-        </div>
-        <div class="stat-tile ec-reveal d4">
-          <div class="stat-kicker">Rekord gęstości</div>
-          <div class="stat-big">1 : <span id="ec-fact-record-num" data-count="1008" data-dec="0">0</span></div>
-          <div class="stat-sub" id="ec-fact-record-sub">Międzyzdroje (pow. kamieński)</div>
-        </div>
-        <div class="stat-tile ec-reveal d5">
-          <div class="stat-kicker">Najbogatszy powiat</div>
-          <div class="stat-big" id="ec-fact-rich-num" data-count="0.42" data-dec="2">0</div>
-          <div class="stat-sub" id="ec-fact-rich-sub">skl./1000 – a sieć rzadka</div>
-        </div>
-        <div class="stat-tile ec-reveal d6">
-          <div class="stat-kicker">Rozpiętość województw</div>
-          <div class="stat-big" id="ec-fact-voiv-num" data-count="2.5" data-dec="1" data-suffix="x">0</div>
-          <div class="stat-sub" id="ec-fact-voiv-sub">Pomorskie vs Podkarpackie</div>
-        </div>
-      </div>
-
-      <div class="card ec-reveal">
-        <div class="chead">
-          <h3>Drabina zamożności – gęstość rośnie kwartyl po kwartylu</h3>
-          <span class="cap">średnia sklepów / 1000 mieszk. · powiaty pogrupowane wg płacy</span>
-        </div>
-        <p class="cnote">381 powiatów w czterech równych grupach według średniej płacy. Słupek po słupku gęstość rośnie – bez wyjątku.</p>
-        <div id="bar1" class="ec-chart bar"></div>
-      </div>
-
-      <div class="twist ec-reveal">
-        <div class="t">Ale uwaga – twist</div>
-        <p>Sam szczyt gęstości łamie regułę. Najgęstsze są <b>kurorty</b> – kamieński (Międzyzdroje), tatrzański (Zakopane), Świnoujście – powiaty <i>średnio</i> zamożne, gdzie sklepy obsługują turystów. A <b>lubiński</b>, jeden z najbogatszych powiatów w Polsce (miedź KGHM), ma raptem 0,42. Bogactwo nie zawsze idzie w parze z tłumem na ulicy.</p>
       </div>
     </div>
 
-    <!-- ROZDZIAL 2: BEZROBOCIE -->
-    <div class="ec-chapter">
-      <div class="ec-reveal">
-        <h2>Gdzie brak pracy,<br>tam brak Żabki.</h2>
-        <p class="lead">Druga strona medalu. Tam, gdzie bezrobocie jest wysokie, sieć rzednie. To ta sama historia co przy płacy, tylko widziana od strony rynku pracy.</p>
-      </div>
+    <div class="econ-scene__steps">
+      <article class="econ-step" data-act="1">
+        <h2>Polska, powiat po powiecie.</h2>
+        <p>Każda kropka to jeden powiat – <span id="econ-dot-count">314</span> w sumie. Kolor mówi, w którym regionie kraju leży. Reszta historii dopiero się zacznie.</p>
+      </article>
+      <article class="econ-step" data-act="2">
+        <h2>Ustawieni od najbiedniejszego do najbogatszego.</h2>
+        <p>Płaca rośnie w prawo. Teraz zobaczmy, co się stanie, gdy dołożymy gęstość sieci.</p>
+      </article>
+      <article class="econ-step" data-act="3">
+        <h2>Bogatsze powiaty, gęstsza sieć.</h2>
+        <p>To zestawienie poglądowe. Współczynnik r opisuje współwystępowanie, nie związek przyczynowy – Żabka nie unika biednych powiatów z premedytacją, tylko idzie za ruchem i gęstością zabudowy, a te akurat korelują z zamożnością.</p>
+      </article>
+      <article class="econ-step" data-act="4">
+        <h2>Gęstość rośnie kwartyl po kwartylu.</h2>
+        <p>Powiaty podzielone na cztery równe grupy według średniej płacy. Słupek po słupku gęstość rośnie – bez wyjątku.</p>
+      </article>
+      <article class="econ-step" data-act="5">
+        <h2>Wyjątki łamią regułę.</h2>
+        <p>Najgęstsza sieć stoi nie w najbogatszych powiatach, tylko w kurortach – kamieński (Międzyzdroje), tatrzański (Zakopane), Świnoujście. Tam sklepy obsługują turystów, nie mieszkańców. A lubiński, jeden z najbogatszych powiatów w Polsce dzięki miedzi KGHM, ma gęstość poniżej średniej. Bogactwo nie zawsze idzie w parze z tłumem na ulicy.</p>
+      </article>
+      <article class="econ-step" data-act="6">
+        <h2>Odwróć medal: bezrobocie.</h2>
+        <p>Druga strona tej samej historii, tym razem od strony rynku pracy. Tam, gdzie bezrobocie jest wysokie, sieć rzednie.</p>
+      </article>
+    </div>
 
-      <div class="card ec-reveal">
-        <div class="chead">
-          <h3>Bezrobocie vs gęstość sieci</h3>
-        </div>
-        <div id="scatter2" class="ec-chart"></div>
+    <div class="stat-strip ec-reveal econ-kpis econ-scene__tiles" style="grid-template-columns:repeat(6,1fr)">
+      <div class="stat-tile ec-reveal d1">
+        <div class="stat-kicker">Korelacja z płacą</div>
+        <div class="stat-big" id="ec-fact-r-salary">-</div>
+        <div class="stat-sub">współczynnik r: płaca vs gęstość sieci</div>
       </div>
-
-      <div class="stat-strip ec-reveal econ-kpis" style="grid-template-columns:repeat(6,1fr);margin-top:16px;margin-bottom:0">
-        <div class="stat-tile ec-reveal d1">
-          <div class="stat-kicker">Odwrotna drabina</div>
-          <div class="stat-big" id="ec-fact-u-ratio-num" data-count="1.8" data-dec="1" data-suffix="x">0</div>
-          <div class="stat-sub">gęstsza sieć przy niskim bezrobociu<i id="ec-fact-u-ratio-bar" data-fill="71" style="display:none"></i></div>
-        </div>
-        <div class="stat-tile ec-reveal d2">
-          <div class="stat-kicker">Poniżej mediany</div>
-          <div class="stat-big" id="ec-fact-u-below-num" data-count="68" data-dec="0" data-suffix="%">0</div>
-          <div class="stat-sub">powiatów z najwyższym bezrobociem ma gęstość poniżej krajowej mediany</div>
-        </div>
-        <div class="stat-tile ec-reveal d3">
-          <div class="stat-kicker">Rekord bezrobocia</div>
-          <div class="stat-big" id="ec-fact-u-max-num" data-count="22.1" data-dec="1" data-suffix="%">0</div>
-          <div class="stat-sub" id="ec-fact-u-max-sub">szydłowiecki – tylko <span id="ec-fact-u-max-density">0,16</span> skl./1000</div>
-        </div>
-        <div class="stat-tile ec-reveal d4">
-          <div class="stat-kicker">Gęstość przy wysokim bezrobociu</div>
-          <div class="stat-big" id="ec-fact-u-q4dens-num" data-count="0" data-dec="2">0</div>
-          <div class="stat-sub">średnia skl./1000 w ćwiartce o najwyższym bezrobociu</div>
-        </div>
-        <div class="stat-tile ec-reveal d5">
-          <div class="stat-kicker">Sieć a trudny rynek</div>
-          <div class="stat-big" id="ec-fact-u-highshare-num" data-count="0" data-dec="0" data-suffix="%">0</div>
-          <div class="stat-sub">sieci stoi w ćwiartce powiatów o najwyższym bezrobociu</div>
-        </div>
-        <div class="stat-tile ec-reveal d6">
-          <div class="stat-kicker">Wyjątek kurortowy</div>
-          <div class="stat-big" id="ec-fact-u-leski-num" data-count="19.7" data-dec="1" data-suffix="%">0</div>
-          <div class="stat-sub" id="ec-fact-u-leski-sub">leski – wysokie bezrobocie, przyzwoita sieć</div>
-        </div>
+      <div class="stat-tile ec-reveal d2">
+        <div class="stat-kicker">Nożyce zamożności</div>
+        <div class="stat-big" id="ec-fact-ratio-num" data-count="2.1" data-dec="1" data-suffix="x">0</div>
+        <div class="stat-sub">sieć gęstsza w bogatszej ćwiartce niż w biedniejszej<i id="ec-fact-ratio-bar" data-fill="84" style="display:none"></i></div>
       </div>
-
-      <div class="card ec-reveal">
-        <div class="chead">
-          <h3>Im wyższe bezrobocie, tym niższy słupek</h3>
-          <span class="cap">średnia sklepów / 1000 mieszk. · powiaty pogrupowane wg bezrobocia</span>
-        </div>
-        
-        <div id="bar2" class="ec-chart bar"></div>
+      <div class="stat-tile ec-reveal d3">
+        <div class="stat-kicker">Rekord gęstości</div>
+        <div class="stat-big">1 : <span id="ec-fact-record-num" data-count="1008" data-dec="0">0</span></div>
+        <div class="stat-sub" id="ec-fact-record-sub">Międzyzdroje (pow. kamieński)</div>
       </div>
-
+      <div class="stat-tile ec-reveal d4">
+        <div class="stat-kicker">Korelacja z bezrobociem</div>
+        <div class="stat-big" id="ec-fact-r-unemp">-</div>
+        <div class="stat-sub">współczynnik r: bezrobocie vs gęstość sieci</div>
+      </div>
+      <div class="stat-tile ec-reveal d5">
+        <div class="stat-kicker">Odwrotna drabina</div>
+        <div class="stat-big" id="ec-fact-u-ratio-num" data-count="1.8" data-dec="1" data-suffix="x">0</div>
+        <div class="stat-sub">gęstsza sieć przy niskim bezrobociu<i id="ec-fact-u-ratio-bar" data-fill="71" style="display:none"></i></div>
+      </div>
+      <div class="stat-tile ec-reveal d6">
+        <div class="stat-kicker">Rekord bezrobocia</div>
+        <div class="stat-big" id="ec-fact-u-max-num" data-count="22.1" data-dec="1" data-suffix="%">0</div>
+        <div class="stat-sub" id="ec-fact-u-max-sub">szydłowiecki – tylko <span id="ec-fact-u-max-density">0,16</span> skl./1000</div>
+      </div>
     </div>
 
   </section>

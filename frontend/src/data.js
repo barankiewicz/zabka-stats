@@ -112,6 +112,15 @@ async function loadSiec() {
   });
 }
 
+// Standalone re-fetch for a single chart's retry button (econ scene): only
+// this one endpoint, so a flaky economics request doesn't force a full
+// tab-data reload.
+export async function refetchPowiatEconomics() {
+  const r = await fetchJSON(`${BASE}/stats/powiat-economics`);
+  M.powiat_economics = r;
+  return r;
+}
+
 async function loadSpoleczenstwo() {
   const [
     economics, sunday, density, merrychef, inpost, commonStreets,

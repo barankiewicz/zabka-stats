@@ -665,6 +665,8 @@ so a string join would be wrong). The voivodeship is referenced via
 | population | INTEGER | ECONOMY | population; GUS BDL variable 72305 (as of 31 Dec) |
 | avg_salary | DOUBLE | ECONOMY | average gross salary; GUS BDL 64428 (zł) |
 | unemployment_rate | DOUBLE | ECONOMY | registered unemployment rate; GUS BDL 60270 (%) |
+| centroid_lon | DOUBLE | GEO | centroid longitude calculated from geojson boundary |
+| centroid_lat | DOUBLE | GEO | centroid latitude calculated from geojson boundary |
 
 ### Table `administrative_division` (base dictionary table)
 
@@ -682,6 +684,8 @@ The master territory dictionary built directly from official GUS BDL / TERYT reg
 | voivodeship_id | INTEGER | GEO | self-reference: id of parent voivodeship (NULL for voivodeships) |
 | powiat_id | INTEGER | GEO | self-reference: id of parent powiat (NULL for powiats/voivodeships) |
 | gus_id | VARCHAR | ETL | official GUS BDL/TERYT identifier |
+| centroid_lon | DOUBLE | GEO | centroid longitude (powiat level only, others NULL) |
+| centroid_lat | DOUBLE | GEO | centroid latitude (powiat level only, others NULL) |
 
 ### Table `dim_voivodeship` (dimension)
 
@@ -937,7 +941,7 @@ Imports `bubble.js` (D3 force chart), `kraniec.js` (Atlas krańców), `edge.js` 
 
 ### Tab ŻABKA A POLSKA (`spoleczenstwo.js`, default tab, render order)
 
-Imports `econ.js` (the two ECharts economic chapters).
+Imports `econ.js` (the scroll-driven ECharts economic scene).
 
 | Ref | Library | Endpoint | What it shows |
 |---|---|---|---|
@@ -948,8 +952,7 @@ Imports `econ.js` (the two ECharts economic chapters).
 | kNN histogram | Chart.js (bar) | `/stats/neighbor-stats` | 6-bucket distribution of nearest-neighbor distance. Median 299m / avg 942m / max ~27.8km reference lines. |
 | STREETS | Chart.js (horizontal bar) | `/stats/common-streets?limit=15` | Busiest street names nationwide, dual-label y-axis (street name large, city small). Value labels at bar ends. |
 | GMINA-LEAD | Chart.js (horizontal bar) | `/stats/gmina-leaders?limit=12` | Top gminy by stores per 1000 residents (default) or per km² (metric toggle). Resorts lead per capita. National reference line on the per-1k view. |
-| ECON ch.1 salary | ECharts (scatter + bar) | `/stats/powiat-economics` | "Im wyższe zarobki, tym więcej Żabek." Scatter X = avg salary, Y = stores per 1k, point size = sqrt(population), trend r = +0.41; quartile-mean bars; animated stat tiles. |
-| ECON ch.2 unemployment | ECharts (scatter + bar) | `/stats/powiat-economics` | "Gdzie brak pracy, tam brak Żabki." Scatter X = unemployment %, Y = per 1k, downward trend r = -0.35; quartile-mean bars; stat tiles. Shares the one economics request. |
+| ECON scroll-driven scene | ECharts (scatter + bar) | `/stats/powiat-economics` | "Polska, powiat po powiecie." Rebuild of the ECON chapters into a persistent ECharts scene morphing through 6 acts on scroll (map -> salary strip -> scatter -> quartile bars -> outliers -> unemployment scatter) using stable dot identities. |
 | Conclusion | DOM | — | "Co z tego wynika?" narrative close: Żabka follows money and crowds, not ideology. |
 
 ---
@@ -958,8 +961,8 @@ Imports `econ.js` (the two ECharts economic chapters).
 
 - **Chart.js 4.4.1** — vertical/horizontal bars, line, scatter, donut, histograms. The
   1.1 growth chart, GRAN ranking, NBL, kNN histogram, STREETS, GMINA-LEAD, POWIATY donut.
-- **ECharts** — the two economic chapters in `econ.js` (salary + unemployment scatters and
-  quartile bars). Bundled into the spoleczenstwo chunk.
+- **ECharts** — the scroll-driven economic scene in `econ.js` (morphing scatter, map, and bars).
+  Bundled into the spoleczenstwo chunk.
 - **MapLibre GL JS 5.24** — all four dashboard maps: the SIEĆ growth map (a single
   WebGL circle layer for 13k+ stores, filtered by year, pitched to 38° for 3D),
   the GRAN voivodeship choropleth, the Atlas krańców extremes map, and the
@@ -1054,7 +1057,7 @@ to rendered content when its own data arrives. Never gate a chart on other chart
 | 2.3 InPost choropleth + dumbbell | ~420px |
 | NBL bar + kNN histogram | ~400px |
 | STREETS / GMINA-LEAD bars | ~420px |
-| ECON scatter + bars (each chapter) | ~400px |
+| ECON scroll-driven scene | ~560px |
 | Edge KPI / card rows | ~220px per row |
 
 **Error states:**
