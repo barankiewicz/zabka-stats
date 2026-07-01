@@ -10,6 +10,7 @@
   "devDependencies": {
     "happy-dom": "^20.10.6",
     "vite": "^5.4.0",
+    "vite-plugin-compression2": "^2.5.3",
     "vitest": "^4.1.9"
   },
   "dependencies": {

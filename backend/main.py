@@ -256,7 +256,41 @@ if not _dist_dir.exists():
 
 frontend_dir = _dist_dir if _dist_dir.exists() else _frontend_root
 
-route_handlers = [api_router, health_check]
+_ASSETS_DIR = frontend_dir / "assets"
+_ASSET_MEDIA_TYPES = {".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml"}
+
+
+@get("/assets/{file_path:path}")
+async def serve_asset(file_path: str, request: Request) -> File:
+    """Serve /assets/* preferring the Vite-precompressed .br/.gz sibling.
+
+    nginx can't do gzip_static/brotli_static here itself - the /assets/
+    location proxies to this backend rather than reading the files directly,
+    because www-data (nginx's user) can't traverse the 700 home directory. The
+    backend process owns these files, so it serves the precompressed variant
+    with the matching Content-Encoding; nginx passes that straight through
+    (its own gzip filter skips responses that already carry a Content-Encoding
+    header, so there's no double-compression). Falls back to the plain file
+    when the client doesn't send a matching Accept-Encoding or no precompressed
+    variant exists (e.g. small files below the compression threshold).
+    """
+    base = (_ASSETS_DIR / file_path).resolve()
+    if _ASSETS_DIR.resolve() not in base.parents:
+        raise HTTPException(status_code=404, detail="Not found")
+    accept_encoding = request.headers.get("accept-encoding", "")
+    media_type = _ASSET_MEDIA_TYPES.get(base.suffix)
+    for suffix, encoding in ((".br", "br"), (".gz", "gzip")):
+        if encoding in accept_encoding:
+            candidate = base.with_name(base.name + suffix)
+            if candidate.exists():
+                return File(path=candidate, media_type=media_type,
+                            headers={"Content-Encoding": encoding, "Vary": "Accept-Encoding"})
+    if base.exists():
+        return File(path=base, media_type=media_type, headers={"Vary": "Accept-Encoding"})
+    raise HTTPException(status_code=404, detail="Not found")
+
+
+route_handlers = [api_router, health_check, serve_asset]
 
 try:
     static_router = create_static_files_router(
