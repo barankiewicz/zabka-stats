@@ -21,7 +21,7 @@
 #   SSH_HOST    SSH alias/host for the VPS          (default: zabka-vps)
 #   REMOTE_DIR  repo path on the VPS                (default: /home/zabka/zabka-stats)
 #   SERVICE     systemd unit name                   (default: zabka-backend)
-#   PUBLIC_URL  public URL to smoke-test            (default: https://zabka-stats.rejewska.pl)
+#   PUBLIC_URL  public URL to smoke-test            (default: https://zabka-stats.barankiewicz.dev)
 #   BRANCH      branch to push/pull                 (default: current branch)
 #
 # Usage:
@@ -33,7 +33,7 @@ set -euo pipefail
 SSH_HOST="${SSH_HOST:-zabka-vps}"
 REMOTE_DIR="${REMOTE_DIR:-/home/zabka/zabka-stats}"
 SERVICE="${SERVICE:-zabka-backend}"
-PUBLIC_URL="${PUBLIC_URL:-https://zabka-stats.rejewska.pl}"
+PUBLIC_URL="${PUBLIC_URL:-https://zabka-stats.barankiewicz.dev}"
 ALLOW_DIRTY="${ALLOW_DIRTY:-0}"
 
 # resolve project root (this script lives in deploy/)
