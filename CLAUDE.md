@@ -776,6 +776,20 @@ Enrichment runs during the ETL pipeline to pre-calculate spatial features, ensur
   nearest region.
 - GUS powiat-name reconciliation depends on the normalization above; new GUS
   renames may need a fresh alias.
+- **Per-capita denominator for cities with powiat rights.** `dim_powiat.population`
+  and `dim_voivodeship.population` are land-only GUS figures - they do NOT include
+  the 66 cities with powiat rights (TERYT kind >= 61), which are merged into a host
+  land powiat via `dim_city.powiat_id`. But a city's stores DO get counted against
+  that host powiat, so a naive `stores / dim_powiat.population` inflates per-capita
+  density ~10x (Warszawa's ~1150 stores land on powiat warszawski zachodni, pop
+  137k, not its own 1.87M). Every per-capita query therefore adds the hosted
+  cities' population back: powiat-level via a `crights_pop` CTE (SUM of `dim_city`
+  populations where `powiat_id` matches, joined by GUS kind >= 61), voivodeship-level
+  the same via `crights_voiv` (and in `get_voiv_population`, so `per-capita` and the
+  InPost ratios inherit it). The dimension columns themselves are left land-only; only
+  the density denominator is corrected at query time. Affected endpoints:
+  `powiat-economics`, `powiat-economics-geo`, `by-dimension` (powiat + voivodeship),
+  `per-capita`, `inpost-vs-zabka`, `inpost-vs-zabka-by-level`.
 
 ---
 

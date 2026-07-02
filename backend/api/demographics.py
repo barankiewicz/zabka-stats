@@ -44,7 +44,25 @@ def normalize_voivodeship(name: str) -> str:
 def load_demographics_from_db():
     """Load demographic values from dim_voivodeship into cache."""
     try:
-        rows = client.execute("SELECT name, population, area_km2 FROM dim_voivodeship").fetchall()
+        # dim_voivodeship.population is the sum of land powiats only - it excludes
+        # the cities with powiat rights (TERYT kind >= 61), whose stores DO count
+        # in the fact tables. Add their population back so every per-capita figure
+        # derived from this cache (per_capita, InPost ratios) uses the real
+        # voivodeship population instead of an ~40% undercount.
+        rows = client.execute("""
+            WITH crights_voiv AS (
+                SELECT dc.voivodeship_id AS vid, SUM(dc.population) AS addpop
+                FROM dim_city dc
+                JOIN administrative_division ad
+                  ON ad.id = dc.id AND ad.level = 4 AND SUBSTR(ad.gus_id, 8, 2) >= '61'
+                GROUP BY dc.voivodeship_id
+            )
+            SELECT dv.name,
+                   dv.population + COALESCE(cr.addpop, 0) AS population,
+                   dv.area_km2
+            FROM dim_voivodeship dv
+            LEFT JOIN crights_voiv cr ON cr.vid = dv.id
+        """).fetchall()
         if rows:
             VOIV_POPULATION_CACHE.clear()
             VOIV_AREA_CACHE.clear()
