@@ -193,24 +193,6 @@ def geo_powiats() -> Response:
 # only fetches one joined FeatureCollection and reads the right property per map.
 _POW_ECON_GEO = None
 
-# Cities with powiat rights (GUS TERYT kind >= 61 at level 4) are merged into a
-# host land powiat via dim_city.powiat_id, but dim_powiat.population is the
-# land-only GUS figure and does NOT include the city. Counting a city's stores
-# against the land population alone inflates per-capita density ~10x (Warszawa's
-# ~1150 stores land on powiat warszawski zachodni, pop 137k, instead of its own
-# 1.87M). This CTE yields, per host powiat, the extra population to add so the
-# store numerator and the resident denominator line up. Semantics of
-# dim_powiat.population itself are left untouched (still land-only).
-_CRIGHTS_CTE = """
-    crights_pop AS (
-        SELECT dc.powiat_id AS pid, SUM(dc.population) AS addpop
-        FROM dim_city dc
-        JOIN administrative_division ad
-          ON ad.id = dc.id AND ad.level = 4 AND SUBSTR(ad.gus_id, 8, 2) >= '61'
-        GROUP BY dc.powiat_id
-    )
-"""
-
 
 def _linreg(xs, ys):
     n = len(xs)
@@ -272,19 +254,18 @@ def _build_pow_econ_geo():
     if not pow_path.exists() or not woj_path.exists():
         return None
 
-    rows = client.execute(f"""
-        WITH {_CRIGHTS_CTE}
+    rows = client.execute("""
         SELECT dp.name, dv.name AS voiv,
                COALESCE(dp.avg_salary, 0), COALESCE(dp.unemployment_rate, 0),
-               COALESCE(dp.population, 0) + COALESCE(cr.addpop, 0) AS eff_pop,
+               pe.population AS eff_pop,
                COUNT(l.store_id) AS stores,
                dp.centroid_lon, dp.centroid_lat
         FROM dim_powiat dp
         JOIN dim_voivodeship dv ON dp.voivodeship_id = dv.id
-        LEFT JOIN crights_pop cr ON cr.pid = dp.id
+        JOIN v_powiat_pop_eff pe ON pe.powiat_id = dp.id
         LEFT JOIN locations l ON l.powiat_id = dp.id AND l.deleted_at IS NULL
         GROUP BY dp.name, dv.name, dp.avg_salary, dp.unemployment_rate,
-                 dp.population, cr.addpop, dp.centroid_lon, dp.centroid_lat
+                 pe.population, dp.centroid_lon, dp.centroid_lat
     """).fetchall()
 
     lands = []
@@ -525,41 +506,29 @@ def by_dimension(
         else:
             rows = _gmina_agg()
     else:
-        # For powiat density we add the population of any hosted cities with
-        # powiat rights (see _CRIGHTS_CTE) so per_1k is not inflated by their
-        # stores landing on a small land-powiat denominator. Voivodeship
-        # population already includes those cities, so it needs no adjustment.
-        cte, pop_join, pop_group = "", "", ""
+        # Per-capita density joins the effective-population view (land powiat +
+        # hosted cities with powiat rights) so it is not inflated by city stores
+        # landing on a small land-powiat denominator. See v_powiat_pop_eff /
+        # v_voiv_pop_eff in database_ch.py for the single definition.
         if dim == "powiat":
             dimtbl, fk = "dim_powiat", "powiat_id"
             extra = "WHERE NOT regexp_matches(d.name, '^powiat [A-ZĄĆĘŁŃÓŚŹŻ]')"
             geo = _pow_geo()
-            cte = f"WITH {_CRIGHTS_CTE}"
-            pop_join = "LEFT JOIN crights_pop cr ON cr.pid = d.id"
-            pop_expr = "d.population + COALESCE(cr.addpop, 0)"
-            pop_group = ", cr.addpop"
+            pop_join = "JOIN v_powiat_pop_eff pe ON pe.powiat_id = d.id"
         else:
             dimtbl, fk = "dim_voivodeship", "voivodeship_id"
             extra = ""
-            cte = ("WITH crights_voiv AS ("
-                   " SELECT dc.voivodeship_id AS vid, SUM(dc.population) AS addpop"
-                   " FROM dim_city dc JOIN administrative_division ad"
-                   " ON ad.id = dc.id AND ad.level = 4 AND SUBSTR(ad.gus_id, 8, 2) >= '61'"
-                   " GROUP BY dc.voivodeship_id)")
-            pop_join = "LEFT JOIN crights_voiv cr ON cr.vid = d.id"
-            pop_expr = "d.population + COALESCE(cr.addpop, 0)"
-            pop_group = ", cr.addpop"
+            pop_join = "JOIN v_voiv_pop_eff pe ON pe.voivodeship_id = d.id"
             varea = _voiv_area()
         raw = client.execute(f"""
-            {cte}
-            SELECT d.name, COUNT(l.store_id), {pop_expr},
+            SELECT d.name, COUNT(l.store_id), pe.population,
                    AVG(l.latitude), AVG(l.longitude), MAX(l.voivodeship)
             FROM {dimtbl} d
             {pop_join}
             LEFT JOIN locations l
               ON l.{fk} = d.id AND l.deleted_at IS NULL
             {extra}
-            GROUP BY d.id, d.name, d.population{pop_group}
+            GROUP BY d.id, d.name, pe.population
             HAVING COUNT(l.store_id) > 0
         """).fetchall()
         rows = []

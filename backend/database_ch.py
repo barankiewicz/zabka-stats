@@ -439,6 +439,44 @@ def ensure_extra_tables(con):
         WHERE level = 3
     """)
 
+    # Effective-population views for per-capita density. dim_powiat / dim_voivodeship
+    # populations are land-only GUS figures and exclude the 66 cities with powiat
+    # rights (TERYT kind >= 61), yet those cities' stores DO count against their host
+    # land powiat - so raw stores/population inflates density ~10x (Warszawa's stores
+    # land on powiat warszawski zachodni, pop 137k, not its own 1.87M). These views
+    # add each host's cities-with-powiat-rights population back, in ONE place, so every
+    # per-capita query joins the view instead of repeating the correction. The base
+    # dimension columns stay land-only (clean, sourced, and safe for the downloadable DB).
+    con.execute("DROP VIEW IF EXISTS v_powiat_pop_eff")
+    con.execute("""
+        CREATE VIEW v_powiat_pop_eff AS
+        SELECT dp.id AS powiat_id,
+               dp.population + COALESCE(cr.addpop, 0) AS population
+        FROM dim_powiat dp
+        LEFT JOIN (
+            SELECT dc.powiat_id AS pid, SUM(dc.population) AS addpop
+            FROM dim_city dc
+            JOIN administrative_division ad
+              ON ad.id = dc.id AND ad.level = 4 AND SUBSTR(ad.gus_id, 8, 2) >= '61'
+            GROUP BY dc.powiat_id
+        ) cr ON cr.pid = dp.id
+    """)
+
+    con.execute("DROP VIEW IF EXISTS v_voiv_pop_eff")
+    con.execute("""
+        CREATE VIEW v_voiv_pop_eff AS
+        SELECT dv.id AS voivodeship_id,
+               dv.population + COALESCE(cr.addpop, 0) AS population
+        FROM dim_voivodeship dv
+        LEFT JOIN (
+            SELECT dc.voivodeship_id AS vid, SUM(dc.population) AS addpop
+            FROM dim_city dc
+            JOIN administrative_division ad
+              ON ad.id = dc.id AND ad.level = 4 AND SUBSTR(ad.gus_id, 8, 2) >= '61'
+            GROUP BY dc.voivodeship_id
+        ) cr ON cr.vid = dv.id
+    """)
+
     for stmt in (
         "CREATE INDEX IF NOT EXISTS idx_lockers_voiv_id ON parcel_lockers(voivodeship_id)",
         "CREATE INDEX IF NOT EXISTS idx_lockers_powiat_id ON parcel_lockers(powiat_id)",

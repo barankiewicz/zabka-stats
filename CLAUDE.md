@@ -782,14 +782,19 @@ Enrichment runs during the ETL pipeline to pre-calculate spatial features, ensur
   land powiat via `dim_city.powiat_id`. But a city's stores DO get counted against
   that host powiat, so a naive `stores / dim_powiat.population` inflates per-capita
   density ~10x (Warszawa's ~1150 stores land on powiat warszawski zachodni, pop
-  137k, not its own 1.87M). Every per-capita query therefore adds the hosted
-  cities' population back: powiat-level via a `crights_pop` CTE (SUM of `dim_city`
-  populations where `powiat_id` matches, joined by GUS kind >= 61), voivodeship-level
-  the same via `crights_voiv` (and in `get_voiv_population`, so `per-capita` and the
-  InPost ratios inherit it). The dimension columns themselves are left land-only; only
-  the density denominator is corrected at query time. Affected endpoints:
-  `powiat-economics`, `powiat-economics-geo`, `by-dimension` (powiat + voivodeship),
-  `per-capita`, `inpost-vs-zabka`, `inpost-vs-zabka-by-level`.
+  137k, not its own 1.87M). The correction lives in one place - two DuckDB views
+  defined in `database_ch.py` (`ensure_extra_tables`): `v_powiat_pop_eff` and
+  `v_voiv_pop_eff` add each host's cities-with-powiat-rights population (SUM of
+  `dim_city` populations where TERYT kind >= 61) on top of the land-only figure.
+  Every per-capita query JOINs the relevant view instead of `dim_powiat.population`
+  / `dim_voivodeship.population` directly (voivodeship-level flows through
+  `get_voiv_population`, so `per-capita` and the InPost ratios inherit it). The
+  base dimension columns stay land-only - clean, GUS-sourced, and safe for the
+  downloadable `zabka.duckdb`; only the density denominator is corrected, via the
+  views. Consumers: `powiat-economics`, `powiat-economics-geo`, `by-dimension`
+  (powiat + voivodeship), `per-capita`, `inpost-vs-zabka`, `inpost-vs-zabka-by-level`.
+  A new per-capita endpoint just needs to JOIN the view - the rule is not repeated
+  per query.
 
 ---
 

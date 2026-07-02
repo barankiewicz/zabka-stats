@@ -333,32 +333,25 @@ def voivodeship_stats() -> list[VoivodeshipStatsResponseItem]:
 @get("/stats/powiat-economics", sync_to_thread=True)
 @cached(ttl=3600)
 def powiat_economics() -> list[PowiatEconomicsItem]:
-    # Cities with powiat rights (TERYT kind >= 61) are merged into a host land
-    # powiat but dp.population excludes them, so their stores would inflate
-    # per_1k against a too-small denominator. Add the hosted city population.
+    # Density uses the effective-population view (land powiat + hosted cities with
+    # powiat rights); dp.population alone excludes those cities while their stores
+    # count here, which would inflate per_1k. See v_powiat_pop_eff in database_ch.py.
     rows = client.execute("""
-        WITH crights_pop AS (
-            SELECT dc.powiat_id AS pid, SUM(dc.population) AS addpop
-            FROM dim_city dc
-            JOIN administrative_division ad
-              ON ad.id = dc.id AND ad.level = 4 AND SUBSTR(ad.gus_id, 8, 2) >= '61'
-            GROUP BY dc.powiat_id
-        )
         SELECT
             dp.id AS powiat_id,
             dp.name AS powiat,
             dv.name AS voivodeship,
             COALESCE(dp.avg_salary, 0) AS avg_salary,
             COALESCE(dp.unemployment_rate, 0) AS unemployment_rate,
-            COALESCE(dp.population, 0) + COALESCE(cr.addpop, 0) AS population,
+            pe.population AS population,
             COUNT(l.store_id) AS stores,
             dp.centroid_lon, dp.centroid_lat
         FROM dim_powiat dp
         JOIN dim_voivodeship dv ON dp.voivodeship_id = dv.id
-        LEFT JOIN crights_pop cr ON cr.pid = dp.id
+        JOIN v_powiat_pop_eff pe ON pe.powiat_id = dp.id
         LEFT JOIN locations l ON l.powiat_id = dp.id AND l.deleted_at IS NULL
-        GROUP BY dp.id, dp.name, dv.name, dp.avg_salary, dp.unemployment_rate, dp.population,
-                 cr.addpop, dp.centroid_lon, dp.centroid_lat
+        GROUP BY dp.id, dp.name, dv.name, dp.avg_salary, dp.unemployment_rate, pe.population,
+                 dp.centroid_lon, dp.centroid_lat
         HAVING COUNT(l.store_id) > 0
         ORDER BY dp.name
     """).fetchall()
@@ -489,24 +482,16 @@ def inpost_vs_zabka_by_level(
                 "ratio": ratio,
             })
     elif level == "powiat":
-        # Add hosted cities-with-powiat-rights population so per-100k is not
-        # inflated by their stores landing on a small land-powiat denominator.
+        # Effective-population view so per-100k is not inflated by city-with-powiat-
+        # rights stores landing on a small land-powiat denominator (v_powiat_pop_eff).
         zabka_rows = client.execute("""
-            WITH crights_pop AS (
-                SELECT dc.powiat_id AS pid, SUM(dc.population) AS addpop
-                FROM dim_city dc
-                JOIN administrative_division ad
-                  ON ad.id = dc.id AND ad.level = 4 AND SUBSTR(ad.gus_id, 8, 2) >= '61'
-                GROUP BY dc.powiat_id
-            )
-            SELECT dp.name, v.name,
-                   dp.population + COALESCE(cr.addpop, 0), COUNT(l.store_id)
+            SELECT dp.name, v.name, pe.population, COUNT(l.store_id)
             FROM dim_powiat dp
             JOIN dim_voivodeship v ON v.id = dp.voivodeship_id
-            LEFT JOIN crights_pop cr ON cr.pid = dp.id
+            JOIN v_powiat_pop_eff pe ON pe.powiat_id = dp.id
             JOIN locations l ON l.powiat_id = dp.id
                 AND l.deleted_at IS NULL
-            GROUP BY dp.id, dp.name, v.name, dp.population, cr.addpop
+            GROUP BY dp.id, dp.name, v.name, pe.population
         """).fetchall()
         locker_rows = client.execute("""
             SELECT dp.name, v.name, COUNT(pl.external_id)
