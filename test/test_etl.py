@@ -1,6 +1,6 @@
 import pytest
 import duckdb
-from unittest.mock import patch, mock_open
+from unittest.mock import patch, mock_open, MagicMock
 import backend.etl.io as io
 from backend.database import _run_all_ddl
 from backend.etl.sources.neighbor import NeighborEnricher
@@ -310,3 +310,109 @@ def test_load_to_duckdb_integration():
     deleted = con.execute("SELECT store_id, deleted_at FROM locations WHERE store_id = '2'").fetchone()
     assert deleted is not None
     assert deleted[1] is not None  # Has deleted_at timestamp
+
+
+def test_with_retries():
+    # Succeeds on first attempt
+    fn = MagicMock(return_value="success")
+    res = io.with_retries(fn, "test-label", attempts=3, delay=0.01)
+    assert res == "success"
+    assert fn.call_count == 1
+
+    # Fails twice then succeeds
+    fn = MagicMock(side_effect=[Exception("fail1"), Exception("fail2"), "success"])
+    res = io.with_retries(fn, "test-label", attempts=3, delay=0.01)
+    assert res == "success"
+    assert fn.call_count == 3
+
+    # Fails all attempts
+    fn = MagicMock(side_effect=Exception("fail"))
+    res = io.with_retries(fn, "test-label", attempts=3, delay=0.01)
+    assert res is None
+    assert fn.call_count == 3
+
+
+@patch("requests.get")
+@patch("os.path.exists")
+def test_fetch_zabka_json(mock_exists, mock_get):
+    # Mock successful HTTP request
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"locations": []}
+    mock_get.return_value = mock_resp
+
+    data = io.fetch_zabka_json("http://dummy-url")
+    assert data == {"locations": []}
+
+    # Mock HTTP failure, fallback file exists
+    mock_get.side_effect = Exception("HTTP Error")
+    mock_exists.return_value = True
+    with patch("builtins.open", mock_open(read_data='{"fallback": true}')):
+        data = io.fetch_zabka_json("http://dummy-url", fallback="local.json")
+        assert data == {"fallback": True}
+
+    # Mock HTTP failure, fallback file does not exist -> RuntimeError
+    mock_exists.return_value = False
+    with pytest.raises(RuntimeError):
+        io.fetch_zabka_json("http://dummy-url", fallback="local.json")
+
+
+@patch("requests.get")
+@patch("os.path.exists")
+@patch("os.makedirs")
+def test_load_geojson(mock_makedirs, mock_exists, mock_get):
+    # Local file exists
+    mock_exists.return_value = True
+    with patch("builtins.open", mock_open(read_data='{"type": "FeatureCollection"}')):
+        res = io.load_geojson("http://dummy-url", "local.geojson")
+        assert res == {"type": "FeatureCollection"}
+
+    # Local file does not exist -> downloads and saves it
+    mock_exists.return_value = False
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"type": "FeatureCollection", "features": []}
+    mock_get.return_value = mock_resp
+
+    m_open = mock_open()
+    with patch("builtins.open", m_open):
+        res = io.load_geojson("http://dummy-url", "local.geojson")
+        assert res == {"type": "FeatureCollection", "features": []}
+        m_open.assert_called_with("data/geo/local.geojson", "w", encoding="utf-8")
+
+
+def test_find_farthest_point():
+    # Mock Poland polygon (square covering coordinates 15.0 to 16.0 lon, 50.0 to 51.0 lat)
+    woj_geo = {
+        "features": [
+            {
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [[[15.0, 50.0], [15.0, 51.0], [16.0, 51.0], [16.0, 50.0], [15.0, 50.0]]]
+                }
+            }
+        ]
+    }
+    
+    # Store at 15.5, 50.5
+    lats = [50.5]
+    lons = [15.5]
+    
+    # Run the empty circle search
+    res = io.farthest_point_from_any_zabka(lats, lons, woj_geo, coarse_deg=0.2, fine_deg=0.05)
+    assert res["lat"] is not None
+    assert res["lon"] is not None
+    assert res["dist_km"] > 0.0
+
+
+@patch("backend.etl.io.time.sleep")
+def test_reload_cache(mock_sleep):
+    with patch("backend.cache.cache") as mock_cache:
+        # Mock Redis scan yielding keys, then ending
+        mock_cache.scan.side_effect = [
+            (1, ["k1", "k2"]),
+            (0, [])
+        ]
+        
+        io.reload_cache()
+        mock_cache.delete.assert_any_call("k1", "k2")
