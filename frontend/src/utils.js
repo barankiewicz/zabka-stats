@@ -46,6 +46,27 @@ export function whenVisible(el, fn, rootMargin='400px'){
   io.observe(el);
 }
 
+// Short count-up for the hero number. Kept snappy (700ms) and callable straight
+// from main.js the moment the core data lands - so the LCP element (the big hero
+// number) finishes its last paint early instead of after the lazy siec chunk
+// loads and runs a long animation. Sets data-hero-done so the chunk's renderHero
+// doesn't re-animate (which would push LCP back out).
+export function heroCount(el, total, dur=700){
+  if(!el) return;
+  if(!total){ el.textContent='–'; return; }
+  el.dataset.heroDone='1';
+  const f=n=>n.toLocaleString('pl-PL');
+  const reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduce){ el.textContent=f(total); return; }
+  const from=Math.max(0,total-800),t0=performance.now();
+  (function step(now){
+    const t=Math.min(1,(now-t0)/dur);
+    const e=t>=1?1:1-Math.pow(2,-14*t);
+    el.textContent=f(Math.round(from+(total-from)*e));
+    if(t<1)requestAnimationFrame(step);
+  })(t0);
+}
+
 // Run fn once the browser is idle AFTER the initial load - deliberately not
 // during the FCP/LCP/TBT-critical window. Waits for the load event, then a
 // requestIdleCallback (timeout fallback). Use for heavy, non-critical init

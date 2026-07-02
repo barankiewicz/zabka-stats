@@ -1,7 +1,7 @@
 import Chart from '../chartjs-setup.js';
 import { C, STATE, fpRamp } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
-import { era, fmt, getFont, destroyChart, capName as capCase, whenVisible, whenVisibleIdle, debounce, wireCountUp } from '../utils.js';
+import { era, fmt, getFont, destroyChart, capName as capCase, whenVisible, whenVisibleIdle, debounce, wireCountUp, heroCount } from '../utils.js';
 import { loadMaplibre } from '../maplibre-lazy.js';
 
 // MapLibre is ~280 KB gz; load it lazily (only when a map nears the viewport)
@@ -64,23 +64,11 @@ export function renderSiec(){
 let heroRaf=null;
 export function renderHero(){
   const el=document.getElementById('hero-number');if(!el)return;
-  const total=(M.summary&&+M.summary.total_active)||0;
-  if(!total){el.textContent='–';return;}
-  if(prefersReduced()){
-    el.textContent=fmt(total);
-  }else{
-    // start the count near the top so it reads as the last sprint to the real
-    // total, not a from-zero ramp
-    const from=Math.max(0,total-1000);
-    const dur=2000,start=performance.now();
-    (function step(now){
-      const t=Math.min(1,(now-start)/dur);
-      // easeOutExpo with a steep factor — quick overall, but most of the time is
-      // spent crawling the final approach to 13k before it settles
-      const e=t>=1?1:1-Math.pow(2,-14*t);
-      el.textContent=fmt(Math.round(from+(total-from)*e));
-      if(t<1)requestAnimationFrame(step);
-    })(performance.now());
+  // main.js already counts the hero up the moment core data lands (data-hero-done),
+  // so the LCP paint happens early - don't re-animate here. Only run the count-up
+  // if it hasn't been done yet (e.g. this tab re-rendered standalone).
+  if(!el.dataset.heroDone){
+    heroCount(el, (M.summary&&+M.summary.total_active)||0);
   }
   startHeroParticles();
 }

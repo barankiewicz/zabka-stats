@@ -1,8 +1,8 @@
 import Chart from './chartjs-setup.js';
 import './style.css';
 import { annotPlugin, barValueLabels, C, STATE } from './config.js';
-import { MAPS, RENDERED } from './state.js';
-import { getFont, destroyChart } from './utils.js';
+import { M, MAPS, RENDERED } from './state.js';
+import { getFont, destroyChart, heroCount } from './utils.js';
 import { setFilter, clearFilter, registerFilterCallbacks } from './filter.js';
 import { loadCore, loadTabData } from './data.js';
 
@@ -172,6 +172,10 @@ document.addEventListener('DOMContentLoaded',()=>{
 // via the tab button.
 loadCore()
   .then(()=>{
+    // Count up the hero number straight away, from the tiny core bucket - the
+    // hero is the LCP element, so painting it here (not after the lazy siec chunk
+    // loads and runs a 2s animation) is what pulls mobile LCP down.
+    heroCount(document.getElementById('hero-number'), M.summary&&+M.summary.total_active);
     setTimeout(()=>{
       renderTab('siec');
       const siecEl=document.getElementById('tab-siec');
