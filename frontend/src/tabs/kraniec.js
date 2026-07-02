@@ -4,13 +4,14 @@
 // na wpis zeby nie przeciazac CPU.
 import { M, MAPS } from '../state.js';
 import { fmt, capName, whenVisible, debounce } from '../utils.js';
+import { loadMaplibre } from '../maplibre-lazy.js';
 
 // MapLibre (~280 KB gz) is loaded lazily, only when the Atlas map nears view.
 let maplibregl, createMap, fitPoland, pointsToFC, geoCircle, boundsOf, showMapUnavailable, WebGLUnavailableError;
-let _mlibP;
 function ensureMaplibre(){
-  return _mlibP ??= import('../maplibre-map.js').then(m=>{
+  return loadMaplibre().then(m=>{
     ({ maplibregl, createMap, fitPoland, pointsToFC, geoCircle, boundsOf, showMapUnavailable, WebGLUnavailableError } = m);
+    return m;
   });
 }
 

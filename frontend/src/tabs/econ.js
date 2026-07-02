@@ -11,15 +11,16 @@
 import { M } from '../state.js';
 import { fetchJSON } from '../data.js';
 import { debounce } from '../utils.js';
+import { loadMaplibre } from '../maplibre-lazy.js';
 
 // MapLibre is already loaded higher up this tab (the InPost choropleth), so this
 // lazy import resolves instantly; keeping it lazy avoids pulling it in when the
 // econ chunk is parsed before the maps come into view.
 let createMap, fitPoland, showMapUnavailable, WebGLUnavailableError;
-let _mlibP;
 function ensureMaplibre() {
-  return _mlibP ??= import('../maplibre-map.js').then(m => {
+  return loadMaplibre().then(m => {
     ({ createMap, fitPoland, showMapUnavailable, WebGLUnavailableError } = m);
+    return m;
   });
 }
 

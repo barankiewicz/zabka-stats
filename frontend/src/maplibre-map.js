@@ -38,34 +38,6 @@ export const webglAvailable = _probeWebGL();
 export const PL_BOUNDS = [[14.08, 49.00], [24.16, 54.84]];
 export const PL_CENTER = [19.3, 52.05];
 
-// ---- Color ramps (green) ----
-// Used by every voivodeship choropleth and the growth-map era dots.
-export const WOJ_STOPS = ['#132912', '#1e4019', '#2d6324', '#4a9228', '#72c133', '#a6e84a'];
-const FP_STOPS  = ['#103d1d', '#1d5a28', '#2f7d2e', '#5aa82e', '#84c341', '#a6e84a', '#c8f06a'];
-
-function _rampGen(stops) {
-  return (t) => {
-    t = Math.max(0, Math.min(1, t));
-    const seg = t * (stops.length - 1);
-    const i = Math.min(stops.length - 2, Math.floor(seg));
-    const u = seg - i;
-    const a = hexToRgb(stops[i]);
-    const b = hexToRgb(stops[i + 1]);
-    return `rgb(${Math.round(a[0] + (b[0] - a[0]) * u)},${Math.round(a[1] + (b[1] - a[1]) * u)},${Math.round(a[2] + (b[2] - a[2]) * u)})`;
-  };
-}
-export const wojRamp = _rampGen(WOJ_STOPS);
-export const fpRamp  = _rampGen(FP_STOPS);
-
-export function hexToRgb(hex) {
-  if (!hex || hex[0] !== '#' || hex.length !== 7) return [132, 195, 65];
-  return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
-}
-export function hexWithAlpha(hex, a) {
-  const [r, g, b] = hexToRgb(hex);
-  return `rgba(${r},${g},${b},${a})`;
-}
-
 // ---- Dark, tile-free base style ----
 // No raster sources. Background near-black green; voivodeship polygons are
 // added per-map via addVoivodeshipLayers. Keeps the maps offline-friendly.
@@ -178,44 +150,6 @@ export function featureBBoxCenter(feature) {
   let loX = Infinity, loY = Infinity, hiX = -Infinity, hiY = -Infinity;
   for (const [x, y] of coords) { if (x < loX) loX = x; if (y < loY) loY = y; if (x > hiX) hiX = x; if (y > hiY) hiY = y; }
   return [(loX + hiX) / 2, (loY + hiY) / 2];
-}
-
-// Build a GeoJSON FeatureCollection of one centroid point per woj feature,
-// each carrying the same properties as the polygon. Used for value-label
-// symbol layers (the MapLibre equivalent of Leaflet's permanent tooltips).
-export function wojCentroids(wojGeo, extraProps = (f) => ({})) {
-  const features = (wojGeo.features || [])
-    .map((f) => {
-      const c = featureBBoxCenter(f);
-      if (!c) return null;
-      return {
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: c },
-        properties: { ...(f.properties || {}), ...extraProps(f) },
-      };
-    })
-    .filter(Boolean);
-  return { type: 'FeatureCollection', features };
-}
-
-// Standard dark popup style helper. Returns a configured maplibregl.Popup.
-export function darkPopup(lngLat, html, opts = {}) {
-  return new maplibregl.Popup({
-    closeButton: opts.closeButton != null ? opts.closeButton : false,
-    closeOnClick: opts.closeOnClick != null ? opts.closeOnClick : true,
-    maxWidth: opts.maxWidth || '280px',
-    className: 'zab-popup',
-  })
-    .setLngLat(lngLat)
-    .setHTML(html)
-    .addTo(opts.map);
-}
-
-// Dark-themed HTML Marker (replaces Leaflet divIcon markers like .mk).
-// elFactory(label, color) builds the marker DOM; we wrap it in a Marker.
-export function htmlMarker(lngLat, el, opts = {}) {
-  return new maplibregl.Marker({ element: el, anchor: opts.anchor || 'center' })
-    .setLngLat(lngLat);
 }
 
 // [[lat,lon],...] or [[lat,lon,extra],...] -> Point FeatureCollection.

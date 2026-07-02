@@ -1,16 +1,15 @@
-// Named imports so Rollup tree-shakes d3 down to the handful of modules this
-// chart actually touches (selection, zoom, drag, force, scale) instead of
-// bundling the whole d3 meta-package.
-import {
-  select, zoom, zoomIdentity, drag, extent, scaleSqrt,
-  forceSimulation, forceX, forceY, forceCollide,
-  transition as _ensureTransition,
-} from 'd3';
-// `transition` is imported only for its side effect: d3-transition patches
-// selection.prototype.transition, which _svg.transition() relies on below.
-// Reference it so the named import is not tree-shaken away.
-void _ensureTransition;
-import { C } from '../config.js';
+// Import the specific d3 submodules this chart uses instead of the `d3`
+// meta-package, so the install pulls only these (not d3's ~30 submodules).
+import { select } from 'd3-selection';
+import { zoom, zoomIdentity } from 'd3-zoom';
+import { drag } from 'd3-drag';
+import { extent } from 'd3-array';
+import { scaleSqrt } from 'd3-scale';
+import { forceSimulation, forceX, forceY, forceCollide } from 'd3-force';
+// Side-effect import: d3-transition patches selection.prototype.transition,
+// which _svg.transition() relies on below. No named binding needed.
+import 'd3-transition';
+import { C, fpRamp } from '../config.js';
 import { debounce } from '../utils.js';
 
 // Force-directed "volumetric" bubble chart of the network (one bubble per
@@ -22,14 +21,7 @@ import { debounce } from '../utils.js';
 
 const MAX_BUBBLES = 60;
 const UNIT_PL = { powiat: 'powiatów', city: 'miast', voivodeship: 'województw' };
-const FP_STOPS=['#103d1d','#1d5a28','#2f7d2e','#5aa82e','#84c341','#a6e84a','#c8f06a'];
-function fpRamp(t){
-  t=Math.max(0,Math.min(1,t));
-  const seg=t*(FP_STOPS.length-1),i=Math.min(FP_STOPS.length-2,Math.floor(seg)),u=seg-i;
-  const h=k=>[parseInt(k.slice(1,3),16),parseInt(k.slice(3,5),16),parseInt(k.slice(5,7),16)];
-  const a=h(FP_STOPS[i]),b=h(FP_STOPS[i+1]);
-  return`rgb(${Math.round(a[0]+(b[0]-a[0])*u)},${Math.round(a[1]+(b[1]-a[1])*u)},${Math.round(a[2]+(b[2]-a[2])*u)})`;
-}
+// fpRamp (green fingerprint ramp) is imported from config.js - single source.
 
 let _dim = 'city';
 let _svg = null, _group = null, _sim = null, _zoom = null, _transform = zoomIdentity;

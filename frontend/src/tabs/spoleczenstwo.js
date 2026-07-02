@@ -1,10 +1,11 @@
 import Chart from '../chartjs-setup.js';
+import { loadMaplibre } from '../maplibre-lazy.js';
 // MapLibre (~280 KB gz) loaded lazily, only when the InPost choropleth nears view.
 let maplibregl, createMap, fitPoland, featureBBoxCenter, showMapUnavailable, WebGLUnavailableError;
-let _mlibP;
 function ensureMaplibre(){
-  return _mlibP ??= import('../maplibre-map.js').then(m=>{
+  return loadMaplibre().then(m=>{
     ({ maplibregl, createMap, fitPoland, featureBBoxCenter, showMapUnavailable, WebGLUnavailableError } = m);
+    return m;
   });
 }
 import { C, STATE } from '../config.js';

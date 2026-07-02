@@ -59,14 +59,12 @@ export async function loadCore() {
     opening_hours:    [],
     // pre-fill keys that spoleczenstwo reads so they're never undefined
     powiat_economics:      [],
-    sunday_by_voivodeship: [],
     voivodeship_density:   [],
     voivodeship_merrychef: [],
     inpost_vs_zabka:       [],
     common_streets:        {streets:[], distinct:0},
     gmina_leaders:         {per_1k:[], per_km2:[], national_per_1k:null},
     neighbor_by_level:     {rows:[], total:0, level:'voivodeship'},
-    timeline_monthly:      [],
   });
   clearSkel();
 }
@@ -123,11 +121,10 @@ export async function refetchPowiatEconomics() {
 
 async function loadSpoleczenstwo() {
   const [
-    economics, sunday, density, merrychef, inpost, commonStreets,
+    economics, density, merrychef, inpost, commonStreets,
     gminaLeaders, neighborByLevel, openingHours,
   ] = await Promise.allSettled([
     fetchJSON(`${BASE}/stats/powiat-economics`),
-    fetchJSON(`${BASE}/stats/sunday-by-voivodeship`),
     fetchJSON(`${BASE}/stats/voivodeship-density`),
     fetchJSON(`${BASE}/stats/voivodeship`),
     fetchJSON(`${BASE}/stats/inpost-vs-zabka`),
@@ -138,7 +135,6 @@ async function loadSpoleczenstwo() {
   ]);
   Object.assign(M, {
     powiat_economics:      val(economics, []),
-    sunday_by_voivodeship: val(sunday, []),
     voivodeship_density:   val(density, []),
     voivodeship_merrychef: val(merrychef, []),
     inpost_vs_zabka:       val(inpost, []),

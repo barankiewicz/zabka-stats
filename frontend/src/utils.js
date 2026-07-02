@@ -2,7 +2,6 @@ import { C, MACRO } from './config.js';
 import { CHARTS } from './state.js';
 
 export function era(yr){if(yr<=2009)return'#2b531a';if(yr<=2019)return'#4a8a22';if(yr<=2022)return'#74bd2a';return'#a6e84a'}
-export function eraName(yr){if(yr<=2009)return'Wczesna siec';if(yr<=2019)return'Wzrost';if(yr<=2022)return'Przyspieszenie';return'Boom'}
 export function fmt(n){return(+n).toLocaleString('pl-PL')}
 // Display-case a place name and strip GUS naming artefacts. The dictionary
 // carries names like "Powiat bocheński", "M.st. Warszawa" and "... od 2013";
@@ -33,25 +32,6 @@ export function destroyChart(id){
     delete CHARTS[id];
   }
 }
-
-// Render a "no data" error state inside a chart or map container.
-// id: the canvas/div element id. msg: optional override message.
-export function showNoData(id, msg){
-  const el=document.getElementById(id);
-  if(!el)return;
-  const wrap=el.closest('.chart-wrap')||el.closest('.map-container')||el.parentElement;
-  const target=wrap||el;
-  // If it's a canvas, hide it and add a sibling; if it's a div, replace innerHTML
-  if(el.tagName==='CANVAS'){el.style.display='none';}
-  const existing=target.querySelector('.no-data-msg');
-  if(existing){existing.textContent=msg||'Brak danych – uruchom ETL z pełnym wzbogacaniem.';return;}
-  const div=document.createElement('div');
-  div.className='no-data-msg';
-  div.textContent=msg||'Brak danych – uruchom ETL z pełnym wzbogacaniem.';
-  div.style.cssText='display:flex;align-items:center;justify-content:center;height:100%;min-height:80px;color:var(--muted);font-family:var(--font-mono);font-size:12px;text-align:center;padding:16px;';
-  target.appendChild(div);
-}
-export function projectPL(lat,lon,W,H){return{x:(lon-14.1)/(24.2-14.1)*W,y:(1-(lat-49)/(54.9-49))*H}}
 
 // Run fn once, when el first scrolls near the viewport (400px pre-margin). Used
 // to defer the heavy MapLibre chunk (~280 KB gz) until a map is actually about

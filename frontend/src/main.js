@@ -1,7 +1,7 @@
 import Chart from './chartjs-setup.js';
 import './style.css';
 import { annotPlugin, barValueLabels, C, STATE } from './config.js';
-import { M, CHARTS, MAPS, RENDERED } from './state.js';
+import { MAPS, RENDERED } from './state.js';
 import { getFont, destroyChart } from './utils.js';
 import { setFilter, clearFilter, registerFilterCallbacks } from './filter.js';
 import { loadCore, loadTabData } from './data.js';
@@ -39,21 +39,10 @@ function chartDefaults(){
 }
 chartDefaults();
 
-export function renderKPI(){
-  const s=M.summary;if(!s)return;
-  // header KPI strip was removed; the hero count-up now carries the headline
-  // total. Guard so the cross-filter callback is a no-op when the tiles are gone.
-  if(!document.getElementById('kpi-stores'))return;
-  document.getElementById('kpi-stores').textContent=(+s.total_active).toLocaleString('pl-PL');
-  document.getElementById('kpi-cities').textContent=(+s.cities_count).toLocaleString('pl-PL');
-  document.getElementById('kpi-mc').textContent=s.merrychef_pct+'%';
-  document.getElementById('kpi-sun').textContent=s.sunday_pct+'%';
-  document.getElementById('kpi-h24').textContent=(+s.h24_count).toLocaleString('pl-PL');
-}
-
 // renderGranular (siec) and renderDumbbellByLevel (spoleczenstwo) register
-// themselves when their tab module loads; only the KPI callback is local.
-registerFilterCallbacks(renderKPI, null, null);
+// themselves when their tab module loads via renderTab(). The global header KPI
+// strip was removed, so the first cross-filter slot stays null.
+registerFilterCallbacks(null, null, null);
 
 function revealAll(){document.querySelectorAll('.reveal').forEach((el,i)=>setTimeout(()=>el.classList.add('shown'),80+i*50))}
 setTimeout(revealAll,100);
@@ -179,7 +168,6 @@ document.addEventListener('DOMContentLoaded',()=>{
 // via the tab button.
 loadCore()
   .then(()=>{
-    renderKPI();
     setTimeout(()=>{
       renderTab('siec');
       const siecEl=document.getElementById('tab-siec');
