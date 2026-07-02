@@ -578,26 +578,90 @@
         <div class="econ-desc-card__content is-active" data-act="1">
           <h2>Polska, powiat po powiecie.</h2>
           <p>Każda kropka to jeden powiat – <span id="econ-dot-count">314</span> w sumie. Kolor mówi, w którym regionie kraju leży. Reszta historii dopiero się zacznie.</p>
+          <div class="econ-meta-grid">
+            <div class="econ-meta-item">
+              <span class="econ-meta-label">Liczba powiatów</span>
+              <span class="econ-meta-val">314</span>
+            </div>
+            <div class="econ-meta-item">
+              <span class="econ-meta-label">Łącznie sklepów</span>
+              <span class="econ-meta-val" id="econ-meta-total-stores">-</span>
+            </div>
+          </div>
         </div>
         <div class="econ-desc-card__content" data-act="2">
           <h2>Ustawieni od najbiedniejszego do najbogatszego.</h2>
           <p>Płaca rośnie w prawo. Teraz zobaczmy, co się stanie, gdy dołożymy gęstość sieci.</p>
+          <div class="econ-meta-grid">
+            <div class="econ-meta-item">
+              <span class="econ-meta-label">Najwyższa płaca (lider)</span>
+              <span class="econ-meta-val econ-meta-val--rich" id="econ-meta-salary-max" style="white-space: pre-line;">-</span>
+            </div>
+            <div class="econ-meta-item">
+              <span class="econ-meta-label">Najniższa płaca</span>
+              <span class="econ-meta-val econ-meta-val--poor" id="econ-meta-salary-min" style="white-space: pre-line;">-</span>
+            </div>
+          </div>
         </div>
         <div class="econ-desc-card__content" data-act="3">
           <h2>Bogatsze powiaty, gęstsza sieć.</h2>
           <p>To zestawienie poglądowe. Współczynnik r opisuje współwystępowanie, nie związek przyczynowy – Żabka nie unika biednych powiatów z premedytacją, tylko idzie za ruchem i gęstością zabudowy, a te akurat korelują z zamożnością.</p>
+          <div class="econ-meta-grid">
+            <div class="econ-meta-item">
+              <span class="econ-meta-label">Korelacja (Pearson r)</span>
+              <span class="econ-meta-val text-green" id="econ-meta-r-salary">-</span>
+            </div>
+            <div class="econ-meta-item">
+              <span class="econ-meta-label">Charakter korelacji</span>
+              <span class="econ-meta-val text-green">Dodatnia, umiarkowana</span>
+            </div>
+          </div>
         </div>
         <div class="econ-desc-card__content" data-act="4">
           <h2>Gęstość rośnie kwartyl po kwartylu.</h2>
           <p>Powiaty podzielone na cztery równe grupy według średniej płacy. Słupek po słupku gęstość rośnie – bez wyjątku.</p>
+          <div class="econ-meta-grid">
+            <div class="econ-meta-item">
+              <span class="econ-meta-label">Q4 (Najbogatsza ćwiartka)</span>
+              <span class="econ-meta-val text-green" id="econ-meta-q4-val">-</span>
+            </div>
+            <div class="econ-meta-item">
+              <span class="econ-meta-label">Q1 (Najuboższa ćwiartka)</span>
+              <span class="econ-meta-val text-teal" id="econ-meta-q1-val">-</span>
+            </div>
+          </div>
         </div>
         <div class="econ-desc-card__content" data-act="5">
           <h2>Wyjątki łamią regułę.</h2>
           <p>Najgęstsza sieć stoi nie w najbogatszych powiatach, tylko w kurortach – kamieński (Międzyzdroje), tatrzański (Zakopane), Świnoujście. Tam sklepy obsługują turystów, nie mieszkańców. A lubiński, jeden z najbogatszych powiatów w Polsce dzięki miedzi KGHM, ma gęstość poniżej średniej. Bogactwo nie zawsze idzie w parze z tłumem na ulicy.</p>
+          <div class="econ-meta-list">
+            <div class="econ-meta-list-row">
+              <span class="econ-meta-list-name">1. pow. kamieński (Międzyzdroje)</span>
+              <span class="econ-meta-list-val" id="econ-meta-outlier-kam">-</span>
+            </div>
+            <div class="econ-meta-list-row">
+              <span class="econ-meta-list-name">2. pow. tatrzański (Zakopane)</span>
+              <span class="econ-meta-list-val" id="econ-meta-outlier-tat">-</span>
+            </div>
+            <div class="econ-meta-list-row">
+              <span class="econ-meta-list-name">3. pow. lubiński (miedź KGHM)</span>
+              <span class="econ-meta-list-val" id="econ-meta-outlier-lub">-</span>
+            </div>
+          </div>
         </div>
         <div class="econ-desc-card__content" data-act="6">
           <h2>Odwróć medal: bezrobocie.</h2>
           <p>Druga strona tej samej historii, tym razem od strony rynku pracy. Tam, gdzie bezrobocie jest wysokie, sieć rzednie.</p>
+          <div class="econ-meta-grid">
+            <div class="econ-meta-item">
+              <span class="econ-meta-label">Korelacja z bezrobociem</span>
+              <span class="econ-meta-val text-amber" id="econ-meta-r-unemp">-</span>
+            </div>
+            <div class="econ-meta-item">
+              <span class="econ-meta-label">Rekord bezrobocia</span>
+              <span class="econ-meta-val text-amber" id="econ-meta-unemp-max" style="font-size: 13.5px; line-height: 1.35; white-space: pre-line;">-</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

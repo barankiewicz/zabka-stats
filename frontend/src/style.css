@@ -580,6 +580,75 @@ canvas{display:block}
   color: #0c160b;
 }
 
+.econ-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 24px;
+  border-top: 1px solid rgba(140, 200, 80, 0.15);
+  padding-top: 20px;
+}
+.econ-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.econ-meta-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.econ-meta-val {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 20px;
+  color: var(--ink);
+}
+.econ-meta-val.text-green {
+  color: var(--green-bright);
+}
+.econ-meta-val.text-teal {
+  color: var(--teal);
+}
+.econ-meta-val.text-amber {
+  color: var(--amber);
+}
+.econ-meta-val--rich {
+  color: var(--green-bright);
+  font-size: 14px;
+  line-height: 1.35;
+}
+.econ-meta-val--poor {
+  color: var(--teal);
+  font-size: 14px;
+  line-height: 1.35;
+}
+.econ-meta-list {
+  margin-top: 24px;
+  border-top: 1px solid rgba(140, 200, 80, 0.15);
+  padding-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.econ-meta-list-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+.econ-meta-list-name {
+  color: var(--muted);
+  font-family: var(--font-sans);
+}
+.econ-meta-list-val {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--ink);
+}
+
 .econ-scene__tiles {
   margin-top: 24px;
 }

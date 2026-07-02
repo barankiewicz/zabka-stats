@@ -179,6 +179,7 @@ function buildAct1(ctx, gridBox) {
   return {
     grid: gridBox,
     xAxis: {
+      show: true,
       type: 'value',
       min: MAP_LON[0],
       max: MAP_LON[1],
@@ -188,6 +189,7 @@ function buildAct1(ctx, gridBox) {
       splitLine: { show: false }
     },
     yAxis: {
+      show: true,
       type: 'value',
       min: MAP_LAT[0],
       max: MAP_LAT[1],
@@ -213,6 +215,7 @@ function buildAct2(ctx) {
   return {
     grid: { left: 56, right: 40, top: 48, bottom: 48 },
     xAxis: {
+      show: true,
       type: 'value',
       min: ctx.salaryMin,
       max: ctx.salaryMax,
@@ -222,6 +225,7 @@ function buildAct2(ctx) {
       splitLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.08)' } }
     },
     yAxis: {
+      show: true,
       type: 'value',
       min: -0.6,
       max: 0.6,
@@ -249,6 +253,7 @@ function buildAct3(ctx) {
   return {
     grid: { left: 56, right: 24, top: 48, bottom: 48 },
     xAxis: {
+      show: true,
       type: 'value',
       min: ctx.salaryMin,
       max: ctx.salaryMax,
@@ -258,6 +263,7 @@ function buildAct3(ctx) {
       splitLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.08)' } }
     },
     yAxis: {
+      show: true,
       type: 'value',
       min: 0,
       max: ctx.ymax,
@@ -286,6 +292,7 @@ function buildAct4(ctx) {
   return {
     grid: { left: 56, right: 24, top: 48, bottom: 48 },
     xAxis: {
+      show: true,
       type: 'category',
       data: QUARTILE_LABELS_SALARY,
       axisLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.2)' } },
@@ -294,6 +301,7 @@ function buildAct4(ctx) {
       splitLine: { show: false }
     },
     yAxis: {
+      show: true,
       type: 'value',
       min: 0,
       max: Math.max(...ctx.qSalaryMeans) * 1.2,
@@ -318,6 +326,7 @@ function buildAct5(ctx) {
   return {
     grid: { left: 56, right: 24, top: 48, bottom: 48 },
     xAxis: {
+      show: true,
       type: 'value',
       min: ctx.salaryMin,
       max: ctx.salaryMax,
@@ -327,6 +336,7 @@ function buildAct5(ctx) {
       splitLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.08)' } }
     },
     yAxis: {
+      show: true,
       type: 'value',
       min: 0,
       max: ctx.ymax,
@@ -357,6 +367,7 @@ function buildAct6(ctx) {
   return {
     grid: { left: 56, right: 24, top: 48, bottom: 48 },
     xAxis: {
+      show: true,
       type: 'value',
       min: 0,
       max: ctx.unempMax,
@@ -366,6 +377,7 @@ function buildAct6(ctx) {
       splitLine: { show: true, lineStyle: { color: 'rgba(140,200,80,.08)' } }
     },
     yAxis: {
+      show: true,
       type: 'value',
       min: 0,
       max: ctx.ymax,
@@ -536,6 +548,10 @@ function _updateEconFacts() {
   const rowsS = all.filter(d => d.avg_salary > 0 && d.per_1k > 0);
   const rowsU = all.filter(d => d.unemployment_rate != null && d.unemployment_rate > 0 && d.per_1k > 0);
 
+  // General total stores
+  const totalStores = all.reduce((sum, r) => sum + (r.stores || 0), 0);
+  _setTxt('econ-meta-total-stores', totalStores.toLocaleString('pl-PL') + ' sklepów');
+
   if (rowsS.length >= 8) {
     const ss = [...rowsS].sort((a, b) => a.avg_salary - b.avg_salary);
     const q = Math.floor(ss.length / 4);
@@ -551,7 +567,26 @@ function _updateEconFacts() {
     }
     const rS = pearson(rowsS.map(d => d.avg_salary), rowsS.map(d => d.per_1k));
     _setTxt('ec-fact-r-salary', plr(rS));
+
+    // Card metadata population
+    _setTxt('econ-meta-r-salary', plr(rS));
+    _setTxt('econ-meta-q4-val', q4avg.toFixed(3) + ' / 1k pop.');
+    _setTxt('econ-meta-q1-val', q1avg.toFixed(3) + ' / 1k pop.');
+
+    // Wealthiest and poorest
+    const poorest = ss[0];
+    const richest = ss[ss.length - 1];
+    _setTxt('econ-meta-salary-max', cleanPow(richest.powiat) + '\n' + Math.round(richest.avg_salary).toLocaleString('pl-PL') + ' zł');
+    _setTxt('econ-meta-salary-min', cleanPow(poorest.powiat) + '\n' + Math.round(poorest.avg_salary).toLocaleString('pl-PL') + ' zł');
   }
+
+  // Outliers
+  const kam = all.find(r => r.powiat.includes('kamieński'));
+  const tat = all.find(r => r.powiat.includes('tatrzański'));
+  const lub = all.find(r => r.powiat.includes('lubiński'));
+  if (kam) _setTxt('econ-meta-outlier-kam', kam.per_1k.toFixed(2) + ' / 1k pop.');
+  if (tat) _setTxt('econ-meta-outlier-tat', tat.per_1k.toFixed(2) + ' / 1k pop.');
+  if (lub) _setTxt('econ-meta-outlier-lub', lub.per_1k.toFixed(2) + ' / 1k pop.');
 
   if (rowsU.length >= 8) {
     const su = [...rowsU].sort((a, b) => a.unemployment_rate - b.unemployment_rate);
@@ -565,9 +600,17 @@ function _updateEconFacts() {
       _setDC('ec-fact-u-max-num', maxURow.unemployment_rate.toFixed(1));
       _setTxt('ec-fact-u-max-sub', cleanPow(maxURow.powiat) + ' – tylko ' + maxURow.per_1k.toFixed(2).replace('.', ',') + ' skl./1000');
       _setTxt('ec-fact-u-max-density', maxURow.per_1k.toFixed(2).replace('.', ','));
+      _setTxt('econ-meta-unemp-max', cleanPow(maxURow.powiat) + '\n' + maxURow.unemployment_rate.toFixed(1) + '% bezrobocia');
     }
     const rU = pearson(rowsU.map(d => d.unemployment_rate), rowsU.map(d => d.per_1k));
     _setTxt('ec-fact-r-unemp', plr(rU));
+    _setTxt('econ-meta-r-unemp', plr(rU));
+  }
+
+  // Force count-up observer wiring to rerun so targets are animated with new values
+  const root = document.getElementById('ec-root');
+  if (root) {
+    wireCountUp(root);
   }
 }
 
