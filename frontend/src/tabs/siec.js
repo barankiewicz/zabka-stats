@@ -34,8 +34,10 @@ export function renderSiec(){
   whenVisible(document.getElementById('bubble-stage'), renderBubble);
   // MapLibre init is the heaviest thing on this tab; defer it past the load
   // window (whenVisibleIdle) even though the growth map sits in the desktop
-  // initial viewport, so its ~13k-circle build stays out of FCP/LCP/TBT.
-  whenVisibleIdle(document.getElementById('map-growth'), renderGrowthMap);
+  // initial viewport, so its ~13k-circle build stays out of FCP/LCP/TBT. Tight
+  // rootMargin (80px, not the default 400px) so the 229 KB MapLibre chunk is not
+  // pre-fetched on mobile, where the map sits just below the fold at load.
+  whenVisibleIdle(document.getElementById('map-growth'), renderGrowthMap, '80px');
   whenVisible(document.getElementById('canvas-fingerprint-flat'), drawFingerprintFlat);
   renderGrowthChart();
   wireGranular();
@@ -1187,7 +1189,7 @@ async function renderWojMap(){
   if(!_wojMap){
     if(_wojPending)return;              // build scheduled / in progress
     _wojPending=true;
-    whenVisibleIdle(el, ()=>_buildWojMap(el));   // defer MapLibre until on-screen + past load
+    whenVisibleIdle(el, ()=>_buildWojMap(el), '80px');   // defer MapLibre until on-screen + past load
     return;
   }
   _fillWoj();

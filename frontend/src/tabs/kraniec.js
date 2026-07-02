@@ -223,7 +223,7 @@ export function renderKraniec() {
   if (_krDone) { if (_krMap) setTimeout(() => _krMap.resize && _krMap.resize(), 120); return; }
   _krDone = true;
   _updateKrDataCounts();
-  whenVisibleIdle(document.getElementById('kr-map'), buildMap);   // defer MapLibre until the Atlas is on-screen + past load
+  whenVisibleIdle(document.getElementById('kr-map'), buildMap, '80px');   // defer MapLibre until the Atlas is on-screen + past load
   buildList();
   wirePanels();
 }
