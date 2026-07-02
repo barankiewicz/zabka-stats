@@ -34,12 +34,15 @@ export async function loadCore() {
   if (_coreDone) return;
   _coreDone = true;
   applySkel();
+  // Core bucket is intentionally tiny (all small payloads, ~6 KB total) so the
+  // above-the-fold hero + stat strip - the LCP element - paints fast even on
+  // slow mobile. The big woj_geo GeoJSON (46 KB) moved to loadSiec since only
+  // below-fold maps need it.
   const [
-    summary, wojGeo, networkGrowth, networkOrigin, neighborStats,
+    summary, networkGrowth, networkOrigin, neighborStats,
     coverageFunnel, perCapita, section3,
   ] = await Promise.allSettled([
     fetchJSON(`${BASE}/stats/summary`),
-    fetchJSON(`${BASE}/geo/voivodeships`),
     fetchJSON(`${BASE}/stats/network-growth`),
     fetchJSON(`${BASE}/stats/network-origin`),
     fetchJSON(`${BASE}/stats/neighbor-stats`),
@@ -49,7 +52,7 @@ export async function loadCore() {
   ]);
   Object.assign(M, {
     summary:          val(summary, {total_active:0, cities_count:0, merrychef_pct:0, sunday_pct:0, h24_count:0}),
-    woj_geo:          val(wojGeo, {type:'FeatureCollection', features:[]}),
+    woj_geo:          {type:'FeatureCollection', features:[]},  // filled by loadSiec
     network_growth:   val(networkGrowth, []),
     network_origin:   val(networkOrigin, {}),
     neighbor_stats:   val(neighborStats, {}),
@@ -78,11 +81,21 @@ export async function loadTabData(tab) {
   else if (tab === 'spoleczenstwo') await loadSpoleczenstwo();
 }
 
-async function loadSiec() {
+// Heavy SIEC bucket - everything the below-the-fold scenes need (the big
+// stores-timeline + amphibians payloads, woj_geo, Atlas data). Cached as a
+// single promise so scene builders can `loadSiec().then(...)` without the
+// above-fold render ever awaiting it. Kicked off by renderSiec right after the
+// hero paints, so it no longer blocks LCP on slow mobile.
+let _siecPromise = null;
+export function loadSiec() {
+  return _siecPromise ??= _loadSiecImpl();
+}
+async function _loadSiecImpl() {
   const [
-    storesTimeline, openingsMonthly, cityFirst, topCities,
+    wojGeo, storesTimeline, openingsMonthly, cityFirst, topCities,
     powiatCoverage, kraniec, elevation, parksStores, twins, amphibians,
   ] = await Promise.allSettled([
+    fetchJSON(`${BASE}/geo/voivodeships`),
     fetchJSON(`${BASE}/stats/stores-timeline`),
     fetchJSON(`${BASE}/stats/openings-monthly`),
     fetchJSON(`${BASE}/stats/city-first-opening`),
@@ -96,6 +109,7 @@ async function loadSiec() {
   ]);
   const kf = val(kraniec, {facts:[], backdrop:[]});
   Object.assign(M, {
+    woj_geo:           val(wojGeo, {type:'FeatureCollection', features:[]}),
     stores_timeline:   val(storesTimeline, {}),
     openings_monthly:  val(openingsMonthly, []),
     city_first_opening: val(cityFirst, []),

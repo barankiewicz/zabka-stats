@@ -97,12 +97,16 @@ async function renderTab(tab){
   _pending.add(tab);
   const tabEl=document.getElementById('tab-'+tab);
   try {
-    await loadTabData(tab);          // fetch this tab's endpoints (cached after first open)
     const mod = await tabModule(tab); // download + parse this tab's chunk
     if(tab==='siec'){
+      // Do NOT await the heavy SIEC bucket here: renderSiec paints the
+      // above-the-fold hero from the already-loaded core bucket immediately, and
+      // kicks/gates the heavy below-fold data (loadSiec) itself. Awaiting it here
+      // would push the LCP hero behind ~187 KB of API on slow mobile.
       registerFilterCallbacks(null, mod.renderGranular, null);
       mod.renderSiec();
     } else if(tab==='spoleczenstwo'){
+      await loadTabData(tab);          // fetch this tab's endpoints (cached after first open)
       registerFilterCallbacks(null, null, mod.renderDumbbellByLevel);
       mod.renderSpoleczenstwo();
       mod.wireInpostLevel();

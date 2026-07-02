@@ -14,7 +14,7 @@ function ensureMaplibre(){
     return m;
   });
 }
-import { fetchJSON } from '../data.js';
+import { fetchJSON, loadSiec } from '../data.js';
 import { renderBubble } from './bubble.js';
 import { renderKraniec } from './kraniec.js';
 import { renderEdgeKPIs } from './edge.js';
@@ -23,28 +23,28 @@ const prefersReduced = () =>
   window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export function renderSiec(){
+  // Above the fold, from the already-loaded core bucket - paints immediately so
+  // the hero (LCP element) is not blocked on the heavy SIEC data.
   renderHero();
   renderStatStrip();
   renderOrigins();
-  // Below-the-fold scenes are deferred until they near the viewport (same
-  // pattern the maps already use). Rendering the D3 force bubble, the
-  // fingerprint canvas and the coverage donut+minimap eagerly on load put a
-  // pile of main-thread work on the critical path for charts nobody was looking
-  // at yet - so gate each on visibility.
-  whenVisible(document.getElementById('bubble-stage'), renderBubble);
-  // MapLibre init is the heaviest thing on this tab; defer it past the load
-  // window (whenVisibleIdle) even though the growth map sits in the desktop
-  // initial viewport, so its ~13k-circle build stays out of FCP/LCP/TBT. Tight
-  // rootMargin (80px, not the default 400px) so the 229 KB MapLibre chunk is not
-  // pre-fetched on mobile, where the map sits just below the fold at load.
-  whenVisibleIdle(document.getElementById('map-growth'), renderGrowthMap, '80px');
-  whenVisible(document.getElementById('canvas-fingerprint-flat'), drawFingerprintFlat);
   renderGrowthChart();
+  // The GRAN bar fetches its own by-dimension data; render it now.
   wireGranular();
   renderGranular();
-  renderEdgeKPIs();
-  renderKraniec();
-  whenVisible(document.getElementById('powiat-donut'), renderPowiatCoverage);
+  // Bubble pulls its own by-dimension data, so it only needs visibility.
+  whenVisible(document.getElementById('bubble-stage'), renderBubble);
+  // Everything below feeds off the heavy SIEC bucket (stores-timeline,
+  // amphibians, woj_geo, Atlas data). Kick it once and gate each scene on it, so
+  // the fetch runs in the background after the hero paints instead of blocking
+  // it. Scenes that also render maps stay whenVisibleIdle (past-load) with a
+  // tight 80px rootMargin so the 229 KB MapLibre chunk is not pre-fetched on
+  // mobile where these sit just below the fold.
+  const ready = loadSiec();
+  whenVisibleIdle(document.getElementById('map-growth'), ()=>ready.then(renderGrowthMap), '80px');
+  whenVisible(document.getElementById('canvas-fingerprint-flat'), ()=>ready.then(drawFingerprintFlat));
+  whenVisible(document.getElementById('powiat-donut'), ()=>ready.then(renderPowiatCoverage));
+  ready.then(()=>{ renderEdgeKPIs(); renderKraniec(); });
   const root=document.getElementById('tab-siec');
   if(root){
     const obs=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');obs.unobserve(e.target);}}),{threshold:.12});
@@ -1189,7 +1189,7 @@ async function renderWojMap(){
   if(!_wojMap){
     if(_wojPending)return;              // build scheduled / in progress
     _wojPending=true;
-    whenVisibleIdle(el, ()=>_buildWojMap(el), '80px');   // defer MapLibre until on-screen + past load
+    whenVisibleIdle(el, ()=>loadSiec().then(()=>_buildWojMap(el)), '80px');   // defer MapLibre until on-screen + past load; needs woj_geo (loadSiec)
     return;
   }
   _fillWoj();
