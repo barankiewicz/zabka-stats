@@ -81,14 +81,18 @@ def summary() -> SummaryResponse:
                   / NULLIF(COUNT(*), 0), 1) AS sunday_pct,
             SUM(CASE WHEN h24 THEN 1 ELSE 0 END) AS h24_count
         FROM locations
-        WHERE deleted_at IS NULL 
+        WHERE deleted_at IS NULL
     """).fetchone()
+    last_run = client.execute(
+        "SELECT updated_at FROM etl_meta WHERE key = 'last_run'"
+    ).fetchone()
     return SummaryResponse(
         total_active=int(r[0] or 0),
         cities_count=int(r[1] or 0),
         merrychef_pct=float(r[2] or 0),
         sunday_pct=float(r[3] or 0),
-        h24_count=int(r[4] or 0)
+        h24_count=int(r[4] or 0),
+        last_updated=str(last_run[0]) if last_run and last_run[0] else None
     )
 
 @get("/stats/network-growth", sync_to_thread=True)

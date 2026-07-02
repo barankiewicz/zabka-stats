@@ -28,6 +28,7 @@ from backend.etl.io import (
     load_to_duckdb,
     reload_cache,
     resolve_poland_boundaries,
+    stamp_etl_run,
     to_tabular,
 )
 from backend.etl.sources.amphibians import AmphibiansEnricher
@@ -211,6 +212,7 @@ def run(no_geocode: bool = False,
         load_dimensions(con, dim_powiat, dim_voiv)
         load_dim_park(con, parks_enricher.parks())
         load_fun_facts(con, fun)
+        stamp_etl_run(con)
     finally:
         con.close()
 

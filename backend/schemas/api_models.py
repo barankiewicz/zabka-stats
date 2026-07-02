@@ -10,6 +10,7 @@ class SummaryResponse(BaseModel):
     merrychef_pct: float
     sunday_pct: float
     h24_count: int
+    last_updated: str | None = None
 
 class NetworkGrowthItem(BaseModel):
     year: int

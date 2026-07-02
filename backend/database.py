@@ -394,6 +394,16 @@ def ensure_extra_tables(con):
         )
     """)
 
+    # Znacznik ostatniego udanego przebiegu ETL (jeden wiersz, key='last_run').
+    # Osobno od `locations.created_at`, ktore trzyma date snapshotu zrodla
+    # (godzina 00:00), a nie faktyczny czas wykonania joba.
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS etl_meta (
+            key VARCHAR PRIMARY KEY,
+            updated_at TIMESTAMP
+        )
+    """)
+
     # Seed on a fresh or migrated DB that is missing the hierarchy data.
     if con.execute("SELECT COUNT(*) FROM administrative_division").fetchone()[0] == 0:
         _seed_administrative_division(con)

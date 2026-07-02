@@ -525,6 +525,13 @@ def load_fun_facts(con, facts: dict):
     print(f"[fun_facts] zapisano {n} faktow: {', '.join(sorted(facts or {}))}")
 
 
+def stamp_etl_run(con):
+    """Zapisz znacznik czasu ukonczenia tego przebiegu ETL (etl_meta.last_run),
+    zeby frontend mogl pokazac 'Aktualizacja danych: <data i godzina>'. To jest
+    faktyczny czas wykonania joba (datetime.now), nie data snapshotu zrodla."""
+    con.execute("INSERT OR REPLACE INTO etl_meta VALUES ('last_run', ?)", [datetime.now()])
+
+
 # ---------------------------------------------------------------------------
 # PRZEŁADUJ CACHE REDIS
 # ---------------------------------------------------------------------------
