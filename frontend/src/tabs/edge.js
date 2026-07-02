@@ -1,5 +1,6 @@
 import { M } from '../state.js';
 import { capName } from '../utils.js';
+import { t } from '../i18n.js';
 
 export function renderEdgeKPIs() {
   const s = M.summary || {};
@@ -20,7 +21,7 @@ export function renderEdgeKPIs() {
     setCount('ep-zerofrog-val', ae.zero_frog_count);
     if (s.total_active) {
       const pct = ((ae.zero_frog_count / s.total_active) * 100).toFixed(1).replace('.', ',');
-      set('ep-zerofrog-note', `sklepów (${pct}%) bez ani jednej obserwacji płaza w 5 km`);
+      set('ep-zerofrog-note', t('ep_zerofrog_note').replace('{pct}', pct));
     }
   }
 
@@ -40,7 +41,7 @@ export function renderEdgeKPIs() {
     const age = new Date().getFullYear() - parseInt(yr, 10);
     setCount('edge-kpi-oldest', yr);
     const subEl = document.getElementById('edge-kpi-oldest-sub');
-    if (subEl && oldest.city) subEl.textContent = oldest.city + ' · dziala od ' + age + ' lat';
+    if (subEl && oldest.city) subEl.textContent = t('oldest_active_sub').replace('{city}', oldest.city).replace('{age}', age);
   }
 
   // void KPI from section3_rare
@@ -72,7 +73,7 @@ export function renderEdgeKPIs() {
     const crown = frogStreets[0];
     if (crown.city) set('ep-frogstreet-city', `${crown.city}${crown.voivodeship ? ', ' + capName(crown.voivodeship) : ''}`);
     const cnt = s3.frog_streets_count || frogStreets.length;
-    set('ep-frogstreet-note', `Żabka przy ulicy Zielonej Żabki – jeden z ${cnt} sklepów na ulicach z żabim motywem.`);
+    set('ep-frogstreet-note', t('frog_street_note').replace('{cnt}', cnt));
   }
 
   // Farthest from any amphibian observation

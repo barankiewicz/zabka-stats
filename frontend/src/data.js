@@ -51,7 +51,7 @@ export async function loadCore() {
     fetchJSON(`${BASE}/stats/section3-rare`),
   ]);
   Object.assign(M, {
-    summary:          val(summary, {total_active:0, cities_count:0, merrychef_pct:0, sunday_pct:0, h24_count:0}),
+    summary:          val(summary, {total_active:0, cities_count:0, merrychef_pct:0, sunday_pct:0, h24_count:0, last_updated:null}),
     woj_geo:          {type:'FeatureCollection', features:[]},  // filled by loadSiec
     network_growth:   val(networkGrowth, []),
     network_origin:   val(networkOrigin, {}),

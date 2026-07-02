@@ -110,7 +110,7 @@ canvas{display:block}
 
 /* STAT STRIP */
 .stat-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:14px}
-.stat-tile{background:var(--surface);border:1px solid var(--axis);border-radius:14px;padding:14px}
+.stat-tile{background:var(--surface);border:1px solid var(--axis);border-radius:14px;padding:14px;min-height:120px}
 .stat-kicker{font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.14em;font-size:10px;color:var(--green);margin-bottom:10px}
 .stat-big{font-family:var(--font-display);font-weight:800;font-size:30px;line-height:1;color:var(--green-bright);letter-spacing:-.02em}
 .stat-big .stat-unit{font-size:14px;font-weight:600;color:var(--muted);margin-left:6px;letter-spacing:0}

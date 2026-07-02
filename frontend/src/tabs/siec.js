@@ -18,6 +18,7 @@ import { fetchJSON, loadSiec } from '../data.js';
 import { renderBubble } from './bubble.js';
 import { renderKraniec } from './kraniec.js';
 import { renderEdgeKPIs } from './edge.js';
+import { t, getLang } from '../i18n.js';
 
 const prefersReduced = () =>
   window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -121,8 +122,22 @@ function startHeroParticles(){
 /* ---------------- STAT STRIP: milestone cadence + origins ---------------- */
 
 const PL_MONTHS=['stycznia','lutego','marca','kwietnia','maja','czerwca','lipca','sierpnia','września','października','listopada','grudnia'];
-function plYears(n){const u=n%10,t=n%100;if(n===1)return'rok';if(u>=2&&u<=4&&(t<12||t>14))return'lata';return'lat'}
-function plDate(s){if(!s)return'–';const[y,m,d]=s.split('-').map(Number);return`${d} ${PL_MONTHS[m-1]||''} ${y}`}
+const EN_MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function formatYears(n){
+  if(getLang()==='en') return n===1?'year':'years';
+  const u=n%10,t=n%100;
+  if(n===1)return'rok';
+  if(u>=2&&u<=4&&(t<12||t>14))return'lata';
+  return'lat';
+}
+
+function formatDate(s){
+  if(!s)return'–';
+  const[y,m,d]=s.split('-').map(Number);
+  if(getLang()==='en') return `${EN_MONTHS[m-1]||''} ${d}, ${y}`;
+  return `${d} ${PL_MONTHS[m-1]||''} ${y}`;
+}
 
 export function renderStatStrip(){
   const ng=M.network_growth||[];
@@ -136,7 +151,7 @@ export function renderStatStrip(){
     const el=document.getElementById(id);if(!el||n==null)return;
     const num=el.querySelector('.stat-num'),unit=document.getElementById(id+'-unit');
     if(num)num.dataset.count=n;
-    if(unit)unit.textContent=plYears(n);
+    if(unit)unit.textContent=formatYears(n);
   };
   setYears('stat-first1k',toFirst);
   setYears('stat-last5k',last5);
@@ -146,7 +161,10 @@ export function renderStatStrip(){
     const bv=document.getElementById('stat-bestyear');if(bv)bv.dataset.count=best.new_stores;
     const perH=best.new_stores>0?8760/best.new_stores:0;
     const sub=document.getElementById('stat-bestyear-sub');
-    if(sub)sub.textContent=`nowych w ${best.year} – co ~${perH.toFixed(1).replace('.',',')} h`;
+    if(sub) {
+      const hoursStr = getLang() === 'en' ? perH.toFixed(1) : perH.toFixed(1).replace('.', ',');
+      sub.textContent = t('stat_sub_record_template').replace('{year}', best.year).replace('{hours}', hoursStr);
+    }
   }
 
   const ns=M.neighbor_stats;
@@ -165,7 +183,10 @@ export function renderStatStrip(){
     const ce=document.getElementById('stat-cities');
     const sub=document.getElementById('stat-cities-sub');
     if(ce&&citiesFunnel.pct!=null)ce.dataset.count=citiesFunnel.pct;
-    if(sub)sub.textContent=`z ${(citiesFunnel.total||0).toLocaleString('pl-PL')} polskich miast ma Żabkę`;
+    if(sub) {
+      const formattedTotal = (citiesFunnel.total||0).toLocaleString(getLang() === 'en' ? 'en-US' : 'pl-PL');
+      sub.textContent = t('cities_funnel_text').replace('{total}', formattedTotal);
+    }
   }
   const s=M.summary;
   if(s){
@@ -173,7 +194,8 @@ export function renderStatStrip(){
     if(rEl&&M.per_capita&&M.per_capita.length&&s.total_active){
       const totalPop=M.per_capita.reduce((a,r)=>a+(r.population||0),0);
       const perStore=Math.round(totalPop/(+s.total_active));
-      rEl.innerHTML=`${perStore.toLocaleString('pl-PL')}<span class="stat-unit"> os.</span>`;
+      const unitText = getLang() === 'en' ? ' people' : ' os.';
+      rEl.innerHTML=`${perStore.toLocaleString(getLang() === 'en' ? 'en-US' : 'pl-PL')}<span class="stat-unit">${unitText}</span>`;
     }
   }
 }
@@ -188,13 +210,13 @@ export function renderOrigins(){
     setYear('origin-new-year',(o.newest.first_opening_date||'').slice(0,4));
     set('origin-new-city',o.newest.city);
     set('origin-new-street',o.newest.street);
-    set('origin-new-date',plDate(o.newest.first_opening_date));
+    set('origin-new-date',formatDate(o.newest.first_opening_date));
   }
   if(o.oldest){
     setYear('origin-old-year',(o.oldest.first_opening_date||'').slice(0,4));
     set('origin-old-city',o.oldest.city);
     set('origin-old-street',o.oldest.street);
-    set('origin-old-date',plDate(o.oldest.first_opening_date));
+    set('origin-old-date',formatDate(o.oldest.first_opening_date));
   }
 }
 
@@ -204,7 +226,9 @@ let growthMap=null,growthRaf=null,growthLoopTimer=null;
 let growthLoop=true; // auto-repeat until the user grabs the timeline
 let calData=null;    // {byYM: Map(year*100+month -> cnt), max}
 const GROWTH_MIN=1998,GROWTH_MAX=2026;
-const MONTH_INI=['S','L','M','K','M','C','L','S','W','P','L','G']; // PL month initials
+const MONTH_INI= getLang() === 'en'
+  ? ['J','F','M','A','M','J','J','A','S','O','N','D']
+  : ['S','L','M','K','M','C','L','S','W','P','L','G'];
 
 // Calendar animation state
 let _calAnimMap=new Map(); // key(y*100+m) -> {born:ms, dir:-1|1}
@@ -411,7 +435,7 @@ export async function renderGrowthMap(){
       window.addEventListener('resize',debounce(()=>{drawCalendar(slider?+slider.value:GROWTH_MAX)}));
     } catch (e) {
       if (e instanceof WebGLUnavailableError) {
-        showMapUnavailable(el, { message: 'Mapa ekspansji niedostępna' });
+        showMapUnavailable(el, { message: getLang() === 'en' ? 'Expansion map unavailable' : 'Mapa ekspansji niedostępna' });
         growthMap = null;
         return;
       }
@@ -698,8 +722,11 @@ export function renderGrowthChart(){
 
   const years = plotData.map(d => d.year);
   const tipFor = d => {
-    const lines = [`Rok: ${d.year}`, `Nowe sklepy: ${d.new_stores.toLocaleString('pl-PL')}`];
-    lines.push(`Zmiana r/r: ${d.yoy != null ? d.yoy + '%' : '–'}`);
+    const lines = [
+      t('tooltip_year').replace('{year}', d.year),
+      t('tooltip_new_stores').replace('{count}', d.new_stores.toLocaleString(getLang() === 'en' ? 'en-US' : 'pl-PL'))
+    ];
+    lines.push(t('tooltip_yoy').replace('{pct}', d.yoy != null ? d.yoy + '%' : '–'));
     return lines;
   };
 
@@ -709,7 +736,7 @@ export function renderGrowthChart(){
       datasets: [
         {
           type: 'bar',
-          label: 'Nowe sklepy',
+          label: t('chart_growth_legend_new'),
           data: plotData.map(d => d.new_stores),
           backgroundColor: plotData.map(d => d.year >= 2023 ? C.green : d.year >= 2010 ? C.green + '88' : C.green + '44'),
           borderRadius: 2,
@@ -718,7 +745,7 @@ export function renderGrowthChart(){
         },
         {
           type: 'line',
-          label: 'Zmiana r/r',
+          label: t('chart_growth_legend_yoy'),
           data: plotData.map(d => d.yoy),
           borderColor: C.teal,
           backgroundColor: C.bg,
@@ -990,7 +1017,7 @@ function updateMoreBtn(){
   const b=document.getElementById('gran-more');if(!b)return;
   const more=_gDim!=='voivodeship'&&_gRows.length<_gTotal;
   b.hidden=!more;
-  if(more)b.textContent=`Załaduj więcej (${_gRows.length}/${_gTotal})`;
+  if(more)b.textContent = t('load_more_format').replace('{current}', _gRows.length).replace('{total}', _gTotal);
 }
 
 function drawGranularChart(){
@@ -1003,10 +1030,17 @@ function drawGranularChart(){
     if(f&&_gDim==='voivodeship'&&d.name&&d.name.toLowerCase()!==f)return'rgba(132,195,65,.22)';
     return fpRamp(n>1?1-i/(n-1):1);
   });
-  const word=GRAN_WORD[_gDim];
-  const mlabel=_gMetric==='per1k'?'sklepy na 1000 mieszkańców':_gMetric==='per_km2'?'sklepy na km²':'liczba aktywnych sklepów';
+  const word = t('gran_word_' + _gDim);
+  const mlabel = _gMetric === 'per1k' 
+    ? t('gran_metric_per1k_label') 
+    : _gMetric === 'per_km2' 
+      ? t('gran_metric_per_km2_label') 
+      : t('gran_sub');
   const tEl=document.getElementById('gran-title');
-  if(tEl)tEl.textContent=`${_gSort==='asc'?'Najmniej':'Najwięcej'} Żabek – ${word}`;
+  if(tEl) {
+    const titlePattern = _gSort === 'asc' ? t('gran_title_format_asc') : t('gran_title_format_desc');
+    tEl.textContent = titlePattern.replace('{word}', word);
+  }
   const sEl=document.getElementById('gran-sub');
   if(sEl)sEl.textContent=mlabel+(f&&_gDim!=='voivodeship'?` – ${STATE.filter}`:'');
   // grow the chart with the row count so load-more rows are not squished
@@ -1020,7 +1054,7 @@ function drawGranularChart(){
   let data=rows.map(d=>d[vk]);
   let _hasPozostale=false;
   if(!_isCount()&&_gDim!=='voivodeship'&&!_gOffset&&_gRows.length<_gTotal&&_gAvg!=null){
-    labels=labels.concat('Pozostałe (śr.)');
+    labels=labels.concat(t('gran_ref_others'));
     data=data.concat(+_gAvg.toFixed(_gMetric==='per_km2'?3:2));
     colors.push('rgba(147,164,135,0.35)');
     _hasPozostale=true;
@@ -1031,11 +1065,19 @@ function drawGranularChart(){
   let avgLabel='',medLabel='';
   if(_gAvg!=null){
     if(_gDim!=='city') refLines.push({value:_gAvg,axis:'x',color:'#86a86a',lineWidth:2});
-    avgLabel=`śr. ${_isCount()?fmt(Math.round(_gAvg)):_gAvg}`;
+    const valFormatted = _isCount() 
+      ? fmt(Math.round(_gAvg)) 
+      : (getLang() === 'en' ? _gAvg.toFixed(2) : _gAvg.toFixed(2).replace('.', ','));
+    avgLabel = t('legend_avg').replace('{val}', valFormatted);
   }
   if(_gMedian!=null){
     if(_gDim!=='city') refLines.push({value:_gMedian,axis:'x',color:'#c79257',lineWidth:2});
-    medLabel=`mediana ${_isCount()?fmt(Math.round(_gMedian)):_gMedian.toFixed(_gMetric==='per_km2'?3:2)}`;
+    const medVal = _isCount() 
+      ? fmt(Math.round(_gMedian)) 
+      : (getLang() === 'en' 
+          ? _gMedian.toFixed(_gMetric === 'per_km2' ? 3 : 2) 
+          : _gMedian.toFixed(_gMetric === 'per_km2' ? 3 : 2).replace('.', ','));
+    medLabel = t('legend_median').replace('{val}', medVal);
   }
   const legEl=document.getElementById('gran-ref-legend');
   if(legEl){
@@ -1046,8 +1088,8 @@ function drawGranularChart(){
   }
 
   const barLabelsOpt=_isCount()?{thousands:true,color:C.muted}
-    :_gMetric==='per1k'?{decimals:2,color:C.muted,suffix:' żab./1k'}
-    :{decimals:3,color:C.muted,suffix:' żab./km²'};
+    :_gMetric==='per1k'?{decimals:2,color:C.muted,suffix: ' ' + t('suffix_per1k')}
+    :{decimals:3,color:C.muted,suffix: ' ' + t('suffix_per_km2')};
 
   // Every dim/metric/sort/filter change used to destroy+recreate this chart,
   // paying a full teardown + entry animation on each click. Update the
@@ -1104,8 +1146,15 @@ let _wojLabelMarkers=[];   // MapLibre HTML markers carrying the value labels
 function _wVk(){return _wojMetricLive==='per1k'?'per_1k':_wojMetricLive==='per_km2'?'per_km2':'cnt'}
 function _wFmtVal(r){
   const vk=_wVk();
-  return _wojMetricLive==='count'?`${fmt(r[vk]||r.cnt)} sklepów`
-    :_wojMetricLive==='per1k'?`${r.per_1k}/1k mieszk.`:`${r.per_km2}/km²`;
+  if (_wojMetricLive==='count') {
+    const suffix = getLang() === 'en' ? ' stores' : ' sklepów';
+    return `${fmt(r[vk]||r.cnt)}${suffix}`;
+  }
+  if (_wojMetricLive==='per1k') {
+    const suffix = getLang() === 'en' ? '/1k res.' : '/1k mieszk.';
+    return `${getLang() === 'en' ? r.per_1k : String(r.per_1k).replace('.', ',')}${suffix}`;
+  }
+  return `${getLang() === 'en' ? r.per_km2 : String(r.per_km2).replace('.', ',')}/km²`;
 }
 function _wFindRow(f){
   const p=f.properties||{};
@@ -1138,8 +1187,8 @@ function _setWojData(rows,metric,inverted){
       nf.properties._val=_wFmtVal(r);
       let label;
       if(metric==='count')label=fmt(Math.round(v));
-      else if(metric==='per1k')label=v.toFixed(2).replace('.',',')+'/1k';
-      else label=v.toFixed(3).replace('.',',')+'/km²';
+      else if(metric==='per1k')label=(getLang() === 'en' ? v.toFixed(2) : v.toFixed(2).replace('.',','))+'/1k';
+      else label=(getLang() === 'en' ? v.toFixed(3) : v.toFixed(3).replace('.',','))+'/km²';
       nf.properties._label=label;
     }else{
       nf.properties._t=0;nf.properties._label='';
@@ -1272,7 +1321,7 @@ async function _buildWojMap(el){
     });
     } catch (e) {
       if (e instanceof WebGLUnavailableError) {
-        showMapUnavailable(el, { message: 'Mapa województw niedostępna' });
+        showMapUnavailable(el, { message: getLang() === 'en' ? 'Voivodeship map unavailable' : 'Mapa województw niedostępna' });
         _wojMap = null; _wojPending = false;
         return;
       }

@@ -3,6 +3,12 @@ import { CHARTS } from './state.js';
 
 export function era(yr){if(yr<=2009)return'#2b531a';if(yr<=2019)return'#4a8a22';if(yr<=2022)return'#74bd2a';return'#a6e84a'}
 export function fmt(n){return(+n).toLocaleString('pl-PL')}
+// Backend sends "YYYY-MM-DD HH:MM:SS.ffffff" (str() of a Python datetime) - keep only
+// the minute precision the footer needs.
+export function fmtLastUpdated(raw){
+  const m = String(raw||'').match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/);
+  return m ? `${m[1]} ${m[2]}` : '';
+}
 // Display-case a place name and strip GUS naming artefacts. The dictionary
 // carries names like "Powiat bocheński", "M.st. Warszawa" and "... od 2013";
 // none of that belongs on a chart label. After stripping: voivodeship names

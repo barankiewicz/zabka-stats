@@ -2,9 +2,11 @@ import Chart from './chartjs-setup.js';
 import './style.css';
 import { annotPlugin, barValueLabels, C, STATE } from './config.js';
 import { M, MAPS, RENDERED } from './state.js';
-import { getFont, destroyChart, heroCount } from './utils.js';
+import { getFont, destroyChart, heroCount, fmtLastUpdated } from './utils.js';
 import { setFilter, clearFilter, registerFilterCallbacks } from './filter.js';
 import { loadCore, loadTabData } from './data.js';
+import { translateDOM, setLang } from './i18n.js';
+
 
 // Tabs are loaded on demand. Each dynamic import() becomes its own Rollup chunk,
 // so the heavy per-tab libs (echarts in econ/kraniec, d3 in the siec
@@ -163,7 +165,26 @@ _tabBtns.forEach((btn,i)=>{
 
 document.addEventListener('DOMContentLoaded',()=>{
   const btn=document.getElementById('filter-clear');if(btn)btn.addEventListener('click',clearFilter);
+
+  // Wire up language switcher
+  const langToggle = document.getElementById('lang-toggle');
+  if(langToggle) {
+    langToggle.addEventListener('click', e => {
+      const btn = e.target.closest('.lang-btn');
+      if (btn) {
+        const lang = btn.getAttribute('data-lang');
+        setLang(lang);
+        translateDOM();
+        // Clear rendered tab state and re-render
+        RENDERED.delete(STATE.tab);
+        renderTab(STATE.tab);
+      }
+    });
+  }
 });
+
+// Translate DOM immediately to default language (English)
+translateDOM();
 
 // SIEC is the default tab. loadCore() fetches only what SIEC needs for first
 // paint; per-tab heavy payloads (spoleczenstwo economics etc.) load on first
@@ -176,6 +197,12 @@ loadCore()
     // hero is the LCP element, so painting it here (not after the lazy siec chunk
     // loads and runs a 2s animation) is what pulls mobile LCP down.
     heroCount(document.getElementById('hero-number'), M.summary&&+M.summary.total_active);
+    const updated = fmtLastUpdated(M.summary&&M.summary.last_updated);
+    if(updated){
+      const updEl=document.getElementById('foot-updated');
+      const updVal=document.getElementById('foot-updated-value');
+      if(updEl&&updVal){updVal.textContent=updated;updEl.hidden=false;}
+    }
     setTimeout(()=>{
       renderTab('siec');
       const siecEl=document.getElementById('tab-siec');
