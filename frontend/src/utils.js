@@ -46,6 +46,26 @@ export function whenVisible(el, fn, rootMargin='400px'){
   io.observe(el);
 }
 
+// Run fn once the browser is idle AFTER the initial load - deliberately not
+// during the FCP/LCP/TBT-critical window. Waits for the load event, then a
+// requestIdleCallback (timeout fallback). Use for heavy, non-critical init
+// (MapLibre/WebGL) that would otherwise run on the load path whenever its
+// container happens to be on-screen at first paint.
+export function afterIdle(fn, timeout=2500){
+  const idle=()=> (typeof requestIdleCallback!=='undefined')
+    ? requestIdleCallback(fn,{timeout})
+    : setTimeout(fn, 300);
+  if(document.readyState==='complete') idle();
+  else window.addEventListener('load', idle, {once:true});
+}
+
+// whenVisible + afterIdle: build only when the target nears the viewport, and
+// even then defer the heavy work to the next post-load idle - so an element that
+// is already on-screen at load does not drag its init into the load path.
+export function whenVisibleIdle(el, fn, rootMargin){
+  whenVisible(el, ()=>afterIdle(fn), rootMargin);
+}
+
 // Coalesce a rapid-fire event (resize in particular) into one call after
 // `wait` ms of quiet. A drag-resize fires dozens of native 'resize' events per
 // second; without this every chart/map resize handler (Chart.js relayout,

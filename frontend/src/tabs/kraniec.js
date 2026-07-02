@@ -3,7 +3,7 @@
 // (np. h24, parki, sciana zachodnia, sklepy tuz obok). Trzymane w M, cap 360
 // na wpis zeby nie przeciazac CPU.
 import { M, MAPS } from '../state.js';
-import { fmt, capName, whenVisible, debounce } from '../utils.js';
+import { fmt, capName, whenVisibleIdle, debounce } from '../utils.js';
 import { loadMaplibre } from '../maplibre-lazy.js';
 
 // MapLibre (~280 KB gz) is loaded lazily, only when the Atlas map nears view.
@@ -223,7 +223,7 @@ export function renderKraniec() {
   if (_krDone) { if (_krMap) setTimeout(() => _krMap.resize && _krMap.resize(), 120); return; }
   _krDone = true;
   _updateKrDataCounts();
-  whenVisible(document.getElementById('kr-map'), buildMap);   // defer MapLibre until the Atlas is on-screen
+  whenVisibleIdle(document.getElementById('kr-map'), buildMap);   // defer MapLibre until the Atlas is on-screen + past load
   buildList();
   wirePanels();
 }

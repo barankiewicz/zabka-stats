@@ -1,7 +1,7 @@
 import Chart from '../chartjs-setup.js';
 import { C, STATE, fpRamp } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
-import { era, fmt, getFont, destroyChart, capName as capCase, whenVisible, debounce, wireCountUp } from '../utils.js';
+import { era, fmt, getFont, destroyChart, capName as capCase, whenVisible, whenVisibleIdle, debounce, wireCountUp } from '../utils.js';
 import { loadMaplibre } from '../maplibre-lazy.js';
 
 // MapLibre is ~280 KB gz; load it lazily (only when a map nears the viewport)
@@ -32,7 +32,10 @@ export function renderSiec(){
   // pile of main-thread work on the critical path for charts nobody was looking
   // at yet - so gate each on visibility.
   whenVisible(document.getElementById('bubble-stage'), renderBubble);
-  whenVisible(document.getElementById('map-growth'), renderGrowthMap);
+  // MapLibre init is the heaviest thing on this tab; defer it past the load
+  // window (whenVisibleIdle) even though the growth map sits in the desktop
+  // initial viewport, so its ~13k-circle build stays out of FCP/LCP/TBT.
+  whenVisibleIdle(document.getElementById('map-growth'), renderGrowthMap);
   whenVisible(document.getElementById('canvas-fingerprint-flat'), drawFingerprintFlat);
   renderGrowthChart();
   wireGranular();
@@ -207,7 +210,7 @@ export function renderOrigins(){
 
 /* ---------------- BIG MAP: vector Poland + year-sweep growth ---------------- */
 
-let growthMap=null,growthRaf=null,growthLoopTimer=null,_glowRaf=null;
+let growthMap=null,growthRaf=null,growthLoopTimer=null;
 let growthLoop=true; // auto-repeat until the user grabs the timeline
 let calData=null;    // {byYM: Map(year*100+month -> cnt), max}
 const GROWTH_MIN=1998,GROWTH_MAX=2026;
@@ -399,22 +402,20 @@ export async function renderGrowthMap(){
             'circle-blur':0.2,
           },
         });
-        // Show the final state immediately (one setFilter, not ~29) so the map
-        // is not on the initial-load critical path. The intro sweep - which
-        // re-filters 13k features once per year - is deferred to the first time
-        // the map is actually scrolled into the viewport. Replay button still
-        // triggers it on demand.
+        // Show the final state immediately (one setFilter, not ~29) with a
+        // static glow - no perpetual rAF loop, so the page can reach idle and
+        // the TBT window can close. The intro sweep plays once on the first
+        // genuine user scroll, never automatically: on desktop the map sits in
+        // the initial viewport, so an on-view trigger would fire during load and
+        // hammer the main thread. Bots/Lighthouse don't scroll, so they keep the
+        // cheap static state. The replay button triggers it on demand too.
         setYear(GROWTH_MAX);
         if(slider)slider.value=GROWTH_MAX;
         setPlaying(false);
-        startGlowLoop();
-        if(!prefersReduced() && typeof IntersectionObserver!=='undefined'){
-          const io=new IntersectionObserver((es)=>{
-            for(const e of es){
-              if(e.isIntersecting){io.disconnect();play(GROWTH_MIN);break;}
-            }
-          },{threshold:0.4});
-          io.observe(el);
+        setStaticGlow();
+        if(!prefersReduced()){
+          const kick=()=>{window.removeEventListener('scroll',kick);play(GROWTH_MIN);};
+          window.addEventListener('scroll',kick,{once:true,passive:true});
         }
       });
       window.addEventListener('resize',debounce(()=>{drawCalendar(slider?+slider.value:GROWTH_MAX)}));
@@ -459,16 +460,15 @@ export async function renderGrowthMap(){
     if(growthRaf){cancelAnimationFrame(growthRaf);growthRaf=null}
     if(growthLoopTimer){clearTimeout(growthLoopTimer);growthLoopTimer=null}
     setPlaying(false);
-    startGlowLoop(); // keep the glow alive while static
+    setStaticGlow(); // freeze the glow at its final look
   }
-  // play/resume: sweep from `fromYear` (default the start) to 2026, then loop
+  // play/resume: sweep from `fromYear` (default the start) to 2026, then rest
   function play(fromYear){
-    stopGlowLoop();
     if(growthRaf)cancelAnimationFrame(growthRaf);
     if(growthLoopTimer){clearTimeout(growthLoopTimer);growthLoopTimer=null}
     growthLoop=true;
     if(fromYear==null||fromYear<=GROWTH_MIN)resetCalAnim();
-    if(prefersReduced()){setYear(GROWTH_MAX);if(slider)slider.value=GROWTH_MAX;growthLoop=false;setPlaying(false);startGlowLoop();return}
+    if(prefersReduced()){setYear(GROWTH_MAX);if(slider)slider.value=GROWTH_MAX;growthLoop=false;setPlaying(false);setStaticGlow();return}
     setPlaying(true);
     const span=GROWTH_MAX-GROWTH_MIN,DUR=2800;
     let t0=0;
@@ -486,32 +486,20 @@ export async function renderGrowthMap(){
         growthRaf=null;
         growthLoop=false;      // play the intro sweep once, then rest (replay via the button)
         setPlaying(false);
-        startGlowLoop();       // keep the subtle glow shimmer alive while static
+        setStaticGlow();       // settle to the static final glow
       }
     })(performance.now());
   }
 
-  function startGlowLoop(){
-    if(growthRaf)return;
-    if(_glowRaf)return;
-    let last=0;
-    function tick(now){
-      _glowRaf=requestAnimationFrame(tick);
-      if(now-last<100)return; // ~10 fps
-      last=now;
-      setYear(slider?+slider.value:GROWTH_MAX,now);
-    }
-    _glowRaf=requestAnimationFrame(tick);
-    if(!growthMap._glowVisWired){
-      growthMap._glowVisWired=true;
-      document.addEventListener('visibilitychange',()=>{
-        if(document.hidden)stopGlowLoop();
-        else if(!growthRaf)startGlowLoop();
-      });
-    }
-  }
-  function stopGlowLoop(){
-    if(_glowRaf){cancelAnimationFrame(_glowRaf);_glowRaf=null}
+  // Static final glow: set the paint once instead of running a perpetual rAF
+  // shimmer. The old 10fps loop kept MapLibre repainting 13k circles forever,
+  // so the page never went idle and the TBT window never closed - the single
+  // biggest main-thread cost on desktop. The breathing shimmer is gone; the
+  // static glow reads the same at rest.
+  function setStaticGlow(){
+    if(!growthMap.getLayer||!growthMap.getLayer('stores-dots'))return;
+    growthMap.setPaintProperty('stores-dots','circle-blur',0.35*0.5);
+    growthMap.setPaintProperty('stores-glow','circle-opacity',0.30);
   }
 
   // play/pause toggle: pause freezes on the current year, play resumes from it
@@ -1199,7 +1187,7 @@ async function renderWojMap(){
   if(!_wojMap){
     if(_wojPending)return;              // build scheduled / in progress
     _wojPending=true;
-    whenVisible(el, ()=>_buildWojMap(el));   // defer MapLibre until on-screen
+    whenVisibleIdle(el, ()=>_buildWojMap(el));   // defer MapLibre until on-screen + past load
     return;
   }
   _fillWoj();
