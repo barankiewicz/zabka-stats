@@ -26,15 +26,20 @@ export function renderSiec(){
   renderHero();
   renderStatStrip();
   renderOrigins();
-  renderBubble();
+  // Below-the-fold scenes are deferred until they near the viewport (same
+  // pattern the maps already use). Rendering the D3 force bubble, the
+  // fingerprint canvas and the coverage donut+minimap eagerly on load put a
+  // pile of main-thread work on the critical path for charts nobody was looking
+  // at yet - so gate each on visibility.
+  whenVisible(document.getElementById('bubble-stage'), renderBubble);
   whenVisible(document.getElementById('map-growth'), renderGrowthMap);
-  drawFingerprintFlat();
+  whenVisible(document.getElementById('canvas-fingerprint-flat'), drawFingerprintFlat);
   renderGrowthChart();
   wireGranular();
   renderGranular();
   renderEdgeKPIs();
   renderKraniec();
-  renderPowiatCoverage();
+  whenVisible(document.getElementById('powiat-donut'), renderPowiatCoverage);
   const root=document.getElementById('tab-siec');
   if(root){
     const obs=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');obs.unobserve(e.target);}}),{threshold:.12});
@@ -97,7 +102,9 @@ function startHeroParticles(){
     if(document.hidden||now-last<33)return;   // ~30fps, pause when tab hidden
     last=now;
     ctx.clearRect(0,0,cv.width,cv.height);
-    ctx.shadowColor='rgba(132,195,65,.8)';ctx.shadowBlur=8;
+    // No per-particle shadowBlur: it forced a blur pass on every one of ~70
+    // fills each frame (a continuous main-thread cost that kept the page from
+    // going idle). On sub-2px dots the glow was barely visible anyway.
     ps.forEach(p=>{
       p.x+=p.vx;p.y+=p.vy;
       if(p.y<-6)p.y=cv.height+6;
@@ -105,7 +112,6 @@ function startHeroParticles(){
       ctx.beginPath();ctx.fillStyle=`rgba(166,232,74,${p.a})`;
       ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
     });
-    ctx.shadowBlur=0;
   }
   const start=()=>{if(!running){running=true;last=0;heroRaf=requestAnimationFrame(frame);}};
   const stop=()=>{running=false;if(heroRaf){cancelAnimationFrame(heroRaf);heroRaf=null;}};
@@ -393,10 +399,23 @@ export async function renderGrowthMap(){
             'circle-blur':0.2,
           },
         });
-        // start empty so the sweep animates dots in year by year
-        growthMap.setFilter('stores-dots',['<=',['get','year'],GROWTH_MIN-1]);
-        growthMap.setFilter('stores-glow',['<=',['get','year'],GROWTH_MIN-1]);
-        play();
+        // Show the final state immediately (one setFilter, not ~29) so the map
+        // is not on the initial-load critical path. The intro sweep - which
+        // re-filters 13k features once per year - is deferred to the first time
+        // the map is actually scrolled into the viewport. Replay button still
+        // triggers it on demand.
+        setYear(GROWTH_MAX);
+        if(slider)slider.value=GROWTH_MAX;
+        setPlaying(false);
+        startGlowLoop();
+        if(!prefersReduced() && typeof IntersectionObserver!=='undefined'){
+          const io=new IntersectionObserver((es)=>{
+            for(const e of es){
+              if(e.isIntersecting){io.disconnect();play(GROWTH_MIN);break;}
+            }
+          },{threshold:0.4});
+          io.observe(el);
+        }
       });
       window.addEventListener('resize',debounce(()=>{drawCalendar(slider?+slider.value:GROWTH_MAX)}));
     } catch (e) {
