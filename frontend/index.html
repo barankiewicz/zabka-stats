@@ -546,160 +546,29 @@
   </div>
 
   <!-- ================= ZABKA A POLSKA: interaktywny panel ekonomiczny ================= -->
-  <section class="ec econ-panel" id="ec-root">
-
-    <div class="econ-panel__left">
-      <div class="econ-scene__chart-wrap skel" id="econ-scene-chart-wrap">
-        <!-- Switcher Buttons positioned in the top-right corner of the chart wrap -->
-        <div class="econ-switcher" id="econ-switcher" role="tablist" aria-label="Wybór widoku wykresu">
-          <button class="econ-switcher__btn active" data-act="1" role="tab" aria-selected="true" tabindex="0">Mapa</button>
-          <button class="econ-switcher__btn" data-act="2" role="tab" aria-selected="false" tabindex="-1">Płaca (rozkład)</button>
-          <button class="econ-switcher__btn" data-act="3" role="tab" aria-selected="false" tabindex="-1">Płaca vs gęstość</button>
-          <button class="econ-switcher__btn" data-act="4" role="tab" aria-selected="false" tabindex="-1">Kwartyle płac</button>
-          <button class="econ-switcher__btn" data-act="5" role="tab" aria-selected="false" tabindex="-1">Wyjątki</button>
-          <button class="econ-switcher__btn" data-act="6" role="tab" aria-selected="false" tabindex="-1">Bezrobocie</button>
-        </div>
-
-        <div id="econ-scene-chart" class="econ-scene__chart" role="img"
-             aria-label="Wykres punktowy powiatów: płaca i bezrobocie a gęstość sieci Żabki. Korelacja z płacą dodatnia (ok. +0,4), z bezrobociem ujemna (ok. -0,35)."></div>
-        <div class="econ-scene__hud" id="econ-scene-hud">
-          <div class="econ-hud__r" id="econ-hud-r"></div>
-          <div class="econ-hud__axis" id="econ-hud-axis"></div>
-        </div>
-        <div class="econ-scene__error" id="econ-scene-error" hidden>
-          <p>Nie udało się załadować danych.</p>
-          <button type="button" id="econ-scene-retry">Spróbuj ponownie</button>
-        </div>
+  <section class="ec econ-maps" id="ec-root">
+    <div class="econ-maps__intro reveal">
+      <div class="card-title">Gdzie Żabek jest więcej, niż wynikałoby z ekonomii</div>
+      <div class="card-sub">Dwie mapy powiatów. Kolor to nie surowe zagęszczenie, tylko <b>odchylenie od trendu</b>: o ile sklepów na 1000 mieszkańców jest więcej (zielony) albo mniej (czerwony), niż przewiduje prosta zależność od danego wskaźnika. Biały powiat leży dokładnie na linii trendu. Zieleń tam, gdzie sieć jest gęstsza, niż tłumaczyłaby to ekonomia.</div>
+    </div>
+    <div class="row row-2 econ-maps__row reveal">
+      <div class="card econ-map-card">
+        <div class="card-title" id="econ-map-unemp-title">Reszty wobec bezrobocia</div>
+        <div class="card-sub" id="econ-map-unemp-sub">Zwykle im wyższe bezrobocie, tym rzadsza sieć. Zieleń pokazuje powiaty, które i tak mają więcej Żabek, niż sugeruje bezrobocie.</div>
+        <div class="map-container econ-map-container"><div id="map-econ-unemp"></div></div>
+        <div class="econ-map-legend" id="econ-legend-unemp"></div>
+      </div>
+      <div class="card econ-map-card">
+        <div class="card-title" id="econ-map-salary-title">Reszty wobec płacy</div>
+        <div class="card-sub" id="econ-map-salary-sub">Bogatsze powiaty mają gęstszą sieć. Zieleń = gęściej, czerwień = rzadziej, niż wynikałoby z samej płacy.</div>
+        <div class="map-container econ-map-container"><div id="map-econ-salary"></div></div>
+        <div class="econ-map-legend" id="econ-legend-salary"></div>
       </div>
     </div>
-
-    <div class="econ-panel__right">
-      <div class="econ-desc-card" id="econ-desc-card">
-        <div class="econ-desc-card__content is-active" data-act="1">
-          <h2>Polska, powiat po powiecie.</h2>
-          <p>Każda kropka to jeden powiat – <span id="econ-dot-count">314</span> w sumie. Kolor mówi, w którym regionie kraju leży. Reszta historii dopiero się zacznie.</p>
-          <div class="econ-meta-grid">
-            <div class="econ-meta-item">
-              <span class="econ-meta-label">Liczba powiatów</span>
-              <span class="econ-meta-val">314</span>
-            </div>
-            <div class="econ-meta-item">
-              <span class="econ-meta-label">Łącznie sklepów</span>
-              <span class="econ-meta-val" id="econ-meta-total-stores">-</span>
-            </div>
-          </div>
-        </div>
-        <div class="econ-desc-card__content" data-act="2">
-          <h2>Ustawieni od najbiedniejszego do najbogatszego.</h2>
-          <p>Płaca rośnie w prawo. Teraz zobaczmy, co się stanie, gdy dołożymy gęstość sieci.</p>
-          <div class="econ-meta-grid">
-            <div class="econ-meta-item">
-              <span class="econ-meta-label">Najwyższa płaca (lider)</span>
-              <span class="econ-meta-val econ-meta-val--rich" id="econ-meta-salary-max" style="white-space: pre-line;">-</span>
-            </div>
-            <div class="econ-meta-item">
-              <span class="econ-meta-label">Najniższa płaca</span>
-              <span class="econ-meta-val econ-meta-val--poor" id="econ-meta-salary-min" style="white-space: pre-line;">-</span>
-            </div>
-          </div>
-        </div>
-        <div class="econ-desc-card__content" data-act="3">
-          <h2>Bogatsze powiaty, gęstsza sieć.</h2>
-          <p>To zestawienie poglądowe. Współczynnik r opisuje współwystępowanie, nie związek przyczynowy – Żabka nie unika biednych powiatów z premedytacją, tylko idzie za ruchem i gęstością zabudowy, a te akurat korelują z zamożnością.</p>
-          <div class="econ-meta-grid">
-            <div class="econ-meta-item">
-              <span class="econ-meta-label">Korelacja (Pearson r)</span>
-              <span class="econ-meta-val text-green" id="econ-meta-r-salary">-</span>
-            </div>
-            <div class="econ-meta-item">
-              <span class="econ-meta-label">Charakter korelacji</span>
-              <span class="econ-meta-val text-green">Dodatnia, umiarkowana</span>
-            </div>
-          </div>
-        </div>
-        <div class="econ-desc-card__content" data-act="4">
-          <h2>Gęstość rośnie kwartyl po kwartylu.</h2>
-          <p>Powiaty podzielone na cztery równe grupy według średniej płacy. Słupek po słupku gęstość rośnie – bez wyjątku.</p>
-          <div class="econ-meta-grid">
-            <div class="econ-meta-item">
-              <span class="econ-meta-label">Q4 (Najbogatsza ćwiartka)</span>
-              <span class="econ-meta-val text-green" id="econ-meta-q4-val">-</span>
-            </div>
-            <div class="econ-meta-item">
-              <span class="econ-meta-label">Q1 (Najuboższa ćwiartka)</span>
-              <span class="econ-meta-val text-teal" id="econ-meta-q1-val">-</span>
-            </div>
-          </div>
-        </div>
-        <div class="econ-desc-card__content" data-act="5">
-          <h2>Wyjątki łamią regułę.</h2>
-          <p>Najgęstsza sieć stoi nie w najbogatszych powiatach, tylko w kurortach – kamieński (Międzyzdroje), tatrzański (Zakopane), Świnoujście. Tam sklepy obsługują turystów, nie mieszkańców. A lubiński, jeden z najbogatszych powiatów w Polsce dzięki miedzi KGHM, ma gęstość poniżej średniej. Bogactwo nie zawsze idzie w parze z tłumem na ulicy.</p>
-          <div class="econ-meta-list">
-            <div class="econ-meta-list-row">
-              <span class="econ-meta-list-name">1. pow. kamieński (Międzyzdroje)</span>
-              <span class="econ-meta-list-val" id="econ-meta-outlier-kam">-</span>
-            </div>
-            <div class="econ-meta-list-row">
-              <span class="econ-meta-list-name">2. pow. tatrzański (Zakopane)</span>
-              <span class="econ-meta-list-val" id="econ-meta-outlier-tat">-</span>
-            </div>
-            <div class="econ-meta-list-row">
-              <span class="econ-meta-list-name">3. pow. lubiński (miedź KGHM)</span>
-              <span class="econ-meta-list-val" id="econ-meta-outlier-lub">-</span>
-            </div>
-          </div>
-        </div>
-        <div class="econ-desc-card__content" data-act="6">
-          <h2>Odwróć medal: bezrobocie.</h2>
-          <p>Druga strona tej samej historii, tym razem od strony rynku pracy. Tam, gdzie bezrobocie jest wysokie, sieć rzednie.</p>
-          <div class="econ-meta-grid">
-            <div class="econ-meta-item">
-              <span class="econ-meta-label">Korelacja z bezrobociem</span>
-              <span class="econ-meta-val text-amber" id="econ-meta-r-unemp">-</span>
-            </div>
-            <div class="econ-meta-item">
-              <span class="econ-meta-label">Rekord bezrobocia</span>
-              <span class="econ-meta-val text-amber" id="econ-meta-unemp-max" style="font-size: 13.5px; line-height: 1.35; white-space: pre-line;">-</span>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div class="econ-maps__error" id="econ-scene-error" hidden>
+      <p>Nie udało się załadować danych.</p>
+      <button type="button" id="econ-scene-retry">Spróbuj ponownie</button>
     </div>
-  </section>
-
-    <div class="stat-strip ec-reveal econ-kpis econ-scene__tiles" style="grid-template-columns:repeat(6,1fr)">
-      <div class="stat-tile ec-reveal d1">
-        <div class="stat-kicker">Korelacja z płacą</div>
-        <div class="stat-big" id="ec-fact-r-salary">-</div>
-        <div class="stat-sub">współczynnik r: płaca vs gęstość sieci</div>
-      </div>
-      <div class="stat-tile ec-reveal d2">
-        <div class="stat-kicker">Nożyce zamożności</div>
-        <div class="stat-big" id="ec-fact-ratio-num" data-count="2.1" data-dec="1" data-suffix="x">0</div>
-        <div class="stat-sub">sieć gęstsza w bogatszej ćwiartce niż w biedniejszej<i id="ec-fact-ratio-bar" data-fill="84" style="display:none"></i></div>
-      </div>
-      <div class="stat-tile ec-reveal d3">
-        <div class="stat-kicker">Rekord gęstości</div>
-        <div class="stat-big">1 : <span id="ec-fact-record-num" data-count="1008" data-dec="0">0</span></div>
-        <div class="stat-sub" id="ec-fact-record-sub">Międzyzdroje (pow. kamieński)</div>
-      </div>
-      <div class="stat-tile ec-reveal d4">
-        <div class="stat-kicker">Korelacja z bezrobociem</div>
-        <div class="stat-big" id="ec-fact-r-unemp">-</div>
-        <div class="stat-sub">współczynnik r: bezrobocie vs gęstość sieci</div>
-      </div>
-      <div class="stat-tile ec-reveal d5">
-        <div class="stat-kicker">Odwrotna drabina</div>
-        <div class="stat-big" id="ec-fact-u-ratio-num" data-count="1.8" data-dec="1" data-suffix="x">0</div>
-        <div class="stat-sub">gęstsza sieć przy niskim bezrobociu<i id="ec-fact-u-ratio-bar" data-fill="71" style="display:none"></i></div>
-      </div>
-      <div class="stat-tile ec-reveal d6">
-        <div class="stat-kicker">Rekord bezrobocia</div>
-        <div class="stat-big" id="ec-fact-u-max-num" data-count="22.1" data-dec="1" data-suffix="%">0</div>
-        <div class="stat-sub" id="ec-fact-u-max-sub">szydłowiecki – tylko <span id="ec-fact-u-max-density">0,16</span> skl./1000</div>
-      </div>
-    </div>
-
   </section>
 
 

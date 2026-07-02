@@ -297,7 +297,7 @@ backend/                 - code + API (chapter 2)
   api/                   - decomposed routers (locations, history, admin, dashboard_router, geo_router, ecology_router, stats_router, spatial_router, demographics)
   schemas/               - Pydantic models for API validation (api_models)
 
-frontend/                - Vite SPA, modular ES + Chart.js + MapLibre GL + Observable Plot + D3 + ECharts (chapter 4)
+frontend/                - Vite SPA, modular ES + Chart.js + MapLibre GL + D3 (chapter 4)
   index.html             - DOM scaffold + <head> (SEO, fonts); loads /src/main.js
   methodology.html       - methodology page
   src/                   - main.js (tab router, lazy chunks), data.js (fetch buckets),
@@ -444,6 +444,7 @@ Litestar serves modular native API routers (`backend/api/`) grouped under a pare
   - `/api/stats/powiat-coverage`, `/api/stats/city-coverage`, `/api/stats/coverage-funnel`, `/api/stats/neighbor-by-level`, `/api/stats/neighbor-stats`, `/api/stats/twins`, `/api/stats/kraniec-facts`, `/api/stats/elevation`, `/api/stats/parks-stores`, `/api/stats/section3-rare`, `/api/stats/amphibians`
 - **Socioeconomics (ŻABKA A POLSKA tab):**
   - `/api/stats/per-capita`, `/api/stats/powiat-economics` (average gross salary, unemployment rate)
+  - `/api/stats/powiat-economics-geo` (powiat boundaries joined with per-powiat density residuals vs salary and vs unemployment - feeds the two residual choropleths; cities with powiat rights inherit the nearest land powiat)
   - `/api/stats/inpost-vs-zabka`, `/api/stats/inpost-vs-zabka-by-level` (ratio and dumbbell)
   - `/api/stats/common-streets`, `/api/stats/gmina-leaders`, `/api/stats/sunday-by-voivodeship`
 - **Data Export:**
@@ -818,13 +819,13 @@ Detailed logic, caching, and exceptions for the ingestion and enrichment sources
 
 Single-page dashboard, dark theme, served by Litestar. A Vite build: `index.html` is just
 the DOM scaffold + `<head>`; all logic lives in modular ES under `frontend/src/`, entry
-`src/main.js`. Rendered via Chart.js + MapLibre GL + Observable Plot + ECharts + D3 + Canvas 2D, pulling from
+`src/main.js`. Rendered via Chart.js + MapLibre GL + D3 + Canvas 2D, pulling from
 `/api/*`. For the full component register, see [Section 3 (Components and charts)](#3-components-and-charts) below.
 
 **Two tabs** (not the old four): `siec` ("SIEĆ", the network's anatomy + extremes) and
 `spoleczenstwo` ("ŻABKA A POLSKA", the default tab on load, correlations with Polish
 economics). The old EDGE CASE'Y and PŁAZY tabs were folded in: the extremes atlas, parks,
-twins and amphibian facts now live inside SIEĆ; the econ scatters live inside ŻABKA A
+twins and amphibian facts now live inside SIEĆ; the econ residual maps live inside ŻABKA A
 POLSKA. There is no longer a global header KPI strip — the hero count-up carries the
 headline total (`renderKPI` is a guarded no-op kept for the cross-filter callback).
 
@@ -891,9 +892,11 @@ deeper-dive companion.
 a voivodeship choropleth of the ratio plus a dumbbell that drills woj -> powiat -> miasto.
 Then how densely the stores stand (median distance to the nearest Żabka by level, with a
 kNN histogram). Then the busiest streets and the per-capita gmina leaders (resorts win).
-The economic core: two ECharts chapters — wealthier powiats have more stores (r = +0.41),
-higher unemployment means fewer (r = -0.35) — each with a scatter, quartile bars, and
-animated stat tiles. It closes on "Co z tego wynika?": Żabka follows money and crowds.
+The economic core closes the tab: two side-by-side powiat choropleths of the *residual* of
+Żabka density (stores per 1000 residents) against a linear fit on an economic variable —
+left vs unemployment, right vs salary. Green = a powiat has more Żabki than its economy
+predicts, red = fewer, pale = right on the trend line. The message: Żabka follows money and
+crowds, and the maps show exactly where the network over- or under-shoots that pull.
 
 **SIEĆ (anatomy + extremes):** Numbers first — a giant glowing count-up of all active
 stores, then a stat strip of history facts (milestone cadence, best year, oldest store,
@@ -941,7 +944,7 @@ Imports `bubble.js` (D3 force chart), `kraniec.js` (Atlas krańców), `edge.js` 
 
 ### Tab ŻABKA A POLSKA (`spoleczenstwo.js`, default tab, render order)
 
-Imports `econ.js` (the interactive ECharts economic panel).
+Imports `econ.js` (the two MapLibre residual-choropleth maps that close the tab).
 
 | Ref | Library | Endpoint | What it shows |
 |---|---|---|---|
@@ -952,8 +955,7 @@ Imports `econ.js` (the interactive ECharts economic panel).
 | kNN histogram | Chart.js (bar) | `/stats/neighbor-stats` | 6-bucket distribution of nearest-neighbor distance. Median 299m / avg 942m / max ~27.8km reference lines. |
 | STREETS | Chart.js (horizontal bar) | `/stats/common-streets?limit=15` | Busiest street names nationwide, dual-label y-axis (street name large, city small). Value labels at bar ends. |
 | GMINA-LEAD | Chart.js (horizontal bar) | `/stats/gmina-leaders?limit=12` | Top gminy by stores per 1000 residents (default) or per km² (metric toggle). Resorts lead per capita. National reference line on the per-1k view. |
-| ECON interactive panel | ECharts (scatter + bar) | `/stats/powiat-economics` | "Polska, powiat po powiecie." Rebuild of the ECON chapters into a persistent ECharts panel morphing through 6 acts via interactive switcher buttons or keyboard controls (map -> salary strip -> scatter -> quartile bars -> outliers -> unemployment scatter) using stable dot identities. |
-| Conclusion | DOM | — | "Co z tego wynika?" narrative close: Żabka follows money and crowds, not ideology. |
+| ECON residual maps | MapLibre GL (two powiat choropleths) | `/stats/powiat-economics-geo` | "Gdzie Żabek jest więcej, niż wynikałoby z ekonomii." Two side-by-side powiat choropleths of the density residual (stores per 1000 vs a linear fit): left vs unemployment, right vs salary. Diverging ramp red (below trend) -> pale (on trend) -> Żabka green (above trend), symmetric bound at ~p90 of |residual|. Each title carries the Pearson r; hover shows the powiat's density, the economic value, and how far it sits off the trend. Cities with powiat rights inherit the nearest land powiat so there are no grey holes. |
 
 ---
 
@@ -961,12 +963,12 @@ Imports `econ.js` (the interactive ECharts economic panel).
 
 - **Chart.js 4.4.1** — vertical/horizontal bars, line, scatter, donut, histograms. The
   1.1 growth chart, GRAN ranking, NBL, kNN histogram, STREETS, GMINA-LEAD, POWIATY donut.
-- **ECharts** — the interactive economic panel in `econ.js` (morphing scatter, map, and bars).
-  Bundled into the spoleczenstwo chunk.
-- **MapLibre GL JS 5.24** — all four dashboard maps: the SIEĆ growth map (a single
+- **MapLibre GL JS 5.24** — all dashboard maps: the SIEĆ growth map (a single
   WebGL circle layer for 13k+ stores, filtered by year, pitched to 38° for 3D),
-  the GRAN voivodeship choropleth, the Atlas krańców extremes map, and the
-  InPost ratio choropleth (2.3). Tile-free dark-vector base (voivodeship polygons
+  the GRAN voivodeship choropleth, the Atlas krańców extremes map, the
+  InPost ratio choropleth (2.3), and the two ECON residual powiat choropleths
+  (`econ.js`, both driven off one joined `/stats/powiat-economics-geo` payload,
+  each reading a different residual property). Tile-free dark-vector base (polygons
   on near-black); the Atlas adds a faint store-dot backdrop for context. Value
   labels are HTML Markers (no glyph atlas needed → keeps it offline). Shared
   primitives live in `frontend/src/maplibre-map.js` (dark style, voivodeship
@@ -1017,8 +1019,9 @@ Right: "Połowa Żabek otwarta od 2023". Wrong: "Rozkład dat otwarcia".
 two-column pairs stack vertically, Section 3 cards go 2-column, maps shrink to ~380px.
 Mobile (< 768px): grids reflow to 1-2 columns and maps/charts shrink via media
 queries (`src/style.css`), but there is no static-text fallback or narrow-screen
-banner - the full maps, D3 bubble, and ECharts scatters still render at phone
-widths. Touch interactions (map ctrl+scroll hints, drag-to-zoom) are unchanged
+banner - the full maps (including the two ECON residual choropleths, which stack
+vertically) and the D3 bubble still render at phone widths. Touch interactions
+(map ctrl+scroll hints, drag-to-zoom) are unchanged
 from desktop, so some affordances (e.g. "ctrl + scroll przybliża") don't apply
 on touch.
 
@@ -1057,7 +1060,7 @@ to rendered content when its own data arrives. Never gate a chart on other chart
 | 2.3 InPost choropleth + dumbbell | ~420px |
 | NBL bar + kNN histogram | ~400px |
 | STREETS / GMINA-LEAD bars | ~420px |
-| ECON interactive panel | ~560px |
+| ECON residual maps (two powiat choropleths) | ~520px |
 | Edge KPI / card rows | ~220px per row |
 
 **Error states:**

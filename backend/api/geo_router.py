@@ -56,6 +56,8 @@ def startup_geo() -> None:
         _gmina_agg()
         _geo_bytes("wojewodztwa.geojson")
         _geo_bytes("powiaty.geojson")
+        global _POW_ECON_GEO
+        _POW_ECON_GEO = _build_pow_econ_geo()
     except Exception as e:
         print(f"[startup_geo] cache warm skipped: {e}")
 
@@ -179,6 +181,181 @@ def geo_powiats() -> Response:
     if data is None:
         raise HTTPException(status_code=404, detail="Powiats boundary file not found")
     return Response(content=data, media_type="application/json")
+
+# --- Powiat economics choropleth (residual maps) ---
+# Two side-by-side choropleths in the "Żabka a Polska" tab both use powiat
+# boundaries; instead of raw density they show the *residual* of Żabka density
+# (stores per 1000 residents) against a linear fit on an economic variable:
+#   left  map -> residual vs unemployment_rate
+#   right map -> residual vs avg_salary
+# Green = the powiat has more Żabki than its economy would predict, red = fewer.
+# We bake both residuals into the powiat geojson server-side so the frontend
+# only fetches one joined FeatureCollection and reads the right property per map.
+_POW_ECON_GEO = None
+
+
+def _linreg(xs, ys):
+    n = len(xs)
+    if n < 2:
+        return 0.0, (sum(ys) / n if n else 0.0)
+    mx = sum(xs) / n
+    my = sum(ys) / n
+    num = den = 0.0
+    for x, y in zip(xs, ys):
+        dx = x - mx
+        num += dx * (y - my)
+        den += dx * dx
+    slope = num / den if den else 0.0
+    return slope, my - slope * mx
+
+
+def _pearson(xs, ys):
+    n = len(xs)
+    if n < 2:
+        return 0.0
+    mx = sum(xs) / n
+    my = sum(ys) / n
+    sxy = sx = sy = 0.0
+    for x, y in zip(xs, ys):
+        dx, dy = x - mx, y - my
+        sxy += dx * dy
+        sx += dx * dx
+        sy += dy * dy
+    return sxy / math.sqrt(sx * sy) if sx and sy else 0.0
+
+
+def _p90_abs(vals):
+    if not vals:
+        return 1.0
+    s = sorted(abs(v) for v in vals)
+    idx = min(len(s) - 1, int(round(0.90 * (len(s) - 1))))
+    return s[idx] or 1.0
+
+
+def _feature_centroid(geom):
+    rings = _rings(geom)
+    if not rings:
+        return None
+    xs = [p[0] for r in rings for p in r]
+    ys = [p[1] for r in rings for p in r]
+    return sum(xs) / len(xs), sum(ys) / len(ys)
+
+
+def _build_pow_econ_geo():
+    """Join powiaty.geojson with per-powiat economics and precompute residuals.
+
+    dim_powiat holds the 314 land powiats; the geojson carries 380 polygons
+    (the extra 66 are cities with powiat rights). Those cities are merged into
+    their surrounding land powiat in our data model, so a city polygon inherits
+    the residual of the nearest land powiat in the same voivodeship - keeps the
+    map seamless instead of leaving big grey holes over Kraków/Wrocław/Łódź."""
+    pow_path = _GEO_DIR / "powiaty.geojson"
+    woj_path = _GEO_DIR / "wojewodztwa.geojson"
+    if not pow_path.exists() or not woj_path.exists():
+        return None
+
+    rows = client.execute("""
+        SELECT dp.name, dv.name AS voiv,
+               COALESCE(dp.avg_salary, 0), COALESCE(dp.unemployment_rate, 0),
+               COALESCE(dp.population, 0), COUNT(l.store_id) AS stores,
+               dp.centroid_lon, dp.centroid_lat
+        FROM dim_powiat dp
+        JOIN dim_voivodeship dv ON dp.voivodeship_id = dv.id
+        LEFT JOIN locations l ON l.powiat_id = dp.id AND l.deleted_at IS NULL
+        GROUP BY dp.name, dv.name, dp.avg_salary, dp.unemployment_rate,
+                 dp.population, dp.centroid_lon, dp.centroid_lat
+    """).fetchall()
+
+    lands = []
+    for name, voiv, salary, unemp, pop, stores, clon, clat in rows:
+        per_1k = round(stores * 1000.0 / pop, 3) if pop else 0.0
+        lands.append({
+            "name": name, "voiv": voiv,
+            "salary": float(salary or 0), "unemp": float(unemp or 0),
+            "per_1k": per_1k, "stores": int(stores),
+            "clon": float(clon) if clon is not None else None,
+            "clat": float(clat) if clat is not None else None,
+        })
+
+    fit = [d for d in lands if d["salary"] > 0 and d["per_1k"] > 0]
+    sal = [d["salary"] for d in fit]
+    une = [d["unemp"] for d in fit]
+    dens = [d["per_1k"] for d in fit]
+    s_slope, s_int = _linreg(sal, dens)
+    u_slope, u_int = _linreg(une, dens)
+    r_salary = _pearson(sal, dens)
+    r_unemp = _pearson(une, dens)
+
+    for d in lands:
+        d["resid_salary"] = round(d["per_1k"] - (s_slope * d["salary"] + s_int), 3)
+        d["resid_unemp"] = round(d["per_1k"] - (u_slope * d["unemp"] + u_int), 3)
+
+    bound_salary = round(_p90_abs([d["resid_salary"] for d in fit]), 3)
+    bound_unemp = round(_p90_abs([d["resid_unemp"] for d in fit]), 3)
+
+    # lookup by (voiv_norm, stripped lowercase name) for the direct match
+    by_key = {(_norm_voiv(d["voiv"]), _strip_pow(d["name"]).lower()): d for d in lands}
+
+    woj_idx = build_polygon_index(json.loads(woj_path.read_bytes()))
+    gj = json.loads(pow_path.read_bytes())
+    features = []
+    for i, f in enumerate(gj.get("features", [])):
+        geom = f.get("geometry") or {}
+        cen = _feature_centroid(geom)
+        if cen is None:
+            continue
+        cx, cy = cen
+        voiv = assign_region(cx, cy, woj_idx) or nearest_region(cx, cy, woj_idx)
+        voiv_norm = _norm_voiv(voiv)
+        sname = _strip_pow(f["properties"].get("nazwa") or "").lower()
+        d = by_key.get((voiv_norm, sname))
+        if d is None:
+            # city with powiat rights: inherit the nearest land powiat in the
+            # same voivodeship (they are merged there in our data model).
+            best, best_dist = None, 1e18
+            for cand in lands:
+                if _norm_voiv(cand["voiv"]) != voiv_norm or cand["clon"] is None:
+                    continue
+                dist = (cand["clon"] - cx) ** 2 + (cand["clat"] - cy) ** 2
+                if dist < best_dist:
+                    best, best_dist = cand, dist
+            d = best
+        props = {"_fid": i, "nazwa": f["properties"].get("nazwa")}
+        if d is not None:
+            props.update({
+                "name": _strip_pow(d["name"]),
+                "voivodeship": d["voiv"],
+                "per_1k": d["per_1k"],
+                "avg_salary": round(d["salary"]),
+                "unemployment_rate": round(d["unemp"], 1),
+                "resid_salary": d["resid_salary"],
+                "resid_unemp": d["resid_unemp"],
+            })
+        features.append({"type": "Feature", "geometry": geom, "properties": props})
+
+    fc = {
+        "type": "FeatureCollection",
+        "features": features,
+        "meta": {
+            "r_salary": round(r_salary, 2),
+            "r_unemp": round(r_unemp, 2),
+            "bound_salary": bound_salary,
+            "bound_unemp": bound_unemp,
+            "n": len(fit),
+        },
+    }
+    return json.dumps(fc, ensure_ascii=False).encode("utf-8")
+
+
+@get("/stats/powiat-economics-geo", sync_to_thread=True)
+def powiat_economics_geo() -> Response:
+    global _POW_ECON_GEO
+    if _POW_ECON_GEO is None:
+        _POW_ECON_GEO = _build_pow_econ_geo()
+    if _POW_ECON_GEO is None:
+        raise HTTPException(status_code=404, detail="Powiat economics geo unavailable")
+    return Response(content=_POW_ECON_GEO, media_type="application/json")
+
 
 @get("/stats/powiat-coverage", sync_to_thread=True)
 @cached(ttl=86400)
@@ -442,6 +619,7 @@ router = Router(
     route_handlers=[
         geo_voivodeships,
         geo_powiats,
+        powiat_economics_geo,
         powiat_coverage,
         city_coverage,
         coverage_funnel,
