@@ -10,7 +10,7 @@ import numpy as np
 import requests
 
 from backend.etl.base import Enricher
-from backend.etl.geo import EARTH_KM
+from backend.etl.geo import chord_to_km, km_to_chord, sphere_tree, unit_vectors
 from backend.etl.io import HTTP_TIMEOUT, USER_AGENT, with_retries
 
 # Obserwacje plazow (Amphibia) w Polsce z GBIF. Per sklep: ile obserwacji w
@@ -117,16 +117,14 @@ class AmphibiansEnricher(Enricher):
         if not pts:
             print("[amphibians] brak obserwacji - pomijam")
             return
-        from sklearn.neighbors import BallTree
-        coords = [[p[0], p[1]] for p in pts]
-        tree = BallTree(np.radians(coords), metric="haversine")
-        q = np.radians([[r["latitude"], r["longitude"]] for r in rows])
-        counts = tree.query_radius(q, r=AMPHIBIAN_RADIUS_KM / EARTH_KM, count_only=True)
-        dist, _idx = tree.query(q, k=1)
+        tree, _xyz = sphere_tree([p[0] for p in pts], [p[1] for p in pts])
+        q = unit_vectors([r["latitude"] for r in rows], [r["longitude"] for r in rows])
+        counts = tree.query_ball_point(q, r=km_to_chord(AMPHIBIAN_RADIUS_KM), return_length=True)
+        dist, _idx = tree.query(q, k=1)   # cKDTree k=1 zwraca tablice 1-D
         best_i, best_c = -1, -1
-        for i, (r, c, d) in enumerate(zip(rows, counts, dist[:, 0])):
+        for i, (r, c, d) in enumerate(zip(rows, counts, dist)):
             r["amphibian_occurrences_5km"] = int(c)
-            r["nearest_amphibian_km"] = round(float(d) * EARTH_KM, 2)
+            r["nearest_amphibian_km"] = round(float(chord_to_km(d)), 2)
             if c > best_c:
                 best_c, best_i = int(c), i
         if best_i >= 0:

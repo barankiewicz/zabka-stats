@@ -2,7 +2,7 @@ from litestar import Router, get
 from litestar.params import FromQuery
 
 from backend.cache import cached
-from backend.database_ch import client
+from backend.database import client
 from backend.schemas.api_models import (
     ElevationResponse,
     KraniecFactsResponse,

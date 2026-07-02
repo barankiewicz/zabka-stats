@@ -19,8 +19,8 @@ import numpy as np
 import polars as pl
 import requests
 
-from backend.database_ch import ENRICHMENT_COLUMNS
-from backend.etl.geo import EARTH_KM, poland_rings
+from backend.database import ENRICHMENT_COLUMNS
+from backend.etl.geo import poland_rings
 
 DB_PATH = os.getenv("ZABKA_DB", "data/zabka.duckdb")
 # Zrodlo danych Zabki - publiczny locator. Nadpisywalny przez env.
@@ -278,12 +278,9 @@ def farthest_point_from_any_zabka(lats, lons, woj_geo: dict,
     Znajdz punkt w granicach Polski najdalszy od najblizszej Żabki
     (problem najwiekszego pustego kola). Zwraca {lat, lon, dist_km}.
     """
-    from sklearn.neighbors import BallTree
+    from backend.etl.geo import chord_to_km, ring_contains, sphere_tree, unit_vectors
 
-    from backend.etl.geo import ring_contains
-
-    pts = np.radians(np.column_stack([lats, lons]))
-    tree = BallTree(pts, metric="haversine")
+    tree, _xyz = sphere_tree(lats, lons)
     raw_rings = poland_rings(woj_geo)
 
     # Precompute a bbox per ring for a cheap reject before the full ray cast.
@@ -307,9 +304,8 @@ def farthest_point_from_any_zabka(lats, lons, woj_geo: dict,
         return inside
 
     def nearest_km(grid_lat, grid_lon):
-        q = np.radians(np.column_stack([grid_lat, grid_lon]))
-        d, _ = tree.query(q, k=1)
-        return d[:, 0] * EARTH_KM
+        d, _ = tree.query(unit_vectors(grid_lat, grid_lon), k=1)
+        return chord_to_km(d)   # cKDTree k=1 zwraca tablice 1-D
 
     def search(lat0, lat1, lon0, lon1, step):
         glat = np.arange(lat0, lat1, step)
@@ -553,7 +549,7 @@ def load_parcel_lockers(con, lockers: list, src_date: str):
     - brakujace: soft-delete (deleted_at = source_date)
     - wroty (deleted -> obecny): deleted_at = NULL (przywrocone przez ON CONFLICT)
     """
-    from backend.database_ch import ensure_extra_tables
+    from backend.database import ensure_extra_tables
     ensure_extra_tables(con)
     if not lockers:
         print("[paczkomaty] brak danych")
@@ -648,7 +644,7 @@ def load_dimensions(con, dim_powiat: list, dim_voivodeship: list):
     """Aktualizuje wymiary geograficzne (populacja, płaca, bezrobocie) 
     w tabeli administrative_division na bazie danych z GUS.
     """
-    from backend.database_ch import ensure_extra_tables
+    from backend.database import ensure_extra_tables
     ensure_extra_tables(con)
     
     if dim_voivodeship:
@@ -668,7 +664,7 @@ def load_dimensions(con, dim_powiat: list, dim_voivodeship: list):
 
 def load_dim_park(con, parks: list):
     """Zapisz wymiar parku/otuliny GDOŚ (replace). parks: [(id, name, type)]."""
-    from backend.database_ch import ensure_extra_tables
+    from backend.database import ensure_extra_tables
     ensure_extra_tables(con)
     con.execute("DELETE FROM dim_park")
     if parks:

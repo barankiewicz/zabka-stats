@@ -7,7 +7,7 @@ from litestar.serialization import encode_json
 
 from backend.api.demographics import get_voiv_population
 from backend.cache import cached, clear_cache, get_cached_blob, set_cached_blob
-from backend.database_ch import client
+from backend.database import client
 from backend.schemas.api_models import (
     CityFirstOpeningItem,
     CommonStreetItem,
@@ -335,7 +335,7 @@ def voivodeship_stats() -> list[VoivodeshipStatsResponseItem]:
 def powiat_economics() -> list[PowiatEconomicsItem]:
     # Density uses the effective-population view (land powiat + hosted cities with
     # powiat rights); dp.population alone excludes those cities while their stores
-    # count here, which would inflate per_1k. See v_powiat_pop_eff in database_ch.py.
+    # count here, which would inflate per_1k. See v_powiat_pop_eff in database.py.
     rows = client.execute("""
         SELECT
             dp.id AS powiat_id,

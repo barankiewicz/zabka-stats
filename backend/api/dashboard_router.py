@@ -3,7 +3,7 @@
 from litestar import Router, get
 
 from backend.cache import cached
-from backend.database_ch import client
+from backend.database import client
 
 
 @get("/dashboard-data", sync_to_thread=True)

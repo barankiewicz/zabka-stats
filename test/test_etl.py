@@ -2,7 +2,7 @@ import pytest
 import duckdb
 from unittest.mock import patch, mock_open
 import backend.etl.io as io
-from backend.database_ch import _run_all_ddl
+from backend.database import _run_all_ddl
 from backend.etl.sources.neighbor import NeighborEnricher
 from backend.etl.sources.parks import ParksEnricher
 from backend.etl.sources.amphibians import AmphibiansEnricher

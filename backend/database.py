@@ -166,7 +166,7 @@ def _ensure_schema():
 
 
 class _ConnectionProxy:
-    """Proxy so `from database_ch import client` stays valid after init_db()
+    """Proxy so `from database import client` stays valid after init_db()
     swaps the underlying connection. It uses thread-local storage to provide
     thread-safe read-only connections and registers all open connections so
     they can be closed collectively to release the database file."""

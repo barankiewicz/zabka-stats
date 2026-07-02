@@ -12,7 +12,7 @@ from backend.api.demographics import (
     load_demographics_from_db,
 )
 from backend.cache import cached
-from backend.database_ch import client
+from backend.database import client
 from backend.etl.geo import assign_region, build_polygon_index, nearest_region
 from backend.schemas.api_models import (
     ByDimensionItem,
@@ -509,7 +509,7 @@ def by_dimension(
         # Per-capita density joins the effective-population view (land powiat +
         # hosted cities with powiat rights) so it is not inflated by city stores
         # landing on a small land-powiat denominator. See v_powiat_pop_eff /
-        # v_voiv_pop_eff in database_ch.py for the single definition.
+        # v_voiv_pop_eff in database.py for the single definition.
         if dim == "powiat":
             dimtbl, fk = "dim_powiat", "powiat_id"
             extra = "WHERE NOT regexp_matches(d.name, '^powiat [A-ZĄĆĘŁŃÓŚŹŻ]')"

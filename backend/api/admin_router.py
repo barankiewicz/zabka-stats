@@ -8,7 +8,7 @@ from litestar import Router, get
 from litestar.params import FromPath, FromQuery
 
 from backend.cache import cached
-from backend.database_ch import client
+from backend.database import client
 
 
 @get("/stats/by-powiat", sync_to_thread=True)

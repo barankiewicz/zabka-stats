@@ -8,8 +8,49 @@ Te same prymitywy uzywaja wzbogacenia regionow, parkow i najdalszego punktu.
 
 import math
 
-# Promien Ziemi w km - stala dla haversine (BallTree zwraca radiany).
+import numpy as np
+
+# Promien Ziemi w km - stala dla przeliczania luku na kilometry.
 EARTH_KM = 6371.0088
+
+
+# ---------------------------------------------------------------------------
+# Wyszukiwanie najblizszego sasiada na sferze
+# ---------------------------------------------------------------------------
+# Zamiast BallTree(metric="haversine") (scikit-learn) uzywamy cKDTree (scipy)
+# po wektorach jednostkowych. Odleglosc euklidesowa (cieciwa) miedzy dwoma
+# punktami na sferze jednostkowej jest scisle monotoniczna wzgledem odleglosci
+# po wielkim kole, wiec k-NN daje identyczny wynik, a przeliczenie cieciwy na
+# luk jest dokladne. Dzieki temu z zaleznosci znika scikit-learn (+joblib,
+# +threadpoolctl); zostaje sama scipy.
+def unit_vectors(lats, lons):
+    """(lat, lon) w stopniach -> wektory jednostkowe na sferze (N x 3)."""
+    lat = np.radians(np.asarray(lats, dtype=float))
+    lon = np.radians(np.asarray(lons, dtype=float))
+    cl = np.cos(lat)
+    return np.column_stack([cl * np.cos(lon), cl * np.sin(lon), np.sin(lat)])
+
+
+def sphere_tree(lats, lons):
+    """Zbuduj cKDTree po wektorach jednostkowych. Zwraca (tree, xyz).
+    Zapytania: tree.query(unit_vectors(...), k=...) zwraca cieciwy - przelicz je
+    funkcja chord_to_km. UWAGA: cKDTree.query(k=1) zwraca tablice 1-D (nie 2-D
+    jak BallTree), wiec dla k=1 nie indeksuj [:, 0]."""
+    from scipy.spatial import cKDTree
+
+    xyz = unit_vectors(lats, lons)
+    return cKDTree(xyz), xyz
+
+
+def chord_to_km(chord):
+    """Cieciwa na sferze jednostkowej -> luk (km) po wielkim kole."""
+    return 2.0 * np.arcsin(np.clip(np.asarray(chord) / 2.0, 0.0, 1.0)) * EARTH_KM
+
+
+def km_to_chord(km):
+    """Luk (km) po wielkim kole -> cieciwa na sferze jednostkowej.
+    Promien dla cKDTree.query_ball_point."""
+    return 2.0 * np.sin((np.asarray(km, dtype=float) / EARTH_KM) / 2.0)
 
 
 # ---------------------------------------------------------------------------

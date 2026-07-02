@@ -7,7 +7,7 @@ from litestar.params import FromPath, FromQuery
 from litestar.serialization import encode_json
 
 from backend.cache import cached, get_cached_blob, set_cached_blob
-from backend.database_ch import client
+from backend.database import client
 
 
 @get("/locations", sync_to_thread=True)

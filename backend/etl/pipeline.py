@@ -126,7 +126,7 @@ def run(no_geocode: bool = False,
     meta = raw.get("meta", {}) if isinstance(raw, dict) else {}
     rows = to_tabular(raw)
 
-    from backend.database_ch import init_db
+    from backend.database import init_db
     init_db(keep_open=False)  # release read-only before opening read-write below
 
     con = duckdb.connect(DB_PATH)

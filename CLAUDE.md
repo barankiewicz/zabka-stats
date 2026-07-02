@@ -188,7 +188,7 @@ python backend/main.py
 
 The live deployment runs on an OVH VPS (Debian, Warsaw). Shared hosting (lh.pl)
 was abandoned: `/home` is mounted `noexec`, so the native extensions (duckdb,
-numpy, scikit-learn) cannot load their `.so` files there.
+numpy, scipy) cannot load their `.so` files there.
 
 **Backend as a service.** A systemd unit `zabka-backend` runs
 `venv/bin/python -m backend.main` (uvicorn on `0.0.0.0:8000`), `Restart=on-failure`,
@@ -290,7 +290,7 @@ Locations support soft delete via the `deleted_at` timestamp.
 ```
 backend/                 - code + API (chapter 2)
   main.py                - Litestar app + /api/snapshot
-  database_ch.py         - DuckDB connection + schema (facts + dimensions)
+  database.py         - DuckDB connection + schema (facts + dimensions)
   cache.py               - Redis cache (UNIX socket)
   daily_etl.py           - thin ETL entrypoint (re-exports run + CLI)
   etl/                   - ETL pipeline: geo.py, io.py, pipeline.py, sources/ (one class per source)
@@ -363,7 +363,7 @@ pipeline (ETL) is described in chapter 3.
 - Geocoding/boundaries: offline point-in-polygon.
 
 Dependencies: `requirements.txt` (root). Main modules: `main.py` (app + CORS +
-health + snapshot upload), `database_ch.py` (connection + schema + column
+health + snapshot upload), `database.py` (connection + schema + column
 migration), `cache.py` (Redis cache decorator), `api/` (routers), `etl/` (data
 pipeline, chapter 3).
 
@@ -375,7 +375,7 @@ read-heavy + append workload (daily snapshots).
 **Schema migration:** `ADD COLUMN IF NOT EXISTS` without `DEFAULT` (a `DEFAULT`
 clause in ALTER breaks DuckDB's WAL replay; the ETL sets the values explicitly
 anyway). Table schema with types: chapter 3.
-**Concurrency & Thread Safety:** DuckDB connections are not thread-safe if shared directly. The backend uses a thread-safe connection pool proxy (`_ConnectionProxy` in [database_ch.py](file:///home/alice/zabka-dashboard/backend/database_ch.py)) managing read-only connections via thread-local storage (`threading.local`). All registered connections are closed during ETL to release the file lock.
+**Concurrency & Thread Safety:** DuckDB connections are not thread-safe if shared directly. The backend uses a thread-safe connection pool proxy (`_ConnectionProxy` in [database.py](file:///home/alice/zabka-dashboard/backend/database.py)) managing read-only connections via thread-local storage (`threading.local`). All registered connections are closed during ETL to release the file lock.
 
 
 ## 3. Cache: Redis over a UNIX socket
@@ -625,7 +625,7 @@ Origin legend:
 | elevation_meters | DOUBLE | ELEVATION | elevation above sea level from GUGiK NMT (`GetHByXY`, PL-1992/EPSG:2180 coordinates); NULL when the service did not answer |
 | is_in_nature_park | BOOLEAN | PARKS | TRUE when the point falls inside a GDOŚ park or buffer (point-in-polygon) |
 | nature_park_id | INTEGER | PARKS | FK -> `dim_park.id` (the park the store is in, when any) |
-| nearest_neighbor_distance_meters | INTEGER | SPATIAL | distance to the nearest other Żabka (BallTree k=2, haversine, meters) |
+| nearest_neighbor_distance_meters | INTEGER | SPATIAL | distance to the nearest other Żabka (cKDTree k=2, haversine, meters) |
 | amphibian_occurrences_5km | INTEGER | AMPHIBIANS | count of amphibian observations (GBIF, Amphibia) within 5 km of the store, a thematic nod to the network's name |
 | nearest_amphibian_km | DOUBLE | AMPHIBIANS | distance to the nearest amphibian observation (GBIF, km) |
 | gmina_id | INTEGER | GEO | FK -> dim_gmina.id (resolved via geocoder TERYT code) |
@@ -734,8 +734,8 @@ Gmina level dimension view (`administrative_division` level 3).
 
 | Key | Origin | Description |
 |---|---|---|
-| farthest_from_zabka | ETL | the point inside Poland's borders farthest from any Żabka (Bieszczady, ~49.01/22.89, ~46.5 km). Computed by the largest-empty-circle method: a grid of candidates within the country, for each the distance to the nearest store (BallTree, haversine), pick the maximum, then refine. |
-| most_isolated_zabka | SPATIAL | the "loner" - the Żabka with the largest distance to its nearest neighbor (~27.3 km). Same BallTree as `nearest_neighbor_distance_meters`, take the maximum. |
+| farthest_from_zabka | ETL | the point inside Poland's borders farthest from any Żabka (Bieszczady, ~49.01/22.89, ~46.5 km). Computed by the largest-empty-circle method: a grid of candidates within the country, for each the distance to the nearest store (cKDTree, haversine), pick the maximum, then refine. |
+| most_isolated_zabka | SPATIAL | the "loner" - the Żabka with the largest distance to its nearest neighbor (~27.3 km). Same cKDTree as `nearest_neighbor_distance_meters`, take the maximum. |
 | most_froggy_zabka | AMPHIBIANS | the "most froggy Żabka" - the store with the most amphibian observations within 5 km (the `value` field holds that count). |
 
 Schema: `key` PK, `lat`, `lon`, `value`, `computed_at`.
@@ -751,8 +751,8 @@ Enrichment runs during the ETL pipeline to pre-calculate spatial features, ensur
 | **GUS BDL Economics** | `population`, `avg_salary`, `unemployment_rate` on `dim_powiat`/`dim_gmina` | `fetch_gus_hierarchy.py` / `populate_administrative_division` | REST API / yearly | `GUS_BDL_KEY`, variables: 64428, 60270, 72305 |
 | **InPost ShipX** | `parcel_lockers` fact table | `fetch_parcel_lockers` / `load_parcel_lockers` | Public REST API / monthly | `data/geo/paczkomaty_pl.json` |
 | **GUGiK NMT Terrain** | `elevation_meters` | `ElevationEnricher` / HTTP GET | REST `GetHByXY` / daily (new coords only) | `--elevation`, cache: `data/geo/elevation_cache.json` |
-| **GBIF Amphibians** | `amphibian_occurrences_5km`, `nearest_amphibian_km` | `AmphibiansEnricher` / BallTree | REST API / yearly | `data/geo/amphibians_pl.json` (taxonKey 131) |
-| **Local Proximity** | `nearest_neighbor_distance_meters` | `NeighborEnricher` / BallTree | Local CPU / every ETL | BallTree (k=2, haversine) |
+| **GBIF Amphibians** | `amphibian_occurrences_5km`, `nearest_amphibian_km` | `AmphibiansEnricher` / cKDTree | REST API / yearly | `data/geo/amphibians_pl.json` (taxonKey 131) |
+| **Local Proximity** | `nearest_neighbor_distance_meters` | `NeighborEnricher` / cKDTree | Local CPU / every ETL | cKDTree (k=2, haversine) |
 
 ### Data quality
 
@@ -783,7 +783,7 @@ Enrichment runs during the ETL pipeline to pre-calculate spatial features, ensur
   that host powiat, so a naive `stores / dim_powiat.population` inflates per-capita
   density ~10x (Warszawa's ~1150 stores land on powiat warszawski zachodni, pop
   137k, not its own 1.87M). The correction lives in one place - two DuckDB views
-  defined in `database_ch.py` (`ensure_extra_tables`): `v_powiat_pop_eff` and
+  defined in `database.py` (`ensure_extra_tables`): `v_powiat_pop_eff` and
   `v_voiv_pop_eff` add each host's cities-with-powiat-rights population (SUM of
   `dim_city` populations where TERYT kind >= 61) on top of the land-only figure.
   Every per-capita query JOINs the relevant view instead of `dim_powiat.population`
@@ -805,7 +805,7 @@ Detailed logic, caching, and exceptions for the ingestion and enrichment sources
 - **GUS BDL Economics:** Downloads average salary (64428), unemployment rate (60270), and population (72305) at powiat level (unit-level=5). Normalizes names (e.g., wałbrzych) and resolves temporal/alias shifts (e.g., jeleniogórski -> karkonoski).
 - **GUGiK NMT Elevation:** Projects WGS84 coordinates to EPSG:2180 (PL-1992) using custom transverse Mercator projection. Queries `services.gugik.gov.pl/nmt/?request=GetHByXY` and caches elevation.
 - **GDOŚ Parks:** Runs point-in-polygon tests offline against local `data/input/parki_gdos.geojson` (259 national/landscape parks and buffers).
-- **GBIF Amphibians:** Counts Amphibia (`taxonKey=131`) observations within 5km using a local BallTree over `data/geo/amphibians_pl.json` (~46k observations).
+- **GBIF Amphibians:** Counts Amphibia (`taxonKey=131`) observations within 5km using a local cKDTree over `data/geo/amphibians_pl.json` (~46k observations).
 - **Dropped Source Fields:** The ETL discards marketing URLs, internal locator IDs, and PII (e.g., `salesZoneDirector` personal data) to ensure database cleanliness.
 - **Cache Invalidation:** A successful ETL run automatically triggers Redis cache invalidation via `reload_cache()` by connecting to the Redis UNIX socket (`REDIS_SOCKET`).
 
@@ -870,10 +870,11 @@ separate Rollup chunks (`TAB_LOADERS`). `econ.js` is bundled into the spoleczens
 `bubble.js`, `kraniec.js`, `edge.js` into the siec chunk. The default tab renders on load;
 the other renders on first click and is marked in `RENDERED` so it never double-renders.
 
-Note: `loadCore()` still fetches `sunday-by-voivodeship`, `voivodeship-density`, and
-`voivodeship` (merrychef); those datasets are not currently rendered as cards (the Sunday
-Wall / density / merrychef-gap visuals were retired from the visible layout) but stay in
-`M` for the cross-filter and possible reuse.
+Note: `loadSpoleczenstwo()` still fetches `voivodeship-density` and `voivodeship`
+(merrychef); those are not rendered as cards (the density / merrychef-gap visuals were
+retired from the visible layout) but stay in `M` - `voivodeship_merrychef` still feeds the
+cross-filter (`filter.js`), `voivodeship_density` is read by the spoleczenstwo KPI strip.
+The `sunday-by-voivodeship` fetch was dropped: nothing consumed `M.sunday_by_voivodeship`.
 
 ---
 

@@ -3,7 +3,7 @@
 import numpy as np
 
 from backend.etl.base import Enricher
-from backend.etl.geo import EARTH_KM
+from backend.etl.geo import chord_to_km, sphere_tree
 
 
 class NeighborEnricher(Enricher):
@@ -22,11 +22,10 @@ class NeighborEnricher(Enricher):
         n = len(rows)
         if n < 2:
             return
-        from sklearn.neighbors import BallTree
-        pts = np.radians([[r["latitude"], r["longitude"]] for r in rows])
-        tree = BallTree(pts, metric="haversine")
-        dist, _idx = tree.query(pts, k=2)          # k=2: kolumna 0 to sam punkt
-        nn_km = dist[:, 1] * EARTH_KM
+        tree, xyz = sphere_tree([r["latitude"] for r in rows],
+                                [r["longitude"] for r in rows])
+        dist, _idx = tree.query(xyz, k=2)          # k=2: kolumna 0 to sam punkt
+        nn_km = chord_to_km(dist[:, 1])
         for r, d in zip(rows, nn_km):
             r["nearest_neighbor_distance_meters"] = int(round(float(d) * 1000))
         k = int(np.argmax(nn_km))

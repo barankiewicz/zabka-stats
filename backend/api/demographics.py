@@ -1,6 +1,6 @@
 import logging
 
-from backend.database_ch import client
+from backend.database import client
 
 logger = logging.getLogger("demographics")
 

@@ -6,7 +6,7 @@ from litestar.exceptions import HTTPException
 from litestar.params import FromPath, FromQuery
 
 from backend.cache import cached
-from backend.database_ch import client
+from backend.database import client
 
 
 @get("/history/location/{location_id:str}", sync_to_thread=True)

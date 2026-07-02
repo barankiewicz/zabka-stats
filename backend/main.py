@@ -30,7 +30,7 @@ from backend.api.history_router import router as history_router
 from backend.api.locations_router import router as locations_router
 from backend.api.spatial_router import router as spatial_router
 from backend.api.stats_router import router as stats_router
-from backend.database_ch import DB_PATH, client, init_db
+from backend.database import DB_PATH, client, init_db
 
 # API_TOKEN is set via environment variable. The fallback below is a documented
 # local-dev convenience (see CLAUDE.md quick start) - warn loudly so it never

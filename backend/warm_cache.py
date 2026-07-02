@@ -32,7 +32,6 @@ PATHS: list[tuple[str, str]] = [
     ("/api/stats/coverage-funnel",                      "coverage-funnel"),
     ("/api/stats/voivodeship",                          "voivodeship"),
     ("/api/stats/voivodeship-density",                  "voiv-density"),
-    ("/api/stats/sunday-by-voivodeship",                "sunday-by-voiv"),
     ("/api/stats/opening-hours",                        "opening-hours"),
     # SIEĆ tab
     ("/api/stats/network-growth",                       "network-growth"),
