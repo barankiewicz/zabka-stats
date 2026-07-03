@@ -40,7 +40,7 @@ export async function loadCore() {
   // below-fold maps need it.
   const [
     summary, networkGrowth, networkOrigin, neighborStats,
-    coverageFunnel, perCapita, section3, openingHours, churnMonthly,
+    coverageFunnel, perCapita, section3, openingHours,
   ] = await Promise.allSettled([
     fetchJSON(`${BASE}/stats/summary`),
     fetchJSON(`${BASE}/stats/network-growth`),
@@ -50,7 +50,6 @@ export async function loadCore() {
     fetchJSON(`${BASE}/stats/per-capita`),
     fetchJSON(`${BASE}/stats/section3-rare`),
     fetchJSON(`${BASE}/stats/opening-hours`),
-    fetchJSON(`${BASE}/stats/churn-monthly`),
   ]);
   Object.assign(M, {
     summary:          val(summary, {total_active:0, cities_count:0, merrychef_pct:0, sunday_pct:0, h24_count:0, last_updated:null}),
@@ -62,7 +61,6 @@ export async function loadCore() {
     per_capita:       val(perCapita, []),
     section3_rare:    val(section3, {}),
     opening_hours:    val(openingHours, []),
-    churn_monthly:    val(churnMonthly, {rows:[], tracking_start:null, days_tracked:0}),
     // pre-fill keys that spoleczenstwo reads so they're never undefined
     powiat_economics:      [],
     voivodeship_density:   [],

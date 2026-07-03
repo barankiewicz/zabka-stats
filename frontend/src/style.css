@@ -81,11 +81,6 @@ nav{position:sticky;top:0;z-index:100;background:rgba(13,13,20,.9);backdrop-filt
 .card-sub{font-size:12px;color:var(--muted);margin-bottom:14px}
 .chart-wrap{position:relative;width:100%}
 .chart-wrap>canvas{display:block;width:100%;height:100%}
-/* churn chart: canvas sits inside a #churn-chart-inner sizing div (grown wider
-   than the scrollable wrap once there are many months), not a direct child */
-.churn-scroll{scrollbar-width:thin;scrollbar-color:rgba(140,200,80,.3) transparent}
-.churn-scroll>div{position:relative}
-.churn-scroll canvas{display:block;width:100%;height:100%}
 .h720{height:720px}.h680{height:680px}.h560{height:560px}.h500{height:500px}.h460{height:460px}.h420{height:420px}.h400{height:400px}.h380{height:380px}.h360{height:360px}.h340{height:340px}.h280{height:280px}.h260{height:260px}.h220{height:220px}.h200{height:200px}.h180{height:180px}.h140{height:140px}
 canvas{display:block}
 

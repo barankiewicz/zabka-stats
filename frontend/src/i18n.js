@@ -52,17 +52,6 @@ export const translations = {
     chart_growth_legend_yoy: "YoY change",
     chart_growth_survival_note: "Survival bias: active stores only — closed stores are excluded from the dataset. Early years (1998–2010) are underrepresented. 218 stores without opening dates are omitted.",
 
-    // Churn Chart (1.1c)
-    chart_churn_title: "Openings and closings, since we started watching",
-    chart_churn_sub: "Bars above the line: new stores. Bars below: closed stores. Line: net change since tracking began.",
-    chart_churn_legend_opens: "Opened",
-    chart_churn_legend_closes: "Closed",
-    chart_churn_legend_net: "Net change",
-    chart_churn_young_ledger: "Young ledger: we've only been tracking closures since {date} ({days} days) — this chart gets more interesting every day.",
-    chart_churn_tooltip_opens: "Opened: {count}",
-    chart_churn_tooltip_closes: "Closed: {count}",
-    chart_churn_tooltip_net: "Net since tracking began: {count}",
-
     // Origins Card
     origin_old_kicker: "Oldest (still active)",
     origin_old_note: "opened",
@@ -295,17 +284,6 @@ export const translations = {
     chart_growth_legend_new: "Nowe sklepy",
     chart_growth_legend_yoy: "Zmiana r/r",
     chart_growth_survival_note: "Bias przeżywalności: tylko aktywne sklepy — zamknięte wypadły z datasetu. Wczesne lata (1998–2010) niedoszacowane. 218 sklepów bez daty pominięto.",
-
-    // Churn Chart (1.1c)
-    chart_churn_title: "Otwarcia i zamknięcia, odkąd patrzymy",
-    chart_churn_sub: "Słupki nad osią: nowe sklepy. Słupki pod osią: zamknięte sklepy. Linia: zmiana netto od początku śledzenia.",
-    chart_churn_legend_opens: "Otwarte",
-    chart_churn_legend_closes: "Zamknięte",
-    chart_churn_legend_net: "Zmiana netto",
-    chart_churn_young_ledger: "Młody rejestr: zamknięcia śledzimy dopiero od {date} ({days} dni) — ten wykres staje się ciekawszy z każdym dniem.",
-    chart_churn_tooltip_opens: "Otwarte: {count}",
-    chart_churn_tooltip_closes: "Zamknięte: {count}",
-    chart_churn_tooltip_net: "Netto od początku śledzenia: {count}",
 
     // Origins Card
     origin_old_kicker: "Najstarsza (wciąż działa)",

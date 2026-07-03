@@ -1,6 +1,5 @@
 import re
 from collections import Counter, defaultdict
-from datetime import datetime
 
 from litestar import Response, Router, get, post
 from litestar.params import FromQuery
@@ -10,8 +9,6 @@ from backend.api.demographics import get_voiv_population
 from backend.cache import cached, clear_cache, get_cached_blob, set_cached_blob
 from backend.database import client
 from backend.schemas.api_models import (
-    ChurnMonthlyItem,
-    ChurnMonthlyResponse,
     CityFirstOpeningItem,
     CommonStreetItem,
     CommonStreetsResponse,
@@ -647,57 +644,6 @@ def openings_monthly() -> list[OpeningsMonthlyItem]:
     """).fetchall()
     return [OpeningsMonthlyItem(year=r[0], month=r[1], cnt=r[2]) for r in rows]
 
-@get("/stats/churn-monthly", sync_to_thread=True)
-@cached(ttl=3600)
-def churn_monthly() -> ChurnMonthlyResponse:
-    # Openings vs closings, both scoped to the tracked window (since the
-    # first ETL snapshot, `MIN(created_at)`) - not the full 1998-> history the
-    # 1.1 growth chart shows. Bucketing "opens" by first_opening_date (not
-    # created_at) matters: created_at is ~tracking_start for every
-    # pre-existing store (that's just when we first loaded it), so it would
-    # dump 13k+ stores into one bucket. first_opening_date restricted to
-    # >= tracking_start isolates the genuinely new stores discovered during
-    # the window - the only side of the story we can honestly compare against
-    # closes, which by definition only exist since tracking began.
-    tracking_start_row = client.execute("SELECT MIN(created_at) FROM locations").fetchone()
-    tracking_start = tracking_start_row[0] if tracking_start_row else None
-    if tracking_start is None:
-        return ChurnMonthlyResponse(rows=[], tracking_start="", days_tracked=0)
-
-    rows = client.execute("""
-        WITH opens AS (
-            SELECT strftime(date_trunc('month', first_opening_date), '%Y-%m') AS month,
-                   COUNT(*) AS opens, 0 AS closes
-            FROM locations
-            WHERE first_opening_date IS NOT NULL AND first_opening_date >= ?
-            GROUP BY 1
-        ),
-        closes AS (
-            SELECT strftime(date_trunc('month', deleted_at), '%Y-%m') AS month,
-                   0 AS opens, COUNT(*) AS closes
-            FROM locations
-            WHERE deleted_at IS NOT NULL
-            GROUP BY 1
-        ),
-        combined AS (
-            SELECT month, SUM(opens) AS opens, SUM(closes) AS closes
-            FROM (SELECT * FROM opens UNION ALL SELECT * FROM closes)
-            GROUP BY 1
-        )
-        SELECT month, opens, closes,
-               SUM(opens - closes) OVER (ORDER BY month ROWS UNBOUNDED PRECEDING) AS net_cumulative
-        FROM combined
-        ORDER BY month
-    """, [tracking_start]).fetchall()
-
-    days_tracked = (datetime.now() - tracking_start).days
-    return ChurnMonthlyResponse(
-        rows=[ChurnMonthlyItem(month=r[0], opens=int(r[1]), closes=int(r[2]), net_cumulative=int(r[3]))
-              for r in rows],
-        tracking_start=str(tracking_start.date()),
-        days_tracked=days_tracked,
-    )
-
 @get("/stats/sunday-closed-stores", sync_to_thread=True)
 def sunday_closed_stores(voivodeship: FromQuery[str]) -> list[SundayClosedStoreItem]:
     rows = client.execute("""
@@ -793,7 +739,6 @@ router = Router(
         inpost_vs_zabka_by_level,
         common_streets,
         openings_monthly,
-        churn_monthly,
         sunday_closed_stores,
         get_top_streets,
         get_growth_trend,

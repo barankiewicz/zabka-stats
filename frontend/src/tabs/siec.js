@@ -35,7 +35,6 @@ export function renderSiec(){
   renderStatStrip();
   renderOrigins();
   renderGrowthChart();
-  renderChurnChart();
   // The GRAN bar fetches its own by-dimension data; render it now.
   wireGranular();
   renderGranular();
@@ -826,99 +825,6 @@ export function renderGrowthChart(){
       },
     },
   });
-}
-
-/* ---------------- 1.1c churn chart: opens/closes since tracking began ------ */
-
-export function renderChurnChart(){
-  const churn = M.churn_monthly || {};
-  const rows = churn.rows || [];
-  const canvas = document.getElementById('chart-churn');
-  const wrap = document.getElementById('churn-chart-wrap');
-  const inner = document.getElementById('churn-chart-inner');
-  if(!canvas || !rows.length) return;
-
-  const noteEl = document.getElementById('churn-young-ledger-note');
-  if(noteEl && churn.tracking_start!=null){
-    noteEl.textContent = t('chart_churn_young_ledger')
-      .replace('{date}', churn.tracking_start).replace('{days}', churn.days_tracked);
-  }
-
-  destroyChart('churn');
-  const ctx = canvas.getContext ? canvas.getContext('2d') : null;
-  if(!ctx) return;
-
-  const months = rows.map(r=>r.month);
-  const opens = rows.map(r=>r.opens);
-  const closesNeg = rows.map(r=>-r.closes);
-  const net = rows.map(r=>r.net_cumulative);
-  const maxNet = Math.max(1, ...net.map(Math.abs));
-
-  // Grow the inner sizing div (not the canvas directly - Chart.js's
-  // responsive mode fills whatever its immediate parent measures) wider than
-  // the outer scrollable wrap once there are enough months to need it, so
-  // old entries don't get squished as the tracked window grows.
-  if(inner && wrap){
-    const minPerMonth=56;
-    inner.style.width = Math.max(wrap.clientWidth, months.length*minPerMonth)+'px';
-  }
-
-  const tipFor = (dsIndex, i) => {
-    const r = rows[i];
-    if(dsIndex===0) return t('chart_churn_tooltip_opens').replace('{count}', r.opens);
-    if(dsIndex===1) return t('chart_churn_tooltip_closes').replace('{count}', r.closes);
-    return t('chart_churn_tooltip_net').replace('{count}', r.net_cumulative);
-  };
-
-  CHARTS['churn'] = new Chart(ctx, {
-    data: {
-      labels: months,
-      datasets: [
-        {
-          type: 'bar', label: t('chart_churn_legend_opens'),
-          data: opens, backgroundColor: C.green, borderRadius: 2,
-          yAxisID: 'y', order: 2, stack: 'churn',
-        },
-        {
-          type: 'bar', label: t('chart_churn_legend_closes'),
-          data: closesNeg, backgroundColor: C.red, borderRadius: 2,
-          yAxisID: 'y', order: 2, stack: 'churn',
-        },
-        {
-          type: 'line', label: t('chart_churn_legend_net'),
-          data: net, borderColor: C.teal, backgroundColor: C.bg,
-          borderWidth: 2, pointRadius: 3, pointBorderWidth: 1.5,
-          pointBorderColor: C.teal, pointBackgroundColor: C.bg,
-          cubicInterpolationMode: 'monotone', spanGaps: true,
-          yAxisID: 'y1', order: 1,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            title: () => '',
-            label: ctx => tipFor(ctx.datasetIndex, ctx.dataIndex),
-          },
-        },
-      },
-      scales: {
-        x: { grid: { display: false }, ticks: { color: C.muted } },
-        y: { grid: { color: C.axis }, ticks: { color: C.muted } },
-        y1: { display: false, min: -maxNet, max: maxNet },
-      },
-    },
-  });
-
-  // Auto-scroll to the newest entries (right edge) - a left(old)->right(new)
-  // timeline should land on "now" by default, not the earliest tracked day.
-  if(wrap) requestAnimationFrame(()=>{ wrap.scrollLeft = wrap.scrollWidth; });
 }
 
 

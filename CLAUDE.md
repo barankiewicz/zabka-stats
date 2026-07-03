@@ -443,7 +443,7 @@ Litestar serves modular native API routers (`backend/api/`) grouped under a pare
   - `GET /api/locations/map` -> Fast GeoJSON of all stores
   - `GET /api/history/location/{location_id}` -> History of single store
 - **Analytical Stats (SIEC tab):**
-  - `/api/stats/summary`, `/api/stats/network-growth`, `/api/stats/network-origin`, `/api/stats/stores-timeline`, `/api/stats/openings-monthly`, `/api/stats/churn-monthly`, `/api/stats/opening-hours`, `/api/stats/opening-seasonality`, `/api/stats/by-dimension`
+  - `/api/stats/summary`, `/api/stats/network-growth`, `/api/stats/network-origin`, `/api/stats/stores-timeline`, `/api/stats/openings-monthly`, `/api/stats/opening-hours`, `/api/stats/opening-seasonality`, `/api/stats/by-dimension`
 - **Spatial / Coverage / Extremes:**
   - `/api/stats/powiat-coverage`, `/api/stats/city-coverage`, `/api/stats/coverage-funnel`, `/api/stats/neighbor-by-level`, `/api/stats/neighbor-stats`, `/api/stats/twins`, `/api/stats/kraniec-facts`, `/api/stats/elevation`, `/api/stats/parks-stores`, `/api/stats/section3-rare`, `/api/stats/amphibians`
 - **Socioeconomics (ŻABKA A POLSKA tab):**
@@ -989,8 +989,7 @@ Imports `bubble.js` (D3 force chart), `kraniec.js` (Atlas krańców), `edge.js` 
 | MAPA growth map + calendar | MapLibre GL (WebGL circles) + Canvas 2D (calendar) | `/geo/voivodeships`, `/stats/stores-timeline`, `/stats/openings-monthly` | Large dark vector map of Poland (no tiles), pitched to 38° (drag-to-rotate / right-click tilts). All 13k+ stores are a single WebGL circle layer that animates in by opening year via a `setFilter` sweep, a ~2.8s sweep 1998->2026 with year label + replay. A companion calendar grid (Canvas 2D) shows month-by-month openings. |
 | 1.1f fingerprint | Canvas 2D | `/stats/network-growth`, `/stats/stores-timeline` | The "odcisk" unrolled flat: X = compass direction (N-E-S-W-N), Y = year (1998->2026); each row bulges toward that year's dominant expansion bearing. Hover -> year + direction. |
 | 1.1 growth chart | Chart.js | `/stats/network-growth` | One x-axis (years), two y-axes: bars = new stores/year, line = YoY change %. Era background bands. Footnote: covers only currently-active stores; early years underrepresented. |
-| 1.1c churn chart | Chart.js | `/stats/churn-monthly` | Companion card directly below 1.1. Diverging monthly bars scoped to the tracked window only (since `MIN(created_at)`, not 1998): opens (green, above the axis, counted from `first_opening_date` so it is not one mega-spike on day one) vs closes (red-orange, below the axis, from `deleted_at`), plus a teal net-change line on its own hidden axis. Horizontally scrollable once there are enough months (canvas lives in a `#churn-chart-inner` sizing div inside an `overflow-x:auto` wrap) and auto-scrolls to the newest entries on render. "Young ledger" footnote states the tracking start date and day count - the honest complement to 1.1's survivor-biased history. |
-| GRAN ranking | Chart.js (bar) + MapLibre GL (choropleth, 2D/3D toggle) | `/stats/by-dimension`, `/geo/voivodeships`, `/geo/powiats` | Left: horizontal ranking bar with three switchers — level (Woj./Powiaty/Miasta) x metric (Liczba / na 1000 mieszk. / na km²) x sort (Największe/Najmniejsze). Right: choropleth - voivodeship-level for Woj./Miasta (no city boundary data exists), real powiat polygons for Powiaty; a 2D/3D toggle extrudes the fill into pitched density towers. Both the map and the bars share one ramp (`config.js`'s `GRAN_RAMP_STOPS`/`granRamp`): dark forest green (fewest) up to the Żabka green `#84c341` (most in view), independent of the Największe/Najmniejsze toggle. Click a row sets the cross-filter. |
+| GRAN ranking | Chart.js (bar) + MapLibre GL (choropleth) | `/stats/by-dimension`, `/geo/voivodeships` | Left: horizontal ranking bar with three switchers — level (Woj./Powiaty/Miasta) x metric (Liczba / na 1000 mieszk. / na km²) x sort (Największe/Najmniejsze). Right: voivodeship choropleth (always voivodeship-level, value labels as HTML markers). Click a row sets the cross-filter. |
 | Edge KPI strip | DOM | `/stats/section3-rare`, `/elevation`, `/neighbor-stats`, `/amphibians` | Six clickable tiles feeding the Atlas: 32 h24 stores (amber), stores in parks, frog record, the 46.5 km void, oldest active, farthest-from-frog. Click flies the Atlas map to that fact. |
 | Atlas krańców | MapLibre GL + mini panels | `/stats/kraniec-facts`, `/elevation`, `/neighbor-stats`, `/parks-stores`, `/twins`, `/amphibians` | One interactive Poland map (tile-free) with a faint store backdrop. Compass points, highest/lowest store, the loner, the Bieszczady void (dashed geodesic circle, no dots inside), the frog street, h24, parks, twins. Hover/click a fact -> `flyTo` + tooltip; leave -> national view. |
 | POWIATY coverage | Chart.js (donut) + Canvas 2D | `/stats/powiat-coverage`, `/stats/coverage-funnel`, `/geo/voivodeships` | Animated donut: % of powiats / miasta / gminy with at least one Żabka (level toggle). Canvas mini-map: green = covered, red = uncovered. |
@@ -1082,8 +1081,8 @@ on touch.
 Set by clicking a GRAN ranking row. Render callbacks are registered per tab in `main.js`
 (`registerFilterCallbacks`): the GRAN chart (`renderGranular`) and the InPost dumbbell
 (`renderDumbbellByLevel`) react; the `renderKPI` callback is a guarded no-op since the
-header tiles were removed. What does NOT react: the 1.1 growth chart, 1.1c churn chart, and
-fingerprint (network-level story), and the Atlas krańców / coverage / amphibian views (always national).
+header tiles were removed. What does NOT react: the 1.1 growth chart and fingerprint
+(network-level story), and the Atlas krańców / coverage / amphibian views (always national).
 
 ---
 
@@ -1106,7 +1105,6 @@ to rendered content when its own data arrives. Never gate a chart on other chart
 | Big growth map + calendar | ~560px |
 | 1.1f fingerprint | ~680px |
 | 1.1 growth chart | ~340px |
-| 1.1c churn chart | ~280px |
 | GRAN bar + choropleth | ~420px |
 | Atlas krańców map | ~460px |
 | POWIATY donut + mini-map | ~360px |

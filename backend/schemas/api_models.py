@@ -412,17 +412,6 @@ class GrowthTrendItem(BaseModel):
 class GrowthTrendResponse(BaseModel):
     data: list[GrowthTrendItem]
 
-class ChurnMonthlyItem(BaseModel):
-    month: str
-    opens: int
-    closes: int
-    net_cumulative: int
-
-class ChurnMonthlyResponse(BaseModel):
-    rows: list[ChurnMonthlyItem]
-    tracking_start: str
-    days_tracked: int
-
 class SundayClosedStoreItem(BaseModel):
     city: str
     street: str
