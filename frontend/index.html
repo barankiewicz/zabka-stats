@@ -94,8 +94,8 @@
       <button class="tab-btn" id="tab-btn-spoleczenstwo" data-tab="spoleczenstwo" role="tab" aria-selected="false" aria-controls="tab-spoleczenstwo" tabindex="-1" data-t="tab_spoleczenstwo">Żabka a Polska</button>
     </div>
     <div class="lang-toggle" role="group" aria-label="Language selection" id="lang-toggle">
-      <button class="lang-btn active" data-lang="en">EN</button>
-      <button class="lang-btn" data-lang="pl">PL</button>
+      <button class="lang-btn active" data-lang="pl">PL</button>
+      <button class="lang-btn" data-lang="en">EN</button>
     </div>
   </div>
 </nav>
@@ -135,9 +135,9 @@
       <div class="stat-sub" data-t="stat_sub_accel">zajęły ostatnie <b>5 000</b> – tempo wystrzeliło</div>
     </div>
     <div class="stat-tile">
-      <div class="stat-kicker" data-t="stat_kicker_record">Rekord</div>
-      <div class="stat-big" id="stat-bestyear" data-count="0">-</div>
-      <div class="stat-sub" id="stat-bestyear-sub" data-t="stat_sub_record">nowych w najlepszym roku</div>
+      <div class="stat-kicker" data-t="stat_kicker_hoursstd">Standardowe godziny</div>
+      <div class="stat-big"><span class="stat-num" id="stat-hoursstd" data-count="0" data-dec="1">-</span><span class="stat-unit">%</span></div>
+      <div class="stat-sub" data-t="stat_sub_hoursstd">sklepów działa w standardowych godzinach 06:00–23:00 pon-sob</div>
     </div>
     <div class="stat-tile">
       <div class="stat-kicker" data-t="stat_kicker_neighbor">Najbliższy sąsiad</div>
@@ -419,7 +419,10 @@
     </div>
   </header>
 
-  <!-- KPI strip: 6 national stats -->
+  <!-- KPI strip: 6 national stats. First two are the stable baseline; the
+       remaining four are the sharpest anomalies already computed elsewhere
+       on this tab (see CLAUDE.md Verified Findings F2-F5), building to the
+       Sunday Wall as the closing surprise. -->
   <div class="stat-strip reveal" id="spol-kpi-strip">
     <div class="stat-tile">
       <div class="stat-kicker" data-t="spol_kpi_residents_kicker">Jeden sklep na</div>
@@ -427,29 +430,41 @@
       <div class="stat-sub" data-t="spol_kpi_residents_sub">mieszkańców Polski</div>
     </div>
     <div class="stat-tile">
-      <div class="stat-kicker" data-t="spol_kpi_density_kicker">Gęstość sieci</div>
-      <div class="stat-big"><span class="stat-num" id="spol-kpi-density" data-count="0" data-dec="2">-</span><span class="stat-unit">/100km²</span></div>
-      <div class="stat-sub" data-t="spol_kpi_density_sub">Żabek na każde 100 km² kraju</div>
-    </div>
-    <div class="stat-tile">
       <div class="stat-kicker" data-t="spol_kpi_gminy_kicker">Pokrycie gmin</div>
       <div class="stat-big"><span class="stat-num" id="spol-kpi-gminy" data-count="0" data-dec="1">-</span><span class="stat-unit">%</span></div>
       <div class="stat-sub" data-t="spol_kpi_gminy_sub">gmin ma co najmniej jedną Żabkę</div>
     </div>
     <div class="stat-tile">
-      <div class="stat-kicker" data-t="spol_kpi_inpost_kicker">InPost na Żabkę</div>
-      <div class="stat-big"><span class="stat-num" id="spol-kpi-inpost" data-count="0" data-dec="2">-</span><span class="stat-unit">x</span></div>
-      <div class="stat-sub" data-t="spol_kpi_inpost_sub">paczkomatów na każdy sklep</div>
+      <div class="stat-kicker" data-t="spol_kpi_density_kicker">Gęstość skrajna</div>
+      <div class="stat-big"><span class="stat-num" id="spol-kpi-density" data-count="0" data-dec="1">-</span><span class="stat-unit">x</span></div>
+      <div class="stat-sub" id="spol-kpi-density-sub">najgęstsza sieć w kraju</div>
     </div>
     <div class="stat-tile">
-      <div class="stat-kicker" data-t="spol_kpi_cities_kicker">Miast z Żabką</div>
-      <div class="stat-big" id="spol-kpi-cities" data-count="0">-</div>
-      <div class="stat-sub" data-t="spol_kpi_cities_sub">miejscowości z co najmniej 1 sklepem</div>
+      <div class="stat-kicker" data-t="spol_kpi_gminaleader_kicker">Rekordzista per capita</div>
+      <div class="stat-big compare">
+        <span class="cmp-lead"><span class="stat-num" id="spol-kpi-gminaleader" data-count="0" data-dec="1">-</span><span class="stat-unit">/1k</span></span>
+        <span class="stat-vs">vs</span>
+        <span class="cmp-base"><span class="stat-num" id="spol-kpi-gminaleader-nat" data-count="0" data-dec="1">-</span><span class="stat-unit">/1k</span></span>
+      </div>
+      <div class="stat-sub" id="spol-kpi-gminaleader-sub">najwięcej Żabek na mieszkańca w Polsce</div>
     </div>
     <div class="stat-tile">
-      <div class="stat-kicker" data-t="spol_kpi_salary_kicker">Korelacja zarobki</div>
-      <div class="stat-big" id="spol-kpi-r-salary" style="color:var(--bright)">r = +0,41</div>
-      <div class="stat-sub" data-t="spol_kpi_salary_sub">zamożniejsze powiaty mają więcej Żabek</div>
+      <div class="stat-kicker" data-t="spol_kpi_inpostmax_kicker">Skrajność InPost</div>
+      <div class="stat-big compare">
+        <span class="cmp-lead"><span class="stat-num" id="spol-kpi-inpostmax" data-count="0" data-dec="2">-</span><span class="stat-unit">x</span></span>
+        <span class="stat-vs">vs</span>
+        <span class="cmp-base"><span class="stat-num" id="spol-kpi-inpostmax-nat" data-count="0" data-dec="2">-</span><span class="stat-unit">x</span></span>
+      </div>
+      <div class="stat-sub" id="spol-kpi-inpostmax-sub">najwięcej paczkomatów na jedną Żabkę</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-kicker" data-t="spol_kpi_sunday_kicker">Ściana niedzielna</div>
+      <div class="stat-big compare">
+        <span class="cmp-lead"><span class="stat-num" id="spol-kpi-sunday" data-count="0" data-dec="1">-</span><span class="stat-unit">%</span></span>
+        <span class="stat-vs">vs</span>
+        <span class="cmp-base"><span class="stat-num" id="spol-kpi-sunday-nat" data-count="0" data-dec="1">-</span><span class="stat-unit">%</span></span>
+      </div>
+      <div class="stat-sub" id="spol-kpi-sunday-sub">zamknięte w niedzielę vs średnia krajowa</div>
     </div>
   </div>
 

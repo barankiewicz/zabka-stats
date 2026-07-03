@@ -29,8 +29,8 @@ export const translations = {
     stat_unit_years: "years",
     stat_kicker_accel: "Acceleration",
     stat_sub_accel: "took for the last <b>5,000</b> – the pace skyrocketed",
-    stat_kicker_record: "Record",
-    stat_sub_record: "new stores in the best year",
+    stat_kicker_hoursstd: "Standard hours",
+    stat_sub_hoursstd: "of stores run the standard 06:00-23:00 Mon-Sat hours",
     stat_kicker_neighbor: "Nearest Neighbor",
     stat_sub_neighbor: "median distance to the nearest Zabka",
     stat_unit_meters: "m",
@@ -109,7 +109,6 @@ export const translations = {
     ep_zerofrog_note: "stores ({pct}%) with zero amphibian sightings in 5 km",
     frog_street_note: "Zabka on Green Frog Street – one of {cnt} stores on streets with frog themes.",
     cities_funnel_text: "out of {total} Polish cities have a Zabka",
-    stat_sub_record_template: "new in {year} – every ~{hours} h",
     tooltip_year: "Year: {year}",
     tooltip_new_stores: "New stores: {count}",
     tooltip_yoy: "YoY change: {pct}",
@@ -180,16 +179,16 @@ export const translations = {
     spol_kpi_residents_kicker: "One store per",
     spol_kpi_residents_unit: " people",
     spol_kpi_residents_sub: "residents of Poland",
-    spol_kpi_density_kicker: "Network density",
-    spol_kpi_density_sub: "Zabkas per 100 km² of the country",
     spol_kpi_gminy_kicker: "Commune coverage",
     spol_kpi_gminy_sub: "of communes have at least one Zabka",
-    spol_kpi_inpost_kicker: "InPost per Zabka",
-    spol_kpi_inpost_sub: "parcel lockers for every store",
-    spol_kpi_cities_kicker: "Cities with Zabka",
-    spol_kpi_cities_sub: "localities with at least 1 store",
-    spol_kpi_salary_kicker: "Salary correlation",
-    spol_kpi_salary_sub: "wealthier districts have more Zabkas",
+    spol_kpi_density_kicker: "Density outlier",
+    spol_kpi_density_sub_tpl: "{name}: the densest network in the country",
+    spol_kpi_gminaleader_kicker: "Per-capita record",
+    spol_kpi_gminaleader_sub_tpl: "{name}: most stores per resident in Poland",
+    spol_kpi_inpostmax_kicker: "InPost extreme",
+    spol_kpi_inpostmax_sub_tpl: "{name}: the most parcel lockers per store",
+    spol_kpi_sunday_kicker: "Sunday Wall",
+    spol_kpi_sunday_sub_tpl: "{name}: closed on Sundays vs the national average",
 
     // Zabka vs InPost
     inpost_title: "Zabka vs InPost",
@@ -263,8 +262,8 @@ export const translations = {
     stat_unit_years: "lat",
     stat_kicker_accel: "Przyspieszenie",
     stat_sub_accel: "zajęły ostatnie <b>5 000</b> – tempo wystrzeliło",
-    stat_kicker_record: "Rekord",
-    stat_sub_record: "nowych w najlepszym roku",
+    stat_kicker_hoursstd: "Standardowe godziny",
+    stat_sub_hoursstd: "sklepów działa w standardowych godzinach 06:00–23:00 pon-sob",
     stat_kicker_neighbor: "Najbliższy sąsiad",
     stat_sub_neighbor: "mediana odległości do najbliższej Żabki",
     stat_unit_meters: " m",
@@ -370,7 +369,6 @@ export const translations = {
     ep_zerofrog_note: "sklepów ({pct}%) bez ani jednej obserwacji płaza w 5 km",
     frog_street_note: "Żabka przy ulicy Zielonej Żabki – jeden z {cnt} sklepów na ulicach z żabim motywem.",
     cities_funnel_text: "z {total} polskich miast ma Żabkę",
-    stat_sub_record_template: "nowych w {year} – co ~{hours} h",
     tooltip_year: "Rok: {year}",
     tooltip_new_stores: "Nowe sklepy: {count}",
     tooltip_yoy: "Zmiana r/r: {pct}",
@@ -414,16 +412,16 @@ export const translations = {
     spol_kpi_residents_kicker: "Jeden sklep na",
     spol_kpi_residents_unit: " os.",
     spol_kpi_residents_sub: "mieszkańców Polski",
-    spol_kpi_density_kicker: "Gęstość sieci",
-    spol_kpi_density_sub: "Żabek na każde 100 km² kraju",
     spol_kpi_gminy_kicker: "Pokrycie gmin",
     spol_kpi_gminy_sub: "gmin ma co najmniej jedną Żabkę",
-    spol_kpi_inpost_kicker: "InPost na Żabkę",
-    spol_kpi_inpost_sub: "paczkomatów na każdy sklep",
-    spol_kpi_cities_kicker: "Miast z Żabką",
-    spol_kpi_cities_sub: "miejscowości z co najmniej 1 sklepem",
-    spol_kpi_salary_kicker: "Korelacja zarobki",
-    spol_kpi_salary_sub: "zamożniejsze powiaty mają więcej Żabek",
+    spol_kpi_density_kicker: "Gęstość skrajna",
+    spol_kpi_density_sub_tpl: "{name}: najgęstsza sieć w kraju",
+    spol_kpi_gminaleader_kicker: "Rekordzista per capita",
+    spol_kpi_gminaleader_sub_tpl: "{name}: najwięcej Żabek na mieszkańca w Polsce",
+    spol_kpi_inpostmax_kicker: "Skrajność InPost",
+    spol_kpi_inpostmax_sub_tpl: "{name}: najwięcej paczkomatów na jedną Żabkę",
+    spol_kpi_sunday_kicker: "Ściana niedzielna",
+    spol_kpi_sunday_sub_tpl: "{name}: zamknięte w niedzielę vs średnia krajowa",
 
     // Zabka vs InPost
     inpost_title: "Żabka vs InPost",
@@ -472,7 +470,7 @@ export const translations = {
   }
 };
 
-let currentLang = 'en'; // English ALWAYS default
+let currentLang = 'pl'; // Polish default
 
 export function getLang() {
   return currentLang;

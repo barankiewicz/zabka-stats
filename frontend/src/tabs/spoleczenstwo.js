@@ -23,9 +23,11 @@ function ensureEcon(){
 
 
 function renderSpolecKPIs(){
-  const s=M.summary, pc=M.per_capita||[], dens=M.voivodeship_density||[], iv=M.inpost_vs_zabka||[];
+  const s=M.summary, pc=M.per_capita||[], dens=M.voivodeship_density||[];
+  const gminaLeadersObj=M.gmina_leaders||{}, gminaLeaders=gminaLeadersObj.per_1k||[], iv=M.inpost_vs_zabka||[], sunday=M.sunday_by_voivodeship||[];
 
   const setCount=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.dataset.count=v};
+  const setSub=(id,key,name)=>{const el=document.getElementById(id);if(el&&name)el.textContent=t(key).replace('{name}',capName(name))};
 
   if(s&&pc.length&&s.total_active){
     const totalPop=pc.reduce((a,r)=>a+(r.population||0),0);
@@ -33,39 +35,51 @@ function renderSpolecKPIs(){
     setCount('spol-kpi-residents',perStore);
   }
 
-  if(dens.length&&s&&s.total_active){
-    const totalArea=dens.reduce((a,r)=>a+(r.area_km2||0),0);
-    if(totalArea>0){
-      const per100=(+s.total_active)/totalArea*100;
-      setCount('spol-kpi-density',per100);
-    }
-  }
-
   const gminy=(M.coverage_funnel||[]).find(r=>r.level==='gminy');
   if(gminy&&gminy.pct!=null){
     setCount('spol-kpi-gminy',gminy.pct);
   }
 
+  // Density outlier (F4): the voivodeship whose stores/km2 towers over the
+  // national average, not the flat average itself.
+  if(dens.length){
+    const rows=dens.map(r=>({voivodeship:r.voivodeship,perKm2:r.area_km2>0?r.stores/r.area_km2:0}));
+    const totalStores=dens.reduce((a,r)=>a+(r.stores||0),0);
+    const totalArea=dens.reduce((a,r)=>a+(r.area_km2||0),0);
+    const nationalPerKm2=totalArea>0?totalStores/totalArea:0;
+    const top=rows.reduce((a,r)=>r.perKm2>(a?a.perKm2:-1)?r:a,null);
+    if(top&&nationalPerKm2>0){
+      setCount('spol-kpi-density',top.perKm2/nationalPerKm2);
+      setSub('spol-kpi-density-sub','spol_kpi_density_sub_tpl',top.voivodeship);
+    }
+  }
+
+  // Per-capita record (F2): the resort commune that beats every other gmina,
+  // against the national national_per_1k the endpoint already computes.
+  if(gminaLeaders.length){
+    const top=gminaLeaders[0];
+    setCount('spol-kpi-gminaleader',top.per_1k);
+    if(gminaLeadersObj.national_per_1k!=null)setCount('spol-kpi-gminaleader-nat',gminaLeadersObj.national_per_1k);
+    setSub('spol-kpi-gminaleader-sub','spol_kpi_gminaleader_sub_tpl',top.name);
+  }
+
+  // InPost extreme (F5): already sorted desc by ratio, so [0] is the max.
+  // National ratio = total lockers / total stores across all voivodeships.
   if(iv.length){
-    const totZ=iv.reduce((a,r)=>a+(r.zabki||0),0);
-    const totP=iv.reduce((a,r)=>a+(r.paczkomaty||0),0);
-    if(totZ){
-      setCount('spol-kpi-inpost',totP/totZ);
-    }
+    const top=iv[0];
+    setCount('spol-kpi-inpostmax',top.ratio);
+    const totZ=iv.reduce((a,r)=>a+(r.zabki||0),0), totP=iv.reduce((a,r)=>a+(r.paczkomaty||0),0);
+    if(totZ)setCount('spol-kpi-inpostmax-nat',Math.round(totP/totZ*100)/100);
+    setSub('spol-kpi-inpostmax-sub','spol_kpi_inpostmax_sub_tpl',top.voivodeship);
   }
 
-  if(s&&s.cities_count){
-    setCount('spol-kpi-cities',+s.cities_count);
-  }
-
-  const ohArr = Array.isArray(M.opening_hours) ? M.opening_hours : [];
-  if(ohArr.length) {
-    const ohTotal = ohArr.reduce((s,p) => s+(p.cnt||0), 0);
-    const oh23 = ohArr.filter(p => (p.pattern||'').includes('23:')).reduce((s,p) => s+(p.cnt||0), 0);
-    if(ohTotal > 0) {
-      const pct = Math.round(oh23/ohTotal*1000)/10;
-      setCount('spol-kpi-closed23', pct);
-    }
+  // Sunday Wall (F3): already sorted desc by closed_pct. Shown as a direct
+  // "leader vs national average" comparison, not a bare percentage.
+  if(sunday.length&&s&&s.sunday_pct!=null){
+    const top=sunday[0];
+    setCount('spol-kpi-sunday',top.closed_pct);
+    setCount('spol-kpi-sunday-nat',Math.round((100-s.sunday_pct)*10)/10);
+    setSub('spol-kpi-sunday-sub','spol_kpi_sunday_sub_tpl',top.voivodeship);
   }
 }
 

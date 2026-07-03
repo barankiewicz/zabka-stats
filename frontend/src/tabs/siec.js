@@ -16,8 +16,13 @@ function ensureMaplibre(){
 }
 import { fetchJSON, loadSiec } from '../data.js';
 import { renderBubble } from './bubble.js';
-import { renderKraniec } from './kraniec.js';
+import { renderKraniec, selectFact } from './kraniec.js';
 import { renderEdgeKPIs } from './edge.js';
+
+// Re-exported so main.js can drive a /fakt/<slug> deep link through the
+// already-loaded siec chunk without importing kraniec.js separately (which
+// would change its bundling - it's meant to stay inlined into this chunk).
+export { selectFact };
 import { t, getLang } from '../i18n.js';
 
 const prefersReduced = () =>
@@ -156,14 +161,16 @@ export function renderStatStrip(){
   setYears('stat-first1k',toFirst);
   setYears('stat-last5k',last5);
 
-  const best=ng.reduce((a,b)=>b.new_stores>(a?a.new_stores:-1)?b:a,null);
-  if(best){
-    const bv=document.getElementById('stat-bestyear');if(bv)bv.dataset.count=best.new_stores;
-    const perH=best.new_stores>0?8760/best.new_stores:0;
-    const sub=document.getElementById('stat-bestyear-sub');
-    if(sub) {
-      const hoursStr = getLang() === 'en' ? perH.toFixed(1) : perH.toFixed(1).replace('.', ',');
-      sub.textContent = t('stat_sub_record_template').replace('{year}', best.year).replace('{hours}', hoursStr);
+  // Standard hours (F7): the share of stores running the plain 06:00-23:00
+  // Mon-Sat pattern - replaces a "best year" tile that just previewed the
+  // 1.1 growth chart a few cards below.
+  const oh=M.opening_hours||[];
+  const total=M.summary&&M.summary.total_active;
+  if(oh.length&&total){
+    const standard=oh.find(p=>p.pattern==='06:00:00 - 23:00:00');
+    if(standard){
+      const hv=document.getElementById('stat-hoursstd');
+      if(hv)hv.dataset.count=Math.round(standard.cnt/total*1000)/10;
     }
   }
 

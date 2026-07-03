@@ -870,11 +870,12 @@ separate Rollup chunks (`TAB_LOADERS`). `econ.js` is bundled into the spoleczens
 `bubble.js`, `kraniec.js`, `edge.js` into the siec chunk. The default tab renders on load;
 the other renders on first click and is marked in `RENDERED` so it never double-renders.
 
-Note: `loadSpoleczenstwo()` still fetches `voivodeship-density` and `voivodeship`
-(merrychef); those are not rendered as cards (the density / merrychef-gap visuals were
-retired from the visible layout) but stay in `M` - `voivodeship_merrychef` still feeds the
-cross-filter (`filter.js`), `voivodeship_density` is read by the spoleczenstwo KPI strip.
-The `sunday-by-voivodeship` fetch was dropped: nothing consumed `M.sunday_by_voivodeship`.
+Note: `loadSpoleczenstwo()` still fetches `voivodeship` (merrychef); it is not rendered as
+a card (the merrychef-gap visual was retired from the visible layout) but stays in `M` -
+`voivodeship_merrychef` still feeds the cross-filter (`filter.js`). `voivodeship_density`
+and `sunday-by-voivodeship` now feed the KPI strip's density-outlier and Sunday Wall tiles
+(see the ŻABKA A POLSKA KPI strip row below) - `opening-hours` moved to `loadCore()` since
+SIEĆ's own stat strip needs it above the fold now.
 
 ---
 
@@ -951,7 +952,7 @@ Imports `bubble.js` (D3 force chart), `kraniec.js` (Atlas krańców), `edge.js` 
 | Ref | Library | Endpoint | What it shows |
 |---|---|---|---|
 | Hero | Canvas 2D | `/stats/summary`, `/stats/network-origin` | Full-bleed opening: mono eyebrow (snapshot date), giant gradient-clipped glowing count-up of total active stores, drifting green particle field, headline + lede. Respects `prefers-reduced-motion`. |
-| Stat strip | DOM | `/stats/network-growth`, `/network-origin`, `/neighbor-stats`, `/coverage-funnel` | Six fact tiles: first-1k cadence, last-5k cadence, best year, median neighbor distance, % of Polish cities with a Żabka, new in the last month. |
+| Stat strip | DOM | `/stats/network-growth`, `/network-origin`, `/neighbor-stats`, `/coverage-funnel`, `/opening-hours` | Six fact tiles: first-1k cadence, last-5k cadence, % of stores on standard 06:00-23:00 Mon-Sat hours (F7), median neighbor distance, % of Polish cities with a Żabka, new in the last month. |
 | Origin cards | DOM | `/stats/network-origin` | Oldest still-active store (Swarzędz, 1998) vs newest (updates each run). |
 | BUBBLE | D3 (force) | `/stats/by-dimension?dim=city&metric=count&limit=60` | Force-directed bubbles, one per city, size = store count, drag + Ctrl-scroll zoom, "Pozostałe" bubble for the tail. |
 | MAPA growth map + calendar | MapLibre GL (WebGL circles) + Canvas 2D (calendar) | `/geo/voivodeships`, `/stats/stores-timeline`, `/stats/openings-monthly` | Large dark vector map of Poland (no tiles), pitched to 38° (drag-to-rotate / right-click tilts). All 13k+ stores are a single WebGL circle layer that animates in by opening year via a `setFilter` sweep, a ~2.8s sweep 1998->2026 with year label + replay. A companion calendar grid (Canvas 2D) shows month-by-month openings. |
@@ -969,7 +970,7 @@ Imports `econ.js` (the two MapLibre residual-choropleth maps that close the tab)
 | Ref | Library | Endpoint | What it shows |
 |---|---|---|---|
 | Hero | Canvas 2D | `/stats/section3-rare` | Count-up of the 46.5 km void distance, particle field, lede with live totals. |
-| KPI strip | DOM | `/stats/summary`, `/per-capita`, `/voivodeship-density`, `/inpost-vs-zabka`, `/coverage-funnel` | Six national stats: one store per X residents, density /100 km², gmina coverage %, InPost-per-Żabka ratio, cities with Żabka, salary correlation. |
+| KPI strip | DOM | `/stats/summary`, `/per-capita`, `/coverage-funnel`, `/voivodeship-density`, `/gmina-leaders`, `/inpost-vs-zabka`, `/sunday-by-voivodeship` | Six tiles: one store per X residents, gmina coverage %, plus four "leader vs national average" anomalies — density outlier (F4: leading voivodeship's stores/km² vs the national ratio), per-capita record (the GMINA-LEAD chart's resort leader, per-1k vs the endpoint's `national_per_1k`), InPost extreme (F5: leading voivodeship's ratio vs the national ratio), Sunday Wall (F3: leading voivodeship's Sunday-closed % vs the national %). Each "vs" tile renders as two numbers in the headline (`.stat-big.compare`): the anomaly full-size and bright, the national baseline smaller and muted. |
 | 2.3 InPost | MapLibre GL (choropleth) + SVG/DOM (dumbbell) | `/stats/inpost-vs-zabka`, `/inpost-vs-zabka-by-level` | Left: voivodeship choropleth of the InPost/Żabka ratio (inverted ramp: high ratio = dim, low = bright). Right: dumbbell — green dot = Żabka/100k, amber dot = paczkomaty/100k, connecting line; level toggle Województwo / Powiat / Miasto re-queries `by-level`. National callout: 2.42 paczkomaty per Żabka. |
 | NBL neighbor-by-level | Chart.js (bar) | `/stats/neighbor-by-level` | Median (or average) distance to the nearest Żabka per voivodeship/powiat/miasto. Three switchers: level x metric (Mediana/Średnia) x sort (Najgęstsze/Najrzadsze). |
 | kNN histogram | Chart.js (bar) | `/stats/neighbor-stats` | 6-bucket distribution of nearest-neighbor distance. Median 299m / avg 942m / max ~27.8km reference lines. |

@@ -4,6 +4,7 @@
 // chunk loads first and is shared.
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { getLang } from './i18n.js';
 
 export { maplibregl };
 
@@ -51,9 +52,26 @@ export function darkStyle() {
   };
 }
 
+// Text for the overlay MapLibre shows when a scroll/touch gesture is blocked
+// by cooperativeGestures (e.g. "ctrl + scroll to zoom"). Matches the wording
+// of the custom .map-zoom-hint labels already on the growth map / Atlas.
+function cooperativeLocale() {
+  return getLang() === 'pl' ? {
+    'CooperativeGesturesHandler.WindowsHelpText': 'Użyj ctrl + scroll, aby przybliżyć mapę',
+    'CooperativeGesturesHandler.MacHelpText': 'Użyj ⌘ + scroll, aby przybliżyć mapę',
+    'CooperativeGesturesHandler.MobileHelpText': 'Przesuwaj dwoma palcami, aby przesunąć mapę',
+  } : {
+    'CooperativeGesturesHandler.WindowsHelpText': 'Use ctrl + scroll to zoom the map',
+    'CooperativeGesturesHandler.MacHelpText': 'Use ⌘ + scroll to zoom the map',
+    'CooperativeGesturesHandler.MobileHelpText': 'Use two fingers to move the map',
+  };
+}
+
 // ---- Map factory ----
 // opts: { center, zoom, pitch, bearing, minZoom, maxZoom, maxBounds,
 //         dragRotate, pitchWithRotate, scrollZoom, cooperativeGestures }
+// cooperativeGestures defaults to true everywhere: plain scroll never hijacks
+// the page, only ctrl/Cmd + scroll (or two-finger touch) zooms the map.
 export function createMap(container, opts = {}) {
   if (!webglAvailable) throw new WebGLUnavailableError();
   const map = new maplibregl.Map({
@@ -71,6 +89,8 @@ export function createMap(container, opts = {}) {
     touchPitch: opts.touchPitch != null ? opts.touchPitch : false,
     scrollZoom: opts.scrollZoom != null ? opts.scrollZoom : true,
     doubleClickZoom: opts.doubleClickZoom != null ? opts.doubleClickZoom : true,
+    cooperativeGestures: opts.cooperativeGestures != null ? opts.cooperativeGestures : true,
+    locale: opts.locale || cooperativeLocale(),
     attributionControl: opts.attributionControl || false,
     antialias: true,
   });

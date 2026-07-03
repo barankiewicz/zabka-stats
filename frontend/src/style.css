@@ -26,7 +26,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .tab-btn:focus-visible,.gran-btn:focus-visible,.kr .btn:focus-visible,
 #kr-reset:focus-visible,.growth-play:focus-visible,.filter-chip button:focus-visible,
 .drawer-close:focus-visible,.nav-link:focus-visible,.brand:focus-visible,
-.foot-link:focus-visible,.foot-gh:focus-visible,.inpost-topn-select:focus-visible{
+.foot-link:focus-visible,.foot-gh:focus-visible,.inpost-topn-select:focus-visible,
+.lang-btn:focus-visible{
   outline:2px solid var(--green-bright);outline-offset:2px;border-radius:6px}
 
 /* NAV */
@@ -47,6 +48,13 @@ nav{position:sticky;top:0;z-index:100;background:rgba(13,13,20,.9);backdrop-filt
 .tab-btn{border:0;background:transparent;color:var(--muted);font-family:var(--font-body);font-size:12.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;padding:6px 14px;border-radius:99px;cursor:pointer;transition:color .2s,background .2s;white-space:nowrap}
 .tab-btn:hover{color:var(--ink);background:rgba(255,255,255,.05)}
 .tab-btn.active{color:var(--green);background:rgba(0,192,96,.1)}
+
+/* LANGUAGE SWITCHER */
+.lang-toggle{display:flex;align-items:center;gap:1px;flex-shrink:0;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:99px;padding:2px}
+.lang-btn{border:0;background:transparent;color:var(--muted);font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.03em;padding:5px 10px;border-radius:99px;cursor:pointer;transition:color .2s,background .2s,box-shadow .2s;line-height:1}
+.lang-btn:hover{color:var(--ink);background:rgba(255,255,255,.06)}
+.lang-btn.active{color:var(--bg);background:var(--green);box-shadow:0 0 10px rgba(132,195,65,.4)}
+.lang-btn.active:hover{color:var(--bg);background:var(--green)}
 
 /* TABS */
 .tab-panel{display:none;position:relative;z-index:1}
@@ -111,6 +119,8 @@ canvas{display:block}
 /* STAT STRIP */
 .stat-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:14px}
 .stat-tile{background:var(--surface);border:1px solid var(--axis);border-radius:14px;padding:14px;min-height:120px}
+.stat-tile.fact-highlight{animation:factHighlight 2.4s ease}
+@keyframes factHighlight{0%,100%{box-shadow:none;border-color:var(--axis)}20%,60%{box-shadow:0 0 0 3px rgba(166,232,74,.35);border-color:var(--green-bright)}}
 .stat-kicker{font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.14em;font-size:10px;color:var(--green);margin-bottom:10px}
 .stat-big{font-family:var(--font-display);font-weight:800;font-size:30px;line-height:1;color:var(--green-bright);letter-spacing:-.02em}
 .stat-big .stat-unit{font-size:14px;font-weight:600;color:var(--muted);margin-left:6px;letter-spacing:0}
@@ -119,6 +129,17 @@ canvas{display:block}
 /* trend color semantics: slow start vs fast acceleration */
 .stat-big.slow,.stat-kicker.slow{color:var(--amber)}
 .stat-big.fast,.stat-kicker.fast{color:var(--green-bright)}
+
+/* Two-number headline comparison (e.g. "10.1% vs 4.5%") - the anomaly
+   (cmp-lead) stays full hero size and bright green; the national baseline
+   (cmp-base) is deliberately smaller and darker so it reads as context,
+   not a competing headline. */
+.stat-big.compare{display:flex;align-items:baseline;flex-wrap:wrap;gap:2px 7px}
+.stat-big.compare .cmp-lead{font-size:30px;color:var(--green-bright)}
+.stat-big.compare .cmp-lead .stat-unit{font-size:14px}
+.stat-big.compare .cmp-base{font-size:19px;color:var(--muted2)}
+.stat-big.compare .cmp-base .stat-unit{font-size:13px;color:var(--muted2)}
+.stat-big.compare .stat-vs{font-family:var(--font-body);font-size:13px;font-weight:600;color:var(--muted2);letter-spacing:0}
 
 /* ORIGINS: newest vs oldest active store, side by side */
 .origin-card{display:flex;align-items:center;gap:48px;padding:32px 44px}
@@ -622,6 +643,9 @@ canvas{display:block}
     font-size: 12.5px !important;
     padding: 10px 14px !important;
     flex-shrink: 0;
+  }
+  .lang-btn {
+    padding: 6px 9px;
   }
 
   /* Bumping smallest text for mobile legibility */

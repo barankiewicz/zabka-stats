@@ -40,7 +40,7 @@ export async function loadCore() {
   // below-fold maps need it.
   const [
     summary, networkGrowth, networkOrigin, neighborStats,
-    coverageFunnel, perCapita, section3,
+    coverageFunnel, perCapita, section3, openingHours,
   ] = await Promise.allSettled([
     fetchJSON(`${BASE}/stats/summary`),
     fetchJSON(`${BASE}/stats/network-growth`),
@@ -49,6 +49,7 @@ export async function loadCore() {
     fetchJSON(`${BASE}/stats/coverage-funnel`),
     fetchJSON(`${BASE}/stats/per-capita`),
     fetchJSON(`${BASE}/stats/section3-rare`),
+    fetchJSON(`${BASE}/stats/opening-hours`),
   ]);
   Object.assign(M, {
     summary:          val(summary, {total_active:0, cities_count:0, merrychef_pct:0, sunday_pct:0, h24_count:0, last_updated:null}),
@@ -59,7 +60,7 @@ export async function loadCore() {
     coverage_funnel:  val(coverageFunnel, []),
     per_capita:       val(perCapita, []),
     section3_rare:    val(section3, {}),
-    opening_hours:    [],
+    opening_hours:    val(openingHours, []),
     // pre-fill keys that spoleczenstwo reads so they're never undefined
     powiat_economics:      [],
     voivodeship_density:   [],
@@ -68,6 +69,7 @@ export async function loadCore() {
     common_streets:        {streets:[], distinct:0},
     gmina_leaders:         {per_1k:[], per_km2:[], national_per_1k:null},
     neighbor_by_level:     {rows:[], total:0, level:'voivodeship'},
+    sunday_by_voivodeship: [],
   });
   clearSkel();
 }
@@ -136,7 +138,7 @@ export async function refetchPowiatEconomics() {
 async function loadSpoleczenstwo() {
   const [
     economics, density, merrychef, inpost, commonStreets,
-    gminaLeaders, neighborByLevel, openingHours,
+    gminaLeaders, neighborByLevel, sundayByVoiv,
   ] = await Promise.allSettled([
     fetchJSON(`${BASE}/stats/powiat-economics`),
     fetchJSON(`${BASE}/stats/voivodeship-density`),
@@ -145,7 +147,7 @@ async function loadSpoleczenstwo() {
     fetchJSON(`${BASE}/stats/common-streets?limit=15`),
     fetchJSON(`${BASE}/stats/gmina-leaders?limit=12`),
     fetchJSON(`${BASE}/stats/neighbor-by-level?level=voivodeship&sort=asc`),
-    fetchJSON(`${BASE}/stats/opening-hours`),
+    fetchJSON(`${BASE}/stats/sunday-by-voivodeship`),
   ]);
   Object.assign(M, {
     powiat_economics:      val(economics, []),
@@ -155,6 +157,6 @@ async function loadSpoleczenstwo() {
     common_streets:        val(commonStreets, {streets:[], distinct:0}),
     gmina_leaders:         val(gminaLeaders, {per_1k:[], per_km2:[], national_per_1k:null}),
     neighbor_by_level:     val(neighborByLevel, {rows:[], total:0, level:'voivodeship'}),
-    opening_hours:         val(openingHours, []),
+    sunday_by_voivodeship: val(sundayByVoiv, []),
   });
 }
