@@ -183,8 +183,47 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
 });
 
-// Translate DOM immediately to default language (English)
+// Translate DOM immediately to the default language (Polish)
 translateDOM();
+
+// /fakt/<slug> deep links: land on the highlighted fact instead of a generic
+// homepage. All 5 facts live in the (default) siec tab, so this just waits
+// for it to finish rendering, then either flies the Atlas map to the fact
+// (selectFact queues itself if the map isn't built yet - see kraniec.js) or,
+// for the one fact with no map point (the network-wide neighbor median),
+// scrolls its stat tile into view with a brief highlight.
+const FACT_SLUGS = {
+  'pustka-bieszczadzka': 'void',
+  'samotna-zabka': 'isolated',
+  'najstarsza-zabka': 'oldest',
+  'zielonej-zabki': 'frog',
+};
+function initFactDeepLink(){
+  const m = window.location.pathname.match(/^\/fakt\/([a-z-]+)\/?$/);
+  if (!m) return;
+  const slug = m[1];
+  const poll = (tries) => {
+    if (RENDERED.has('siec')) return act();
+    if (tries <= 0) return;
+    setTimeout(() => poll(tries - 1), 100);
+  };
+  function act(){
+    if (slug === 'mediana-odleglosci') {
+      const tile = document.getElementById('stat-neighmed')?.closest('.stat-tile');
+      if (!tile) return;
+      tile.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      tile.classList.add('fact-highlight');
+      setTimeout(() => tile.classList.remove('fact-highlight'), 2400);
+      return;
+    }
+    const factId = FACT_SLUGS[slug];
+    if (!factId) return;
+    document.getElementById('kr-root')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    tabModule('siec').then(mod => mod.selectFact && mod.selectFact(factId));
+  }
+  poll(40); // ~4s ceiling - loadCore + the siec chunk should render well within this
+}
+initFactDeepLink();
 
 // SIEC is the default tab. loadCore() fetches only what SIEC needs for first
 // paint; per-tab heavy payloads (spoleczenstwo economics etc.) load on first

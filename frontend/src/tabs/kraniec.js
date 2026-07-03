@@ -33,8 +33,11 @@ const COL = {
 
 const HOME = [19.3, 52.05], HOME_Z = 6;
 
-let _krDone = false, _krMap = null, _select = null, _highlight = null;
-export function selectFact(id) { if (_select) _select(id); }
+let _krDone = false, _krMap = null, _select = null, _highlight = null, _pendingSelect = null;
+// selectFact() can be called (e.g. from a /fakt/<slug> deep link) before the
+// Atlas map has finished its own lazy load (buildMap() only fires once
+// #kr-map scrolls near view) - queue the id and apply it once _select exists.
+export function selectFact(id) { if (_select) _select(id); else _pendingSelect = id; }
 
 function _setText(id, t) { const el = document.getElementById(id); if (el) el.textContent = t; }
 
@@ -459,6 +462,12 @@ async function buildMap() {
     });
 
     fitPoland(_krMap, 4);
+
+    // A selectFact() call that arrived before the style finished loading (e.g.
+    // a /fakt/<slug> deep link racing this map's own setup) was queued -
+    // apply it now, after markers exist and after the fitPoland above, so it
+    // doesn't get immediately overridden by it.
+    if (_pendingSelect) { const id = _pendingSelect; _pendingSelect = null; select(id); }
   });
 
   // keep the map sized when its container reveals / resizes
