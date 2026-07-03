@@ -2,7 +2,6 @@
 
 An interactive, high-performance spatial analytics platform for tracking the density, growth, and socio-economic correlations of the Żabka store network and InPost parcel lockers across Poland.
 
-[![build status](https://img.shields.io/badge/build-failed-red.svg)](https://github.com/barankiewicz/zabka-stats/actions)
 [![stars](https://img.shields.io/github/stars/barankiewicz/zabka-stats.svg?style=social)](https://github.com/barankiewicz/zabka-stats)
 [![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org)
