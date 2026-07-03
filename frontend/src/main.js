@@ -174,6 +174,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       if (btn) {
         const lang = btn.getAttribute('data-lang');
         setLang(lang);
+        writeLangToURL(lang);
         translateDOM();
         // Clear rendered tab state and re-render
         RENDERED.delete(STATE.tab);
@@ -183,7 +184,24 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
 });
 
-// Translate DOM immediately to the default language (Polish)
+// S2: a shared link should render in the language the sharer intended, and a
+// link copied from the address bar should carry the current language forward
+// (?lang=en, not just in-memory state) - otherwise every link posted to an
+// English-speaking channel lands the reader in Polish.
+function langFromURL() {
+  const p = new URLSearchParams(window.location.search).get('lang');
+  return (p === 'en' || p === 'pl') ? p : null;
+}
+function writeLangToURL(lang) {
+  const url = new URL(window.location.href);
+  if (lang === 'pl') url.searchParams.delete('lang'); // pl is the default - keep the URL clean
+  else url.searchParams.set('lang', lang);
+  history.replaceState(null, '', url.pathname + url.search + url.hash);
+}
+const _urlLang = langFromURL();
+if (_urlLang) setLang(_urlLang);
+
+// Translate DOM immediately to the resolved language (URL override, else Polish default)
 translateDOM();
 
 // /fakt/<slug> deep links: land on the highlighted fact instead of a generic
