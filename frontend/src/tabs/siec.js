@@ -1191,7 +1191,10 @@ function _setWojData(rows,geojson,metric,inverted){
   const features=(geojson.features||[]).map((f,i)=>{
     const r=_wFindRow(f);
     const nf={type:'Feature',geometry:f.geometry,properties:{...(f.properties||{}),_fid:i}};
-    if(r){
+    // A matched powiat can still have a null metric value (e.g. missing area
+    // for per_km2 when the geojson name-match misses) - treat it like an
+    // unmatched feature rather than crashing .toFixed() on null below.
+    if(r&&r[vk]!=null){
       const v=r[vk];
       const t=(vmax>vmin)?(v-vmin)/(vmax-vmin):0.5;
       nf.properties._t=inverted?(1-t):t;
