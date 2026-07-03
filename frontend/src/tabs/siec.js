@@ -1138,15 +1138,18 @@ function drawGranularChart(){
 
 // Green ramp stops shared with the growth dots and InPost map. The fill layer
 // reads a per-feature normalized ramp position (_t) through this expression.
+// t=1 is always the highest value in the current view, regardless of the
+// Najwieksze/Najmniejsze sort toggle (that only reorders the bars) - so dark
+// green consistently reads as "more Zabek" everywhere on the map.
 const _WOJ_FILL_STOPS=[
   'interpolate',['linear'],['get','_t'],
-  0,'#132912', 0.2,'#1e4019', 0.4,'#2d6324', 0.6,'#4a9228', 0.8,'#72c133', 1,'#a6e84a'];
+  0,'#a6e84a', 0.2,'#72c133', 0.4,'#4a9228', 0.6,'#2d6324', 0.8,'#1e4019', 1,'#132912'];
 
 // Module-level state so hover handlers always see the live metric/sort even
 // after the closure that created them is gone.
 let _wojMap=null,_wojSrcReady=false,_wojPending=false;
 let _wojByName=new Map(),_wojById=new Map();
-let _wojVmin=0,_wojVmax=1,_wojInverted=false,_wojMetricLive='count';
+let _wojVmin=0,_wojVmax=1,_wojMetricLive='count';
 let _wojTip=null;
 let _wojLabelMarkers=[];   // MapLibre HTML markers carrying the value labels
 let _mapMode='2d';
@@ -1176,8 +1179,8 @@ function _wFindRow(f){
 
 // Inject the normalized ramp position (_t) + name/val into each woj feature,
 // push the updated GeoJSON to the source, and refresh the value-label markers.
-function _setWojData(rows,geojson,metric,inverted){
-  _wojMetricLive=metric;_wojInverted=inverted;
+function _setWojData(rows,geojson,metric){
+  _wojMetricLive=metric;
   _wojByName=new Map();_wojById=new Map();
   rows.forEach(r=>{
     if(r.name)_wojByName.set(r.name.toLowerCase(),r);
@@ -1197,7 +1200,7 @@ function _setWojData(rows,geojson,metric,inverted){
     if(r&&r[vk]!=null){
       const v=r[vk];
       const t=(vmax>vmin)?(v-vmin)/(vmax-vmin):0.5;
-      nf.properties._t=inverted?(1-t):t;
+      nf.properties._t=t;
       nf.properties._name=capName(r.name||f.properties.nazwa||'');
       nf.properties._val=_wFmtVal(r);
       let label;
@@ -1404,7 +1407,7 @@ async function _fillWoj(){
 
   const geojson = level === 'voivodeship' ? M.woj_geo : await ensurePowGeo();
 
-  const push=()=>{ if(_wojMap&&_wojMap.getSource('gran-woj')) _setWojData(rows,geojson,_gMetric,_gSort==='asc'); };
+  const push=()=>{ if(_wojMap&&_wojMap.getSource('gran-woj')) _setWojData(rows,geojson,_gMetric); };
   if(_wojSrcReady)push(); else if(_wojMap)_wojMap.once('load',push);
 }
 
