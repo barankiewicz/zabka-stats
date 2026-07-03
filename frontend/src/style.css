@@ -398,6 +398,7 @@ canvas{display:block}
 .foot-link{color:var(--muted);text-decoration:none;border-bottom:1px solid rgba(147,164,135,.3);transition:color .2s,border-color .2s}
 .foot-link:hover{color:var(--green);border-bottom-color:var(--green)}
 .foot-gh{display:inline-flex;align-items:center;gap:7px;color:var(--muted);text-decoration:none;border:1px solid var(--axis);border-radius:99px;padding:6px 13px;font-size:12.5px;font-weight:500;transition:color .15s,border-color .15s,background .15s}
+.foot-disclaimer{font-size:11px;color:var(--muted2);padding-bottom:20px;line-height:1.5}
 .foot-gh:hover{color:var(--ink);border-color:var(--green);background:rgba(0,192,96,.1)}
 .foot-gh svg{flex-shrink:0}
 

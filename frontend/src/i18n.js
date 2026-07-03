@@ -233,6 +233,7 @@ export const translations = {
     foot_methodology: "Methodology",
     foot_portfolio: "Portfolio",
     foot_last_updated: "Data updated",
+    foot_disclaimer: "Independent fan/analytics project built on public data. Not affiliated with Żabka Polska or Żabka Group. Trademarks belong to their owners.",
     stat_unit_meters_km: " km"
   },
   pl: {
@@ -466,6 +467,7 @@ export const translations = {
     foot_methodology: "Metodyka",
     foot_portfolio: "Portfolio",
     foot_last_updated: "Aktualizacja danych",
+    foot_disclaimer: "Niezależny projekt fanowski/analityczny na danych publicznych. Niezwiązany z Żabka Polska ani Żabka Group. Znaki towarowe należą do ich właścicieli.",
     stat_unit_meters_km: " km"
   }
 };
