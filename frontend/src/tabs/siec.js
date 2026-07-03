@@ -1,5 +1,5 @@
 import Chart from '../chartjs-setup.js';
-import { C, STATE, fpRamp } from '../config.js';
+import { C, STATE, fpRamp, granRamp, GRAN_FILL_STOPS } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
 import { era, fmt, getFont, destroyChart, capName as capCase, whenVisible, whenVisibleIdle, debounce, wireCountUp, heroCount } from '../utils.js';
 import { loadMaplibre } from '../maplibre-lazy.js';
@@ -1062,13 +1062,13 @@ function drawGranularChart(){
   // (_gVmin/_gVmax), not by its position in the current page/sort - so a
   // powiat's color never changes when you flip Najwieksze/Najmniejsze, and
   // lighter (up to the Zabka green cap) always means more Zabek, matching
-  // the map's _granRamp.
+  // the map's granRamp.
   const colors=rows.map(d=>{
     if(f&&_gDim==='voivodeship'&&d.name&&d.name.toLowerCase()!==f)return'rgba(132,195,65,.22)';
     const v=d[vk];
-    if(v==null)return _granRamp(0);
+    if(v==null)return granRamp(0);
     const norm=(_gVmax>_gVmin)?(v-_gVmin)/(_gVmax-_gVmin):0.5;
-    return _granRamp(norm);
+    return granRamp(norm);
   });
   const word = t('gran_word_' + _gDim);
   const mlabel = _gMetric === 'per1k' 
@@ -1169,27 +1169,11 @@ function drawGranularChart(){
 
 /* ---- Right-side: locked voivodeship choropleth (MapLibre, no tiles) ---- */
 
-// GRAN ramp: dark forest green (fewest Zabek) up to the Zabka brand green
-// #84c341 (most) - capped there rather than running up to the brighter lime
-// used elsewhere (fpRamp's #a6e84a/#c8f06a), per design direction. The floor
-// stops short of near-black so it stays visibly a color against the page's
-// dark background/surface instead of blending into it. Shared by the map
-// fill/extrusion (MapLibre expression below) and the bar chart (_granRamp, a
-// plain JS interpolator over the same stops). t=1 is always the highest
-// value in the current view, regardless of the Najwieksze/Najmniejsze sort
-// toggle (that only reorders the bars) - so lighter green consistently reads
-// as "more Zabek" everywhere in GRAN.
-const _GRAN_RAMP_STOPS=['#233d1a','#3b5f24','#54802e','#6ca237','#84c341'];
-function _granRamp(t){
-  t=Math.max(0,Math.min(1,t));
-  const seg=t*(_GRAN_RAMP_STOPS.length-1),i=Math.min(_GRAN_RAMP_STOPS.length-2,Math.floor(seg)),u=seg-i;
-  const h=k=>[parseInt(k.slice(1,3),16),parseInt(k.slice(3,5),16),parseInt(k.slice(5,7),16)];
-  const a=h(_GRAN_RAMP_STOPS[i]),b=h(_GRAN_RAMP_STOPS[i+1]);
-  return`rgb(${Math.round(a[0]+(b[0]-a[0])*u)},${Math.round(a[1]+(b[1]-a[1])*u)},${Math.round(a[2]+(b[2]-a[2])*u)})`;
-}
-const _WOJ_FILL_STOPS=[
-  'interpolate',['linear'],['get','_t'],
-  0,_GRAN_RAMP_STOPS[0], 0.25,_GRAN_RAMP_STOPS[1], 0.5,_GRAN_RAMP_STOPS[2], 0.75,_GRAN_RAMP_STOPS[3], 1,_GRAN_RAMP_STOPS[4]];
+// GRAN ramp (dark forest green -> Zabka brand green #84c341, t=1 = highest
+// value in view) now lives in config.js - granRamp/GRAN_FILL_STOPS - as the
+// single source of truth shared with the InPost choropleth in
+// spoleczenstwo.js, so "lighter = more" always means the same colors.
+const _WOJ_FILL_STOPS=GRAN_FILL_STOPS;
 
 // Module-level state so hover handlers always see the live metric/sort even
 // after the closure that created them is gone.

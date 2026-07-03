@@ -8,7 +8,7 @@ function ensureMaplibre(){
     return m;
   });
 }
-import { C, STATE } from '../config.js';
+import { C, STATE, GRAN_FILL_STOPS } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
 import { fmt, getFont, destroyChart, startTabParticles, capName, whenVisible, wireCountUp } from '../utils.js';
 import { t, getLang } from '../i18n.js';
@@ -100,9 +100,9 @@ let _ipTip=null;
 let _ipLabelMarkers=[];
 let _ipLevelLive='voivodeship';  // level actually drawn on the map (see _fillInpost)
 
-const _IP_FILL_STOPS=[
-  'interpolate',['linear'],['get','_t'],
-  0,'#132912', 0.2,'#1e4019', 0.4,'#2d6324', 0.6,'#4a9228', 0.8,'#72c133', 1,'#a6e84a'];
+// Same ramp as GRAN (siec.js) - config.js's GRAN_FILL_STOPS - so a color
+// means the same thing on both maps. t=1 = highest ratio in view = lightest.
+const _IP_FILL_STOPS=GRAN_FILL_STOPS;
 
 function _refreshIpLabels(features){
   _ipLabelMarkers.forEach(m=>{try{m.remove()}catch(e){}});
@@ -149,7 +149,7 @@ function _setIpData(data, geojson) {
     if (d) {
       const r0 = (+d.ratio || 0);
       const norm = (r0 - vmin) / (vmax - vmin);
-      nf.properties._t = Math.max(0, Math.min(1, 1 - (isNaN(norm) ? 0.5 : norm)));
+      nf.properties._t = Math.max(0, Math.min(1, isNaN(norm) ? 0.5 : norm));
       
       const rr = typeof d.ratio === 'number' ? d.ratio.toFixed(2) : String(d.ratio);
       nf.properties._label = (getLang() === 'en' ? rr : rr.replace('.', ',')) + 'x';

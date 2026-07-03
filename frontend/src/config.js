@@ -26,6 +26,25 @@ export function fpRamp(t){
   return`rgb(${Math.round(a[0]+(b[0]-a[0])*u)},${Math.round(a[1]+(b[1]-a[1])*u)},${Math.round(a[2]+(b[2]-a[2])*u)})`;
 }
 
+// GRAN ramp: dark forest green (least) up to the Zabka brand green #84c341
+// (most) - capped there rather than running up to fpRamp's brighter lime.
+// Single source of truth for every "more/higher = lighter" choropleth+bar
+// pairing: the GRAN map/bar chart (siec.js) and the InPost ratio choropleth
+// (spoleczenstwo.js) both read off this exact ramp, so a color always means
+// the same thing across both. t=1 is always the highest value in view.
+export const GRAN_RAMP_STOPS=['#233d1a','#3b5f24','#54802e','#6ca237','#84c341'];
+export function granRamp(t){
+  t=Math.max(0,Math.min(1,t));
+  const seg=t*(GRAN_RAMP_STOPS.length-1),i=Math.min(GRAN_RAMP_STOPS.length-2,Math.floor(seg)),u=seg-i;
+  const h=k=>[parseInt(k.slice(1,3),16),parseInt(k.slice(3,5),16),parseInt(k.slice(5,7),16)];
+  const a=h(GRAN_RAMP_STOPS[i]),b=h(GRAN_RAMP_STOPS[i+1]);
+  return`rgb(${Math.round(a[0]+(b[0]-a[0])*u)},${Math.round(a[1]+(b[1]-a[1])*u)},${Math.round(a[2]+(b[2]-a[2])*u)})`;
+}
+// Same stops as a MapLibre 'interpolate' expression, for fill-color/fill-extrusion-color paint properties.
+export const GRAN_FILL_STOPS=[
+  'interpolate',['linear'],['get','_t'],
+  0,GRAN_RAMP_STOPS[0], 0.25,GRAN_RAMP_STOPS[1], 0.5,GRAN_RAMP_STOPS[2], 0.75,GRAN_RAMP_STOPS[3], 1,GRAN_RAMP_STOPS[4]];
+
 // draws small value labels at the end of each bar; opt-in per chart via
 // options.plugins.barLabels = { decimals?: number, thousands?: boolean, color?: hex }
 //
