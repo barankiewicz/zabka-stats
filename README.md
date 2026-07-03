@@ -132,6 +132,8 @@ The backend serves a set of read-only JSON endpoints (all cached in Redis). Key 
 *   `GET /api/stats/powiat-economics` - Returns powiat average salaries, unemployment, and density.
 *   `GET /api/stats/inpost-vs-zabka` - Locker-to-store ratios.
 *   `GET /api/stats/section3-rare` - Curiosities, including elevation and spatial extremes loaded from `fun_facts`.
+*   `GET /fakt/{slug}` - Shareable single-fact page (server-rendered SPA with per-fact SEO/OG tags). Slugs: `pustka-bieszczadzka`, `samotna-zabka`, `najstarsza-zabka`, `zielonej-zabki`, `mediana-odleglosci`.
+*   `GET /fakt/{slug}/og.png` - The matching per-fact social preview image.
 
 ---
 
