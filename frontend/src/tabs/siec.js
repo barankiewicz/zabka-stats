@@ -986,6 +986,10 @@ const PAGE=20;
 // Default dim is powiat (not voivodeship) per design spec
 let _gDim='powiat',_gMetric='count',_gSort='desc',_gRows=[],_gTotal=0,_gOffset=0;
 let _gAvg=null,_gMedian=null,_gSum=0;
+// Full-dataset value range for bar coloring, independent of pagination/sort -
+// see the comment above drawGranularChart's color mapping for why.
+let _gVmin=0,_gVmax=1;
+const _FULL_RANGE_LIMIT={voivodeship:16};
 
 // Strip GUS naming artefacts (M.st., " od YYYY", "powiat ") then display-case.
 function capName(n){
@@ -1016,6 +1020,18 @@ export async function renderGranular(arg,{skipMap=false}={}){
   const res=await fetchDim(_gDim,_gMetric,_gSort,pageLimit,0);
   _gRows=res.rows||[];_gTotal=res.total||0;
   _gAvg=res.avg;_gMedian=res.median;_gSum=res.sum||0;
+  // Bar color must reflect each row's actual value against the WHOLE
+  // dataset, not just the current page/sort - a paginated top-20-largest and
+  // a paginated bottom-20-smallest are different rows entirely, so coloring
+  // by position within them made the meaning of "dark" flip with the sort
+  // toggle. Fetch (or reuse from cache) the full unpaginated range once per
+  // dim/metric change; this is the same request _fillWoj already makes for
+  // voivodeship/powiat, so it's usually a cache hit, not an extra round trip.
+  const fullRes=await fetchDim(_gDim,_gMetric,'desc',_FULL_RANGE_LIMIT[_gDim]||500,0);
+  const vk=_vKey();
+  const fullVals=(fullRes.rows||[]).map(r=>r[vk]).filter(v=>v!=null);
+  _gVmin=fullVals.length?Math.min(...fullVals):0;
+  _gVmax=fullVals.length?Math.max(...fullVals):_gVmin+1;
   drawGranularChart();
   updateMoreBtn();
   if(!skipMap)renderWojMap();
@@ -1042,9 +1058,16 @@ function drawGranularChart(){
   let rows=_gRows;
   if(f&&_gDim!=='voivodeship')rows=rows.filter(d=>d.voivodeship&&d.voivodeship.toLowerCase()===f);
   const n=rows.length;
-  const colors=rows.map((d,i)=>{
+  // Color by each bar's actual value against the full-dataset range
+  // (_gVmin/_gVmax), not by its position in the current page/sort - so a
+  // powiat's color never changes when you flip Najwieksze/Najmniejsze, and
+  // darker always means more Zabek, matching the map.
+  const colors=rows.map(d=>{
     if(f&&_gDim==='voivodeship'&&d.name&&d.name.toLowerCase()!==f)return'rgba(132,195,65,.22)';
-    return fpRamp(n>1?1-i/(n-1):1);
+    const v=d[vk];
+    if(v==null)return fpRamp(1);
+    const norm=(_gVmax>_gVmin)?(v-_gVmin)/(_gVmax-_gVmin):0.5;
+    return fpRamp(1-norm);
   });
   const word = t('gran_word_' + _gDim);
   const mlabel = _gMetric === 'per1k' 
