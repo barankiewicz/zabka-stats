@@ -50,7 +50,16 @@ export function renderSiec(){
   whenVisibleIdle(document.getElementById('map-growth'), ()=>ready.then(renderGrowthMap), '80px');
   whenVisible(document.getElementById('canvas-fingerprint-flat'), ()=>ready.then(drawFingerprintFlat));
   whenVisible(document.getElementById('powiat-donut'), ()=>ready.then(renderPowiatCoverage));
-  ready.then(()=>{ renderEdgeKPIs(); renderKraniec(); });
+  ready.then(()=>{
+    renderEdgeKPIs(); renderKraniec();
+    // The edge-KPI tiles start at data-count="0" placeholders and only get
+    // their real value here, once the SIEC bucket resolves. wireCountUp(root)
+    // below already ran and, if a tile was visible early (e.g. a fast
+    // scroll), fired-and-unobserved its count-up against that placeholder -
+    // so re-wire just this strip now that the values are real, or it stays
+    // stuck on "0" forever even though dataset.count is correct.
+    wireCountUp(document.querySelector('.atlas-kpis'));
+  });
   const root=document.getElementById('tab-siec');
   if(root){
     const obs=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');obs.unobserve(e.target);}}),{threshold:.12});
