@@ -1061,13 +1061,14 @@ function drawGranularChart(){
   // Color by each bar's actual value against the full-dataset range
   // (_gVmin/_gVmax), not by its position in the current page/sort - so a
   // powiat's color never changes when you flip Najwieksze/Najmniejsze, and
-  // darker always means more Zabek, matching the map.
+  // lighter (up to the Zabka green cap) always means more Zabek, matching
+  // the map's _granRamp.
   const colors=rows.map(d=>{
     if(f&&_gDim==='voivodeship'&&d.name&&d.name.toLowerCase()!==f)return'rgba(132,195,65,.22)';
     const v=d[vk];
-    if(v==null)return fpRamp(1);
+    if(v==null)return _granRamp(0);
     const norm=(_gVmax>_gVmin)?(v-_gVmin)/(_gVmax-_gVmin):0.5;
-    return fpRamp(1-norm);
+    return _granRamp(norm);
   });
   const word = t('gran_word_' + _gDim);
   const mlabel = _gMetric === 'per1k' 
@@ -1168,14 +1169,25 @@ function drawGranularChart(){
 
 /* ---- Right-side: locked voivodeship choropleth (MapLibre, no tiles) ---- */
 
-// Green ramp stops shared with the growth dots and InPost map. The fill layer
-// reads a per-feature normalized ramp position (_t) through this expression.
-// t=1 is always the highest value in the current view, regardless of the
-// Najwieksze/Najmniejsze sort toggle (that only reorders the bars) - so dark
-// green consistently reads as "more Zabek" everywhere on the map.
+// GRAN ramp: near-black (fewest Zabek) up to the Zabka brand green #84c341
+// (most) - capped there rather than running up to the brighter lime used
+// elsewhere (fpRamp's #a6e84a/#c8f06a), per design direction. Shared by the
+// map fill/extrusion (MapLibre expression below) and the bar chart
+// (_granRamp, a plain JS interpolator over the same stops). t=1 is always
+// the highest value in the current view, regardless of the
+// Najwieksze/Najmniejsze sort toggle (that only reorders the bars) - so
+// lighter green consistently reads as "more Zabek" everywhere in GRAN.
+const _GRAN_RAMP_STOPS=['#0a120a','#16291a','#2c4d27','#559433','#84c341'];
+function _granRamp(t){
+  t=Math.max(0,Math.min(1,t));
+  const seg=t*(_GRAN_RAMP_STOPS.length-1),i=Math.min(_GRAN_RAMP_STOPS.length-2,Math.floor(seg)),u=seg-i;
+  const h=k=>[parseInt(k.slice(1,3),16),parseInt(k.slice(3,5),16),parseInt(k.slice(5,7),16)];
+  const a=h(_GRAN_RAMP_STOPS[i]),b=h(_GRAN_RAMP_STOPS[i+1]);
+  return`rgb(${Math.round(a[0]+(b[0]-a[0])*u)},${Math.round(a[1]+(b[1]-a[1])*u)},${Math.round(a[2]+(b[2]-a[2])*u)})`;
+}
 const _WOJ_FILL_STOPS=[
   'interpolate',['linear'],['get','_t'],
-  0,'#a6e84a', 0.2,'#72c133', 0.4,'#4a9228', 0.6,'#2d6324', 0.8,'#1e4019', 1,'#132912'];
+  0,_GRAN_RAMP_STOPS[0], 0.25,_GRAN_RAMP_STOPS[1], 0.5,_GRAN_RAMP_STOPS[2], 0.75,_GRAN_RAMP_STOPS[3], 1,_GRAN_RAMP_STOPS[4]];
 
 // Module-level state so hover handlers always see the live metric/sort even
 // after the closure that created them is gone.
