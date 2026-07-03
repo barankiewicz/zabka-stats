@@ -1169,15 +1169,17 @@ function drawGranularChart(){
 
 /* ---- Right-side: locked voivodeship choropleth (MapLibre, no tiles) ---- */
 
-// GRAN ramp: near-black (fewest Zabek) up to the Zabka brand green #84c341
-// (most) - capped there rather than running up to the brighter lime used
-// elsewhere (fpRamp's #a6e84a/#c8f06a), per design direction. Shared by the
-// map fill/extrusion (MapLibre expression below) and the bar chart
-// (_granRamp, a plain JS interpolator over the same stops). t=1 is always
-// the highest value in the current view, regardless of the
-// Najwieksze/Najmniejsze sort toggle (that only reorders the bars) - so
-// lighter green consistently reads as "more Zabek" everywhere in GRAN.
-const _GRAN_RAMP_STOPS=['#0a120a','#16291a','#2c4d27','#559433','#84c341'];
+// GRAN ramp: dark forest green (fewest Zabek) up to the Zabka brand green
+// #84c341 (most) - capped there rather than running up to the brighter lime
+// used elsewhere (fpRamp's #a6e84a/#c8f06a), per design direction. The floor
+// stops short of near-black so it stays visibly a color against the page's
+// dark background/surface instead of blending into it. Shared by the map
+// fill/extrusion (MapLibre expression below) and the bar chart (_granRamp, a
+// plain JS interpolator over the same stops). t=1 is always the highest
+// value in the current view, regardless of the Najwieksze/Najmniejsze sort
+// toggle (that only reorders the bars) - so lighter green consistently reads
+// as "more Zabek" everywhere in GRAN.
+const _GRAN_RAMP_STOPS=['#233d1a','#3b5f24','#54802e','#6ca237','#84c341'];
 function _granRamp(t){
   t=Math.max(0,Math.min(1,t));
   const seg=t*(_GRAN_RAMP_STOPS.length-1),i=Math.min(_GRAN_RAMP_STOPS.length-2,Math.floor(seg)),u=seg-i;
