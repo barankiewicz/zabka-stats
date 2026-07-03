@@ -647,24 +647,34 @@ def load_parcel_lockers(con, lockers: list, src_date: str):
             pass
 
 
-def load_dimensions(con, dim_powiat: list, dim_voivodeship: list):
+def load_dimensions(con, dim_powiat: list, dim_voivodeship: list, skip_gus: bool = False):
     """Aktualizuje wymiary geograficzne (populacja, płaca, bezrobocie) 
     w tabeli administrative_division na bazie danych z GUS.
     """
     from backend.database import ensure_extra_tables
     ensure_extra_tables(con)
     
-    if dim_voivodeship:
-        payload_voiv = [(v[2], v[0]) for v in dim_voivodeship]
-        con.executemany("UPDATE administrative_division SET population = ? WHERE id = ?", payload_voiv)
-        
-    if dim_powiat:
-        payload_pow = [(p[3], p[4], p[5], p[6], p[7], p[0]) for p in dim_powiat]
-        con.executemany(
-            "UPDATE administrative_division SET population = ?, avg_salary = ?, "
-            "unemployment_rate = ?, centroid_lon = ?, centroid_lat = ? WHERE id = ?",
-            payload_pow,
-        )
+    if not skip_gus:
+        if dim_voivodeship:
+            payload_voiv = [(v[2], v[0]) for v in dim_voivodeship]
+            con.executemany("UPDATE administrative_division SET population = ? WHERE id = ?", payload_voiv)
+            
+        if dim_powiat:
+            payload_pow = [(p[3], p[4], p[5], p[6], p[7], p[0]) for p in dim_powiat]
+            con.executemany(
+                "UPDATE administrative_division SET population = ?, avg_salary = ?, "
+                "unemployment_rate = ?, centroid_lon = ?, centroid_lat = ? WHERE id = ?",
+                payload_pow,
+            )
+    else:
+        # If skip_gus is True, preserve existing population and economic data,
+        # only updating centroids for powiats.
+        if dim_powiat:
+            payload_pow = [(p[6], p[7], p[0]) for p in dim_powiat]
+            con.executemany(
+                "UPDATE administrative_division SET centroid_lon = ?, centroid_lat = ? WHERE id = ?",
+                payload_pow,
+            )
         
     print(f"[dims] Zaktualizowano dane GUS dla {len(dim_voivodeship)} wojewodztw i {len(dim_powiat)} powiatow w administrative_division")
 

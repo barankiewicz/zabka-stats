@@ -1149,6 +1149,9 @@ let _wojByName=new Map(),_wojById=new Map();
 let _wojVmin=0,_wojVmax=1,_wojInverted=false,_wojMetricLive='count';
 let _wojTip=null;
 let _wojLabelMarkers=[];   // MapLibre HTML markers carrying the value labels
+let _mapMode='2d';
+let _powGeo=null;
+let _wojLevelLive='voivodeship';  // level actually drawn on the right map (see _fillWoj)
 
 function _wVk(){return _wojMetricLive==='per1k'?'per_1k':_wojMetricLive==='per_km2'?'per_km2':'cnt'}
 function _wFmtVal(r){
@@ -1165,13 +1168,15 @@ function _wFmtVal(r){
 }
 function _wFindRow(f){
   const p=f.properties||{};
+  let name=(p.nazwa||p.name||'');
+  name=name.replace(/^powiat\s+/i,'').toLowerCase();
   return _wojById.get(String(p.id??p.ID))||_wojById.get(String(p.nazwa))
-    ||_wojByName.get((p.nazwa||'').toLowerCase())||_wojByName.get((p.name||'').toLowerCase());
+    ||_wojByName.get(name)||_wojByName.get((p.nazwa||'').toLowerCase())||_wojByName.get((p.name||'').toLowerCase());
 }
 
 // Inject the normalized ramp position (_t) + name/val into each woj feature,
 // push the updated GeoJSON to the source, and refresh the value-label markers.
-function _setWojData(rows,metric,inverted){
+function _setWojData(rows,geojson,metric,inverted){
   _wojMetricLive=metric;_wojInverted=inverted;
   _wojByName=new Map();_wojById=new Map();
   rows.forEach(r=>{
@@ -1183,7 +1188,7 @@ function _setWojData(rows,metric,inverted){
   const vmin=vals.length?Math.min(...vals):0, vmax=vals.length?Math.max(...vals):vmin+0.01;
   _wojVmin=vmin;_wojVmax=vmax;
 
-  const features=(M.woj_geo.features||[]).map((f,i)=>{
+  const features=(geojson.features||[]).map((f,i)=>{
     const r=_wFindRow(f);
     const nf={type:'Feature',geometry:f.geometry,properties:{...(f.properties||{}),_fid:i}};
     if(r){
@@ -1214,7 +1219,7 @@ function _refreshWojLabels(features){
   // clear previous markers
   _wojLabelMarkers.forEach(m=>{try{m.remove()}catch(e){}});
   _wojLabelMarkers=[];
-  if(!_wojMap)return;
+  if(!_wojMap||_wojLevelLive!=='voivodeship')return;
   const { Marker } = maplibregl;
   features.forEach(f=>{
     const c=_bboxCenter(f);
@@ -1229,24 +1234,60 @@ function _refreshWojLabels(features){
 }
 
 async function renderWojMap(){
-  const el=document.getElementById('map-granular-woj');if(!el||!M.woj_geo)return;
+  const el=document.getElementById('map-granular-woj');if(!el)return;
   if(!_wojMap){
     if(_wojPending)return;              // build scheduled / in progress
     _wojPending=true;
-    whenVisibleIdle(el, ()=>loadSiec().then(()=>_buildWojMap(el)), '80px');   // defer MapLibre until on-screen + past load; needs woj_geo (loadSiec)
+    whenVisibleIdle(el, ()=>loadSiec().then(()=>_buildWojMap(el)), '80px');   // defer MapLibre until on-screen + past load
     return;
   }
   _fillWoj();
 }
 
+function _updateMapMode(){
+  if(!_wojMap)return;
+  const is3d=(_mapMode==='3d');
+  if(_wojMap.getLayer('gran-woj-fill')) _wojMap.setLayoutProperty('gran-woj-fill','visibility',is3d?'none':'visible');
+  if(_wojMap.getLayer('gran-woj-line')) _wojMap.setLayoutProperty('gran-woj-line','visibility',is3d?'none':'visible');
+  if(_wojMap.getLayer('gran-woj-extrusion')) _wojMap.setLayoutProperty('gran-woj-extrusion','visibility',is3d?'visible':'none');
+  
+  _wojMap.dragPan.enable();
+  _wojMap.scrollZoom.enable();
+  _wojMap.doubleClickZoom.enable();
+  _wojMap.touchZoomRotate.enable();
+
+  if(is3d){
+    _wojMap.dragRotate.enable();
+    _wojMap.easeTo({pitch:50,bearing:10,duration:1000});
+  }else{
+    _wojMap.dragRotate.disable();
+    _wojMap.easeTo({center:[19.3,52.05],zoom:5.7,pitch:0,bearing:0,duration:1000});
+  }
+}
+
 async function _buildWojMap(el){
   await ensureMaplibre();
-    try {
-      _wojMap=createMap('map-granular-woj',{
-        center:[19.3,52.05],zoom:5.7,minZoom:4,maxZoom:9,
-        dragPan:false,dragRotate:false,scrollZoom:false,doubleClickZoom:false,touchZoom:false,keyboard:false,
+  try {
+    _wojMap=createMap('map-granular-woj',{
+      center:[19.3,52.05],zoom:5.7,minZoom:4,maxZoom:9,
+      dragPan:true,scrollZoom:true,dragRotate:false,doubleClickZoom:true,touchZoom:true,keyboard:true,
+    });
+    MAPS['map-granular-woj']=_wojMap;
+    
+    // Wire 2D/3D toggle buttons
+    const toggleContainer=document.getElementById('gran-map-mode');
+    if(toggleContainer){
+      toggleContainer.querySelectorAll('.mode-btn').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+          const mode=btn.dataset.mode;
+          if(mode===_mapMode)return;
+          _mapMode=mode;
+          toggleContainer.querySelectorAll('.mode-btn').forEach(b=>b.classList.toggle('active',b===btn));
+          _updateMapMode();
+        });
       });
-      MAPS['map-granular-woj']=_wojMap;
+    }
+
     _wojMap.on('load',()=>{
       // promoteId lets feature-state key off _fid without top-level feature ids
       _wojMap.addSource('gran-woj',{type:'geojson',data:{type:'FeatureCollection',features:[]},promoteId:'_fid'});
@@ -1264,6 +1305,17 @@ async function _buildWojMap(el){
           'line-width':['case',['boolean',['feature-state','hover'],false],2.5,1],
         },
       });
+      _wojMap.addLayer({
+        id:'gran-woj-extrusion',type:'fill-extrusion',source:'gran-woj',
+        paint:{
+          'fill-extrusion-color':_WOJ_FILL_STOPS,
+          'fill-extrusion-height':['*', ['get','_t'], 60000],
+          'fill-extrusion-base':0,
+          'fill-extrusion-opacity':0.85
+        },
+      });
+      
+      _updateMapMode();
 
       let _hoverFid=null;
       const ensureTip=()=>{
@@ -1274,7 +1326,8 @@ async function _buildWojMap(el){
           document.body.appendChild(_wojTip);
         }
       };
-      _wojMap.on('mousemove','gran-woj-fill',e=>{
+      
+      const onMove=e=>{
         const fs=e.features&&e.features[0];
         if(!fs)return;
         if(_hoverFid!=null)_wojMap.setFeatureState({source:'gran-woj',id:_hoverFid},{hover:false});
@@ -1290,26 +1343,22 @@ async function _buildWojMap(el){
           _wojTip.style.top=(e.originalEvent.clientY+14)+'px';
           _wojTip.style.display='block';
         }
-      });
-      _wojMap.on('click','gran-woj-fill',e=>{
-        const fs=e.features&&e.features[0];
-        if(!fs)return;
+      };
+      
+      const onLeave=()=>{
         if(_hoverFid!=null)_wojMap.setFeatureState({source:'gran-woj',id:_hoverFid},{hover:false});
-        _hoverFid=fs.id;
-        _wojMap.setFeatureState({source:'gran-woj',id:_hoverFid},{hover:true});
-        _wojMap.getCanvas().style.cursor='pointer';
-        const p=fs.properties||{};
-        if(p._name){
-          ensureTip();
-          _wojTip.innerHTML=`<div style="font-family:var(--font-display);font-weight:700;font-size:13px;margin-bottom:3px">${capName(p._name)}</div>`+
-            `<div style="font-size:12px;color:#93a487">${p._val||''}</div>`;
-          _wojTip.style.left=(e.originalEvent.clientX+14)+'px';
-          _wojTip.style.top=(e.originalEvent.clientY+14)+'px';
-          _wojTip.style.display='block';
-        }
-      });
+        _hoverFid=null;
+        _wojMap.getCanvas().style.cursor='';
+        if(_wojTip)_wojTip.style.display='none';
+      };
+
+      _wojMap.on('mousemove','gran-woj-fill',onMove);
+      _wojMap.on('mouseleave','gran-woj-fill',onLeave);
+      _wojMap.on('mousemove','gran-woj-extrusion',onMove);
+      _wojMap.on('mouseleave','gran-woj-extrusion',onLeave);
+      
       _wojMap.on('click',e=>{
-        const features = _wojMap.queryRenderedFeatures(e.point, { layers: ['gran-woj-fill'] });
+        const features = _wojMap.queryRenderedFeatures(e.point, { layers: ['gran-woj-fill', 'gran-woj-extrusion'] });
         if (!features.length) {
           if(_hoverFid!=null)_wojMap.setFeatureState({source:'gran-woj',id:_hoverFid},{hover:false});
           _hoverFid=null;
@@ -1317,32 +1366,45 @@ async function _buildWojMap(el){
           if(_wojTip)_wojTip.style.display='none';
         }
       });
-      _wojMap.on('mouseleave','gran-woj-fill',()=>{
-        if(_hoverFid!=null)_wojMap.setFeatureState({source:'gran-woj',id:_hoverFid},{hover:false});
-        _hoverFid=null;
-        _wojMap.getCanvas().style.cursor='';
-        if(_wojTip)_wojTip.style.display='none';
-      });
+      
       fitPoland(_wojMap,6);
       _wojSrcReady=true;
     });
-    } catch (e) {
-      if (e instanceof WebGLUnavailableError) {
-        showMapUnavailable(el, { message: getLang() === 'en' ? 'Voivodeship map unavailable' : 'Mapa województw niedostępna' });
-        _wojMap = null; _wojPending = false;
-        return;
-      }
-      throw e;
+  } catch (e) {
+    if (e instanceof WebGLUnavailableError) {
+      showMapUnavailable(el, { message: getLang() === 'en' ? 'Voivodeship map unavailable' : 'Mapa województw niedostępna' });
+      _wojMap = null; _wojPending = false;
+      return;
     }
+    throw e;
+  }
   _fillWoj();
 }
 
+async function ensurePowGeo() {
+  if (_powGeo) return _powGeo;
+  _powGeo = await fetchJSON('/api/geo/powiats');
+  return _powGeo;
+}
+
 async function _fillWoj(){
-  const res=await fetchDim('voivodeship',_gMetric,'desc',16,0);
-  const rows=res.rows||[];
-  const push=()=>{ if(_wojMap&&_wojMap.getSource('gran-woj')) _setWojData(rows,_gMetric,_gSort==='asc'); };
+  // There is no per-city boundary GeoJSON (only /api/geo/voivodeships and
+  // /api/geo/powiats), so "Miasta" can't get its own choropleth - it falls
+  // back to the voivodeship view rather than aliasing to powiat (which used
+  // to make Powiaty/Miasta render as pixel-identical maps).
+  const level = _gDim === 'powiat' ? 'powiat' : 'voivodeship';
+  _wojLevelLive = level;
+  const limit = level === 'voivodeship' ? 16 : 400;
+
+  const res = await fetchDim(level, _gMetric, 'desc', limit, 0);
+  const rows = res.rows || [];
+
+  const geojson = level === 'voivodeship' ? M.woj_geo : await ensurePowGeo();
+
+  const push=()=>{ if(_wojMap&&_wojMap.getSource('gran-woj')) _setWojData(rows,geojson,_gMetric,_gSort==='asc'); };
   if(_wojSrcReady)push(); else if(_wojMap)_wojMap.once('load',push);
 }
+
 function _setActive(group,btn){
   document.querySelectorAll(`#${group} .gran-btn`).forEach(b=>{
     b.classList.toggle('active',b===btn);
@@ -1355,7 +1417,7 @@ export function wireGranular(){
     if(btn._wired)return;btn._wired=true;
     btn.addEventListener('click',()=>{if(!btn.classList.contains('is-disabled'))cb(btn.dataset[attr],btn)});
   });
-  grp('gran-dim','dim',(v,btn)=>{_gDim=v;_setActive('gran-dim',btn);renderGranular(null,{skipMap:true})});
+  grp('gran-dim','dim',(v,btn)=>{_gDim=v;_setActive('gran-dim',btn);renderGranular()});
   grp('gran-metric','metric',(v,btn)=>{
     _gMetric=v;_setActive('gran-metric',btn);
     renderGranular();

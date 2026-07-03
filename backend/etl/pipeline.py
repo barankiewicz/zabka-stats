@@ -209,7 +209,7 @@ def run(no_geocode: bool = False,
 
         load_to_duckdb(con, rows, meta)
         load_parcel_lockers(con, lockers, src_date)
-        load_dimensions(con, dim_powiat, dim_voiv)
+        load_dimensions(con, dim_powiat, dim_voiv, skip_gus=skip_gus)
         load_dim_park(con, parks_enricher.parks())
         load_fun_facts(con, fun)
         stamp_etl_run(con)

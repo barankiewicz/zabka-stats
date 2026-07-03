@@ -98,6 +98,7 @@ Revert frontend implementation
 
 ## TODO (next up)
 
+- [x] V3: 3D density towers (powiat and voivodeship extrusion in pitched view)
 - [ ] Comparison modes (voivodeship vs national trend)
 - [ ] Run ETL with `--elevation` and full GBIF/GUS to populate NULL columns (amphibians, elevation, powiat economics)
 

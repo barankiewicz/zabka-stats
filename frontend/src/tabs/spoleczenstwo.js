@@ -12,6 +12,7 @@ import { C, STATE } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
 import { fmt, getFont, destroyChart, startTabParticles, capName, whenVisible, wireCountUp } from '../utils.js';
 import { t, getLang } from '../i18n.js';
+import { fetchJSON } from '../data.js';
 
 // econ.js pulls in ECharts (~180 KB gz); its two scatter chapters sit at the
 // very bottom of this tab, well below the fold, so load it only once that
@@ -92,7 +93,13 @@ function _ipRamp(t){
   return`rgb(${Math.round(a[0]+(b[0]-a[0])*u)},${Math.round(a[1]+(b[1]-a[1])*u)},${Math.round(a[2]+(b[2]-a[2])*u)})`;
 }
 
-let _ipMap=null,_ipTip=null,_ipLabelMarkers=[];
+let _ipMap=null,_ipSrcReady=false,_ipPending=false;
+let _ipMapMode='2d';
+let _powGeo=null;
+let _ipTip=null;
+let _ipLabelMarkers=[];
+let _ipLevelLive='voivodeship';  // level actually drawn on the map (see _fillInpost)
+
 const _IP_FILL_STOPS=[
   'interpolate',['linear'],['get','_t'],
   0,'#132912', 0.2,'#1e4019', 0.4,'#2d6324', 0.6,'#4a9228', 0.8,'#72c133', 1,'#a6e84a'];
@@ -100,7 +107,7 @@ const _IP_FILL_STOPS=[
 function _refreshIpLabels(features){
   _ipLabelMarkers.forEach(m=>{try{m.remove()}catch(e){}});
   _ipLabelMarkers=[];
-  if(!_ipMap)return;
+  if(!_ipMap || _ipLevelLive!=='voivodeship')return;
   features.forEach(f=>{
     const c=featureBBoxCenter(f);
     const lab=f.properties&&f.properties._label;
@@ -112,105 +119,185 @@ function _refreshIpLabels(features){
   });
 }
 
-async function renderInpostMap(){
-  const data=M.inpost_vs_zabka||[];
-  if(!data.length||!M.woj_geo||!M.woj_geo.features||!M.woj_geo.features.length)return;
-  if(MAPS['map-inpost'])return;
-  const el=document.getElementById('map-inpost');if(!el)return;
-  await ensureMaplibre();
-  if(MAPS['map-inpost'])return;   // re-check after async gap (avoid double build)
+function _ipFindRow(f, byName, byId) {
+  const p = f.properties || {};
+  let name = (p.nazwa || p.name || '');
+  name = name.replace(/^powiat\s+/i, '').toLowerCase();
+  return byId.get(String(p.id ?? p.ID)) || byId.get(String(p.nazwa))
+    || byName.get(name) || byName.get((p.nazwa || '').toLowerCase()) || byName.get((p.name || '').toLowerCase());
+}
 
-  const byName={};
-  data.forEach(d=>{byName[(d.voivodeship||'').toLowerCase()]=d});
-  const vals=data.map(d=>+d.ratio||0);
-  const vmin=Math.min(...vals), vmax=Math.max(...vals,vmin+0.01);
-
-  // Build the joined FeatureCollection: _t is the inverted ramp position
-  // (high InPost/Żabka ratio -> dim, low ratio -> bright), _label is the
-  // ratio string, _tip is the hover card HTML.
-  function _buildData(){
-    const features=(M.woj_geo.features||[]).map((f,i)=>{
-      const d=byName[(f.properties.nazwa||'').toLowerCase()];
-      const nf={type:'Feature',geometry:f.geometry,properties:{...(f.properties||{}),_fid:i}};
-      if(d){
-        const r0=(+d.ratio||0);
-        const norm=(r0-vmin)/(vmax-vmin);
-        nf.properties._t=Math.max(0,Math.min(1,1-(isNaN(norm)?0.5:norm)));
-        const rr=typeof d.ratio==='number'?d.ratio.toFixed(2):String(d.ratio);
-        nf.properties._label=(getLang() === 'en' ? rr : rr.replace('.',','))+'x';
-        const _rn=f.properties.nazwa||'';
-        nf.properties._name=_rn?_rn[0].toUpperCase()+_rn.slice(1):_rn;
-        const z=(d.zabki_per_100k||0).toFixed(1), p=(d.lockers_per_100k||0).toFixed(1);
-        const zabkaLabel = getLang() === 'en' ? 'Zabka' : 'Żabka';
-        const ratioLabel = getLang() === 'en' ? 'ratio' : 'stosunek';
-        nf.properties._tip=`<div style="font-weight:700;font-size:13px;margin-bottom:3px">${nf.properties._name}</div>`+
-          `<div style="font-size:12px;color:#93a487">${zabkaLabel}: ${(getLang() === 'en' ? z : z.replace('.', ','))}/100k</div>`+
-          `<div style="font-size:12px;color:#93a487">InPost: ${(getLang() === 'en' ? p : p.replace('.', ','))}/100k</div>`+
-          `<div style="font-size:12px;color:#93a487">${ratioLabel}: ${(getLang() === 'en' ? rr : rr.replace('.', ','))}x</div>`;
-      }else{
-        nf.properties._t=0;nf.properties._label='';
-      }
-      return nf;
-    });
-    return {type:'FeatureCollection',features};
-  }
-
-  try {
-  _ipMap=createMap('map-inpost',{
-    center:[19.3,52.05],zoom:5.6,minZoom:5,maxZoom:9,
-    dragPan:true,dragRotate:false,scrollZoom:true,doubleClickZoom:true,touchZoom:true,keyboard:true,
-  });
-  MAPS['map-inpost']=_ipMap;
-
-  _ipMap.on('load',()=>{
-    const fc=_buildData();
-    _ipMap.addSource('ip-woj',{type:'geojson',data:fc,promoteId:'_fid'});
-    _ipMap.addLayer({id:'ip-woj-fill',type:'fill',source:'ip-woj',paint:{
-      'fill-color':_IP_FILL_STOPS,
-      'fill-opacity':['case',['boolean',['feature-state','hover'],false],1,0.9],
-    }});
-    _ipMap.addLayer({id:'ip-woj-line',type:'line',source:'ip-woj',paint:{
-      'line-color':['case',['boolean',['feature-state','hover'],false],'#a6e84a','#08110a'],
-      'line-width':['case',['boolean',['feature-state','hover'],false],2.5,1],
-    }});
-    _refreshIpLabels(fc.features);
-    fitPoland(_ipMap,4);
-
-    let _hoverFid=null;
-    if(!_ipTip){
-      _ipTip=document.createElement('div');
-      _ipTip.className='gran-tooltip maplibre-hover-tip';_ipTip.style.display='none';
-      document.body.appendChild(_ipTip);
+function _setIpData(data, geojson) {
+  const byName = new Map();
+  const byId = new Map();
+  data.forEach(d => {
+    const n = d.name || d.voivodeship || '';
+    if (n) {
+      let clean = n.replace(/^powiat\s+/i, '').toLowerCase();
+      byName.set(clean, d);
+      byName.set(n.toLowerCase(), d);
     }
-    _ipMap.on('mousemove','ip-woj-fill',e=>{
-      const fs=e.features&&e.features[0];if(!fs)return;
-      if(_hoverFid!=null)_ipMap.setFeatureState({source:'ip-woj',id:_hoverFid},{hover:false});
-      _hoverFid=fs.id;_ipMap.setFeatureState({source:'ip-woj',id:_hoverFid},{hover:true});
-      _ipMap.getCanvas().style.cursor='pointer';
-      const p=fs.properties||{};
-      if(p._tip){_ipTip.innerHTML=p._tip;_ipTip.style.left=(e.originalEvent.clientX+14)+'px';_ipTip.style.top=(e.originalEvent.clientY+14)+'px';_ipTip.style.display='block';}
+    if (d.geo_id != null) byId.set(String(d.geo_id), d);
+  });
+
+  const vals = data.map(d => +d.ratio || 0);
+  const vmin = Math.min(...vals), vmax = Math.max(...vals, vmin + 0.01);
+
+  const features = (geojson.features || []).map((f, i) => {
+    const d = _ipFindRow(f, byName, byId);
+    const nf = { type: 'Feature', geometry: f.geometry, properties: { ...(f.properties || {}), _fid: i } };
+    if (d) {
+      const r0 = (+d.ratio || 0);
+      const norm = (r0 - vmin) / (vmax - vmin);
+      nf.properties._t = Math.max(0, Math.min(1, 1 - (isNaN(norm) ? 0.5 : norm)));
+      
+      const rr = typeof d.ratio === 'number' ? d.ratio.toFixed(2) : String(d.ratio);
+      nf.properties._label = (getLang() === 'en' ? rr : rr.replace('.', ',')) + 'x';
+      
+      const _rn = f.properties.nazwa || '';
+      let dispName = _rn;
+      if (_dbLevel !== 'voivodeship') {
+        dispName = dispName.replace(/^powiat\s+/i, '');
+      }
+      nf.properties._name = dispName ? dispName[0].toUpperCase() + dispName.slice(1) : dispName;
+      
+      const z = (d.zabki_per_100k || 0).toFixed(1), p = (d.lockers_per_100k || 0).toFixed(1);
+      const zabkaLabel = getLang() === 'en' ? 'Zabka' : 'Żabka';
+      const ratioLabel = getLang() === 'en' ? 'ratio' : 'stosunek';
+      
+      nf.properties._tip = `<div style="font-weight:700;font-size:13px;margin-bottom:3px">${nf.properties._name}</div>` +
+        `<div style="font-size:12px;color:#93a487">${zabkaLabel}: ${(getLang() === 'en' ? z : z.replace('.', ','))}/100k</div>` +
+        `<div style="font-size:12px;color:#93a487">InPost: ${(getLang() === 'en' ? p : p.replace('.', ','))}/100k</div>` +
+        `<div style="font-size:12px;color:#93a487">${ratioLabel}: ${(getLang() === 'en' ? rr : rr.replace('.', ','))}x</div>`;
+    } else {
+      nf.properties._t = 0;
+      nf.properties._label = '';
+      nf.properties._tip = '';
+    }
+    return nf;
+  });
+
+  const fc = { type: 'FeatureCollection', features };
+  if (_ipMap && _ipMap.getSource('ip-woj')) {
+    _ipMap.getSource('ip-woj').setData(fc);
+  }
+  _refreshIpLabels(features);
+}
+
+async function renderInpostMap(){
+  const el=document.getElementById('map-inpost');if(!el)return;
+  if(!_ipMap){
+    if(_ipPending)return;
+    _ipPending=true;
+    await ensureMaplibre();
+    _buildInpostMap(el);
+    return;
+  }
+  _fillInpost();
+}
+
+function _updateIpMapMode(){
+  if(!_ipMap)return;
+  const is3d=(_ipMapMode==='3d');
+  if(_ipMap.getLayer('ip-woj-fill')) _ipMap.setLayoutProperty('ip-woj-fill','visibility',is3d?'none':'visible');
+  if(_ipMap.getLayer('ip-woj-line')) _ipMap.setLayoutProperty('ip-woj-line','visibility',is3d?'none':'visible');
+  if(_ipMap.getLayer('ip-woj-extrusion')) _ipMap.setLayoutProperty('ip-woj-extrusion','visibility',is3d?'visible':'none');
+  
+  _ipMap.dragPan.enable();
+  _ipMap.scrollZoom.enable();
+  _ipMap.doubleClickZoom.enable();
+  _ipMap.touchZoomRotate.enable();
+
+  if(is3d){
+    _ipMap.dragRotate.enable();
+    _ipMap.easeTo({pitch:50,bearing:10,duration:1000});
+  }else{
+    _ipMap.dragRotate.disable();
+    _ipMap.easeTo({center:[19.3,52.05],zoom:5.6,pitch:0,bearing:0,duration:1000});
+  }
+}
+
+async function _buildInpostMap(el){
+  try {
+    _ipMap=createMap('map-inpost',{
+      center:[19.3,52.05],zoom:5.6,minZoom:5,maxZoom:9,
+      dragPan:true,scrollZoom:true,dragRotate:false,doubleClickZoom:true,touchZoom:true,keyboard:true,
     });
-    _ipMap.on('click','ip-woj-fill',e=>{
-      const fs=e.features&&e.features[0];if(!fs)return;
-      if(_hoverFid!=null)_ipMap.setFeatureState({source:'ip-woj',id:_hoverFid},{hover:false});
-      _hoverFid=fs.id;_ipMap.setFeatureState({source:'ip-woj',id:_hoverFid},{hover:true});
-      _ipMap.getCanvas().style.cursor='pointer';
-      const p=fs.properties||{};
-      if(p._tip){_ipTip.innerHTML=p._tip;_ipTip.style.left=(e.originalEvent.clientX+14)+'px';_ipTip.style.top=(e.originalEvent.clientY+14)+'px';_ipTip.style.display='block';}
-    });
-    _ipMap.on('click',e=>{
-      const features = _ipMap.queryRenderedFeatures(e.point, { layers: ['ip-woj-fill'] });
-      if (!features.length) {
+    MAPS['map-inpost']=_ipMap;
+    
+    // Wire 2D/3D toggle buttons
+    const toggleContainer=document.getElementById('inpost-map-mode');
+    if(toggleContainer){
+      toggleContainer.querySelectorAll('.mode-btn').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+          const mode=btn.dataset.mode;
+          if(mode===_ipMapMode)return;
+          _ipMapMode=mode;
+          toggleContainer.querySelectorAll('.mode-btn').forEach(b=>b.classList.toggle('active',b===btn));
+          _updateIpMapMode();
+        });
+      });
+    }
+
+    _ipMap.on('load',()=>{
+      _ipMap.addSource('ip-woj',{type:'geojson',data:{type:'FeatureCollection',features:[]},promoteId:'_fid'});
+      _ipMap.addLayer({id:'ip-woj-fill',type:'fill',source:'ip-woj',paint:{
+        'fill-color':_IP_FILL_STOPS,
+        'fill-opacity':['case',['boolean',['feature-state','hover'],false],1,0.9],
+      }});
+      _ipMap.addLayer({id:'ip-woj-line',type:'line',source:'ip-woj',paint:{
+        'line-color':['case',['boolean',['feature-state','hover'],false],'#a6e84a','#08110a'],
+        'line-width':['case',['boolean',['feature-state','hover'],false],2.5,1],
+      }});
+      _ipMap.addLayer({
+        id:'ip-woj-extrusion',type:'fill-extrusion',source:'ip-woj',
+        paint:{
+          'fill-extrusion-color':_IP_FILL_STOPS,
+          'fill-extrusion-height':['*', ['get','_t'], 60000],
+          'fill-extrusion-base':0,
+          'fill-extrusion-opacity':0.85
+        },
+      });
+      
+      _updateIpMapMode();
+
+      let _hoverFid=null;
+      if(!_ipTip){
+        _ipTip=document.createElement('div');
+        _ipTip.className='gran-tooltip maplibre-hover-tip';_ipTip.style.display='none';
+        document.body.appendChild(_ipTip);
+      }
+      
+      const onMove=e=>{
+        const fs=e.features&&e.features[0];if(!fs)return;
+        if(_hoverFid!=null)_ipMap.setFeatureState({source:'ip-woj',id:_hoverFid},{hover:false});
+        _hoverFid=fs.id;_ipMap.setFeatureState({source:'ip-woj',id:_hoverFid},{hover:true});
+        _ipMap.getCanvas().style.cursor='pointer';
+        const p=fs.properties||{};
+        if(p._tip){_ipTip.innerHTML=p._tip;_ipTip.style.left=(e.originalEvent.clientX+14)+'px';_ipTip.style.top=(e.originalEvent.clientY+14)+'px';_ipTip.style.display='block';}
+      };
+      
+      const onLeave=()=>{
         if(_hoverFid!=null)_ipMap.setFeatureState({source:'ip-woj',id:_hoverFid},{hover:false});
         _hoverFid=null;_ipMap.getCanvas().style.cursor='';_ipTip.style.display='none';
-      }
+      };
+
+      _ipMap.on('mousemove','ip-woj-fill',onMove);
+      _ipMap.on('mouseleave','ip-woj-fill',onLeave);
+      _ipMap.on('mousemove','ip-woj-extrusion',onMove);
+      _ipMap.on('mouseleave','ip-woj-extrusion',onLeave);
+      
+      _ipMap.on('click',e=>{
+        const features = _ipMap.queryRenderedFeatures(e.point, { layers: ['ip-woj-fill', 'ip-woj-extrusion'] });
+        if (!features.length) {
+          if(_hoverFid!=null)_ipMap.setFeatureState({source:'ip-woj',id:_hoverFid},{hover:false});
+          _hoverFid=null;_ipMap.getCanvas().style.cursor='';_ipTip.style.display='none';
+        }
+      });
+      
+      fitPoland(_ipMap,4);
+      _ipSrcReady=true;
     });
-    _ipMap.on('mouseleave','ip-woj-fill',()=>{
-      if(_hoverFid!=null)_ipMap.setFeatureState({source:'ip-woj',id:_hoverFid},{hover:false});
-      _hoverFid=null;_ipMap.getCanvas().style.cursor='';_ipTip.style.display='none';
-    });
-    setTimeout(()=>{if(_ipMap){_ipMap.resize();fitPoland(_ipMap,4);}},120);
-  });
   } catch (e) {
     if (e instanceof WebGLUnavailableError) {
       showMapUnavailable(el, { message: getLang() === 'en' ? 'Zabka vs InPost map unavailable' : 'Mapa Żabka vs InPost niedostępna' });
@@ -219,6 +306,36 @@ async function renderInpostMap(){
     }
     throw e;
   }
+  _fillInpost();
+}
+
+async function ensurePowGeo() {
+  if (_powGeo) return _powGeo;
+  _powGeo = await fetchJSON('/api/geo/powiats');
+  return _powGeo;
+}
+
+async function _fillInpost(){
+  // There is no per-city boundary GeoJSON (only /api/geo/voivodeships and
+  // /api/geo/powiats), so "Miasto" can't get its own choropleth - it falls
+  // back to the voivodeship view rather than joining city-level rows onto
+  // powiat polygons (which used to just leave the map looking empty/dark,
+  // since almost no city name matches a powiat name).
+  const level = (_dbLevel === 'powiat') ? 'powiat' : 'voivodeship';
+  _ipLevelLive = level;
+  let data;
+  if (level === 'voivodeship') {
+    data = M.inpost_vs_zabka || [];
+  } else {
+    const res = await fetchDumbbellLevel('powiat', 400);
+    data = res ? res.rows : [];
+  }
+  if (!data.length) return;
+
+  const geojson = level === 'voivodeship' ? M.woj_geo : await ensurePowGeo();
+
+  const push=()=>{ if(_ipMap&&_ipMap.getSource('ip-woj')) _setIpData(data,geojson); };
+  if(_ipSrcReady)push(); else if(_ipMap)_ipMap.once('load',push);
 }
 export function renderSpoleczenstwo(){
   if(!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)){
@@ -642,6 +759,7 @@ function wireInpostLevel(){
       _dbLevel=btn.dataset.ilevel;
       _setActiveSpol('#inpost-level',btn);
       renderDumbbellByLevel();
+      renderInpostMap();
     });
   });
 }

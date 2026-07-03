@@ -262,10 +262,14 @@
         <div class="chart-wrap" id="gran-chart-wrap"><canvas id="chart-granular" data-t-aria="gran_chart_aria" aria-label="Ranking jednostek administracyjnych według liczby sklepów Żabka. Przełączniki nad wykresem pozwalają wybrać poziom (województwo, powiat, miasto) i metrykę (liczba, na 1000 mieszk., na km²)."></canvas></div>
         <div class="gran-ref-legend" id="gran-ref-legend"></div>
       </div>
-      <!-- RIGHT: choropleth wojewodztw (zawsze wojewodztwa, reaguje na KPI) -->
+      <!-- RIGHT: choropleth map with 2D/3D toggle -->
       <div class="gran-right">
-        <div class="map-container">
+        <div class="map-container" style="position:relative">
           <div id="map-granular-woj"></div>
+          <div class="map-mode-toggle" id="gran-map-mode" role="group" aria-label="Tryb widoku mapy">
+            <button aria-pressed="true" class="mode-btn active" data-mode="2d">2D</button>
+            <button aria-pressed="false" class="mode-btn" data-mode="3d">3D</button>
+          </div>
         </div>
       </div>
     </div>
@@ -474,8 +478,12 @@
     <div class="card-sub" data-t="inpost_sub">Pojedynek dwóch gigantów polskiej przestrzeni publicznej. Obaj robią co innego — Żabka to zakupy, InPost to odbiory paczek — ale oba rywalizują o ten sam metr kwadratowy ulicy.</div>
     <div class="gran-split" style="margin-top:16px">
       <div class="ip-col" style="display:flex;flex-direction:column">
-        <div class="map-container" style="flex:1">
+        <div class="map-container" style="flex:1;position:relative">
           <div id="map-inpost" style="height:100%;background:#08110a"></div>
+          <div class="map-mode-toggle" id="inpost-map-mode" role="group" aria-label="Tryb widoku mapy">
+            <button aria-pressed="true" class="mode-btn active" data-mode="2d">2D</button>
+            <button aria-pressed="false" class="mode-btn" data-mode="3d">3D</button>
+          </div>
         </div>
       </div>
       <div class="ip-col" style="display:flex;flex-direction:column">
