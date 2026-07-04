@@ -671,6 +671,9 @@ canvas{display:block}
 @media(hover:none),(pointer:coarse){
   .hint-mouse{display:none}
   .hint-touch{display:inline}
+  /* Touch has no hover, so the hover-only export/share panel-toolbar would
+     otherwise be permanently invisible and undiscoverable - keep it shown. */
+  .panel-toolbar{opacity:1;pointer-events:auto}
 }
 
 /* MOBILE HEIGHTS: the big desktop-sized map/canvas panels are fixed-px tall

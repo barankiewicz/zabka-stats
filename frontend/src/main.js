@@ -31,6 +31,10 @@ const DEBUG_SHOW_IDS = true;
 
 function initIdOverlays(){
   document.body.classList.toggle('debug-ids',DEBUG_SHOW_IDS);
+  // The [DEBUG-ID] suffix this toggles on can widen a card-title past where
+  // the panel-toolbar was placed (it's always visible on touch, not
+  // hover-only there) - recheck now that the class landed.
+  recheckToolbarCollisions();
 }
 
 function chartDefaults(){
@@ -539,20 +543,39 @@ function buildShareAnchorMap(){
 // Rather than hardcode a per-card offset, measure what's actually there and
 // nudge the toolbar down just enough to clear it.
 const _toolbarPlacements = [];
+// .card-title is a block element, so its own getBoundingClientRect() always
+// spans the full card width regardless of how much text it holds - useless
+// for overlap detection. A Range over its contents measures the actual
+// rendered text extent instead. The DEBUG_SHOW_IDS `::after` suffix (e.g.
+// "[POWIATY]") isn't real DOM content so Range can't see it either; since the
+// toolbar is now always visible on mobile (not hover-only), a long title can
+// run under it there - pad the measured width to cover that suffix when the
+// debug overlay is on, rather than exactly right-sizing it.
+function _titleTextRect(titleEl){
+  const range = document.createRange();
+  range.selectNodeContents(titleEl);
+  const r = range.getBoundingClientRect();
+  const pad = document.body.classList.contains('debug-ids') ? 90 : 0;
+  return { left: r.left, right: r.right + pad, top: r.top, bottom: r.bottom };
+}
 function avoidToolbarCollisions(panelEl, wrap){
   wrap.style.top = '';
   const wrapRect = wrap.getBoundingClientRect();
   const panelTop = panelEl.getBoundingClientRect().top;
   let clearBottom = null;
-  panelEl.querySelectorAll('.map-mode-toggle, .gran-toggle').forEach(el=>{
-    if(wrap.contains(el)) return;
-    const r = el.getBoundingClientRect();
+  const consider = (r) => {
     const overlaps = r.left < wrapRect.right && r.right > wrapRect.left
       && r.top < wrapRect.bottom && r.bottom > wrapRect.top;
     if(!overlaps) return;
     const bottomRel = r.bottom - panelTop;
     if(clearBottom == null || bottomRel > clearBottom) clearBottom = bottomRel;
+  };
+  panelEl.querySelectorAll('.map-mode-toggle, .gran-toggle').forEach(el=>{
+    if(wrap.contains(el)) return;
+    consider(el.getBoundingClientRect());
   });
+  const titleEl = panelEl.querySelector('.card-title');
+  if(titleEl && !wrap.contains(titleEl)) consider(_titleTextRect(titleEl));
   if(clearBottom != null) wrap.style.top = `${Math.ceil(clearBottom) + 8}px`;
 }
 function recheckToolbarCollisions(){
@@ -597,6 +620,11 @@ function initPanelToolbars(){
 }
 initAtlasShareButton();
 initPanelToolbars();
+// Web fonts swap in after first paint and can widen title text (e.g. the
+// display font used by .card-title) past where it was measured above - recheck
+// once loaded so a long title doesn't end up under the toolbar until the next
+// resize/tab-switch happens to trigger it.
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(recheckToolbarCollisions);
 
 // SIEC is the default tab. loadCore() fetches only what SIEC needs for first
 // paint; per-tab heavy payloads (spoleczenstwo economics etc.) load on first
