@@ -53,8 +53,8 @@ nav{position:sticky;top:0;z-index:100;background:rgba(13,13,20,.9);backdrop-filt
    typographic weight as .tab-btn so it reads as part of the nav, not an
    afterthought, but a plain link (no active/pressed state) since it's not a
    tab - it leaves the SPA for the dedicated /faq.html page. */
-.nav-faq-link{color:var(--muted);text-decoration:none;font-family:var(--font-body);font-size:12.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;padding:6px 14px;border-radius:99px;white-space:nowrap;flex-shrink:0;transition:color .2s,background .2s}
-.nav-faq-link:hover{color:var(--green-bright);background:rgba(0,192,96,.1)}
+.nav-page-link{color:var(--muted);text-decoration:none;font-family:var(--font-body);font-size:12.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;padding:6px 14px;border-radius:99px;white-space:nowrap;flex-shrink:0;transition:color .2s,background .2s}
+.nav-page-link:hover{color:var(--green-bright);background:rgba(0,192,96,.1)}
 
 /* LANGUAGE SWITCHER */
 .lang-toggle{display:flex;align-items:center;gap:1px;flex-shrink:0;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:99px;padding:2px}

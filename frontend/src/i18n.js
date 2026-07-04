@@ -548,6 +548,8 @@ export const translations = {
 
     // Bridge Cards
     bridge_expansion: "Kierunek ekspansji rok po roku to jedna historia. Druga: ile sklepów i gdzie. {{STAT_LEADER_ABSOLUTE_VOIV}} prowadzi w liczbach bezwzględnych, ale per capita wygrywa {{STAT_LEADER_PERCAPITA_VOIV}}.",
+    bridge_econ_text: "Sieć wygląda równomiernie. Dane odsłaniają obraz pod spodem.",
+    bridge_econ: "Bogatsze powiaty mają więcej sklepów. Zachód zamyka w niedziele, choć reszta nie. 32 Żabki mają odległość do najbliższej Żabki równą 0. Sprawmy, jak to możliwe i jak jeszcze Żabka wpisuje się w obraz współczesnej Polski.",
 
     // Najwiecej Zabek (Granular)
     gran_title: "Najwięcej Żabek - powiaty",
@@ -731,6 +733,7 @@ export const translations = {
     // Link do dedykowanej strony FAQ (/faq.html - treść PL-only, jak
     // methodology.html, więc tłumaczona jest tylko etykieta linku)
     nav_faq_link: "FAQ",
+    nav_methodology_link: "Metodyka",
 
     // PNG export toolbar (S3)
     export_copy_aria: "Kopiuj obraz do schowka",
