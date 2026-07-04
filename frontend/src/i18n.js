@@ -190,7 +190,7 @@ export const translations = {
     spol_kpi_gminy_kicker: "Commune coverage",
     spol_kpi_gminy_sub: "of communes have at least one Żabka",
     spol_kpi_density_kicker: "Density outlier",
-    spol_kpi_density_sub_tpl: "{name}: the densest network in the country",
+    spol_kpi_density_sub_tpl: "{name} vs national avg (stores/km²)",
     spol_kpi_gminaleader_kicker: "Per-capita record",
     spol_kpi_gminaleader_sub_tpl: "{name}: most stores per resident in Poland",
     spol_kpi_inpostmax_kicker: "InPost extreme",
@@ -496,8 +496,8 @@ export const translations = {
     // Siec Tab - Hero
     hero_number_label_siec: "aktywnych sklepów",
     hero_h1_siec: "Żabka jest wszędzie. Mamy na to twarde dane.",
-    hero_lede_siec: "{{STAT_PCT_SINCE_2023}}% dzisiejszej sieci powstało od 2023 roku. Oto jak {{STAT_TOTAL_STORES_WORDS}} sklepów rozlało się po Polsce, rok po roku.",
-    data_disclaimer_header: "Maly disclaimer na poczatek",
+    hero_lede_siec: "{{STAT_PCT_SINCE_2023}}% dzisiejszej sieci powstało od 2023 roku. Oto jak {{STAT_TOTAL_STORES_WORDS}} sklepów rozlało się po Polsce - rok po roku.",
+    data_disclaimer_header: "Mały disclaimer na początek",
     data_disclaimer: "Ten dashboard pokazuje wyłącznie sklepy <b>działające dziś</b>. Historię otwarć i zamknięć śledzimy dopiero od <b>17 czerwca 2026</b> - starsze dane o zamkniętych Żabkach po prostu nie istnieją, więc trendy sprzed tej daty pokazują tylko sklepy, które przetrwały do teraz.",
 
     // Siec Tab - Stat Strip
@@ -518,7 +518,7 @@ export const translations = {
 
     // Expansion Map & Calendar
     map_growth_title: "Tak rosła sieć: 1998-{{STAT_DATA_YEAR_MAX}}",
-    map_growth_sub: "Każdy sklep to kropka, która pojawia się w roku otwarcia. Obok kalendarz otwarć miesiąc po miesiącu. Suwak prowadzi oba.",
+    map_growth_sub: "Każdy sklep to kropka, która pojawia się w roku otwarcia. Obok kalendarz otwarć w postaci pikseli miesiąc po miesiącu. Suwak prowadzi oba.",
     calendar_aria_label: "Kalendarz otwarć sklepów miesiąc po miesiącu, 1998-{{STAT_DATA_YEAR_MAX}}. Ciemniejsze pola oznaczają więcej otwarć w danym miesiącu.",
     slider_year_label: "Rok ekspansji sieci",
 
@@ -531,10 +531,10 @@ export const translations = {
     chart_growth_survival_note: "Bias przeżywalności: tylko aktywne sklepy - zamknięte wypadły z datasetu. Wczesne lata (1998-2010) niedoszacowane. {{STAT_UNDATED_STORES}} sklepów bez daty pominięto.",
 
     // Origins Card
-    origin_old_kicker: "Najstarsza (wciąż działa)",
+    origin_old_kicker: "Najstarsza",
     origin_old_note: "otwarta",
     origin_old_note_suffix: " - i nadal na mapie",
-    origin_new_kicker: "Najnowsza Żabka",
+    origin_new_kicker: "Najnowsza",
     origin_new_note: "otwarta",
     origin_new_note_suffix: " - najświeższy punkt na mapie",
 
@@ -637,7 +637,7 @@ export const translations = {
 
     // Coverage Donut
     coverage_title: "Żabka jest niemal wszędzie",
-    coverage_sub: "odsetek jednostek z Żabką - zielone: pokryte, czerwone: bez",
+    coverage_sub: "odsetek jednostek z Żabką",
     coverage_donut_aria: "Wykres kołowy: odsetek jednostek administracyjnych z co najmniej jedną Żabką.",
     coverage_map_aria: "Mapa Polski: zielone jednostki mają Żabkę, czerwone nie mają.",
     coverage_suffix_powiat: "powiatów ma Żabkę",
@@ -658,12 +658,12 @@ export const translations = {
 
     // Spoleczenstwo Tab - KPI Strip
     spol_kpi_residents_kicker: "Jeden sklep na",
-    spol_kpi_residents_unit: " os.",
+    spol_kpi_residents_unit: "",
     spol_kpi_residents_sub: "mieszkańców Polski",
     spol_kpi_gminy_kicker: "Pokrycie gmin",
     spol_kpi_gminy_sub: "gmin ma co najmniej jedną Żabkę",
     spol_kpi_density_kicker: "Gęstość skrajna",
-    spol_kpi_density_sub_tpl: "{name}: najgęstsza sieć w kraju",
+    spol_kpi_density_sub_tpl: "{name} vs średnia krajowa (sklepy/km²)",
     spol_kpi_gminaleader_kicker: "Rekordzista per capita",
     spol_kpi_gminaleader_sub_tpl: "{name}: najwięcej Żabek na mieszkańca w Polsce",
     spol_kpi_inpostmax_kicker: "Skrajność InPost",
