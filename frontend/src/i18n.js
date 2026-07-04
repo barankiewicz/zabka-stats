@@ -422,9 +422,9 @@ export const translations = {
     coverage_sub: "odsetek jednostek z Żabką – zielone: pokryte, czerwone: bez",
     coverage_donut_aria: "Wykres kołowy: odsetek jednostek administracyjnych z co najmniej jedną Żabką.",
     coverage_map_aria: "Mapa Polski: zielone jednostki mają Żabkę, czerwone nie mają.",
-    coverage_suffix_powiat: "powiatów ma Żabkę",
-    coverage_suffix_city: "miast ma Żabkę",
-    coverage_suffix_gmina: "gmin ma Żabkę",
+    coverage_suffix_powiat: "Powiaty",
+    coverage_suffix_city: "Miasta",
+    coverage_suffix_gmina: "Gminy",
 
     // Bubble Chart
     bubble_title: "Z czego składa się sieć – miasta",
