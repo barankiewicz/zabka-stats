@@ -5,7 +5,7 @@ import { M, MAPS, RENDERED } from './state.js';
 import { getFont, destroyChart, heroCount, fmtLastUpdated } from './utils.js';
 import { loadCore, loadTabData } from './data.js';
 import { translateDOM, setLang, t } from './i18n.js';
-import { getMapLibreCanvas, composePanelCanvas, canvasToPngBlob, downloadBlob, copyBlobToClipboard } from './export-image.js';
+import { getMapLibreCanvas, svgToCanvas, composePanelCanvas, canvasToPngBlob, downloadBlob, copyBlobToClipboard } from './export-image.js';
 
 
 // Tabs are loaded on demand. Each dynamic import() becomes its own Rollup chunk,
@@ -426,14 +426,16 @@ goToHashSection();
 // S1+S3 merged: one hover-only toolbar per panel, top-right, holding
 // whichever of "copy image" / "download PNG" / "share link" apply to that
 // panel - everything EXCEPT the Atlas krancow (its own interactive
-// multi-layer scene, not a single exportable bitmap, handled above) and the
-// BUBBLE force chart (D3-driven SVG, not a canvas - rasterizing it cleanly
-// is a different problem than the other two kinds here).
+// multi-layer scene, not a single exportable bitmap, handled above).
 // kind:'canvas' -> the element itself is the source canvas (Chart.js reuses
 // the same <canvas> it was constructed on; plain Canvas 2D scenes are just
 // that canvas). kind:'maplibre' -> the element is MapLibre's container div;
 // the actual canvas lives in MAPS[id] (registered by each tab module) and
 // needs the triggerRepaint()+once('render') dance from export-image.js.
+// kind:'svg' -> the element is a container (D3 inserts the <svg> inside);
+// the SVG is cloned, the page's stylesheet is inlined into a <style> block
+// (the page stylesheet isn't reachable when the SVG is loaded as an Image),
+// then the SVG is serialized to a data URL and drawn onto a 2x canvas.
 const EXPORTABLES = [
   { id:'chart-growth', kind:'canvas', filename:'zabka-wzrost-sieci' },
   { id:'canvas-fingerprint-flat', kind:'canvas', filename:'zabka-odcisk' },
@@ -449,6 +451,7 @@ const EXPORTABLES = [
   { id:'chart-elevation', kind:'canvas', filename:'zabka-wysokosc' },
   { id:'chart-streets', kind:'canvas', filename:'zabka-ulice' },
   { id:'chart-gmina-lead', kind:'canvas', filename:'zabka-gminy' },
+  { id:'bubble-stage', kind:'svg', filename:'zabka-bubble' },
   { id:'map-econ-unemp', kind:'maplibre', filename:'zabka-econ-bezrobocie' },
   { id:'map-econ-salary', kind:'maplibre', filename:'zabka-econ-placa' },
 ];
@@ -465,6 +468,13 @@ async function getSourceCanvas(entry){
     const map = MAPS[entry.id];
     if(!map) throw new Error('map not ready');
     return await getMapLibreCanvas(map);
+  }
+  if(entry.kind === 'svg'){
+    const host = document.getElementById(entry.id);
+    if(!host) throw new Error('svg host not ready');
+    const svg = host.tagName === 'svg' ? host : host.querySelector('svg');
+    if(!svg) throw new Error('svg element not found');
+    return await svgToCanvas(svg);
   }
   const canvas = document.getElementById(entry.id);
   if(!canvas || !canvas.width) throw new Error('canvas not ready');

@@ -24,6 +24,68 @@ export function getMapLibreCanvas(map){
   });
 }
 
+// Rasterize an SVG element to a canvas at 2x scale, so it can be drawn
+// alongside the rest of the panel by composePanelCanvas. The SVG is
+// cloned first (so the live DOM is untouched) and the styles that
+// normally come from the page stylesheet (font-family via CSS var, the
+// remainder stroke, the text-anchor for labels) are inlined into a
+// <style> block inside the clone - when the SVG is loaded standalone
+// via an Image, it has no access to the parent stylesheet, so anything
+// that lived there needs to come along in the serialization. Dynamic
+// attributes set by D3 (fill, font-size, the bubble radius r) are
+// already on the elements and survive the round trip.
+const _SVG_EMBED_STYLES = `
+  text { text-anchor: middle; }
+  .bubble { stroke: none; }
+  .bubble.rem { stroke: #a6e84a8c; stroke-width: 1.2; stroke-dasharray: 5 3; }
+  .b-main { font-family: "IBM Plex Sans", sans-serif; font-weight: 700; fill: #fff; }
+  .b-sub  { font-family: "JetBrains Mono", monospace; font-weight: 700; fill: #84c341; }
+  .b-sub.bright { fill: #a6e84a; }
+  .b-sub2 { font-family: "JetBrains Mono", monospace; fill: #a6e84a; }
+`;
+
+export async function svgToCanvas(svgEl, { scale = 2 } = {}){
+  // Some D3 SVGs only set viewBox + the live-render width/height attributes
+  // (or no width at all), so clone and pin explicit dimensions before
+  // serializing - otherwise the rasterized image comes out at 0x0.
+  const rect = svgEl.getBoundingClientRect();
+  const w = rect.width || parseFloat(svgEl.getAttribute('width')) || 0;
+  const h = rect.height || parseFloat(svgEl.getAttribute('height')) || 0;
+  if (!w || !h) throw new Error('svg has no measurable size');
+
+  const clone = svgEl.cloneNode(true);
+  clone.setAttribute('width', w);
+  clone.setAttribute('height', h);
+  if (!clone.getAttribute('viewBox')) {
+    clone.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  }
+  const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+  styleEl.textContent = _SVG_EMBED_STYLES;
+  clone.insertBefore(styleEl, clone.firstChild);
+
+  // XMLSerializer produces a self-contained SVG document. Base64-encode and
+  // hand it to an Image - loading the SVG as an image is what drops access
+  // to the parent stylesheet, hence the embedded <style> above.
+  const xml = new XMLSerializer().serializeToString(clone);
+  const svg64 = btoa(unescape(encodeURIComponent(xml)));
+  const dataUrl = 'data:image/svg+xml;base64,' + svg64;
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(w * scale);
+      canvas.height = Math.round(h * scale);
+      const ctx = canvas.getContext('2d');
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas);
+    };
+    img.onerror = () => reject(new Error('svg rasterization failed'));
+    img.src = dataUrl;
+  });
+}
+
 function wrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines){
   const words = text.split(' ');
   let line = '', ly = y, lines = 0;
