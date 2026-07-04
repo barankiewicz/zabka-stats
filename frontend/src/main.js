@@ -146,6 +146,10 @@ function activateTab(btn,{skipScrollTop=false}={}){
   resetTabReveals(tabEl);
   if(!RENDERED.has(tab)){setTimeout(()=>renderTab(tab),60)}
   setTimeout(()=>Object.values(MAPS).forEach(m=>m&&(m.resize&&m.resize())),200);
+  // The tab that's inactive at page load renders at zero size, so any panel
+  // toolbar collision check that ran while it was hidden saw degenerate
+  // (0,0,0,0) rects - recheck now that it actually has real layout.
+  setTimeout(recheckToolbarCollisions, 250);
 }
 
 _tabBtns.forEach((btn,i)=>{
@@ -520,6 +524,39 @@ function buildShareAnchorMap(){
   return map;
 }
 
+// Some panels have their own top-right control living at the same corner as
+// the toolbar - a 2D/3D map-mode-toggle (GRAN, InPost - a different subtree
+// entirely, the map's own column) or an inline level toggle sharing the
+// title's row (POWIATY's Powiaty/Miasta/Gminy switcher, which unlike NBL's
+// three toggle groups is short enough to never wrap onto its own line).
+// Rather than hardcode a per-card offset, measure what's actually there and
+// nudge the toolbar down just enough to clear it.
+const _toolbarPlacements = [];
+function avoidToolbarCollisions(panelEl, wrap){
+  wrap.style.top = '';
+  const wrapRect = wrap.getBoundingClientRect();
+  const panelTop = panelEl.getBoundingClientRect().top;
+  let clearBottom = null;
+  panelEl.querySelectorAll('.map-mode-toggle, .gran-toggle').forEach(el=>{
+    if(wrap.contains(el)) return;
+    const r = el.getBoundingClientRect();
+    const overlaps = r.left < wrapRect.right && r.right > wrapRect.left
+      && r.top < wrapRect.bottom && r.bottom > wrapRect.top;
+    if(!overlaps) return;
+    const bottomRel = r.bottom - panelTop;
+    if(clearBottom == null || bottomRel > clearBottom) clearBottom = bottomRel;
+  });
+  if(clearBottom != null) wrap.style.top = `${Math.ceil(clearBottom) + 8}px`;
+}
+function recheckToolbarCollisions(){
+  _toolbarPlacements.forEach(({ panelEl, wrap }) => avoidToolbarCollisions(panelEl, wrap));
+}
+let _resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(recheckToolbarCollisions, 200);
+});
+
 function initPanelToolbars(){
   const exportGroups = groupExportablesByPanel();
   const shareByAnchor = buildShareAnchorMap();
@@ -534,6 +571,8 @@ function initPanelToolbars(){
     dlBtn.addEventListener('click', e => { e.stopPropagation(); runPanelExport(panelEl, entries, 'download'); });
     panelEl.appendChild(wrap);
     handled.add(panelEl);
+    avoidToolbarCollisions(panelEl, wrap);
+    _toolbarPlacements.push({ panelEl, wrap });
   });
 
   // Registered sections with no exportable visual (the ECON intro, which
@@ -545,6 +584,8 @@ function initPanelToolbars(){
     ensureRelative(anchor);
     const { wrap } = makePanelToolbar({ tabSlug, slug, exportEntries: null });
     anchor.appendChild(wrap);
+    avoidToolbarCollisions(anchor, wrap);
+    _toolbarPlacements.push({ panelEl: anchor, wrap });
   });
 }
 initAtlasShareButton();
