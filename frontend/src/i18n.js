@@ -172,9 +172,6 @@ export const translations = {
     coverage_suffix_gmina: "communes have a Żabka",
 
     // City Gap (cities with zero Żabki)
-    citygap_title: "Cities without a Żabka",
-    citygap_sub: "{count} of {total} cities ({pct}%) have zero Żabki - sorted by population",
-    citygap_empty: "Every city in Poland has at least one Żabka.",
     citygap_pop_unit: " res.",
 
     // Bubble Chart
@@ -648,9 +645,6 @@ export const translations = {
     coverage_suffix_gmina: "gmin ma Żabkę",
 
     // City Gap (miasta bez Żabki)
-    citygap_title: "Miasta bez Żabki",
-    citygap_sub: "{count} z {total} miast ({pct}%) nie ma ani jednej Żabki - posortowane wg liczby mieszkańców",
-    citygap_empty: "Każde miasto w Polsce ma przynajmniej jedną Żabkę.",
     citygap_pop_unit: " mieszk.",
 
     // Bubble Chart

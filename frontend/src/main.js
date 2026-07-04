@@ -293,7 +293,6 @@ const SECTIONS = {
     atlas:       { title: '[data-debug-id="ATLAS"]', anchor: '.kr .btnrow', scrollTarget: '#kr-root' },
     powiaty:     { title: '[data-debug-id="POWIATY"]' },
     bubble:      { title: '[data-debug-id="BUBBLE"]' },
-    citygap:     { title: '[data-debug-id="CITY-GAP"]' },
   },
   spoleczenstwo: {
     inpost:        { title: '[data-debug-id="2.3"]' },

@@ -93,13 +93,6 @@ export function renderSiec(){
     wireCountUp(document.querySelector('.atlas-kpis'));
   });
 
-  const citygapEl = document.getElementById('citygap-list');
-  const p5 = citygapEl ? new Promise((resolve, reject) => {
-    whenVisible(citygapEl, () => {
-      ready.then(renderCityGap).then(resolve).catch(reject);
-    });
-  }) : Promise.resolve();
-
   if (siecRevealObserver) {
     siecRevealObserver.disconnect();
     siecRevealObserver = null;
@@ -888,33 +881,6 @@ export function renderGrowthChart(){
   });
 }
 
-
-/* ---------------- city gap: cities with zero Zabki, sorted by population ---- */
-
-export function renderCityGap(){
-  const list=document.getElementById('citygap-list');if(!list)return;
-  const cg=M.cities_without_zabka||{total_cities:0,without_zabka:0,pct:0,cities:[]};
-  const sub=document.getElementById('citygap-sub');
-  if(sub){
-    sub.textContent=cg.without_zabka
-      ? t('citygap_sub').replace('{count}',fmt(cg.without_zabka)).replace('{total}',fmt(cg.total_cities)).replace('{pct}',String(cg.pct).replace('.',','))
-      : t('citygap_empty');
-  }
-  list.innerHTML='';
-  (cg.cities||[]).forEach(c=>{
-    const row=document.createElement('div');
-    row.className='citygap-item';
-    row.innerHTML=`<span class="citygap-name">${escapeHtml(c.name)}</span>
-      <span class="citygap-meta">${c.population!=null?`<span class="citygap-pop">${fmt(c.population)}</span>`:''} · ${escapeHtml(capCase(c.voivodeship))}</span>`;
-    list.appendChild(row);
-  });
-  if(!cg.cities || !cg.cities.length){
-    const empty=document.createElement('div');
-    empty.className='citygap-empty';
-    empty.textContent=t('citygap_empty');
-    list.appendChild(empty);
-  }
-}
 
 /* ---------------- powiat coverage tile: 380/380 + dot map ----- */
 
