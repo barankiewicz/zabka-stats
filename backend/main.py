@@ -332,10 +332,13 @@ def render_html_with_stats(file_name: str) -> Response:
     def replacer(match):
         token = match.group(1).strip()
         field = token.lower().replace("stat_", "")
+        if field == "total_stores_words":
+            return "trzynaście tysięcy"
+        if field in ("data_year_max", "oldest_store_year", "newest_store_year", "record_year"):
+            val = stats.get(field)
+            return str(val) if val is not None else match.group(0)
         val = stats.get(field)
         if val is not None:
-            if field == "total_stores_words":
-                return "trzynaście tysięcy"
             if field == "date_modified":
                 return str(val)[:10]
             if isinstance(val, float):
@@ -386,7 +389,6 @@ try:
         directories=[str(frontend_dir)],
         html_mode=True,
         name="frontend",
-        before_request=_serve_precompressed_asset,
     )
     route_handlers.append(static_router)
 except Exception as e:
@@ -408,7 +410,8 @@ cors_config = CORSConfig(
 app = Litestar(
     route_handlers=route_handlers,
     cors_config=cors_config,
-    on_startup=on_startup
+    on_startup=on_startup,
+    before_request=_serve_precompressed_asset,
 )
 
 if __name__ == "__main__":

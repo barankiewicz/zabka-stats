@@ -18,9 +18,10 @@ import { t, getLang } from '../i18n.js';
 // lazy import resolves instantly; keeping it lazy avoids pulling it in when the
 // econ chunk is parsed before the maps come into view.
 let createMap, fitPoland, showMapUnavailable, WebGLUnavailableError;
+let maplibregl;
 function ensureMaplibre() {
   return loadMaplibre().then(m => {
-    ({ createMap, fitPoland, showMapUnavailable, WebGLUnavailableError } = m);
+    ({ maplibregl, createMap, fitPoland, showMapUnavailable, WebGLUnavailableError } = m);
     return m;
   });
 }
@@ -130,6 +131,7 @@ async function buildMap(containerId, fc, meta, propKey, econKey) {
       },
     });
     fitPoland(map, 6);
+    map.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: 'metric' }), 'bottom-left');
 
     const tip = ensureTip();
     let hover = null;

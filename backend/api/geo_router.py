@@ -429,16 +429,19 @@ def cities_without_zabka() -> CitiesWithoutZabkaResponse:
     total = total_row[0] if total_row else 302
 
     rows = client.execute("""
-        SELECT dc.name, dv.name AS voivodeship, dc.population
+        SELECT dc.name, dv.name AS voivodeship, dc.population,
+               dp.centroid_lon, dp.centroid_lat
         FROM dim_city dc
         JOIN dim_voivodeship dv ON dv.id = dc.voivodeship_id
+        LEFT JOIN dim_powiat dp ON dp.id = dc.powiat_id
         WHERE dc.id NOT IN (
             SELECT DISTINCT miasto_id FROM locations
             WHERE deleted_at IS NULL AND miasto_id IS NOT NULL
         )
         ORDER BY dc.population DESC NULLS LAST
     """).fetchall()
-    cities = [CityWithoutZabkaItem(name=r[0], voivodeship=r[1], population=r[2]) for r in rows]
+    cities = [CityWithoutZabkaItem(name=r[0], voivodeship=r[1], population=r[2],
+                                   centroid_lon=r[3], centroid_lat=r[4]) for r in rows]
     without = len(cities)
     return CitiesWithoutZabkaResponse(
         total_cities=total,

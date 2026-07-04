@@ -428,6 +428,8 @@ class CityWithoutZabkaItem(BaseModel):
     name: str
     voivodeship: str
     population: int | None
+    centroid_lon: float | None = None
+    centroid_lat: float | None = None
 
 class CitiesWithoutZabkaResponse(BaseModel):
     total_cities: int

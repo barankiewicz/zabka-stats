@@ -1294,6 +1294,7 @@ let _wojLabelMarkers=[];   // MapLibre HTML markers carrying the value labels
 let _mapMode='2d';
 let _powGeo=null;
 let _wojLevelLive='voivodeship';  // level actually drawn on the right map (see _fillWoj)
+let _wojScale=null;              // ScaleControl instance, only when level === 'powiat'
 
 function _wVk(){return _wojMetricLive==='per1k'?'per_1k':_wojMetricLive==='per_km2'?'per_km2':'cnt'}
 function _wFmtVal(r){
@@ -1393,7 +1394,7 @@ function _updateMapMode(){
   if(_wojMap.getLayer('gran-woj-fill')) _wojMap.setLayoutProperty('gran-woj-fill','visibility',is3d?'none':'visible');
   if(_wojMap.getLayer('gran-woj-line')) _wojMap.setLayoutProperty('gran-woj-line','visibility',is3d?'none':'visible');
   if(_wojMap.getLayer('gran-woj-extrusion')) _wojMap.setLayoutProperty('gran-woj-extrusion','visibility',is3d?'visible':'none');
-  
+
   _wojMap.dragPan.enable();
   _wojMap.scrollZoom.enable();
   _wojMap.doubleClickZoom.enable();
@@ -1411,6 +1412,23 @@ function _updateMapMode(){
   }else{
     _wojMap.dragRotate.disable();
     _wojMap.easeTo({center:[19.3,52.05],zoom:5.7,pitch:0,bearing:0,duration:1000});
+  }
+}
+
+// Scale bar (km) on the GRAN map, but only at the powiat level. Wojewodztwo
+// polygons are too coarse for a "200 km" ruler to add information; the
+// choropleth itself already tells you the unit. Powiaty are small enough that
+// a scale helps the eye anchor the visual.
+function _updateWojScale(){
+  if(!_wojMap)return;
+  const want = _wojLevelLive === 'powiat';
+  const has = !!_wojScale;
+  if(want && !has){
+    _wojScale = new maplibregl.ScaleControl({ maxWidth: 100, unit: 'metric' });
+    _wojMap.addControl(_wojScale, 'bottom-left');
+  } else if(!want && has){
+    _wojMap.removeControl(_wojScale);
+    _wojScale = null;
   }
 }
 
@@ -1517,6 +1535,7 @@ async function _buildWojMap(el){
       });
       
       fitPoland(_wojMap,6);
+      _updateWojScale();
       _wojSrcReady=true;
     });
   } catch (e) {
@@ -1548,6 +1567,7 @@ async function _fillWoj(){
   // to make Powiaty/Miasta render as pixel-identical maps).
   const level = _gDim === 'powiat' ? 'powiat' : 'voivodeship';
   _wojLevelLive = level;
+  if (_wojSrcReady) _updateWojScale();
   const limit = level === 'voivodeship' ? 16 : 400;
 
   const res = await fetchDim(level, _gMetric, 'desc', limit, 0);

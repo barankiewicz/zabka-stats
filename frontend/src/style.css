@@ -225,6 +225,10 @@ canvas{display:block}
   border:1px solid rgba(140,200,80,.3);color:var(--ink);border-radius:8px;padding:5px 10px;
   font-family:var(--font-body);font-size:11px;cursor:pointer}
 .map-reset-btn:hover{border-color:rgba(166,232,74,.6)}
+/* scale bar (km) - dark theme */
+.maplibregl-ctrl-scale{background:rgba(8,17,10,.78);border-color:rgba(140,200,80,.45);color:#c8d4ba;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.03em;border-width:1px;border-top:0}
+.maplibregl-ctrl-scale::before,.maplibregl-ctrl-scale::after{background:rgba(140,200,80,.45)}
+
 /* dark theme for MapLibre's cooperative-gesture hint ("ctrl + scroll to zoom") */
 .maplibregl-cooperative-gesture-screen{background:rgba(10,18,10,.9)!important;color:#93a487!important}
 .maplibregl-cooperative-gesture-screen::before{background-color:rgba(132,195,65,.12)!important}

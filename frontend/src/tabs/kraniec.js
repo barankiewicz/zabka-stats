@@ -30,6 +30,7 @@ const COL = {
   parks:      '#84c341',
   twins:      '#a6e84a',
   history:    '#a6e84a',
+  nogap:      '#f2a359',
 };
 
 const HOME = [19.3, 52.05], HOME_Z = 6;
@@ -206,6 +207,28 @@ function buildFacts() {
     short: t('fact_short_h24'),
     desc: t('fact_desc_h24').replace('{count}', fmt(h24Count)).replace('{total}', fmt(total)),
     dots: h24pts });
+
+  // Miasta bez Żabki - jeden wpis per miasto, marker w centrum powiatu
+  // (powiat jest jedynym admin levelem z centroidem; miasto leży wewnątrz,
+  // więc przybliżenie wystarczy dla Atlasu). Centroid_lon/lat pochodzą z
+  // endpointu /api/stats/cities-without-zabka (JOIN z dim_powiat).
+  const cgap = (M.cities_without_zabka || {}).cities || [];
+  cgap.forEach((c, i) => {
+    if (c.centroid_lon == null || c.centroid_lat == null) return;
+    const pop = c.population != null ? fmt(c.population) : '–';
+    const slug = (c.name || 'city_' + i)
+      .toLowerCase()
+      .replace(/[^a-z0-9ąćęłńóśźż]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .replace(/ą/g, 'a').replace(/ć/g, 'c').replace(/ę/g, 'e')
+      .replace(/ł/g, 'l').replace(/ń/g, 'n').replace(/ó/g, 'o')
+      .replace(/ś/g, 's').replace(/ź/g, 'z').replace(/ż/g, 'z');
+    out.push({ id: 'nogap_' + slug, g: 'nogap', grp: t('fact_grp_nogap'), lab: c.name,
+      val: pop + ' ' + t('citygap_pop_unit'),
+      city: c.name, voiv: c.voivodeship || '', street: '',
+      lat: c.centroid_lat, lon: c.centroid_lon, zoom: 11, type: 'point',
+      desc: t('fact_desc_nogap').replace('{city}', c.name).replace('{pop}', pop) });
+  });
 
   // Parki
   out.push({ id: 'parks', g: 'parks', grp: t('fact_grp_nature'), lab: t('fact_lab_parks'),
