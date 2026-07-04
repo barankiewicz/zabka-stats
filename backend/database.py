@@ -8,8 +8,19 @@ from pathlib import Path
 
 import duckdb
 
+import os
+
 # Database path
-DB_PATH = Path(__file__).parent.parent / "data" / "zabka.duckdb"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DB_PATH = os.getenv("ZABKA_DB")
+if DB_PATH:
+    p = Path(DB_PATH)
+    if not p.is_absolute():
+        DB_PATH = (PROJECT_ROOT / p).resolve()
+    else:
+        DB_PATH = p.resolve()
+else:
+    DB_PATH = (PROJECT_ROOT / "data" / "zabka.duckdb").resolve()
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 def _run_all_ddl(con):
@@ -556,7 +567,7 @@ def ensure_enrichment_columns(con):
 
     # Remove old fake-data columns (light pollution was derived from neighbor distance,
     # never real measured data). voivodeship/powiat/street are kept — API depends on them.
-    for col in ("light_pollution_brightness", "bortle_scale", "h3_index_9"):
+    for col in ("light_pollution_brightness", "bortle_scale"):
         try:
             con.execute(f"ALTER TABLE locations DROP COLUMN IF EXISTS {col}")
         except Exception:

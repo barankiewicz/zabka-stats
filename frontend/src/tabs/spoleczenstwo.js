@@ -149,18 +149,18 @@ function _setIpData(data, geojson) {
       
       const rr = typeof d.ratio === 'number' ? d.ratio.toFixed(2) : String(d.ratio);
       nf.properties._label = (getLang() === 'en' ? rr : rr.replace('.', ',')) + 'x';
-      
+
       const _rn = f.properties.nazwa || '';
       let dispName = _rn;
       if (_dbLevel !== 'voivodeship') {
         dispName = dispName.replace(/^powiat\s+/i, '');
       }
       nf.properties._name = dispName ? dispName[0].toUpperCase() + dispName.slice(1) : dispName;
-      
+
       const z = (d.zabki_per_100k || 0).toFixed(1), p = (d.lockers_per_100k || 0).toFixed(1);
-      const zabkaLabel = getLang() === 'en' ? 'Zabka' : 'Żabka';
-      const ratioLabel = getLang() === 'en' ? 'ratio' : 'stosunek';
-      
+      const zabkaLabel = t('brand_zabka');
+      const ratioLabel = t('ratio_label');
+
       nf.properties._tip = `<div style="font-weight:700;font-size:13px;margin-bottom:3px">${escapeHtml(nf.properties._name)}</div>` +
         `<div style="font-size:12px;color:#93a487">${zabkaLabel}: ${(getLang() === 'en' ? z : z.replace('.', ','))}/100k</div>` +
         `<div style="font-size:12px;color:#93a487">InPost: ${(getLang() === 'en' ? p : p.replace('.', ','))}/100k</div>` +
@@ -303,7 +303,7 @@ async function _buildInpostMap(el){
     });
   } catch (e) {
     if (e instanceof WebGLUnavailableError) {
-      showMapUnavailable(el, { message: getLang() === 'en' ? 'Zabka vs InPost map unavailable' : 'Mapa Żabka vs InPost niedostępna' });
+      showMapUnavailable(el, { message: t('map_inpost_unavailable') });
       _ipMap = null;
       return;
     }
@@ -515,7 +515,7 @@ export function renderGminaLeaders(){
     value:gl.national_per_1k,
     axis:'x',
     color:'rgba(255,255,255,.3)',
-    label: (getLang() === 'en' ? 'nat. avg. ' : 'śr. kraj ') + (getLang() === 'en' ? String(gl.national_per_1k) : String(gl.national_per_1k).replace('.',','))
+    label: t('nat_avg_prefix') + (getLang() === 'en' ? String(gl.national_per_1k) : String(gl.national_per_1k).replace('.',','))
   }]:[];
   destroyChart('gmina-lead');
   CHARTS['gmina-lead']=new Chart(document.getElementById('chart-gmina-lead'),{
@@ -553,9 +553,9 @@ function wireStreetsAndGmina(){
 let _nblLevel='voivodeship', _nblMetric='median_m', _nblSort='asc';
 const _nblCache={};
 const _NBL_LABEL={
-  get voivodeship() { return getLang() === 'en' ? 'voivodeships' : 'województw'; },
-  get powiat() { return getLang() === 'en' ? 'districts' : 'powiatów'; },
-  get city() { return getLang() === 'en' ? 'cities' : 'miast'; }
+  get voivodeship() { return t('gran_word_voivodeship'); },
+  get powiat() { return t('gran_word_powiat'); },
+  get city() { return t('gran_word_city'); }
 };
 
 async function _fetchNbl(level,metric,sort){
@@ -598,7 +598,7 @@ function _drawNbl(data){
     const ns=(M.neighbor_stats&&M.neighbor_stats.distribution)||{};
     const natVal=metric==='median_m'?(ns.median_m||null):(ns.avg_m||null);
     if(natVal!=null){
-      labels.push(getLang() === 'en' ? 'Others' : 'Pozostałe');
+      labels.push(t('bucket_others'));
       vals.push(Math.round(natVal));
       bgs.push('rgba(147,164,135,0.35)');
     }
@@ -618,9 +618,9 @@ function _drawNbl(data){
         tooltip:{callbacks:{label:ctx=>{const d=rows[ctx.dataIndex];if(!d)return[];return [
           `${t('knn_median').toLowerCase()} ${d.median_m.toLocaleString(getLang() === 'en' ? 'en-US' : 'pl-PL')} m`,
           `${t('knn_mean').toLowerCase()} ${d.avg_m.toLocaleString(getLang() === 'en' ? 'en-US' : 'pl-PL')} m`,
-          `${d.n} ${getLang() === 'en' ? 'stores' : 'sklepów'}`]}}},
+          `${d.n} ${t('unit_store_plural')}`]}}},
         barLabels:{thousands:true,color:C.muted,suffix:' m'}},
-      scales:{x:{grid:{color:C.axis},title:{display:true,text: getLang() === 'en' ? 'meters to nearest Zabka' : 'metry do najbliższej Żabki',color:C.muted,font:{size:11}},ticks:{color:C.muted,font:{size:10}}},
+      scales:{x:{grid:{color:C.axis},title:{display:true,text: t('nbl_axis_meters'),color:C.muted,font:{size:11}},ticks:{color:C.muted,font:{size:10}}},
         y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
     }
   });
@@ -669,10 +669,10 @@ let _dbDataCache={};
 
 const _DB_LEVEL_MAP={'voivodeship':'voivodeship','powiat':'powiat','city':'city','gmina':'gmina'};
 const _DB_LEVEL_LABEL_PL={
-  get voivodeship() { return getLang() === 'en' ? 'voivodeships' : 'województw'; },
-  get powiat() { return getLang() === 'en' ? 'districts' : 'powiatów'; },
-  get city() { return getLang() === 'en' ? 'cities' : 'miast'; },
-  get gmina() { return getLang() === 'en' ? 'communes' : 'gmin'; }
+  get voivodeship() { return t('gran_word_voivodeship'); },
+  get powiat() { return t('gran_word_powiat'); },
+  get city() { return t('gran_word_city'); },
+  get gmina() { return t('gran_word_gmina'); }
 };
 
 async function fetchDumbbellLevel(level,limit){
@@ -776,9 +776,9 @@ export function renderDumbbell(data){
       const z=(d.zabki_per_100k||0).toFixed(1);
       const p=(d.lockers_per_100k||0).toFixed(1);
       const ratio=typeof d.ratio==='number'?(getLang() === 'en' ? d.ratio.toFixed(2) : d.ratio.toFixed(2).replace('.',',')):String(d.ratio||'–');
-      const ratioLabel = getLang() === 'en' ? 'ratio' : 'stosunek';
+      const ratioLabel = t('ratio_label');
       _dbTip.innerHTML=`<div style="font-weight:700;margin-bottom:2px">${escapeHtml(name)}</div>`+
-        `<span style="color:#84c341">${getLang() === 'en' ? 'Zabka' : 'Żabka'}: ${(getLang() === 'en' ? z : z.replace('.', ','))}/100k</span>&nbsp;&nbsp;`+
+        `<span style="color:#84c341">${t('brand_zabka')}: ${(getLang() === 'en' ? z : z.replace('.', ','))}/100k</span>&nbsp;&nbsp;`+
         `<span style="color:#f2a359">InPost: ${(getLang() === 'en' ? p : p.replace('.', ','))}/100k</span>`+
         `<div style="color:#93a487;margin-top:2px">${ratioLabel}: ${ratio}x</div>`;
       _dbTip.style.opacity='1';
@@ -827,8 +827,8 @@ export async function renderDumbbellByLevel(){
       const sumI=inpostRows.reduce((s,d)=>s+(d.lockers_per_100k||0),0);
       const ratio=sumZ>0?sumI/sumZ:null;
       const ratioStr = ratio ? (getLang() === 'en' ? ratio.toFixed(2) : ratio.toFixed(2).replace('.', ',')) : '';
-      const suffix = getLang() === 'en' ? ' parcel lockers per Zabka in Poland' : ' paczkomaty na każdą Żabkę w Polsce';
-      title.textContent='Żabka vs InPost'+(ratio?' – '+ratioStr+suffix:'');
+      const suffix = t('inpost_lockers_per_store_suffix');
+      title.textContent=t('inpost_title')+(ratio?' – '+ratioStr+suffix:'');
     }
     return;
   }
@@ -908,8 +908,8 @@ function renderSpolKnn(){
   const legEl=document.getElementById('spol-knn-legend');
   if(legEl){
     const parts=[];
-    if(med!=null) parts.push(`<span class="lg-item" style="color:#86a86a"><span class="lg-line"></span>MED ${Math.round(med)} m</span>`);
-    if(avg!=null) parts.push(`<span class="lg-item" style="color:#c79257"><span class="lg-line"></span>AVG ${Math.round(avg)} m</span>`);
+    if(med!=null) parts.push(`<span class="lg-item" style="color:#86a86a"><span class="lg-line"></span>${t('knn_median')} ${Math.round(med)} m</span>`);
+    if(avg!=null) parts.push(`<span class="lg-item" style="color:#c79257"><span class="lg-line"></span>${t('knn_mean')} ${Math.round(avg)} m</span>`);
     legEl.innerHTML=parts.join('');
   }
 

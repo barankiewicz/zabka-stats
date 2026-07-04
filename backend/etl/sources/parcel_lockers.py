@@ -23,7 +23,10 @@ INPOST_TYPE = os.getenv("INPOST_TYPE", "parcel_locker")   # parcel_locker | pop
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 PACZKOMAT_CACHE = os.getenv("PACZKOMAT_CACHE")
 if PACZKOMAT_CACHE:
-    PACZKOMAT_CACHE = os.path.abspath(PACZKOMAT_CACHE)
+    if not os.path.isabs(PACZKOMAT_CACHE):
+        PACZKOMAT_CACHE = os.path.abspath(os.path.join(_PROJECT_ROOT, PACZKOMAT_CACHE))
+    else:
+        PACZKOMAT_CACHE = os.path.abspath(PACZKOMAT_CACHE)
 else:
     PACZKOMAT_CACHE = os.path.join(_PROJECT_ROOT, "data", "geo", "paczkomaty_pl.json")
 INPOST_PER_PAGE = 500

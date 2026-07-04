@@ -1,3 +1,5 @@
+import { getLang } from './i18n.js';
+
 export const MACRO = {
   pomorskie:'North','warmińsko-mazurskie':'North','kujawsko-pomorskie':'North',podlaskie:'North',
   'dolnośląskie':'West',zachodniopomorskie:'West',lubuskie:'West',opolskie:'West',
@@ -66,8 +68,8 @@ export const barValueLabels = {
     const format=v=>{
       if(typeof v!=='number'||isNaN(v))return'';
       let s;
-      if(opt.decimals!=null) s=v.toFixed(opt.decimals).replace('.',',');
-      else if(opt.thousands) s=v.toLocaleString('pl-PL');
+      if(opt.decimals!=null) s=getLang()==='en'?v.toFixed(opt.decimals):v.toFixed(opt.decimals).replace('.',',');
+      else if(opt.thousands) s=v.toLocaleString(getLang()==='en'?'en-US':'pl-PL');
       else s=String(v);
       if(opt.suffix) s+=opt.suffix;
       return s;

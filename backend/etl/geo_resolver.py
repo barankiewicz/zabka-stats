@@ -21,7 +21,11 @@ class GugikGeoResolver:
             project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             self.cache_path = os.path.join(project_root, "data", "geo", ".city_gugik_cache.json")
         else:
-            self.cache_path = cache_path
+            if not os.path.isabs(cache_path):
+                project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                self.cache_path = os.path.abspath(os.path.join(project_root, cache_path))
+            else:
+                self.cache_path = os.path.abspath(cache_path)
         self.gugik_cache = self._load_cache()
         self.cache_dirty = False
         

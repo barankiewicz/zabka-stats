@@ -391,9 +391,10 @@ def test_with_retries():
     assert fn.call_count == 3
 
 
+@patch("backend.etl.io.time.sleep")
 @patch("requests.get")
 @patch("os.path.exists")
-def test_fetch_zabka_json(mock_exists, mock_get):
+def test_fetch_zabka_json(mock_exists, mock_get, mock_sleep):
     # Mock successful HTTP request
     mock_resp = MagicMock()
     mock_resp.status_code = 200

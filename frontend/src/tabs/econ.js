@@ -12,6 +12,7 @@ import { M, MAPS } from '../state.js';
 import { fetchJSON } from '../data.js';
 import { debounce, escapeHtml } from '../utils.js';
 import { loadMaplibre } from '../maplibre-lazy.js';
+import { t, getLang } from '../i18n.js';
 
 // MapLibre is already loaded higher up this tab (the InPost choropleth), so this
 // lazy import resolves instantly; keeping it lazy avoids pulling it in when the
@@ -24,8 +25,16 @@ function ensureMaplibre() {
   });
 }
 
-const plr = r => (r >= 0 ? '+' : '−') + Math.abs(r).toFixed(2).replace('.', ',');
-const dec3 = v => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(3).replace('.', ',');
+const plr = r => {
+  const formatted = Math.abs(r).toFixed(2);
+  const sep = getLang() === 'en' ? '.' : ',';
+  return (r >= 0 ? '+' : '−') + formatted.replace('.', sep);
+};
+const dec3 = v => {
+  const formatted = Math.abs(v).toFixed(3);
+  const sep = getLang() === 'en' ? '.' : ',';
+  return (v >= 0 ? '+' : '−') + formatted.replace('.', sep);
+};
 
 // Diverging ramp from a symmetric bound: red-orange (below trend) -> pale
 // neutral (on trend) -> Żabka green (above trend). MapLibre clamps values
@@ -53,24 +62,33 @@ function ensureTip() {
 
 function tipHtml(p, propKey, econKey) {
   if (!('per_1k' in p)) {
-    return `<b>${escapeHtml(p.nazwa || '')}</b><br/><span style="color:#93a487">brak danych ekonomicznych</span>`;
+    return `<b>${escapeHtml(p.nazwa || '')}</b><br/><span style="color:#93a487">${t('econ_tip_no_data')}</span>`;
   }
   const resid = propKey === 'resid_salary' ? p.resid_salary : p.resid_unemp;
   const denser = resid >= 0;
+  const lang = getLang();
+  const locale = lang === 'en' ? 'en-US' : 'pl-PL';
+  const decSep = lang === 'en' ? '.' : ',';
+  const formattedSalary = Number(p.avg_salary).toLocaleString(locale);
+  const formattedUnemp = String(p.unemployment_rate).replace('.', decSep);
   const econLine = econKey === 'salary'
-    ? `Średnia płaca: <b>${Number(p.avg_salary).toLocaleString('pl-PL')} zł</b>`
-    : `Bezrobocie: <b>${String(p.unemployment_rate).replace('.', ',')}%</b>`;
+    ? `${t('econ_tip_avg_salary')} <b>${formattedSalary} zł</b>`
+    : `${t('econ_tip_unemployment')} <b>${formattedUnemp}%</b>`;
+  const word = denser ? t('econ_tip_denser') : t('econ_tip_sparser');
+  const trendText = t('econ_tip_trend_suffix')
+    .replace('{word}', word)
+    .replace('{resid}', dec3(resid));
   return `<span style="font-family:JetBrains Mono;font-size:12px;line-height:1.6;color:#eef3e6">
     <b>${escapeHtml(p.name || p.nazwa)}</b><br/>
-    Żabki / 1000 mieszk.: <b>${Number(p.per_1k).toFixed(3).replace('.', ',')}</b><br/>
+    ${t('econ_tip_per1k')} <b>${Number(p.per_1k).toFixed(3).replace('.', decSep)}</b><br/>
     ${econLine}<br/>
-    <span style="color:${denser ? '#a6e84a' : '#e8693d'}">${denser ? 'gęściej' : 'rzadziej'} niż przewiduje trend (${dec3(resid)})</span></span>`;
+    <span style="color:${denser ? '#a6e84a' : '#e8693d'}">${trendText}</span></span>`;
 }
 
 function legendHtml() {
-  return `<span class="econ-lg-item"><span class="econ-lg-swatch" style="background:#e8693d"></span>rzadziej niż trend</span>` +
-    `<span class="econ-lg-item"><span class="econ-lg-swatch" style="background:#e9ebd6"></span>zgodnie z trendem</span>` +
-    `<span class="econ-lg-item"><span class="econ-lg-swatch" style="background:#84c341"></span>gęściej niż trend</span>`;
+  return `<span class="econ-lg-item"><span class="econ-lg-swatch" style="background:#e8693d"></span>${t('econ_legend_below')}</span>` +
+    `<span class="econ-lg-item"><span class="econ-lg-swatch" style="background:#e9ebd6"></span>${t('econ_legend_on')}</span>` +
+    `<span class="econ-lg-item"><span class="econ-lg-swatch" style="background:#84c341"></span>${t('econ_legend_above')}</span>`;
 }
 
 const _maps = {};
@@ -89,7 +107,7 @@ async function buildMap(containerId, fc, meta, propKey, econKey) {
       dragRotate: false, scrollZoom: true, doubleClickZoom: true,
     });
   } catch (e) {
-    if (e instanceof WebGLUnavailableError) { showMapUnavailable(el, { message: 'Mapa niedostępna' }); return; }
+    if (e instanceof WebGLUnavailableError) { showMapUnavailable(el, { message: t('map_unavailable_default') }); return; }
     throw e;
   }
   _maps[containerId] = map;

@@ -7,8 +7,8 @@ from pydantic import BaseModel, ConfigDict, Field
 class SummaryResponse(BaseModel):
     total_active: int
     cities_count: int
-    merrychef_pct: float
-    sunday_pct: float
+    merrychef_pct: float | None = None
+    sunday_pct: float | None = None
     h24_count: int
     last_updated: str | None = None
 

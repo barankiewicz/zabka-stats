@@ -23,9 +23,18 @@ from backend.database import ENRICHMENT_COLUMNS
 from backend.etl.geo import poland_rings
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
+def make_absolute(path_str: str) -> str:
+    if not path_str:
+        return path_str
+    p = Path(path_str)
+    if not p.is_absolute():
+        return str((PROJECT_ROOT / p).resolve())
+    return str(p.resolve())
+
 DB_PATH = os.getenv("ZABKA_DB")
 if DB_PATH:
-    DB_PATH = str(Path(DB_PATH).resolve())
+    DB_PATH = make_absolute(DB_PATH)
 else:
     DB_PATH = str(PROJECT_ROOT / "data" / "zabka.duckdb")
 # Zrodlo danych Zabki - publiczny locator. Nadpisywalny przez env.
@@ -92,6 +101,8 @@ def fetch_zabka_json(url: str = ZABKA_SOURCE_URL, fallback: str = None) -> dict:
     data = with_retries(_download, "fetch")
     if data is not None:
         return data
+    if fallback:
+        fallback = make_absolute(fallback)
     if fallback and os.path.exists(fallback):
         print(f"[fetch] uzywam pliku lokalnego: {fallback}")
         with open(fallback, encoding="utf-8") as f:

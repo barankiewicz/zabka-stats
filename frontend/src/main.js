@@ -86,9 +86,9 @@ function showTabError(tabEl, onRetry){
   banner.setAttribute('aria-live','polite');
   banner.style.cssText='margin:24px;padding:16px 18px;border:1px solid rgba(232,105,61,.35);'+
     'background:rgba(232,105,61,.08);border-radius:10px;color:var(--ink);font-family:var(--font-body);';
-  banner.innerHTML='<div style="margin-bottom:10px">Nie udało się załadować danych tej zakładki. Sprawdź połączenie i spróbuj ponownie.</div>';
+  banner.innerHTML=`<div style="margin-bottom:10px">${t('tab_load_error')}</div>`;
   const btn=document.createElement('button');
-  btn.type='button';btn.className='btn';btn.textContent='Spróbuj ponownie';
+  btn.type='button';btn.className='btn';btn.textContent=t('econ_error_retry');
   btn.addEventListener('click',()=>{hideTabError(tabEl);onRetry();});
   banner.appendChild(btn);
   tabEl.prepend(banner);

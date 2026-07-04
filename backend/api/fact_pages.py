@@ -41,17 +41,17 @@ def _query_facts() -> dict[str, dict]:
     void = client.execute(
         "SELECT value, lat, lon FROM fun_facts WHERE key = 'farthest_from_zabka'"
     ).fetchone()
-    void_str = str(round(float(void[0]), 2)).replace(".", ",") if void else "46,52"
+    void_str = f"{round(float(void[0]), 2)} km".replace(".", ",") if void else "brak danych"
     facts["pustka-bieszczadzka"] = {
         "fact_id": "void",
-        "title": f"Pustka Bieszczad: {void_str} km od najbliższej Żabki",
+        "title": f"Pustka Bieszczad: {void_str} od najbliższej Żabki" if void else "Pustka Bieszczad: brak danych",
         "description": (
-            f"Gdzieś w Bieszczadach jest punkt oddalony o {void_str} km od "
+            f"Gdzieś w Bieszczadach jest punkt oddalony o {void_str} od "
             "najbliższej Żabki - największa biała plama na mapie ponad 13 "
-            "tysięcy sklepów w Polsce."
+            "tysięcy sklepów w Polsce." if void else "Brak danych o najdalszym punkcie."
         ),
         "og_kicker": "Pustka Bieszczad",
-        "og_value": f"{void_str} km",
+        "og_value": void_str,
         "og_subtitle": "od najbliższej Żabki",
         "og_footer": "Bieszczady, podkarpackie",
     }
@@ -62,21 +62,21 @@ def _query_facts() -> dict[str, dict]:
           AND nearest_neighbor_distance_meters IS NOT NULL
         ORDER BY nearest_neighbor_distance_meters DESC LIMIT 1
     """).fetchone()
-    loner_city = loner[0] if loner else "Michałowo"
-    loner_voiv = loner[1] if loner else "podlaskie"
-    loner_km_str = str(round((loner[2] if loner else 27321) / 1000, 1)).replace(".", ",")
+    loner_city = loner[0] if loner else "brak danych"
+    loner_voiv = loner[1] if loner else "brak danych"
+    loner_km_str = f"{round(loner[2] / 1000, 1)} km".replace(".", ",") if loner else "brak danych"
     facts["samotna-zabka"] = {
         "fact_id": "isolated",
-        "title": f"Najbardziej samotna Żabka w Polsce: {loner_km_str} km do sąsiadki",
+        "title": f"Najbardziej samotna Żabka w Polsce: {loner_km_str} do sąsiadki" if loner else "Najbardziej samotna Żabka w Polsce: brak danych",
         "description": (
             f"W {loner_city} ({loner_voiv}) stoi Żabka, której najbliższa "
-            f"siostra jest {loner_km_str} km dalej - najbardziej odizolowany "
-            "sklep w całej sieci."
+            f"siostra jest {loner_km_str} dalej - najbardziej odizolowany "
+            "sklep w całej sieci." if loner else "Brak danych o samotnej Żabce."
         ),
         "og_kicker": "Najdalej od sąsiadki",
-        "og_value": f"{loner_km_str} km",
+        "og_value": loner_km_str,
         "og_subtitle": "do najbliższej Żabki",
-        "og_footer": f"{loner_city}, {loner_voiv}",
+        "og_footer": f"{loner_city}, {loner_voiv}" if loner else "brak danych",
     }
 
     oldest = client.execute("""
@@ -85,21 +85,21 @@ def _query_facts() -> dict[str, dict]:
         WHERE deleted_at IS NULL AND first_opening_date IS NOT NULL
         ORDER BY first_opening_date ASC LIMIT 1
     """).fetchone()
-    oldest_city = oldest[0] if oldest else "Swarzędz"
-    oldest_voiv = oldest[1] if oldest else "wielkopolskie"
-    oldest_year = str(oldest[2])[:4] if oldest else "1998"
+    oldest_city = oldest[0] if oldest else "brak danych"
+    oldest_voiv = oldest[1] if oldest else "brak danych"
+    oldest_year = str(oldest[2])[:4] if oldest else "brak danych"
     facts["najstarsza-zabka"] = {
         "fact_id": "oldest",
-        "title": f"Najstarsza wciąż działająca Żabka: {oldest_city}, {oldest_year}",
+        "title": f"Najstarsza wciąż działająca Żabka: {oldest_city}, {oldest_year}" if oldest else "Najstarsza wciąż działająca Żabka: brak danych",
         "description": (
             f"Ta Żabka w {oldest_city} działa nieprzerwanie od {oldest_year} "
             "roku - najstarszy wciąż czynny sklep w całej sieci ponad 13 "
-            "tysięcy Żabek."
+            "tysięcy Żabek." if oldest else "Brak danych o najstarszej Żabce."
         ),
         "og_kicker": "Najstarsza aktywna",
         "og_value": oldest_year,
         "og_subtitle": "wciąż działa",
-        "og_footer": f"{oldest_city}, {oldest_voiv}",
+        "og_footer": f"{oldest_city}, {oldest_voiv}" if oldest else "brak danych",
     }
 
     facts["zielonej-zabki"] = {
@@ -121,17 +121,17 @@ def _query_facts() -> dict[str, dict]:
         FROM locations WHERE deleted_at IS NULL
           AND nearest_neighbor_distance_meters IS NOT NULL
     """).fetchone()
-    median_m = round(float(median[0])) if median and median[0] is not None else 299
+    median_m = round(float(median[0])) if median and median[0] is not None else None
     facts["mediana-odleglosci"] = {
         "fact_id": None,
-        "title": f"Połowa Żabek ma sąsiadkę bliżej niż {median_m} m",
+        "title": f"Połowa Żabek ma sąsiadkę bliżej niż {median_m} m" if median_m is not None else "Połowa Żabek ma sąsiadkę blisko: brak danych",
         "description": (
             f"Mediana odległości do najbliższej Żabki to zaledwie {median_m} "
             "metrów. Połowa z ponad 13 tysięcy sklepów w Polsce ma inną "
-            "Żabkę bliżej niż trzy minuty spacerem."
+            "Żabkę bliżej niż trzy minuty spacerem." if median_m is not None else "Brak danych o odległościach."
         ),
         "og_kicker": "Najbliższy sąsiad",
-        "og_value": f"{median_m} m",
+        "og_value": f"{median_m} m" if median_m is not None else "brak danych",
         "og_subtitle": "mediana odległości do najbliższej Żabki",
         "og_footer": "cała sieć, Polska",
     }

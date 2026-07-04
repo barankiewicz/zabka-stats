@@ -14,7 +14,10 @@ from backend.etl.io import load_static_geojson
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 PARKS_FILE = os.getenv("PARKS_GEOJSON_FILE")
 if PARKS_FILE:
-    PARKS_FILE = os.path.abspath(PARKS_FILE)
+    if not os.path.isabs(PARKS_FILE):
+        PARKS_FILE = os.path.abspath(os.path.join(_PROJECT_ROOT, PARKS_FILE))
+    else:
+        PARKS_FILE = os.path.abspath(PARKS_FILE)
 else:
     PARKS_FILE = os.path.join(_PROJECT_ROOT, "data", "input", "parki_gdos.geojson")
 PARKS_URL = os.getenv("PARKS_GEOJSON_URL", "")

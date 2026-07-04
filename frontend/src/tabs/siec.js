@@ -192,22 +192,20 @@ function startHeroParticles(){
 
 /* ---------------- STAT STRIP: milestone cadence + origins ---------------- */
 
-const PL_MONTHS=['stycznia','lutego','marca','kwietnia','maja','czerwca','lipca','sierpnia','września','października','listopada','grudnia'];
-const EN_MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
-
 function formatYears(n){
   if(getLang()==='en') return n===1?'year':'years';
-  const u=n%10,t=n%100;
+  const u=n%10,t2=n%100;
   if(n===1)return'rok';
-  if(u>=2&&u<=4&&(t<12||t>14))return'lata';
+  if(u>=2&&u<=4&&(t2<12||t2>14))return'lata';
   return'lat';
 }
 
 function formatDate(s){
   if(!s)return'–';
   const[y,m,d]=s.split('-').map(Number);
-  if(getLang()==='en') return `${EN_MONTHS[m-1]||''} ${d}, ${y}`;
-  return `${d} ${PL_MONTHS[m-1]||''} ${y}`;
+  const months=t('months_full');
+  if(getLang()==='en') return `${months[m-1]||''} ${d}, ${y}`;
+  return `${d} ${months[m-1]||''} ${y}`;
 }
 
 export function renderStatStrip(){
@@ -299,9 +297,7 @@ let growthMap=null,growthRaf=null,growthLoopTimer=null;
 let growthLoop=true; // auto-repeat until the user grabs the timeline
 let calData=null;    // {byYM: Map(year*100+month -> cnt), max}
 const GROWTH_MIN=1998,GROWTH_MAX=2026;
-const getMonthIni= () => getLang() === 'en'
-  ? ['J','F','M','A','M','J','J','A','S','O','N','D']
-  : ['S','L','M','K','M','C','L','S','W','P','L','G'];
+const getMonthIni = () => t('months_initial');
 
 // Calendar animation state
 let _calAnimMap=new Map(); // key(y*100+m) -> {born:ms, dir:-1|1}
@@ -452,14 +448,14 @@ export async function renderGrowthMap(){
       if(!el.querySelector('.map-zoom-hint')){
         const hint=document.createElement('div');
         hint.className='map-zoom-hint';
-        hint.innerHTML='<span class="hint-mouse">ctrl + scroll przybliża</span><span class="hint-touch">dwoma palcami przesuwasz i przybliżasz</span>';
+        hint.innerHTML=`<span class="hint-mouse">${t('map_zoom_hint_mouse')}</span><span class="hint-touch">${t('map_zoom_hint_touch')}</span>`;
         el.appendChild(hint);
       }
       if(!el.querySelector('.map-reset-btn')){
         const rb=document.createElement('button');
         rb.className='map-reset-btn';rb.type='button';
-        rb.textContent='Reset widoku';
-        rb.setAttribute('aria-label','Resetuj widok mapy');
+        rb.textContent=t('map_reset_view');
+        rb.setAttribute('aria-label',t('map_reset_view_aria'));
         rb.addEventListener('click',()=>{growthMap.easeTo({pitch:0,bearing:0,zoom:5.0,center:[19.3,52.05],duration:600})});
         el.appendChild(rb);
       }
@@ -515,7 +511,7 @@ export async function renderGrowthMap(){
       window.addEventListener('resize',debounce(()=>{drawCalendar(slider?+slider.value:GROWTH_MAX)}));
     } catch (e) {
       if (e instanceof WebGLUnavailableError) {
-        showMapUnavailable(el, { message: getLang() === 'en' ? 'Expansion map unavailable' : 'Mapa ekspansji niedostępna' });
+        showMapUnavailable(el, { message: t('map_growth_unavailable') });
         growthMap = null;
         return;
       }
@@ -676,9 +672,9 @@ export function drawFingerprintFlat(){
         tt.style.left=Math.min(clientX-rect.left+12,fpfData.W-190)+'px';
         tt.style.top=(clientY-rect.top-20)+'px';
         tt.innerHTML=`<div style="color:${col};font-family:var(--font-display);font-weight:700;font-size:16px">${yr}</div>
-          ${yd?`<div style="margin-top:6px;font-size:12px">Nowych: <span style="color:var(--ink);font-family:var(--font-mono)">${fmt(yd.new_stores)}</span></div>`:''}
-          <div style="font-size:12px;margin-top:2px">Kursor: <span style="color:${C.teal};font-weight:600">${dirLabel}</span> (${fmt(bins[bin])})</div>
-          <div style="font-size:12px;margin-top:2px">dominanta ROKU: <span style="color:${C.green};font-weight:600">${domLabel}</span></div>`;
+          ${yd?`<div style="margin-top:6px;font-size:12px">${t('fpf_tooltip_new')} <span style="color:var(--ink);font-family:var(--font-mono)">${fmt(yd.new_stores)}</span></div>`:''}
+          <div style="font-size:12px;margin-top:2px">${t('fpf_tooltip_cursor')} <span style="color:${C.teal};font-weight:600">${dirLabel}</span> (${fmt(bins[bin])})</div>
+          <div style="font-size:12px;margin-top:2px">${t('fpf_tooltip_dominant_year')} <span style="color:${C.green};font-weight:600">${domLabel}</span></div>`;
       }else tt.style.display='none';
     };
     const handleLeave = () => {
@@ -865,7 +861,7 @@ export function renderGrowthChart(){
       },
       scales: {
         x: {
-          title: { display: true, text: 'Rok →', color: C.muted },
+          title: { display: true, text: t('chart_growth_xaxis'), color: C.muted },
           grid: { display: false },
           ticks: { color: C.muted },
         },
@@ -874,7 +870,7 @@ export function renderGrowthChart(){
           // Plot's rounder-looking axis) instead of clamping exactly to
           // maxStores. Safe to do independently of the line, since yoy lives
           // on its own hidden y1 axis scaled to maxYoy regardless of this one.
-          title: { display: true, text: '↑ Nowe sklepy', color: C.muted },
+          title: { display: true, text: t('chart_growth_new_axis'), color: C.muted },
           beginAtZero: true,
           grid: { color: C.axis },
           ticks: { color: C.muted },
@@ -923,7 +919,7 @@ export function renderCityGap(){
 /* ---------------- powiat coverage tile: 380/380 + dot map ----- */
 
 let _pcLevel='powiaty';
-const _PC_CAP={powiaty:'powiatów ma Żabkę',miasta:'miast ma Żabkę',gminy:'gmin ma Żabkę'};
+const _PC_KEY={powiaty:'coverage_suffix_powiat',miasta:'coverage_suffix_city',gminy:'coverage_suffix_gmina'};
 let _pcState=null;   // persistent so a level switch animates instead of jumping
 let _pcOutline=null; // cached offscreen render of the static voivodeship outline
 
@@ -934,7 +930,7 @@ export function renderPowiatCoverage(){
     || (_pcLevel==='powiaty'?{covered:pc.covered,total:pc.total,pct:100}:{covered:0,total:0,pct:0});
   const pct=node.pct!=null?node.pct:0;
   const setT=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null)el.textContent=v};
-  setT('powiat-cap',_PC_CAP[_pcLevel]||'');   // label can snap
+  setT('powiat-cap',t(_PC_KEY[_pcLevel])||'');   // label can snap
   wirePowiatLevel();
 
   const cv=document.getElementById('canvas-powiat-map');if(!cv)return;
@@ -1303,12 +1299,10 @@ function _wVk(){return _wojMetricLive==='per1k'?'per_1k':_wojMetricLive==='per_k
 function _wFmtVal(r){
   const vk=_wVk();
   if (_wojMetricLive==='count') {
-    const suffix = getLang() === 'en' ? ' stores' : ' sklepów';
-    return `${fmt(r[vk]||r.cnt)}${suffix}`;
+    return `${fmt(r[vk]||r.cnt)} ${t('unit_store_plural')}`;
   }
   if (_wojMetricLive==='per1k') {
-    const suffix = getLang() === 'en' ? '/1k res.' : '/1k mieszk.';
-    return `${getLang() === 'en' ? r.per_1k : String(r.per_1k).replace('.', ',')}${suffix}`;
+    return `${getLang() === 'en' ? r.per_1k : String(r.per_1k).replace('.', ',')}${t('map_tip_per1k_suffix')}`;
   }
   return `${getLang() === 'en' ? r.per_km2 : String(r.per_km2).replace('.', ',')}/km²`;
 }
@@ -1527,7 +1521,7 @@ async function _buildWojMap(el){
     });
   } catch (e) {
     if (e instanceof WebGLUnavailableError) {
-      showMapUnavailable(el, { message: getLang() === 'en' ? 'Voivodeship map unavailable' : 'Mapa województw niedostępna' });
+      showMapUnavailable(el, { message: t('map_voivodeship_unavailable') });
       _wojMap = null; _wojPending = false;
       return;
     }

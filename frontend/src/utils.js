@@ -1,5 +1,6 @@
 import { C, MACRO } from './config.js';
 import { CHARTS } from './state.js';
+import { t, getLang } from './i18n.js';
 
 export function escapeHtml(str) {
   if (!str) return '';
@@ -11,7 +12,7 @@ export function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 export function era(yr){if(yr<=2009)return'#2b531a';if(yr<=2019)return'#4a8a22';if(yr<=2022)return'#74bd2a';return'#a6e84a'}
-export function fmt(n){return(+n).toLocaleString('pl-PL')}
+export function fmt(n){return(+n).toLocaleString(getLang()==='en'?'en-US':'pl-PL')}
 // Backend sends "YYYY-MM-DD HH:MM:SS.ffffff" (str() of a Python datetime) - keep only
 // the minute precision the footer needs.
 export function fmtLastUpdated(raw){
@@ -94,7 +95,7 @@ export function heroCount(el, total, dur=700){
   if(!el) return;
   if(!total){ el.textContent='–'; return; }
   el.dataset.heroDone='1';
-  const f=n=>n.toLocaleString('pl-PL');
+  const f=n=>n.toLocaleString(getLang()==='en'?'en-US':'pl-PL');
   const reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(reduce){ el.textContent=f(total); return; }
   const from=Math.max(0,total-800),t0=performance.now();
@@ -149,7 +150,7 @@ export function wireCountUp(root){
     const target=parseFloat(el.dataset.count);
     if(Number.isNaN(target))return;
     const dec=parseInt(el.dataset.dec||'0',10),suf=el.dataset.suffix||'';
-    const f=v=>v.toLocaleString('pl-PL',{minimumFractionDigits:dec,maximumFractionDigits:dec})+suf;
+    const f=v=>v.toLocaleString(getLang()==='en'?'en-US':'pl-PL',{minimumFractionDigits:dec,maximumFractionDigits:dec})+suf;
     if(prefersReduced){el.textContent=f(target);return;}
     const dur=1300,t0=performance.now();
     (function step(t){let p=Math.min(1,(t-t0)/dur);p=1-Math.pow(1-p,3);el.textContent=f(target*p);if(p<1)requestAnimationFrame(step);})(t0);
@@ -220,8 +221,8 @@ export function showChartStatus(canvasElOrId, type, retryFn) {
   overlay.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--c-muted);font-size:13px;padding:20px;text-align:center';
 
   if (type === 'error') {
-    overlay.innerHTML = `<p style="margin-bottom:12px">Nie udało się załadować danych.</p>` +
-                        `<button type="button" class="gran-btn" style="background:var(--c-green);color:var(--c-bg);border:none;padding:6px 12px;border-radius:4px;cursor:pointer">Spróbuj ponownie</button>`;
+    overlay.innerHTML = `<p style="margin-bottom:12px">${t('econ_error_load')}</p>` +
+                        `<button type="button" class="gran-btn" style="background:var(--c-green);color:var(--c-bg);border:none;padding:6px 12px;border-radius:4px;cursor:pointer">${t('econ_error_retry')}</button>`;
     if (retryFn) {
       overlay.querySelector('button').addEventListener('click', async () => {
         overlay.innerHTML = '<span class="spinner" style="display:inline-block;width:16px;height:16px;border:2px solid var(--c-green);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite"></span>';
@@ -229,7 +230,7 @@ export function showChartStatus(canvasElOrId, type, retryFn) {
       });
     }
   } else if (type === 'empty') {
-    overlay.innerHTML = `<p>Brak danych dla wybranych filtrów.</p>`;
+    overlay.innerHTML = `<p>${t('chart_empty')}</p>`;
   }
 
   wrap.appendChild(overlay);

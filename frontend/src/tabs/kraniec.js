@@ -94,34 +94,35 @@ function buildFacts() {
   const top = (elev.extremes || []).find(e => e.which === 'top');
   const bot = (elev.extremes || []).find(e => e.which === 'bottom');
   out.push({ id: 'highest', g: 'elevation', grp: t('fact_grp_elevation'), lab: t('fact_lab_highest'),
-    val: top ? String(top.elevation_meters).replace('.', ',') + ' m' : '962,6 m',
-    city: top ? top.city : 'Kościelisko', voiv: top ? top.voivodeship : 'małopolskie',
-    street: top ? top.street : 'Nędzy Kubińca 101',
+    val: top ? String(top.elevation_meters).replace('.', ',') + ' m' : t('no_data'),
+    city: top ? top.city : t('no_data'), voiv: top ? top.voivodeship : t('no_data'),
+    street: top ? top.street : t('no_data'),
     lat: (top && top.latitude != null) ? top.latitude : 49.3,
     lon: (top && top.longitude != null) ? top.longitude : 19.9,
-    zoom: 12, type: 'point',
+    zoom: 12, type: top ? 'point' : 'none',
     desc: t('fact_desc_highest') });
   out.push({ id: 'lowest', g: 'elevation', grp: t('fact_grp_elevation'), lab: t('fact_lab_lowest'),
-    val: bot ? String(bot.elevation_meters).replace('.', ',') + ' m' : '−1,5 m',
-    city: bot ? bot.city : 'Gdańsk (port)', voiv: bot ? bot.voivodeship : 'pomorskie',
-    street: bot ? bot.street : 'Przełom 12',
+    val: bot ? String(bot.elevation_meters).replace('.', ',') + ' m' : t('no_data'),
+    city: bot ? bot.city : t('no_data'), voiv: bot ? bot.voivodeship : t('no_data'),
+    street: bot ? bot.street : t('no_data'),
     lat: (bot && bot.latitude != null) ? bot.latitude : 54.4,
     lon: (bot && bot.longitude != null) ? bot.longitude : 18.66,
-    zoom: 12, type: 'point',
+    zoom: 12, type: bot ? 'point' : 'none',
     desc: t('fact_desc_lowest') });
 
   // Izolacja
   const ns = M.neighbor_stats || {};
   const loner = ns.loner || {};
   out.push({ id: 'isolated', g: 'isolation', grp: t('fact_grp_isolation'), lab: t('fact_lab_isolated'),
-    val: loner.nearest_neighbor_distance_meters
+    val: (loner && loner.nearest_neighbor_distance_meters)
       ? (loner.nearest_neighbor_distance_meters / 1000).toFixed(1).replace('.', ',') + ' km'
-      : '27,8 km',
-    city: loner.city || 'Michałowo', voiv: loner.voivodeship || 'podlaskie',
-    street: loner.street || 'ul. Białostocka 33',
+      : t('no_data'),
+    city: (loner && loner.city) ? loner.city : t('no_data'),
+    voiv: (loner && loner.voivodeship) ? loner.voivodeship : t('no_data'),
+    street: (loner && loner.street) ? loner.street : t('no_data'),
     lat: (loner && loner.latitude != null) ? loner.latitude : 53.033086,
     lon: (loner && loner.longitude != null) ? loner.longitude : 23.606322,
-    zoom: 10, type: 'point',
+    zoom: 10, type: (loner && loner.nearest_neighbor_distance_meters) ? 'point' : 'none',
     desc: t('fact_desc_isolated') });
 
   // Najstarsza aktywna Zabka (historia sieci)
@@ -505,7 +506,7 @@ async function buildMap() {
   setTimeout(() => { if (_krMap) _krMap.resize(); }, 300);
   } catch (e) {
     if (e instanceof WebGLUnavailableError) {
-      showMapUnavailable(node, { message: 'Atlas krańców niedostępny' });
+      showMapUnavailable(node, { message: t('atlas_map_unavailable') });
       _krMap = null;
       return;
     }

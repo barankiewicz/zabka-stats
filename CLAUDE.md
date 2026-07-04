@@ -321,7 +321,7 @@ frontend/                - Vite SPA, modular ES + Chart.js + MapLibre GL + D3 (c
 data/                    - data + data documentation (chapter 3)
   input/                 - snapshot JSON
   geo/                   - boundaries/cache (geojson, elevation, parcel lockers, amphibians)
-  tools/                 - import_demo_data.py, demo_snapshot_generator.py
+  tools/                 - fetch_gus_hierarchy.py, generate_og_image.py
   zabka.duckdb           - DuckDB (created on first run)
 
 __main__.py              - alternative backend launcher (root)
@@ -465,8 +465,9 @@ Litestar serves modular native API routers (`backend/api/`) grouped under a pare
   - `/api/stats/inpost-vs-zabka`, `/api/stats/inpost-vs-zabka-by-level` (ratio and dumbbell)
   - `/api/stats/common-streets`, `/api/stats/gmina-leaders`, `/api/stats/sunday-by-voivodeship`
 - **Data Export:**
-  - `GET /api/download/database` -> Downloads the raw `zabka.duckdb` (~23MB)
+  - `GET /api/download/database` -> Downloads the raw `zabka.duckdb` (~30MB)
   - `GET /api/download/geojson` -> Downloads voivodeships GeoJSON
+  - `GET /api/download/parquet` -> Downloads the locations table in Parquet format
 - **Protected Actions:**
   - `POST /api/snapshot?token=YOUR_TOKEN` -> Uploads a new JSON snapshot to trigger ETL
 - **Shareable Fact Pages** (`backend/api/fact_pages.py`, not under `/api` - these are
@@ -597,7 +598,7 @@ The flow (`python -m backend.daily_etl`, orchestrated in
 
 The database keeps one row per physical store location in a pure SCD Type 2 model. Birth/death trends (created/deleted per month) are queried directly from `locations` via `created_at` and `deleted_at` timestamps. Soft delete (`deleted_at`) marks the date a store was last seen; queries filter `deleted_at IS NULL` by default.
 
-CLI flags: `--no-geocode`, `--limit N`, `--skip-parks`,
+CLI flags: `--no-geocode`, `--skip-parks`,
 `--skip-gus`, `--skip-amphibians`, `--skip-paczkomaty`, `--elevation` (opt-in,
 13k+ requests), `--fallback <file>`.
 

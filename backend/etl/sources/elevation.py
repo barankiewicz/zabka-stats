@@ -16,7 +16,10 @@ GUGIK_NMT_URL = os.getenv("GUGIK_NMT_URL", "https://services.gugik.gov.pl/nmt/")
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 ELEVATION_CACHE = os.getenv("ELEVATION_CACHE")
 if ELEVATION_CACHE:
-    ELEVATION_CACHE = os.path.abspath(ELEVATION_CACHE)
+    if not os.path.isabs(ELEVATION_CACHE):
+        ELEVATION_CACHE = os.path.abspath(os.path.join(_PROJECT_ROOT, ELEVATION_CACHE))
+    else:
+        ELEVATION_CACHE = os.path.abspath(ELEVATION_CACHE)
 else:
     ELEVATION_CACHE = os.path.join(_PROJECT_ROOT, "data", "geo", "elevation_cache.json")
 ELEVATION_WORKERS = int(os.getenv("ELEVATION_WORKERS", "8"))

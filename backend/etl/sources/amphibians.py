@@ -20,7 +20,10 @@ GBIF_AMPHIBIA_TAXON = os.getenv("GBIF_AMPHIBIA_TAXON", "131")   # klasa Amphibia
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 AMPHIBIAN_CACHE = os.getenv("AMPHIBIAN_CACHE")
 if AMPHIBIAN_CACHE:
-    AMPHIBIAN_CACHE = os.path.abspath(AMPHIBIAN_CACHE)
+    if not os.path.isabs(AMPHIBIAN_CACHE):
+        AMPHIBIAN_CACHE = os.path.abspath(os.path.join(_PROJECT_ROOT, AMPHIBIAN_CACHE))
+    else:
+        AMPHIBIAN_CACHE = os.path.abspath(AMPHIBIAN_CACHE)
 else:
     AMPHIBIAN_CACHE = os.path.join(_PROJECT_ROOT, "data", "geo", "amphibians_pl.json")
 AMPHIBIAN_RADIUS_KM = float(os.getenv("AMPHIBIAN_RADIUS_KM", "5"))

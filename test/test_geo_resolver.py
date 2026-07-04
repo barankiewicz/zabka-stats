@@ -52,7 +52,7 @@ def test_cache_load_save(mock_exists, mock_open, db_conn):
     
     resolver.cache_dirty = True
     resolver._save_cache()
-    mock_open.assert_called_with("./dummy_cache.json", "w", encoding="utf-8")
+    mock_open.assert_called_with(resolver.cache_path, "w", encoding="utf-8")
 
 @patch("requests.get")
 def test_resolve_facts(mock_get, db_conn):

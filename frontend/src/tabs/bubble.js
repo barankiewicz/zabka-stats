@@ -12,6 +12,7 @@ import 'd3-transition';
 import { C, fpRamp } from '../config.js';
 import { debounce, showChartStatus } from '../utils.js';
 import { fetchJSON } from '../data.js';
+import { t, getLang } from '../i18n.js';
 
 // Force-directed "volumetric" bubble chart of the network (one bubble per
 // powiat/miasto, size = store count, plus a "Pozostałe" bubble for the tail).
@@ -21,7 +22,10 @@ import { fetchJSON } from '../data.js';
 // and wired to real /api/stats/by-dimension data instead of the mock.
 
 const MAX_BUBBLES = 60;
-const UNIT_PL = { powiat: 'powiatów', city: 'miast', voivodeship: 'województw' };
+function getUnitLabel(dim) {
+  const key = 'gran_word_' + (dim === 'voivodeship' ? 'voivodeship' : dim);
+  return t(key);
+}
 // fpRamp (green fingerprint ramp) is imported from config.js - single source.
 
 let _dim = 'city';
@@ -61,7 +65,7 @@ function process(res) {
   }));
   const remCount = total - rows.length, remSum = sum - shown;
   if (remCount > 0 && remSum > 0) {
-    nodes.push({ id: 'REMAINDER', name: 'Pozostałe', value: remSum / 1.6,
+    nodes.push({ id: 'REMAINDER', name: t('bucket_others'), value: remSum / 1.6,
       cnt: remSum, isRemainder: true, remCount, remSum });
   }
   return nodes;
@@ -135,12 +139,17 @@ function draw(res, stage) {
 
   all.select('text.b-sub')
     .classed('bright', d => d.isRemainder)
-    .text(d => d.isRemainder ? `${d.remCount} ${UNIT_PL[_dim] || ''}` : d.cnt)
+    .text(d => {
+      const loc = getLang() === 'en' ? 'en-US' : 'pl-PL';
+      return d.isRemainder
+        ? `${d.remCount.toLocaleString(loc)} ${getUnitLabel(_dim)}`
+        : d.cnt.toLocaleString(loc);
+    })
     .attr('dy', d => d.isRemainder ? '0.5em' : '1.15em')
     .style('font-size', d => d.isRemainder ? '10px' : Math.min(11, Math.max(8, r(d.value) / 4.6)) + 'px');
 
   all.select('text.b-sub2')
-    .text(d => d.isRemainder ? `Σ ${d.remSum.toLocaleString('pl-PL')}` : '')
+    .text(d => d.isRemainder ? `Σ ${d.remSum.toLocaleString(getLang() === 'en' ? 'en-US' : 'pl-PL')}` : '')
     .attr('dy', '1.7em')
     .style('display', d => d.isRemainder ? 'block' : 'none');
 

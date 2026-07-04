@@ -2,15 +2,14 @@
 
 An interactive, high-performance spatial analytics platform for tracking the density, growth, and socio-economic correlations of the Żabka store network and InPost parcel lockers across Poland.
 
+**Live Demo:** [https://zabkozbior.barankiewicz.dev](https://zabkozbior.barankiewicz.dev)
+
+![Dashboard Screenshot](./frontend/public/og.png)
+
 [![stars](https://img.shields.io/github/stars/barankiewicz/zabka-stats.svg?style=social)](https://github.com/barankiewicz/zabka-stats)
 [![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org)
 [![duckdb](https://img.shields.io/badge/database-DuckDB-orange.svg)](https://duckdb.org)
-[![database size](https://img.shields.io/badge/database%20size-47.8%20MB-blue.svg)](https://github.com/barankiewicz/zabka-stats)
-[![locations](https://img.shields.io/badge/locations-13%2C192-orange.svg)](https://github.com/barankiewicz/zabka-stats)
-[![parcel lockers](https://img.shields.io/badge/parcel%20lockers-31%2C852-brightgreen.svg)](https://github.com/barankiewicz/zabka-stats)
-[![query time](https://img.shields.io/badge/avg%20query%20time-%3C5ms-yellow.svg)](https://github.com/barankiewicz/zabka-stats)
-[![uptime](https://img.shields.io/badge/uptime-100%25-green.svg)](https://github.com/barankiewicz/zabka-stats)
 
 ---
 
@@ -27,13 +26,13 @@ By cross-referencing locations of over **13,100+ active convenience stores** (Ż
 The dashboard is structured into two interactive storytelling tabs:
 
 *   **Sieć (Network):** Growth history, calendar heatmaps of store openings, administrative rankings (Voivodeships, Powiats, Gminas, Cities), and the *Atlas krańców* of geographic extremes - elevation, the largest "Void", park overlaps, and the playful look at ecological frog occurrences (GBIF) near stores (edge cases and amphibians are folded in here).
-*   **Żabka a Polska (Society):** Scatter plots correlating store density against average salaries and unemployment rates, alongside an InPost vs. Żabka competitiveness index.
+*   **Żabka a Polska (Society):** Residual choropleth maps correlating store density against average salaries and unemployment rates, alongside an InPost vs. Żabka competitiveness index.
 
 ---
 
 ## 3. Tech Stack
 
-*   **Frontend:** Vite, Vanilla HTML5/CSS3 (Curated dark mode), Chart.js (Interactive charts), MapLibre GL JS (tile-free dark vector maps), ECharts (Economic scatters), D3 (force bubble), Observable Plot.
+*   **Frontend:** Vite, Vanilla HTML5/CSS3 (Curated dark mode), Chart.js (Interactive charts), MapLibre GL JS (tile-free dark vector maps), D3 (force bubble).
 *   **Backend:** Litestar (Python 3.13, async), Uvicorn. Redis caches every aggregate response (TTL 1 h, cleared by the ETL); nginx in front handles gzip + a 2 s microcache, so warm queries return in single-digit ms.
 *   **Database:** DuckDB (Ultra-fast local analytics database).
 

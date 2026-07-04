@@ -70,9 +70,9 @@ def summary() -> SummaryResponse:
             COUNT(*) AS total_active,
             COUNT(DISTINCT city) AS cities_count,
             ROUND(100.0 * SUM(CASE WHEN has_merrychef THEN 1 ELSE 0 END)
-                  / NULLIF(COUNT(*), 0), 1) AS merrychef_pct,
+                  / NULLIF(COUNT(has_merrychef), 0), 1) AS merrychef_pct,
             ROUND(100.0 * SUM(CASE WHEN open_sunday THEN 1 ELSE 0 END)
-                  / NULLIF(COUNT(*), 0), 1) AS sunday_pct,
+                  / NULLIF(COUNT(open_sunday), 0), 1) AS sunday_pct,
             SUM(CASE WHEN h24 THEN 1 ELSE 0 END) AS h24_count
         FROM locations
         WHERE deleted_at IS NULL
@@ -83,8 +83,8 @@ def summary() -> SummaryResponse:
     return SummaryResponse(
         total_active=int(r[0] or 0),
         cities_count=int(r[1] or 0),
-        merrychef_pct=float(r[2] or 0),
-        sunday_pct=float(r[3] or 0),
+        merrychef_pct=float(r[2]) if r[2] is not None else None,
+        sunday_pct=float(r[3]) if r[3] is not None else None,
         h24_count=int(r[4] or 0),
         last_updated=str(last_run[0]) if last_run and last_run[0] else None
     )

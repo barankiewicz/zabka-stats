@@ -4,7 +4,7 @@
 // chunk loads first and is shared.
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { getLang } from './i18n.js';
+import { t } from './i18n.js';
 
 export { maplibregl };
 
@@ -56,14 +56,10 @@ export function darkStyle() {
 // by cooperativeGestures (e.g. "ctrl + scroll to zoom"). Matches the wording
 // of the custom .map-zoom-hint labels already on the growth map / Atlas.
 function cooperativeLocale() {
-  return getLang() === 'pl' ? {
-    'CooperativeGesturesHandler.WindowsHelpText': 'Użyj ctrl + scroll, aby przybliżyć mapę',
-    'CooperativeGesturesHandler.MacHelpText': 'Użyj ⌘ + scroll, aby przybliżyć mapę',
-    'CooperativeGesturesHandler.MobileHelpText': 'Przesuwaj dwoma palcami, aby przesunąć mapę',
-  } : {
-    'CooperativeGesturesHandler.WindowsHelpText': 'Use ctrl + scroll to zoom the map',
-    'CooperativeGesturesHandler.MacHelpText': 'Use ⌘ + scroll to zoom the map',
-    'CooperativeGesturesHandler.MobileHelpText': 'Use two fingers to move the map',
+  return {
+    'CooperativeGesturesHandler.WindowsHelpText': t('map_coop_win'),
+    'CooperativeGesturesHandler.MacHelpText': t('map_coop_mac'),
+    'CooperativeGesturesHandler.MobileHelpText': t('map_coop_mobile'),
   };
 }
 
@@ -102,8 +98,8 @@ export function createMap(container, opts = {}) {
 // the notice explains the missing GPU and what to do.
 export function showMapUnavailable(container, opts = {}) {
   if (!container) return;
-  const msg = opts.message || 'Mapa niedostępna';
-  const hint = opts.hint || 'Twoja przeglądarka nie udostępniła WebGL. Włącz akcelerację sprzętową w ustawieniach przeglądarki i odśwież stronę.';
+  const msg = opts.message || t('map_unavailable_default');
+  const hint = opts.hint || t('map_unavailable_hint');
   // Clear anything MapLibre / a previous render left behind
   container.innerHTML = '';
   const wrap = document.createElement('div');

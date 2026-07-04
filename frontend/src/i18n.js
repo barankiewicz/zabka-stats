@@ -409,7 +409,74 @@ export const translations = {
     fact_short_parks: "Żabka in a park or buffer zone",
     fact_short_twins: "network suffocating from density",
     fact_val_zerofrog: "{count} stores",
-    fact_val_twins: "{count} within 50 m"
+    fact_val_twins: "{count} within 50 m",
+
+    // i18n coverage audit additions
+    meta_title: "Zabka Collector - Interactive Atlas of the Store Network in Poland",
+    meta_description: "Interactive atlas of the Zabka network: where, when and how the network of over 13,000 stores grew. Maps, rankings, economics and facts based on public data.",
+    og_description: "Where, when and how the network of over 13,000 Zabka stores grew. Maps, rankings, economics and facts based on public data.",
+    og_image_alt: "Interactive atlas of Zabka stores in Poland - a dark map with locations and charts",
+    jsonld_website_desc: "Interactive atlas of the Zabka network in Poland, based on public data.",
+    jsonld_dataset_name: "Zabka network in Poland - locations and statistics",
+    jsonld_dataset_desc: "Data on over 13,000 Zabka stores in Poland: locations, opening dates, density, opening hours and correlations with GUS, GBIF, InPost and GUGiK data.",
+    lang_toggle_aria: "Language selection",
+    chart_growth_aria: "Growth chart of the network: bars show the number of new stores in each year 1998-2026, the line shows the year-over-year percentage change.",
+    era_logo_1998_alt: "Zabka logo 1998",
+    era_logo_2020_alt: "Zabka logo 2020",
+    aria_admin_level: "Administrative level",
+    aria_metric: "Metric",
+    aria_sort: "Sort",
+    aria_map_mode: "Map view mode",
+    aria_coverage_level: "Coverage level",
+    aria_geo_level: "Geographic level",
+    aria_distance_metric: "Distance metric",
+    aria_sort_results: "Sort results",
+    aria_gmina_metric: "Commune metric",
+    chart_nbl_aria: "Bar chart: distance to the nearest store by the selected geographic level and metric.",
+    chart_knn_aria: "Histogram: distribution of distance to the nearest store, median 299 m, average 942 m.",
+    chart_elevation_aria: "Histogram: distribution of Zabka store elevation above sea level in Poland, in 50-meter buckets.",
+    chart_streets_aria: "Bar chart: streets with the most Zabka stores in Poland, with street and city name.",
+    chart_gmina_lead_aria: "Bar chart: communes with the most stores per resident or per km², by the selected metric.",
+    gran_dim_gmina: "Communes",
+    gran_word_gmina: "communes",
+    tab_load_error: "Failed to load this tab's data. Check your connection and try again.",
+    chart_empty: "No data for the selected filters.",
+    map_unavailable_default: "Map unavailable",
+    map_unavailable_hint: "Your browser did not provide WebGL. Enable hardware acceleration in your browser settings and refresh the page.",
+    map_coop_win: "Use ctrl + scroll to zoom the map",
+    map_coop_mac: "Use ⌘ + scroll to zoom the map",
+    map_coop_mobile: "Use two fingers to move the map",
+    map_reset_view: "Reset view",
+    map_reset_view_aria: "Reset map view",
+    map_growth_unavailable: "Expansion map unavailable",
+    map_voivodeship_unavailable: "Voivodeship map unavailable",
+    map_inpost_unavailable: "Zabka vs InPost map unavailable",
+    atlas_map_unavailable: "Atlas of Extremes unavailable",
+    fpf_tooltip_new: "New:",
+    fpf_tooltip_cursor: "Cursor:",
+    fpf_tooltip_dominant_year: "year's dominant:",
+    chart_growth_xaxis: "Year →",
+    chart_growth_new_axis: "↑ New stores",
+    months_full: ["January","February","March","April","May","June","July","August","September","October","November","December"],
+    months_initial: ["J","F","M","A","M","J","J","A","S","O","N","D"],
+    map_tip_per1k_suffix: "/1k res.",
+    bucket_others: "Others",
+    nbl_axis_meters: "meters to nearest Zabka",
+    ratio_label: "ratio",
+    brand_zabka: "Zabka",
+    nat_avg_prefix: "nat. avg. ",
+    inpost_lockers_per_store_suffix: " parcel lockers per Zabka in Poland",
+    econ_tip_no_data: "no economic data",
+    econ_tip_avg_salary: "Average salary:",
+    econ_tip_unemployment: "Unemployment:",
+    econ_tip_per1k: "Stores / 1,000 residents:",
+    econ_tip_denser: "denser",
+    econ_tip_sparser: "sparser",
+    econ_tip_trend_suffix: "{word} than the trend predicts ({resid})",
+    econ_legend_below: "sparser than trend",
+    econ_legend_on: "on trend",
+    econ_legend_above: "denser than trend",
+    no_data: "no data"
   },
   pl: {
     // Navigation / Tabs
@@ -568,9 +635,9 @@ export const translations = {
     coverage_sub: "odsetek jednostek z Żabką - zielone: pokryte, czerwone: bez",
     coverage_donut_aria: "Wykres kołowy: odsetek jednostek administracyjnych z co najmniej jedną Żabką.",
     coverage_map_aria: "Mapa Polski: zielone jednostki mają Żabkę, czerwone nie mają.",
-    coverage_suffix_powiat: "Powiaty",
-    coverage_suffix_city: "Miasta",
-    coverage_suffix_gmina: "Gminy",
+    coverage_suffix_powiat: "powiatów ma Żabkę",
+    coverage_suffix_city: "miast ma Żabkę",
+    coverage_suffix_gmina: "gmin ma Żabkę",
 
     // City Gap (miasta bez Żabki)
     citygap_title: "Miasta bez Żabki",
@@ -813,7 +880,74 @@ export const translations = {
     fact_short_parks: "Żabka w parku lub otulinie",
     fact_short_twins: "sieć dusi się od zagęszczenia",
     fact_val_zerofrog: "{count} sklepów",
-    fact_val_twins: "{count} w 50 m"
+    fact_val_twins: "{count} w 50 m",
+
+    // i18n coverage audit additions
+    meta_title: "Żabkozbiór – interaktywny atlas sieci w Polsce",
+    meta_description: "Interaktywny atlas sieci Żabka: gdzie, kiedy i jak rosła sieć ponad 13 tysięcy sklepów. Mapy, rankingi, ekonomia i ciekawostki na danych publicznych.",
+    og_description: "Gdzie, kiedy i jak rosła sieć ponad 13 tysięcy sklepów Żabka. Mapy, rankingi, ekonomia i ciekawostki na danych publicznych.",
+    og_image_alt: "Interaktywny atlas sklepów Żabka w Polsce – ciemna mapa z lokalizacjami i wykresami",
+    jsonld_website_desc: "Interaktywny atlas sieci Żabka w Polsce na danych publicznych.",
+    jsonld_dataset_name: "Sieć Żabka w Polsce – lokalizacje i statystyki",
+    jsonld_dataset_desc: "Dane o ponad 13 tysiącach sklepów Żabka w Polsce: lokalizacje, daty otwarcia, gęstość, godziny otwarcia oraz korelacje z danymi GUS, GBIF, InPost i GUGiK.",
+    lang_toggle_aria: "Wybór języka",
+    chart_growth_aria: "Wykres wzrostu sieci: słupki pokazują liczbę nowych sklepów w każdym roku 1998-2026, linia pokazuje zmianę rok do roku w procentach.",
+    era_logo_1998_alt: "Logo Żabka 1998",
+    era_logo_2020_alt: "Logo Żabka 2020",
+    aria_admin_level: "Poziom administracyjny",
+    aria_metric: "Metryka",
+    aria_sort: "Sortowanie",
+    aria_map_mode: "Tryb widoku mapy",
+    aria_coverage_level: "Poziom pokrycia",
+    aria_geo_level: "Poziom geograficzny",
+    aria_distance_metric: "Metryka dystansu",
+    aria_sort_results: "Sortowanie wyników",
+    aria_gmina_metric: "Metryka gminy",
+    chart_nbl_aria: "Wykres słupkowy: odległość do najbliższego sklepu wg wybranego poziomu geograficznego i metryki.",
+    chart_knn_aria: "Histogram: rozkład odległości do najbliższego sklepu, mediana 299 m, średnia 942 m.",
+    chart_elevation_aria: "Histogram: rozkład wysokości sklepów Żabka nad poziomem morza w Polsce, w kubełkach co 50 metrów.",
+    chart_streets_aria: "Wykres słupkowy: ulice z największą liczbą sklepów Żabka w Polsce, z podaną nazwą ulicy i miasta.",
+    chart_gmina_lead_aria: "Wykres słupkowy: gminy z największą liczbą sklepów na mieszkańca lub na km², wg wybranej metryki.",
+    gran_dim_gmina: "Gminy",
+    gran_word_gmina: "gmin",
+    tab_load_error: "Nie udało się załadować danych tej zakładki. Sprawdź połączenie i spróbuj ponownie.",
+    chart_empty: "Brak danych dla wybranych filtrów.",
+    map_unavailable_default: "Mapa niedostępna",
+    map_unavailable_hint: "Twoja przeglądarka nie udostępniła WebGL. Włącz akcelerację sprzętową w ustawieniach przeglądarki i odśwież stronę.",
+    map_coop_win: "Użyj ctrl + scroll, aby przybliżyć mapę",
+    map_coop_mac: "Użyj ⌘ + scroll, aby przybliżyć mapę",
+    map_coop_mobile: "Przesuwaj dwoma palcami, aby przesunąć mapę",
+    map_reset_view: "Reset widoku",
+    map_reset_view_aria: "Resetuj widok mapy",
+    map_growth_unavailable: "Mapa ekspansji niedostępna",
+    map_voivodeship_unavailable: "Mapa województw niedostępna",
+    map_inpost_unavailable: "Mapa Żabka vs InPost niedostępna",
+    atlas_map_unavailable: "Atlas krańców niedostępny",
+    fpf_tooltip_new: "Nowych:",
+    fpf_tooltip_cursor: "Kursor:",
+    fpf_tooltip_dominant_year: "dominanta ROKU:",
+    chart_growth_xaxis: "Rok →",
+    chart_growth_new_axis: "↑ Nowe sklepy",
+    months_full: ["stycznia","lutego","marca","kwietnia","maja","czerwca","lipca","sierpnia","września","października","listopada","grudnia"],
+    months_initial: ["S","L","M","K","M","C","L","S","W","P","L","G"],
+    map_tip_per1k_suffix: "/1k mieszk.",
+    bucket_others: "Pozostałe",
+    nbl_axis_meters: "metry do najbliższej Żabki",
+    ratio_label: "stosunek",
+    brand_zabka: "Żabka",
+    nat_avg_prefix: "śr. kraj ",
+    inpost_lockers_per_store_suffix: " paczkomaty na każdą Żabkę w Polsce",
+    econ_tip_no_data: "brak danych ekonomicznych",
+    econ_tip_avg_salary: "Średnia płaca:",
+    econ_tip_unemployment: "Bezrobocie:",
+    econ_tip_per1k: "Żabki / 1000 mieszk.:",
+    econ_tip_denser: "gęściej",
+    econ_tip_sparser: "rzadziej",
+    econ_tip_trend_suffix: "{word} niż przewiduje trend ({resid})",
+    econ_legend_below: "rzadziej niż trend",
+    econ_legend_on: "zgodnie z trendem",
+    econ_legend_above: "gęściej niż trend",
+    no_data: "brak danych"
   },
 };
 
@@ -833,9 +967,30 @@ export function t(key) {
   return translations[currentLang]?.[key] || translations['en']?.[key] || translations['pl']?.[key] || key;
 }
 
+function updateJsonLd() {
+  const script = document.getElementById('jsonld-main');
+  if (!script) return;
+  let data;
+  try { data = JSON.parse(script.textContent); } catch (e) { return; }
+  const lang = getLang() === 'en' ? 'en' : 'pl-PL';
+  (data['@graph'] || []).forEach(node => {
+    if (node['@type'] === 'WebSite') {
+      node.description = t('jsonld_website_desc');
+      node.inLanguage = lang;
+    } else if (node['@type'] === 'Dataset') {
+      node.name = t('jsonld_dataset_name');
+      node.description = t('jsonld_dataset_desc');
+      node.inLanguage = lang;
+    }
+  });
+  script.textContent = JSON.stringify(data, null, 2);
+}
+
 export function translateDOM() {
   const lang = getLang();
   document.documentElement.lang = lang;
+  document.title = t('meta_title');
+  updateJsonLd();
 
   // Update active status on lang switcher buttons
   document.querySelectorAll('#lang-toggle .lang-btn').forEach(btn => {
@@ -880,5 +1035,11 @@ export function translateDOM() {
   document.querySelectorAll('[data-t-content]').forEach(el => {
     const key = el.getAttribute('data-t-content');
     el.setAttribute('content', t(key));
+  });
+
+  // Translate elements with data-t-alt (alt attribute, e.g. logo images)
+  document.querySelectorAll('[data-t-alt]').forEach(el => {
+    const key = el.getAttribute('data-t-alt');
+    el.setAttribute('alt', t(key));
   });
 }
