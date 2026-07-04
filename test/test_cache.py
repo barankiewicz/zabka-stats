@@ -59,8 +59,12 @@ async def test_cached_decorator(mock_redis):
     expected_key = f"my_async_func:{json.dumps(expected_key_data, sort_keys=True)}"
     mock_redis.setex.assert_called_once_with(expected_key, 120, json.dumps({"result": 20}))
 
-    # Mock cache hit for subsequent calls
+    # Mock cache hit for subsequent calls - a warm hit now returns the raw
+    # cached JSON string wrapped in a Litestar Response (skips the
+    # decode/re-encode round trip), not the decoded value.
     mock_redis.get.return_value = json.dumps({"result": 20})
     res2 = await my_async_func(5, y=15)
-    assert res2 == {"result": 20}
+    from litestar import Response as LitestarResponse
+    assert isinstance(res2, LitestarResponse)
+    assert res2.content == json.dumps({"result": 20})
     assert call_count == 1  # Not incremented due to cache hit

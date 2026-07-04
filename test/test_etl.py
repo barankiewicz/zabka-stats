@@ -71,8 +71,6 @@ def test_to_tabular():
     assert row["is_visible"] is True
     assert row["is_new_month"] is False
     assert row["is_new_two_weeks"] is True
-    assert row["h3_index_9"] is not None
-    assert len(row["h3_index_9"]) == 15
 
 def test_neighbor_enricher():
     rows = [

@@ -103,4 +103,4 @@ CLAUDE.md
 
 .pytest_cache/
 .ruff_cache/
-.htmlcov/
+htmlcov/
