@@ -222,3 +222,44 @@ def test_upload_snapshot_bad_source_date_format(client, monkeypatch, tmp_path):
         files=files,
     )
     assert response.status_code == 400
+
+
+def test_stats_summary_with_empty_db(client, monkeypatch, tmp_path):
+    # Simulates the CI scenario: a fresh checkout with no ETL data, so the
+    # `locations` table is empty. The endpoint must still return 200 (and a
+    # valid SummaryResponse, not 500 from a None field slipping into
+    # Pydantic). Regression for the h24_count=NULL bug on empty rows.
+    import backend.database as db
+    empty_db = tmp_path / "empty.duckdb"
+    monkeypatch.setattr(db, "DB_PATH", empty_db)
+    db.init_db()  # rewires client to the empty file and reseeds dim_date
+
+    response = client.get("/api/stats/summary")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total_active"] == 0
+    assert body["cities_count"] == 0
+    assert body["h24_count"] == 0
+    assert body["total_stores_rounded"] == 0
+    assert body["undated_stores"] == 0
+
+
+def test_powiat_economics_geo_without_assets(client, monkeypatch, tmp_path):
+    # Simulates the CI scenario: a fresh checkout where data/geo/ is empty
+    # (the whole directory is gitignored). The endpoint must still return
+    # 200 with a well-formed empty FeatureCollection so clients can render
+    # the "no data" path instead of special-casing a 404.
+    import backend.api.geo_router as geo_module
+
+    fake_geo = tmp_path / "no_geojson_here"
+    fake_geo.mkdir()
+    monkeypatch.setattr(geo_module, "_GEO_DIR", fake_geo)
+    # Reset the lazy-cached build so it picks up the new _GEO_DIR
+    monkeypatch.setattr(geo_module, "_POW_ECON_GEO", None)
+
+    response = client.get("/api/stats/powiat-economics-geo")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["type"] == "FeatureCollection"
+    assert body["features"] == []
+    assert body.get("_meta", {}).get("reason") == "no_geojson_assets"

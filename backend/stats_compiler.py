@@ -20,8 +20,11 @@ def compile_live_stats() -> dict:
     cities_count = client.execute("SELECT COUNT(DISTINCT city) FROM locations WHERE deleted_at IS NULL").fetchone()[0] or 0
     cities_count_rounded = int(round(cities_count, -2))
 
-    # 3. Merrychef and Sunday Pct
-    merrychef_pct, sunday_pct, h24_count = client.execute("""
+    # 3. Merrychef and Sunday Pct. The unpacking of three aggregate columns
+    # would TypeError on an empty locations table (fetchone() returns None),
+    # so coalesce to (None, None, 0) - the percentages stay nullable (no data
+    # to compute them from) but h24_count is a plain count that defaults to 0.
+    row = client.execute("""
         SELECT
             ROUND(100.0 * SUM(CASE WHEN has_merrychef THEN 1 ELSE 0 END) / NULLIF(COUNT(has_merrychef), 0), 1),
             ROUND(100.0 * SUM(CASE WHEN open_sunday THEN 1 ELSE 0 END) / NULLIF(COUNT(open_sunday), 0), 1),
@@ -29,6 +32,9 @@ def compile_live_stats() -> dict:
         FROM locations
         WHERE deleted_at IS NULL
     """).fetchone()
+    merrychef_pct = row[0] if row else None
+    sunday_pct = row[1] if row else None
+    h24_count = int(row[2]) if row and row[2] is not None else 0
 
     # 4. Data year max
     max_year_row = client.execute("SELECT strftime('%Y', MAX(first_opening_date)) FROM locations WHERE deleted_at IS NULL").fetchone()

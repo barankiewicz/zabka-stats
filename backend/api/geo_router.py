@@ -250,11 +250,21 @@ def _build_pow_econ_geo():
     (the extra 66 are cities with powiat rights). Those cities are merged into
     their surrounding land powiat in our data model, so a city polygon inherits
     the residual of the nearest land powiat in the same voivodeship - keeps the
-    map seamless instead of leaving big grey holes over Kraków/Wrocław/Łódź."""
+    map seamless instead of leaving big grey holes over Kraków/Wrocław/Łódź.
+
+    If the geojson assets are missing (CI checkout, fresh install before ETL
+    has populated the data dir, which is gitignored), return an empty
+    FeatureCollection instead of None so the endpoint stays 200 - clients
+    get a well-formed empty response and can render the "no data" path
+    instead of having to special-case a 404."""
     pow_path = _GEO_DIR / "powiaty.geojson"
     woj_path = _GEO_DIR / "wojewodztwa.geojson"
     if not pow_path.exists() or not woj_path.exists():
-        return None
+        print(f"[gugik-pow-econ-geo] Brak {pow_path.name} / {woj_path.name} - zwracam pusty FeatureCollection.")
+        return json.dumps(
+            {"type": "FeatureCollection", "features": [], "_meta": {"reason": "no_geojson_assets"}},
+            ensure_ascii=False,
+        ).encode("utf-8")
 
     rows = client.execute("""
         SELECT dp.name, dv.name AS voiv,
