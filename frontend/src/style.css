@@ -637,6 +637,15 @@ canvas{display:block}
 /* SR-ONLY: visually hidden but accessible to screen readers */
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
+/* DATA-DISCLAIMER: prominent banner at the top of each tab - active-stores-only
+   caveat, more visible than the inline .survival-note below it in the growth
+   chart (that one stays as the detailed footnote where the chart needs it). */
+.data-disclaimer{display:flex;gap:14px;align-items:flex-start;background:rgba(232,105,61,.08);
+  border:1px solid rgba(232,105,61,.3);border-radius:var(--r);padding:16px 20px;margin-bottom:16px}
+.data-disclaimer svg{flex-shrink:0;color:var(--red);margin-top:1px}
+.data-disclaimer p{font-size:13.5px;color:var(--ink);line-height:1.6;margin:0}
+.data-disclaimer b{color:var(--red);font-weight:600}
+
 /* SURVIVAL-NOTE: prominent caveat inside growth chart card */
 .survival-note{font-size:11.5px;font-family:system-ui,var(--font-body),sans-serif;color:var(--red);opacity:.92;background:rgba(232,105,61,.05);border-left:2px solid rgba(232,105,61,.35);border-radius:0 4px 4px 0;padding:6px 12px;margin-top:8px;line-height:1.5}
 .survival-note em{font-style:normal;font-weight:600;color:var(--red)}

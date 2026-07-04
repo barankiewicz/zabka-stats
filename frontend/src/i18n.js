@@ -22,6 +22,7 @@ export const translations = {
     hero_number_label_siec: "active stores in Poland",
     hero_h1_siec: "Żabka is everywhere. We have the hard data.",
     hero_lede_siec: "45.4% of today's network was established since 2023. Here is how thirteen thousand stores spread across Poland, year by year.",
+    data_disclaimer: "This dashboard only covers stores <b>open today</b>. We started tracking openings and closures on <b>June 17, 2026</b> - older data on closed stores simply doesn't exist, so trends before that date only reflect stores that survived to now.",
 
     // Siec Tab - Stat Strip
     stat_kicker_startup: "Startup",
@@ -426,6 +427,7 @@ export const translations = {
     hero_number_label_siec: "aktywnych sklepów",
     hero_h1_siec: "Żabka jest wszędzie. Mamy na to twarde dane.",
     hero_lede_siec: "Oto jak trzynaście tysięcy sklepów rozlało się po Polsce, rok po roku.",
+    data_disclaimer: "Ten dashboard pokazuje wyłącznie sklepy <b>działające dziś</b>. Historię otwarć i zamknięć śledzimy dopiero od <b>17 czerwca 2026</b> - starsze dane o zamkniętych Żabkach po prostu nie istnieją, więc trendy sprzed tej daty pokazują tylko sklepy, które przetrwały do teraz.",
 
     // Siec Tab - Stat Strip
     stat_kicker_startup: "Rozruch",
