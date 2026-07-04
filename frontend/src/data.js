@@ -138,7 +138,7 @@ export async function refetchPowiatEconomics() {
 async function loadSpoleczenstwo() {
   const [
     economics, density, merrychef, inpost, commonStreets,
-    gminaLeaders, neighborByLevel, sundayByVoiv,
+    gminaLeaders, neighborByLevel, sundayByVoiv, elevation,
   ] = await Promise.allSettled([
     fetchJSON(`${BASE}/stats/powiat-economics`),
     fetchJSON(`${BASE}/stats/voivodeship-density`),
@@ -148,6 +148,7 @@ async function loadSpoleczenstwo() {
     fetchJSON(`${BASE}/stats/gmina-leaders?limit=12`),
     fetchJSON(`${BASE}/stats/neighbor-by-level?level=voivodeship&sort=asc`),
     fetchJSON(`${BASE}/stats/sunday-by-voivodeship`),
+    fetchJSON(`${BASE}/stats/elevation`),
   ]);
   Object.assign(M, {
     powiat_economics:      val(economics, []),
@@ -158,5 +159,10 @@ async function loadSpoleczenstwo() {
     gmina_leaders:         val(gminaLeaders, {per_1k:[], per_km2:[], national_per_1k:null}),
     neighbor_by_level:     val(neighborByLevel, {rows:[], total:0, level:'voivodeship'}),
     sunday_by_voivodeship: val(sundayByVoiv, []),
+    // loadSiec() also fetches this (edge.js/kraniec.js need it for the Atlas
+    // extremes); fetched again here so the elevation chart has data even
+    // when spoleczenstwo (the default tab) renders before SIEC's bucket ever
+    // loads. Same Redis-cached endpoint, so the duplicate request is cheap.
+    elevation:             val(elevation, M.elevation || {}),
   });
 }

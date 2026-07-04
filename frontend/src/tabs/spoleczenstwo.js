@@ -377,6 +377,7 @@ export function renderSpoleczenstwo(){
   whenVisible(document.getElementById('ec-root'), async () => { const { renderEcon } = await ensureEcon(); renderEcon(); });
   renderDumbbellByLevel();
   renderSpolKnn();
+  renderElevationHistogram();
   renderStreets();
   renderGminaLeaders();
   renderNbl();
@@ -829,6 +830,62 @@ function renderSpolKnn(){
     ? (getLang() === 'en' ? rawMax : rawMax.replace('.', ',')) + ' km'
     : '–';
   const maxEl=document.getElementById('spol-knn-stat-max');if(maxEl)maxEl.textContent=maxKm;
+}
+
+// ---- elevation histogram (Żabka a Polska) ----
+function renderElevationHistogram(){
+  const ele=M.elevation||{};
+  const hist=ele.histogram||[];
+  if(!hist.length)return;
+  const pct=ele.percentiles||{};
+
+  // Gradient: low elevation green, high elevation amber - matches the terrain story.
+  const n=hist.length||1;
+  const bgs=hist.map((_,i)=>{
+    const t=i/Math.max(n-1,1);
+    const r=Math.round(132+(242-132)*t);
+    const g=Math.round(195+(163-195)*t);
+    const bl=Math.round(65+(89-65)*t);
+    return `rgba(${r},${g},${bl},0.85)`;
+  });
+
+  const refLines=[];
+  if(pct.p5!=null) refLines.push({value:pct.p5,axis:'y',color:'#86a86a',lineWidth:1.5});
+  if(pct.p95!=null) refLines.push({value:pct.p95,axis:'y',color:'#c79257',lineWidth:1.5});
+
+  const legEl=document.getElementById('ele-legend');
+  if(legEl){
+    const parts=[];
+    if(pct.p5!=null) parts.push(`<span class="lg-item" style="color:#86a86a"><span class="lg-line"></span>P5 ${Math.round(pct.p5)} m</span>`);
+    if(pct.p95!=null) parts.push(`<span class="lg-item" style="color:#c79257"><span class="lg-line"></span>P95 ${Math.round(pct.p95)} m</span>`);
+    legEl.innerHTML=parts.join('');
+  }
+
+  destroyChart('elevation');
+  CHARTS['elevation']=new Chart(document.getElementById('chart-elevation'),{
+    type:'bar',
+    data:{
+      labels:hist.map(h=>h.bucket_m),
+      datasets:[{
+        data:hist.map(h=>h.cnt),
+        backgroundColor:bgs,
+        borderWidth:0,borderRadius:[4,4,0,0]
+      }]
+    },
+    options:{
+      indexAxis:'x',responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{enabled:false},
+        annot:{refLines},
+        barLabels:{thousands:true,color:C.muted},
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{color:C.muted,font:{size:10},maxRotation:0,autoSkip:true}},
+        y:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}}
+      }
+    }
+  });
 }
 
 export {wireInpostLevel};

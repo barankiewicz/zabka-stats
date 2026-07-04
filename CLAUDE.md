@@ -969,7 +969,9 @@ deeper-dive companion.
 (the 46.5 km void) and a strip of national KPIs set the stage. Then Żabka vs InPost —
 a voivodeship choropleth of the ratio plus a dumbbell that drills woj -> powiat -> miasto.
 Then how densely the stores stand (median distance to the nearest Żabka by level, with a
-kNN histogram). Then the busiest streets and the per-capita gmina leaders (resorts win).
+kNN histogram), followed by a full-width elevation histogram - Żabka's terrain range, from
+the port in Gdańsk to the Tatras. Then the busiest streets and the per-capita gmina leaders
+(resorts win).
 The economic core closes the tab: two side-by-side powiat choropleths of the *residual* of
 Żabka density (stores per 1000 residents) against a linear fit on an economic variable —
 left vs unemployment, right vs salary. Green = a powiat has more Żabki than its economy
@@ -1031,6 +1033,7 @@ Imports `econ.js` (the two MapLibre residual-choropleth maps that close the tab)
 | 2.3 InPost | MapLibre GL (choropleth) + SVG/DOM (dumbbell) | `/stats/inpost-vs-zabka`, `/inpost-vs-zabka-by-level` | Left: voivodeship choropleth of the InPost/Żabka ratio, same GRAN ramp as the SIEĆ tab (dark forest green = low ratio, up to Żabka green `#84c341` = highest ratio in view). Right: dumbbell — green dot = Żabka/100k, amber dot = paczkomaty/100k, connecting line; level toggle Województwo / Powiat / Miasto re-queries `by-level`. National callout: 2.42 paczkomaty per Żabka. |
 | NBL neighbor-by-level | Chart.js (bar) | `/stats/neighbor-by-level` | Median (or average) distance to the nearest Żabka per voivodeship/powiat/miasto. Three switchers: level x metric (Mediana/Średnia) x sort (Najgęstsze/Najrzadsze). |
 | kNN histogram | Chart.js (bar) | `/stats/neighbor-stats` | 6-bucket distribution of nearest-neighbor distance. Median 299m / avg 942m / max ~27.8km reference lines. |
+| ELEVATION | Chart.js (bar), full width | `/stats/elevation` | Histogram of active store elevation above sea level, 50 m buckets, green (low) to amber (high) gradient. P5/P95 percentile reference lines. Caveat calls out the two extremes (Gdańsk port below sea level, Kościelisko in the Tatras). |
 | STREETS | Chart.js (horizontal bar) | `/stats/common-streets?limit=15` | Busiest street names nationwide, dual-label y-axis (street name large, city small). Value labels at bar ends. |
 | GMINA-LEAD | Chart.js (horizontal bar) | `/stats/gmina-leaders?limit=12` | Top gminy by stores per 1000 residents (default) or per km² (metric toggle). Resorts lead per capita. National reference line on the per-1k view. |
 | ECON residual maps | MapLibre GL (two powiat choropleths) | `/stats/powiat-economics-geo` | "Gdzie Żabek jest więcej, niż wynikałoby z ekonomii." Two side-by-side powiat choropleths of the density residual (stores per 1000 vs a linear fit): left vs unemployment, right vs salary. Diverging ramp red (below trend) -> pale (on trend) -> Żabka green (above trend), symmetric bound at ~p90 of |residual|. Each title carries the Pearson r; hover shows the powiat's density, the economic value, and how far it sits off the trend. Cities with powiat rights inherit the nearest land powiat so there are no grey holes. |
@@ -1137,6 +1140,7 @@ to rendered content when its own data arrives. Never gate a chart on other chart
 | BUBBLE chart | ~420px |
 | 2.3 InPost choropleth + dumbbell | ~420px |
 | NBL bar + kNN histogram | ~400px |
+| ELEVATION histogram (full width) | ~480px |
 | STREETS / GMINA-LEAD bars | ~420px |
 | ECON residual maps (two powiat choropleths) | ~520px |
 | Edge KPI / card rows | ~220px per row |

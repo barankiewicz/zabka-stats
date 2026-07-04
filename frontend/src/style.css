@@ -87,28 +87,30 @@ nav{position:sticky;top:0;z-index:100;background:rgba(13,13,20,.9);backdrop-filt
 .card-title{font-family:var(--font-display);font-weight:700;font-size:14px;color:var(--ink);margin-bottom:4px;line-height:1.3}
 .card-sub{font-size:12px;color:var(--muted);margin-bottom:14px}
 
-/* S1: per-section copy-link button (main.js appends one to every section's
-   anchor - closest .card by default). Sits top-right of whatever positioned
-   container it's appended to (.card already has position:relative). */
+/* S1+S3 merged: one toolbar per panel (main.js appends it to the panel's
+   .card, or to .econ-maps__intro for the one registered section that isn't
+   a card) holding whichever of copy-image / download-PNG / share-link apply
+   - copy+download when the panel has an exportable chart/map, share when the
+   panel is a registered deep-link section, both when it's both (most panels
+   with both a title and a visual - GRAN, MAPA, NBL, etc). Sits top-right of
+   the panel (.card already has position:relative) and stays hidden until
+   hover/focus, so it never competes for attention with the panel itself.
+   The GRAN and InPost maps have a 2D/3D .map-mode-toggle at top:10/right:10
+   relative to the *map*, not the card - the card's own 20px padding keeps
+   this toolbar's top:16/right:18 clear of it. */
 .econ-maps__intro{position:relative}
-.copy-link-btn{position:absolute;top:16px;right:18px;z-index:5;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid var(--axis);border-radius:7px;background:rgba(10,18,10,.5);color:var(--muted);cursor:pointer;opacity:.55;transition:opacity .15s,color .15s,border-color .15s,background .15s}
-.copy-link-btn:hover,.copy-link-btn:focus-visible{opacity:1;color:var(--green-bright);border-color:var(--green);background:rgba(0,192,96,.1)}
-.kr .btnrow .copy-link-btn{position:static;opacity:.7}
-.kr .btnrow .copy-link-btn:hover,.kr .btnrow .copy-link-btn:focus-visible{opacity:1}
+.panel-toolbar{position:absolute;top:16px;right:18px;z-index:6;display:flex;gap:4px;opacity:0;pointer-events:none;transition:opacity .15s}
+.card:hover .panel-toolbar,.card:focus-within .panel-toolbar,
+.econ-maps__intro:hover .panel-toolbar,.econ-maps__intro:focus-within .panel-toolbar{opacity:1;pointer-events:auto}
+.panel-btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid var(--axis);border-radius:7px;background:rgba(10,18,10,.72);color:var(--muted);cursor:pointer;transition:color .15s,border-color .15s,background .15s}
+.panel-btn:hover,.panel-btn:focus-visible{color:var(--green-bright);border-color:var(--green);background:rgba(0,192,96,.15)}
 
-/* S3: per-visual copy-image/download-PNG toolbar. Hidden until hover/focus
-   (unlike the always-faint copy-link button above) - .has-export-toolbar is
-   added by main.js to whatever anchor the toolbar was appended to, since
-   that anchor varies per visual (.chart-wrap, .map-container, MapLibre's own
-   container div, or a plain parentElement) and there's no single existing
-   class to hang a :hover selector off otherwise. Bottom-right rather than
-   top-right (matching S1's copy-link button) - the GRAN and InPost maps
-   already have a 2D/3D .map-mode-toggle sitting top-right at z-index:10,
-   which silently ate every click meant for a top-right export toolbar. */
-.has-export-toolbar:hover .export-toolbar,.has-export-toolbar:focus-within .export-toolbar{opacity:1;pointer-events:auto}
-.export-toolbar{position:absolute;bottom:10px;right:10px;z-index:6;display:flex;gap:4px;opacity:0;pointer-events:none;transition:opacity .15s}
-.export-btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid var(--axis);border-radius:7px;background:rgba(10,18,10,.72);color:var(--muted);cursor:pointer;transition:color .15s,border-color .15s,background .15s}
-.export-btn:hover,.export-btn:focus-visible{color:var(--green-bright);border-color:var(--green);background:rgba(0,192,96,.15)}
+/* Atlas krancow is the exception: its share button lives inline in a static
+   row of controls (.kr .btnrow), always visible like its neighbors, not as
+   a floating hover-only panel-toolbar (the Atlas has no exportable bitmap
+   for copy/download to join it, see main.js's initAtlasShareButton). */
+.copy-link-btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid var(--axis);border-radius:7px;background:rgba(10,18,10,.5);color:var(--muted);cursor:pointer;opacity:.7;transition:opacity .15s,color .15s,border-color .15s,background .15s}
+.copy-link-btn:hover,.copy-link-btn:focus-visible{opacity:1;color:var(--green-bright);border-color:var(--green);background:rgba(0,192,96,.1)}
 
 /* S1: brief glow when landing on a deep-linked section, same motif as the
    existing .stat-tile.fact-highlight (kraniec fact deep links) */

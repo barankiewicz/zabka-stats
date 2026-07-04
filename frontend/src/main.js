@@ -6,7 +6,7 @@ import { getFont, destroyChart, heroCount, fmtLastUpdated } from './utils.js';
 import { setFilter, clearFilter, registerFilterCallbacks } from './filter.js';
 import { loadCore, loadTabData } from './data.js';
 import { translateDOM, setLang, t } from './i18n.js';
-import { getMapLibreCanvas, composeExportCanvas, canvasToPngBlob, downloadBlob, copyBlobToClipboard } from './export-image.js';
+import { getMapLibreCanvas, composePanelCanvas, canvasToPngBlob, downloadBlob, copyBlobToClipboard } from './export-image.js';
 
 
 // Tabs are loaded on demand. Each dynamic import() becomes its own Rollup chunk,
@@ -179,13 +179,13 @@ document.addEventListener('DOMContentLoaded',()=>{
         setLang(lang);
         writeLangToURL(lang);
         translateDOM();
-        // Copy-link buttons are icon-only with no data-t of their own (their
-        // aria-label is plain text set at creation), so translateDOM() alone
-        // wouldn't catch them - refresh explicitly.
-        document.querySelectorAll('.copy-link-btn').forEach(b => b.setAttribute('aria-label', t('copy_link_aria')));
-        document.querySelectorAll('.export-toolbar .export-btn').forEach((b,i) => {
-          b.setAttribute('aria-label', t(i%2===0 ? 'export_copy_aria' : 'export_download_aria'));
-        });
+        // Panel-toolbar buttons are icon-only with no data-t of their own
+        // (their aria-label is plain text set at creation), so translateDOM()
+        // alone wouldn't catch them - refresh explicitly, keyed by the
+        // data-role each button was tagged with at creation.
+        document.querySelectorAll('[data-role="share"]').forEach(b => b.setAttribute('aria-label', t('copy_link_aria')));
+        document.querySelectorAll('[data-role="export-copy"]').forEach(b => b.setAttribute('aria-label', t('export_copy_aria')));
+        document.querySelectorAll('[data-role="export-download"]').forEach(b => b.setAttribute('aria-label', t('export_download_aria')));
         // Clear rendered tab state and re-render
         RENDERED.delete(STATE.tab);
         renderTab(STATE.tab);
@@ -273,6 +273,7 @@ const SECTIONS = {
   spoleczenstwo: {
     inpost:        { title: '[data-debug-id="2.3"]' },
     nbl:           { title: '[data-debug-id="NBL"]' },
+    elevation:     { title: '[data-debug-id="ELEVATION"]' },
     streets:       { title: '[data-debug-id="STREETS"]' },
     'gmina-lead':  { title: '[data-debug-id="GMINA-LEAD"]' },
     econ:          { title: '[data-debug-id="ECON"]' },
@@ -313,25 +314,27 @@ function copyLinkFor(tabSlug, sectionSlug){
     .catch(()=>showLinkToast(t('link_copy_failed')));
 }
 
-function makeCopyLinkBtn(tabSlug, sectionSlug){
+function makeCopyLinkBtn(tabSlug, sectionSlug, cls='panel-btn'){
   const b = document.createElement('button');
   b.type = 'button';
-  b.className = 'copy-link-btn';
+  b.className = cls;
+  b.dataset.role = 'share';
   b.setAttribute('aria-label', t('copy_link_aria'));
   b.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M6.35 9.65a1 1 0 0 1 0-1.4l3-3a3 3 0 1 1 4.24 4.24l-1.3 1.3a1 1 0 1 1-1.42-1.4l1.3-1.3a1 1 0 1 0-1.42-1.42l-3 3a1 1 0 0 1-1.4 0Zm3.3-3.3a1 1 0 0 1 0 1.4l-3 3a3 3 0 1 1-4.24-4.24l1.3-1.3a1 1 0 0 1 1.42 1.42l-1.3 1.3a1 1 0 1 0 1.42 1.4l3-3a1 1 0 0 1 1.4 0Z"/></svg>';
   b.addEventListener('click', e => { e.stopPropagation(); copyLinkFor(tabSlug, sectionSlug); });
   return b;
 }
 
-function initCopyLinkButtons(){
-  Object.entries(SECTIONS).forEach(([tab, sections])=>{
-    const tabSlug = TAB_SLUG[tab];
-    Object.entries(sections).forEach(([slug, entry])=>{
-      const anchor = sectionAnchorEl(entry);
-      if(!anchor || anchor.querySelector(':scope > .copy-link-btn')) return;
-      anchor.appendChild(makeCopyLinkBtn(tabSlug, slug));
-    });
-  });
+// Atlas krancow is the one section whose "share" button lives inline in a
+// static row of controls (.kr .btnrow), not floating over a canvas - it stays
+// its own always-visible button rather than joining the hover-only panel
+// toolbar below (there's nothing to hover: the Atlas isn't in EXPORTABLES,
+// it's its own interactive multi-layer scene, not a single exportable bitmap).
+function initAtlasShareButton(){
+  const entry = SECTIONS.siec.atlas;
+  const anchor = sectionAnchorEl(entry);
+  if(!anchor || anchor.querySelector(':scope > .copy-link-btn')) return;
+  anchor.appendChild(makeCopyLinkBtn(TAB_SLUG.siec, 'atlas', 'copy-link-btn'));
 }
 
 function parseSectionHash(){
@@ -383,13 +386,13 @@ function scrollToSection(entry){
   });
 }
 
-initCopyLinkButtons();
 window.addEventListener('hashchange', goToHashSection);
 goToHashSection();
 
-// S3: per-visual "copy image" / "download PNG" toolbar, on hover/focus, for
-// almost every chart and map - everything EXCEPT the Atlas krancow (its own
-// interactive multi-layer scene, not a single exportable bitmap) and the
+// S1+S3 merged: one hover-only toolbar per panel, top-right, holding
+// whichever of "copy image" / "download PNG" / "share link" apply to that
+// panel - everything EXCEPT the Atlas krancow (its own interactive
+// multi-layer scene, not a single exportable bitmap, handled above) and the
 // BUBBLE force chart (D3-driven SVG, not a canvas - rasterizing it cleanly
 // is a different problem than the other two kinds here).
 // kind:'canvas' -> the element itself is the source canvas (Chart.js reuses
@@ -409,6 +412,7 @@ const EXPORTABLES = [
   { id:'map-inpost', kind:'maplibre', filename:'zabka-inpost-mapa' },
   { id:'chart-nbl', kind:'canvas', filename:'zabka-sasiedztwo' },
   { id:'spol-knnChart', kind:'canvas', filename:'zabka-knn' },
+  { id:'chart-elevation', kind:'canvas', filename:'zabka-wysokosc' },
   { id:'chart-streets', kind:'canvas', filename:'zabka-ulice' },
   { id:'chart-gmina-lead', kind:'canvas', filename:'zabka-gminy' },
   { id:'map-econ-unemp', kind:'maplibre', filename:'zabka-econ-bezrobocie' },
@@ -417,20 +421,9 @@ const EXPORTABLES = [
 
 // Whatever wrapper the toolbar gets appended to needs position:relative to
 // anchor the absolutely-positioned buttons - force it on rather than
-// requiring every one of these 15 different card layouts to already have it.
+// requiring every one of these panel layouts to already have it.
 function ensureRelative(el){
   if(el && getComputedStyle(el).position === 'static') el.style.position = 'relative';
-}
-// Title comes from whichever .card-title is closest, matching the S1 section
-// registry's own de-facto rule: every one of these visuals lives inside a
-// .card whose title already describes it (nested econ-map-card titles for
-// the two ECON maps, the shared GRAN/MAPA/POWIATY title for their paired
-// visuals). Read at click time, not registration time, so it always
-// reflects whatever language is currently active.
-function exportTitleFor(anchorEl){
-  const card = anchorEl.closest('.card');
-  const titleEl = card && card.querySelector('.card-title');
-  return titleEl ? titleEl.textContent.trim() : '';
 }
 
 async function getSourceCanvas(entry){
@@ -444,14 +437,22 @@ async function getSourceCanvas(entry){
   return canvas;
 }
 
-async function runExport(entry, anchorEl, action){
+// Exports the whole panel (title, subtitle, caveat, every chart/map it
+// holds - not just one canvas), composed at the panel's own on-screen
+// layout. `entries` is every EXPORTABLES item that lives inside `panelEl`
+// (GRAN's chart + choropleth, MAPA's map + calendar, POWIATY's donut +
+// mini-map are each one panel with two visuals; most panels have just one).
+async function runPanelExport(panelEl, entries, action){
   try {
-    const source = await getSourceCanvas(entry);
-    const title = exportTitleFor(anchorEl);
-    const composed = composeExportCanvas(source, { title });
+    const visuals = [];
+    for (const entry of entries){
+      const canvas = await getSourceCanvas(entry);
+      visuals.push({ canvas, el: document.getElementById(entry.id) });
+    }
+    const composed = await composePanelCanvas(panelEl, visuals);
     const blob = await canvasToPngBlob(composed);
     if(action === 'download'){
-      downloadBlob(blob, `${entry.filename}.png`);
+      downloadBlob(blob, `${entries[0].filename}.png`);
     } else {
       await copyBlobToClipboard(blob);
       showLinkToast(t('export_copied'));
@@ -462,39 +463,92 @@ async function runExport(entry, anchorEl, action){
   }
 }
 
-function makeExportToolbar(entry){
+function makePanelToolbar({ tabSlug, slug, exportEntries }){
   const wrap = document.createElement('div');
-  wrap.className = 'export-toolbar';
-  const copyBtn = document.createElement('button');
-  copyBtn.type = 'button';
-  copyBtn.className = 'export-btn';
-  copyBtn.setAttribute('aria-label', t('export_copy_aria'));
-  copyBtn.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M5 1a1 1 0 0 0-1 1v1H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H5Zm6 12H3V4h1v8a1 1 0 0 0 1 1h6v0Zm2-2H6V3h7v8Z"/></svg>';
-  const dlBtn = document.createElement('button');
-  dlBtn.type = 'button';
-  dlBtn.className = 'export-btn';
-  dlBtn.setAttribute('aria-label', t('export_download_aria'));
-  dlBtn.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M8 1a1 1 0 0 1 1 1v6.59l1.79-1.8a1 1 0 1 1 1.42 1.42l-3.5 3.5a1 1 0 0 1-1.42 0l-3.5-3.5a1 1 0 1 1 1.42-1.42L7 8.59V2a1 1 0 0 1 1-1ZM3 13a1 1 0 1 0 0 2h10a1 1 0 1 0 0-2H3Z"/></svg>';
-  wrap.appendChild(copyBtn);
-  wrap.appendChild(dlBtn);
+  wrap.className = 'panel-toolbar';
+  let copyBtn = null, dlBtn = null;
+  if(exportEntries && exportEntries.length){
+    copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.className = 'panel-btn';
+    copyBtn.dataset.role = 'export-copy';
+    copyBtn.setAttribute('aria-label', t('export_copy_aria'));
+    copyBtn.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M5 1a1 1 0 0 0-1 1v1H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H5Zm6 12H3V4h1v8a1 1 0 0 0 1 1h6v0Zm2-2H6V3h7v8Z"/></svg>';
+    dlBtn = document.createElement('button');
+    dlBtn.type = 'button';
+    dlBtn.className = 'panel-btn';
+    dlBtn.dataset.role = 'export-download';
+    dlBtn.setAttribute('aria-label', t('export_download_aria'));
+    dlBtn.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M8 1a1 1 0 0 1 1 1v6.59l1.79-1.8a1 1 0 1 1 1.42 1.42l-3.5 3.5a1 1 0 0 1-1.42 0l-3.5-3.5a1 1 0 1 1 1.42-1.42L7 8.59V2a1 1 0 0 1 1-1ZM3 13a1 1 0 1 0 0 2h10a1 1 0 1 0 0-2H3Z"/></svg>';
+    wrap.appendChild(copyBtn);
+    wrap.appendChild(dlBtn);
+  }
+  if(tabSlug && slug){
+    wrap.appendChild(makeCopyLinkBtn(tabSlug, slug));
+  }
   return { wrap, copyBtn, dlBtn };
 }
 
-function initExportToolbars(){
+// Groups every EXPORTABLES entry by its panel (nearest .card - GRAN's chart
+// + choropleth, MAPA's map + calendar and POWIATY's donut + mini-map each
+// share one card and so end up in the same group, which is exactly the
+// "whole panel, not just the chart" unit the toolbar should export).
+function groupExportablesByPanel(){
+  const groups = new Map();
   EXPORTABLES.forEach(entry=>{
     const el = document.getElementById(entry.id);
-    if(!el) return;
-    const anchor = entry.kind === 'maplibre' ? el : el.parentElement;
-    if(!anchor || anchor.querySelector(':scope > .export-toolbar')) return;
+    const card = el && el.closest('.card');
+    if(!card) return;
+    if(!groups.has(card)) groups.set(card, []);
+    groups.get(card).push(entry);
+  });
+  return groups;
+}
+
+// Reverse-maps every registered section's anchor element to its share slug
+// (skips 'atlas', which keeps its own always-visible button, see above).
+function buildShareAnchorMap(){
+  const map = new Map();
+  Object.entries(SECTIONS).forEach(([tab, sections])=>{
+    const tabSlug = TAB_SLUG[tab];
+    Object.entries(sections).forEach(([slug, entry])=>{
+      if(tab === 'siec' && slug === 'atlas') return;
+      const anchor = sectionAnchorEl(entry);
+      if(anchor) map.set(anchor, { tabSlug, slug });
+    });
+  });
+  return map;
+}
+
+function initPanelToolbars(){
+  const exportGroups = groupExportablesByPanel();
+  const shareByAnchor = buildShareAnchorMap();
+  const handled = new Set();
+
+  exportGroups.forEach((entries, panelEl)=>{
+    if(panelEl.querySelector(':scope > .panel-toolbar')) return;
+    ensureRelative(panelEl);
+    const share = shareByAnchor.get(panelEl);
+    const { wrap, copyBtn, dlBtn } = makePanelToolbar({ tabSlug: share?.tabSlug, slug: share?.slug, exportEntries: entries });
+    copyBtn.addEventListener('click', e => { e.stopPropagation(); runPanelExport(panelEl, entries, 'copy'); });
+    dlBtn.addEventListener('click', e => { e.stopPropagation(); runPanelExport(panelEl, entries, 'download'); });
+    panelEl.appendChild(wrap);
+    handled.add(panelEl);
+  });
+
+  // Registered sections with no exportable visual (the ECON intro, which
+  // just introduces the two map panels below it) still get a share-only
+  // toolbar, same hover-only styling.
+  shareByAnchor.forEach(({ tabSlug, slug }, anchor)=>{
+    if(handled.has(anchor)) return;
+    if(anchor.querySelector(':scope > .panel-toolbar')) return;
     ensureRelative(anchor);
-    anchor.classList.add('has-export-toolbar');
-    const { wrap, copyBtn, dlBtn } = makeExportToolbar(entry);
-    copyBtn.addEventListener('click', e => { e.stopPropagation(); runExport(entry, anchor, 'copy'); });
-    dlBtn.addEventListener('click', e => { e.stopPropagation(); runExport(entry, anchor, 'download'); });
+    const { wrap } = makePanelToolbar({ tabSlug, slug, exportEntries: null });
     anchor.appendChild(wrap);
   });
 }
-initExportToolbars();
+initAtlasShareButton();
+initPanelToolbars();
 
 // SIEC is the default tab. loadCore() fetches only what SIEC needs for first
 // paint; per-tab heavy payloads (spoleczenstwo economics etc.) load on first

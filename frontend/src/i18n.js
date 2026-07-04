@@ -208,6 +208,11 @@ export const translations = {
     knn_half_sub: "Distribution of distance to the nearest store (k-NN).",
     knn_stat_max: "max.",
 
+    // Elevation
+    ele_title: "From the port in Gdansk to the peak in the Tatras",
+    ele_sub: "Distribution of active store elevation above sea level, in 50 m buckets.",
+    ele_caveat: "The extremes are single points: a store at the port in Gdansk sits below sea level, while one in Koscielisko under the Tatras sits highest in the whole network. 90% of stores fall between the P5 and P95 lines.",
+
     // Streets
     streets_title: "Streets with the most Zabkas",
     streets_sub_prefix: "Specific street and city, not just the name – total of ",
@@ -458,6 +463,11 @@ export const translations = {
     knn_half_title: "Połowa sieci ma sąsiadkę bliżej niż 300 m",
     knn_half_sub: "Rozkład odległości do najbliższego sklepu (k-NN).",
     knn_stat_max: "maks.",
+
+    // Elevation
+    ele_title: "Od portu w Gdańsku po szczyt w Tatrach",
+    ele_sub: "Rozkład wysokości czynnych sklepów nad poziomem morza, w kubełkach co 50 m.",
+    ele_caveat: "Skrajności to pojedyncze punkty: sklep w porcie w Gdańsku leży poniżej poziomu morza, a w Kościelisku pod Tatrami najwyżej w całej sieci. 90% sklepów mieści się między liniami P5 i P95.",
 
     // Streets
     streets_title: "Ulice z największą liczbą Żabek",
