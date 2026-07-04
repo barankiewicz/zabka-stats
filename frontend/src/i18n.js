@@ -234,6 +234,12 @@ export const translations = {
     foot_portfolio: "Portfolio",
     foot_last_updated: "Data updated",
     foot_disclaimer: "Independent fan/analytics project built on public data. Not affiliated with Żabka Polska or Żabka Group. Trademarks belong to their owners.",
+
+    // Deep links / copy-link (S1)
+    copy_link_aria: "Copy link to this section",
+    link_copied: "Link copied",
+    link_copy_failed: "Couldn't copy the link",
+
     stat_unit_meters_km: " km"
   },
   pl: {
@@ -468,6 +474,12 @@ export const translations = {
     foot_portfolio: "Portfolio",
     foot_last_updated: "Aktualizacja danych",
     foot_disclaimer: "Niezależny projekt fanowski/analityczny na danych publicznych. Niezwiązany z Żabka Polska ani Żabka Group. Znaki towarowe należą do ich właścicieli.",
+
+    // Deep links / copy-link (S1)
+    copy_link_aria: "Skopiuj link do tej sekcji",
+    link_copied: "Skopiowano link",
+    link_copy_failed: "Nie udało się skopiować linku",
+
     stat_unit_meters_km: " km"
   }
 };

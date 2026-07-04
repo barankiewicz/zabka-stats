@@ -5,7 +5,7 @@ import { M, MAPS, RENDERED } from './state.js';
 import { getFont, destroyChart, heroCount, fmtLastUpdated } from './utils.js';
 import { setFilter, clearFilter, registerFilterCallbacks } from './filter.js';
 import { loadCore, loadTabData } from './data.js';
-import { translateDOM, setLang } from './i18n.js';
+import { translateDOM, setLang, t } from './i18n.js';
 
 
 // Tabs are loaded on demand. Each dynamic import() becomes its own Rollup chunk,
@@ -129,7 +129,7 @@ async function renderTab(tab){
 
 const _tabBtns=Array.from(document.querySelectorAll('.tab-btn'));
 
-function activateTab(btn){
+function activateTab(btn,{skipScrollTop=false}={}){
   _tabBtns.forEach(b=>{b.classList.remove('active');b.setAttribute('aria-selected','false');b.setAttribute('tabindex','-1');});
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
   btn.classList.add('active');
@@ -137,7 +137,9 @@ function activateTab(btn){
   btn.setAttribute('tabindex','0');
   const tab=btn.dataset.tab;
   const tabEl=document.getElementById('tab-'+tab);
-  window.scrollTo({top:0,behavior:'instant'});
+  // Skipped when a section deep link is about to scroll somewhere specific -
+  // jumping to top first would just be an extra visible flash before that.
+  if(!skipScrollTop) window.scrollTo({top:0,behavior:'instant'});
   tabEl.classList.add('active');
   STATE.tab=tab;
   resetTabReveals(tabEl);
@@ -176,6 +178,10 @@ document.addEventListener('DOMContentLoaded',()=>{
         setLang(lang);
         writeLangToURL(lang);
         translateDOM();
+        // Copy-link buttons are icon-only with no data-t of their own (their
+        // aria-label is plain text set at creation), so translateDOM() alone
+        // wouldn't catch them - refresh explicitly.
+        document.querySelectorAll('.copy-link-btn').forEach(b => b.setAttribute('aria-label', t('copy_link_aria')));
         // Clear rendered tab state and re-render
         RENDERED.delete(STATE.tab);
         renderTab(STATE.tab);
@@ -242,6 +248,140 @@ function initFactDeepLink(){
   poll(40); // ~4s ceiling - loadCore + the siec chunk should render well within this
 }
 initFactDeepLink();
+
+// S1: per-section deep links (#siec/atlas, #polska/econ) + a copy-link button
+// on every registered section. Hash tab slugs are short/user-facing (siec,
+// polska) rather than the internal tab ids (siec, spoleczenstwo) - TAB_SLUG
+// maps between them. Section slugs mostly reuse the existing data-debug-id
+// values (already a de facto stable section registry, previously dev-only).
+const TAB_SLUG = { siec: 'siec', spoleczenstwo: 'polska' };
+const TAB_SLUG_REV = { siec: 'siec', polska: 'spoleczenstwo' };
+const SECTIONS = {
+  siec: {
+    mapa:        { title: '[data-debug-id="MAPA"]' },
+    growth:      { title: '[data-debug-id="1.1"]' },
+    fingerprint: { title: '[data-debug-id="1.1f-flat"]' },
+    gran:        { title: '[data-debug-id="GRAN"]' },
+    atlas:       { title: '[data-debug-id="ATLAS"]', anchor: '.kr .btnrow', scrollTarget: '#kr-root' },
+    powiaty:     { title: '[data-debug-id="POWIATY"]' },
+    bubble:      { title: '[data-debug-id="BUBBLE"]' },
+  },
+  spoleczenstwo: {
+    inpost:        { title: '[data-debug-id="2.3"]' },
+    nbl:           { title: '[data-debug-id="NBL"]' },
+    streets:       { title: '[data-debug-id="STREETS"]' },
+    'gmina-lead':  { title: '[data-debug-id="GMINA-LEAD"]' },
+    econ:          { title: '[data-debug-id="ECON"]' },
+  },
+};
+
+function sectionAnchorEl(entry){
+  if(entry.anchor) return document.querySelector(entry.anchor);
+  const titleEl = document.querySelector(entry.title);
+  return titleEl && (titleEl.closest('.card') || titleEl.closest('.econ-maps__intro') || titleEl.parentElement);
+}
+function sectionScrollTarget(entry){
+  if(entry.scrollTarget) return document.querySelector(entry.scrollTarget);
+  const titleEl = document.querySelector(entry.title);
+  return titleEl && (titleEl.closest('.card') || titleEl.closest('.econ-maps__intro') || titleEl);
+}
+
+let _linkToastTimer = null;
+function showLinkToast(msg){
+  let el = document.getElementById('link-toast');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'link-toast';
+    el.className = 'link-toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(_linkToastTimer);
+  _linkToastTimer = setTimeout(()=>el.classList.remove('show'), 1600);
+}
+
+function copyLinkFor(tabSlug, sectionSlug){
+  const url = new URL(window.location.href);
+  url.hash = `${tabSlug}/${sectionSlug}`;
+  navigator.clipboard.writeText(url.toString())
+    .then(()=>showLinkToast(t('link_copied')))
+    .catch(()=>showLinkToast(t('link_copy_failed')));
+}
+
+function makeCopyLinkBtn(tabSlug, sectionSlug){
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'copy-link-btn';
+  b.setAttribute('aria-label', t('copy_link_aria'));
+  b.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M6.35 9.65a1 1 0 0 1 0-1.4l3-3a3 3 0 1 1 4.24 4.24l-1.3 1.3a1 1 0 1 1-1.42-1.4l1.3-1.3a1 1 0 1 0-1.42-1.42l-3 3a1 1 0 0 1-1.4 0Zm3.3-3.3a1 1 0 0 1 0 1.4l-3 3a3 3 0 1 1-4.24-4.24l1.3-1.3a1 1 0 0 1 1.42 1.42l-1.3 1.3a1 1 0 1 0 1.42 1.4l3-3a1 1 0 0 1 1.4 0Z"/></svg>';
+  b.addEventListener('click', e => { e.stopPropagation(); copyLinkFor(tabSlug, sectionSlug); });
+  return b;
+}
+
+function initCopyLinkButtons(){
+  Object.entries(SECTIONS).forEach(([tab, sections])=>{
+    const tabSlug = TAB_SLUG[tab];
+    Object.entries(sections).forEach(([slug, entry])=>{
+      const anchor = sectionAnchorEl(entry);
+      if(!anchor || anchor.querySelector(':scope > .copy-link-btn')) return;
+      anchor.appendChild(makeCopyLinkBtn(tabSlug, slug));
+    });
+  });
+}
+
+function parseSectionHash(){
+  const m = window.location.hash.match(/^#([a-z]+)\/([a-z0-9.-]+)$/i);
+  if(!m) return null;
+  const tab = TAB_SLUG_REV[m[1].toLowerCase()];
+  if(!tab) return null;
+  return { tab, slug: m[2].toLowerCase() };
+}
+
+// Disable the browser's own scroll restoration on back/forward - it fights
+// with the programmatic scrollIntoView below (edge case called out up front:
+// "keeping scroll restoration sane").
+if('scrollRestoration' in history) history.scrollRestoration = 'manual';
+
+function goToHashSection(){
+  const target = parseSectionHash();
+  if(!target) return;
+  const entry = SECTIONS[target.tab]?.[target.slug];
+  if(!entry) return;
+
+  const btn = document.querySelector(`.tab-btn[data-tab="${target.tab}"]`);
+  // activateTab() itself kicks off renderTab() when the tab hasn't rendered
+  // yet (same path a real click takes) - skipScrollTop since we're about to
+  // scroll somewhere specific, not to the top of the newly-active tab.
+  if(btn && !btn.classList.contains('active')) activateTab(btn, {skipScrollTop:true});
+
+  // Edge case: the hash can arrive before the lazy tab chunk has rendered
+  // (cold load straight into #polska/econ). Poll RENDERED rather than
+  // assuming synchronous completion - same pattern as initFactDeepLink above.
+  const poll = (tries) => {
+    if (RENDERED.has(target.tab)) return scrollToSection(entry);
+    if (tries <= 0) return;
+    setTimeout(() => poll(tries - 1), 100);
+  };
+  poll(60); // ~6s ceiling
+}
+
+function scrollToSection(entry){
+  const el = sectionScrollTarget(entry);
+  if(!el) return;
+  // Scrolling into view is also what triggers a section's own lazy map/chart
+  // build for scenes gated on IntersectionObserver - same as a user scrolling
+  // there by hand, no special-casing needed per section.
+  requestAnimationFrame(()=>{
+    el.scrollIntoView({ behavior:'smooth', block:'start' });
+    el.classList.add('section-highlight');
+    setTimeout(()=>el.classList.remove('section-highlight'), 2400);
+  });
+}
+
+initCopyLinkButtons();
+window.addEventListener('hashchange', goToHashSection);
+goToHashSection();
 
 // SIEC is the default tab. loadCore() fetches only what SIEC needs for first
 // paint; per-tab heavy payloads (spoleczenstwo economics etc.) load on first

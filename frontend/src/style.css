@@ -79,6 +79,23 @@ nav{position:sticky;top:0;z-index:100;background:rgba(13,13,20,.9);backdrop-filt
 .card:hover, .fact-card:hover, .stat-tile:hover, .hero-stat:hover{box-shadow:0 0 28px rgba(132,195,65,.13);transform:translateY(-1px)}
 .card-title{font-family:var(--font-display);font-weight:700;font-size:14px;color:var(--ink);margin-bottom:4px;line-height:1.3}
 .card-sub{font-size:12px;color:var(--muted);margin-bottom:14px}
+
+/* S1: per-section copy-link button (main.js appends one to every section's
+   anchor - closest .card by default). Sits top-right of whatever positioned
+   container it's appended to (.card already has position:relative). */
+.econ-maps__intro{position:relative}
+.copy-link-btn{position:absolute;top:16px;right:18px;z-index:5;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid var(--axis);border-radius:7px;background:rgba(10,18,10,.5);color:var(--muted);cursor:pointer;opacity:.55;transition:opacity .15s,color .15s,border-color .15s,background .15s}
+.copy-link-btn:hover,.copy-link-btn:focus-visible{opacity:1;color:var(--green-bright);border-color:var(--green);background:rgba(0,192,96,.1)}
+.kr .btnrow .copy-link-btn{position:static;opacity:.7}
+.kr .btnrow .copy-link-btn:hover,.kr .btnrow .copy-link-btn:focus-visible{opacity:1}
+
+/* S1: brief glow when landing on a deep-linked section, same motif as the
+   existing .stat-tile.fact-highlight (kraniec fact deep links) */
+.section-highlight{animation:factHighlight 2.4s ease}
+
+/* S1: copy-link toast */
+.link-toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(12px);background:var(--s2);color:var(--ink);border:1px solid var(--green);border-radius:99px;padding:9px 18px;font-size:12.5px;font-weight:500;box-shadow:0 10px 30px rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease;z-index:500}
+.link-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .chart-wrap{position:relative;width:100%}
 .chart-wrap>canvas{display:block;width:100%;height:100%}
 .h720{height:720px}.h680{height:680px}.h560{height:560px}.h500{height:500px}.h460{height:460px}.h420{height:420px}.h400{height:400px}.h380{height:380px}.h360{height:360px}.h340{height:340px}.h280{height:280px}.h260{height:260px}.h220{height:220px}.h200{height:200px}.h180{height:180px}.h140{height:140px}
@@ -417,7 +434,7 @@ canvas{display:block}
 /* ===== "Żabka a Polska" bottom panel: two powiat residual choropleths
    (density vs unemployment | density vs salary), scoped to .econ-maps ===== */
 .econ-maps { margin-top: 8px; }
-.econ-maps__intro { margin-bottom: 18px; max-width: 92ch; }
+.econ-maps__intro { margin-bottom: 18px; max-width: 92ch; padding-right: 36px; }
 .econ-maps__row { align-items: stretch; }
 .econ-map-card { display: flex; flex-direction: column; }
 .econ-map-container { flex: 1; min-height: 0; margin-top: 12px; }
