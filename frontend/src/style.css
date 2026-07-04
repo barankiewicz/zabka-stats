@@ -219,6 +219,11 @@ canvas{display:block}
 .maplibregl-ctrl-scale{background:rgba(8,17,10,.78);border-color:rgba(140,200,80,.45);color:#c8d4ba;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.03em;border-width:1px;border-top:0}
 .maplibregl-ctrl-scale::before,.maplibregl-ctrl-scale::after{background:rgba(140,200,80,.45)}
 
+/* GRAN choropleth color legend (min->max ramp), bottom-left above the km scale */
+.gran-legend{position:absolute;left:10px;bottom:36px;z-index:500;background:rgba(10,18,10,.82);border:1px solid rgba(140,200,80,.22);border-radius:7px;padding:6px 8px;font-family:var(--font-mono);font-size:10px;color:#c8d4ba;backdrop-filter:blur(4px);box-shadow:0 4px 18px rgba(0,0,0,.45);pointer-events:none;display:flex;flex-direction:column;gap:3px}
+.gran-legend-bar{width:120px;height:8px;border-radius:2px;border:1px solid rgba(0,0,0,.5)}
+.gran-legend-axis{display:flex;justify-content:space-between;color:#93a487;font-size:9.5px}
+
 /* dark theme for MapLibre's cooperative-gesture hint ("ctrl + scroll to zoom") */
 .maplibregl-cooperative-gesture-screen{background:rgba(10,18,10,.9)!important;color:#93a487!important}
 .maplibregl-cooperative-gesture-screen::before{background-color:rgba(132,195,65,.12)!important}

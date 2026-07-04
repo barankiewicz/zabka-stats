@@ -1,5 +1,5 @@
 import Chart from '../chartjs-setup.js';
-import { C, STATE, fpRamp, granRamp, GRAN_FILL_STOPS } from '../config.js';
+import { C, STATE, fpRamp, granRamp, GRAN_FILL_STOPS, GRAN_RAMP_STOPS } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
 import { era, fmt, getFont, destroyChart, capName as capCase, whenVisible, whenVisibleIdle, debounce, wireCountUp, heroCount, escapeHtml, showChartStatus } from '../utils.js';
 import { loadMaplibre } from '../maplibre-lazy.js';
@@ -1320,6 +1320,7 @@ function _setWojData(rows,geojson,metric){
   const geo={type:'FeatureCollection',features};
   if(_wojMap&&_wojMap.getSource('gran-woj'))_wojMap.getSource('gran-woj').setData(geo);
   _refreshWojLabels(features);
+  _updateWojLegend();
   return geo;
 }
 
@@ -1396,6 +1397,37 @@ function _updateWojScale(){
     _wojMap.removeControl(_wojScale);
     _wojScale = null;
   }
+}
+
+// Color legend overlay (min→max ramp) for the GRAN choropleth, sitting
+// above the km scale bar at bottom-left. Created once when the map's style
+// loads, then _updateWojLegend() refreshes the endpoint labels every time
+// the metric or data changes (driven from _setWojData).
+let _wojLegendEl = null;
+function _ensureWojLegend(){
+  if(_wojLegendEl || !_wojMap) return;
+  const c = document.getElementById('map-granular-woj');
+  if(!c) return;
+  _wojLegendEl = document.createElement('div');
+  _wojLegendEl.className = 'gran-legend';
+  const grad = GRAN_RAMP_STOPS.join(',');
+  _wojLegendEl.innerHTML =
+    `<div class="gran-legend-bar" style="background:linear-gradient(to right,${grad})"></div>` +
+    `<div class="gran-legend-axis"><span class="lo">–</span><span class="hi">–</span></div>`;
+  c.appendChild(_wojLegendEl);
+}
+function _fmtBare(v){
+  const loc = getLang() === 'en' ? 'en-US' : 'pl-PL';
+  if(_wojMetricLive==='count') return Math.round(v).toLocaleString(loc);
+  if(_wojMetricLive==='per1k') return (getLang()==='en'?v.toFixed(2):v.toFixed(2).replace('.',','));
+  return (getLang()==='en'?v.toFixed(3):v.toFixed(3).replace('.',','));
+}
+function _updateWojLegend(){
+  if(!_wojLegendEl) return;
+  const lo = _wojLegendEl.querySelector('.lo');
+  const hi = _wojLegendEl.querySelector('.hi');
+  if(lo) lo.textContent = _fmtBare(_wojVmin);
+  if(hi) hi.textContent = _fmtBare(_wojVmax);
 }
 
 async function _buildWojMap(el){
@@ -1502,6 +1534,7 @@ async function _buildWojMap(el){
       
       fitPoland(_wojMap,6);
       _updateWojScale();
+      _ensureWojLegend();
       _wojSrcReady=true;
     });
   } catch (e) {
