@@ -204,6 +204,13 @@ function _updateIpMapMode(){
   _ipMap.doubleClickZoom.enable();
   _ipMap.touchZoomRotate.enable();
 
+  // A mode switch right after a pinch on mobile can otherwise land while the
+  // pinch's own kinetic-zoom easing is still running and lose part of the
+  // animation - stop it and re-measure the container first (see kraniec.js's
+  // Atlas reset for the same fix).
+  _ipMap.stop();
+  _ipMap.resize();
+
   if(is3d){
     _ipMap.dragRotate.enable();
     _ipMap.easeTo({pitch:50,bearing:10,duration:1000});

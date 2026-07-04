@@ -1404,6 +1404,12 @@ function _updateMapMode(){
   _wojMap.doubleClickZoom.enable();
   _wojMap.touchZoomRotate.enable();
 
+  // Same fix as the InPost map's mode toggle and the Atlas reset: a mode
+  // switch right after a mobile pinch can land mid-inertia and lose the zoom
+  // half of the animation - stop it and re-measure the container first.
+  _wojMap.stop();
+  _wojMap.resize();
+
   if(is3d){
     _wojMap.dragRotate.enable();
     _wojMap.easeTo({pitch:50,bearing:10,duration:1000});
