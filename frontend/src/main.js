@@ -189,12 +189,13 @@ document.addEventListener('DOMContentLoaded',()=>{
         writeLangToURL(lang);
         translateDOM();
         // Panel-toolbar buttons are icon-only with no data-t of their own
-        // (their aria-label is plain text set at creation), so translateDOM()
-        // alone wouldn't catch them - refresh explicitly, keyed by the
-        // data-role each button was tagged with at creation.
-        document.querySelectorAll('[data-role="share"]').forEach(b => b.setAttribute('aria-label', t('copy_link_aria')));
-        document.querySelectorAll('[data-role="export-copy"]').forEach(b => b.setAttribute('aria-label', t('export_copy_aria')));
-        document.querySelectorAll('[data-role="export-download"]').forEach(b => b.setAttribute('aria-label', t('export_download_aria')));
+        // (their aria-label and title are plain text set at creation), so
+        // translateDOM() alone wouldn't catch them - refresh explicitly,
+        // keyed by the data-role each button was tagged with at creation.
+        // setAriaAndTitle keeps aria-label and the hover tooltip in sync.
+        document.querySelectorAll('[data-role="share"]').forEach(b => setAriaAndTitle(b, 'copy_link_aria'));
+        document.querySelectorAll('[data-role="export-copy"]').forEach(b => setAriaAndTitle(b, 'export_copy_aria'));
+        document.querySelectorAll('[data-role="export-download"]').forEach(b => setAriaAndTitle(b, 'export_download_aria'));
         // Clear rendered tab state and re-render
         RENDERED.clear();
         renderTab(STATE.tab);
@@ -329,12 +330,21 @@ function copyLinkFor(tabSlug, sectionSlug){
     .catch(()=>showLinkToast(t('link_copy_failed')));
 }
 
+// Panel-toolbar buttons are icon-only - aria-label serves screen readers,
+// title serves the hover tooltip. Same string for both so a sighted user
+// hears and sees the same explanation. Updated on language switch (below).
+function setAriaAndTitle(btn, key) {
+  const txt = t(key);
+  btn.setAttribute('aria-label', txt);
+  btn.title = txt;
+}
+
 function makeCopyLinkBtn(tabSlug, sectionSlug, cls='panel-btn'){
   const b = document.createElement('button');
   b.type = 'button';
   b.className = cls;
   b.dataset.role = 'share';
-  b.setAttribute('aria-label', t('copy_link_aria'));
+  setAriaAndTitle(b, 'copy_link_aria');
   b.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M6.35 9.65a1 1 0 0 1 0-1.4l3-3a3 3 0 1 1 4.24 4.24l-1.3 1.3a1 1 0 1 1-1.42-1.4l1.3-1.3a1 1 0 1 0-1.42-1.42l-3 3a1 1 0 0 1-1.4 0Zm3.3-3.3a1 1 0 0 1 0 1.4l-3 3a3 3 0 1 1-4.24-4.24l1.3-1.3a1 1 0 0 1 1.42 1.42l-1.3 1.3a1 1 0 1 0 1.42 1.4l3-3a1 1 0 0 1 1.4 0Z"/></svg>';
   b.addEventListener('click', e => { e.stopPropagation(); copyLinkFor(tabSlug, sectionSlug); });
   return b;
@@ -487,13 +497,13 @@ function makePanelToolbar({ tabSlug, slug, exportEntries }){
     copyBtn.type = 'button';
     copyBtn.className = 'panel-btn';
     copyBtn.dataset.role = 'export-copy';
-    copyBtn.setAttribute('aria-label', t('export_copy_aria'));
+    setAriaAndTitle(copyBtn, 'export_copy_aria');
     copyBtn.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M5 1a1 1 0 0 0-1 1v1H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H5Zm6 12H3V4h1v8a1 1 0 0 0 1 1h6v0Zm2-2H6V3h7v8Z"/></svg>';
     dlBtn = document.createElement('button');
     dlBtn.type = 'button';
     dlBtn.className = 'panel-btn';
     dlBtn.dataset.role = 'export-download';
-    dlBtn.setAttribute('aria-label', t('export_download_aria'));
+    setAriaAndTitle(dlBtn, 'export_download_aria');
     dlBtn.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M8 1a1 1 0 0 1 1 1v6.59l1.79-1.8a1 1 0 1 1 1.42 1.42l-3.5 3.5a1 1 0 0 1-1.42 0l-3.5-3.5a1 1 0 1 1 1.42-1.42L7 8.59V2a1 1 0 0 1 1-1ZM3 13a1 1 0 1 0 0 2h10a1 1 0 1 0 0-2H3Z"/></svg>';
     wrap.appendChild(copyBtn);
     wrap.appendChild(dlBtn);
