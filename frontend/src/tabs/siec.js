@@ -114,12 +114,15 @@ export function renderSiec(){
   return Promise.all([pBubble, p1, p2, p3, p4, p5]);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.tab-bridge-btn[data-goto]').forEach(btn=>{
-    if(btn._wired)return;btn._wired=true;
-    btn.addEventListener('click',()=>{
-      document.querySelector(`.tab-btn[data-tab="${btn.dataset.goto}"]`)?.click();
-    });
+// This module is always dynamic-import()ed well after the page's own
+// DOMContentLoaded has already fired (it's the lazy SIEC chunk, loaded once
+// loadCore() resolves and the tab first renders) - a DOMContentLoaded listener
+// registered here never fires, so the bridge button silently did nothing.
+// The DOM is already fully parsed by the time this module runs; wire it directly.
+document.querySelectorAll('.tab-bridge-btn[data-goto]').forEach(btn=>{
+  if(btn._wired)return;btn._wired=true;
+  btn.addEventListener('click',()=>{
+    document.querySelector(`.tab-btn[data-tab="${btn.dataset.goto}"]`)?.click();
   });
 });
 
