@@ -405,6 +405,13 @@ canvas{display:block}
 .filter-chip button{background:none;border:none;color:var(--green);cursor:pointer;font-size:14px;line-height:1;padding:5px 6px;margin:-5px -6px}
 .filter-chip button:hover{color:var(--ink)}
 
+/* S9: SEO FAQ - visible, always (not inside either tab-panel) */
+.faq-section-wrap{padding-top:0}
+.faq-item{margin-top:18px;padding-top:16px;border-top:1px solid var(--axis)}
+.faq-item:first-of-type{margin-top:16px}
+.faq-item h3{font-family:var(--font-display);font-weight:700;font-size:14px;color:var(--ink);margin-bottom:6px;line-height:1.3}
+.faq-item p{font-size:13px;color:var(--muted);line-height:1.6;margin:0}
+
 /* SITE FOOTER */
 .site-foot{position:relative;z-index:1;margin-top:24px}
 .foot-inner{display:flex;align-items:center;justify-content:space-between;gap:16px 24px;flex-wrap:wrap;padding-top:26px;padding-bottom:34px;border-top:1px solid var(--axis)}

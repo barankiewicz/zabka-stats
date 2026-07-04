@@ -240,6 +240,19 @@ export const translations = {
     link_copied: "Link copied",
     link_copy_failed: "Couldn't copy the link",
 
+    // SEO FAQ (S9) - question text is static (data-t); answer text is a
+    // template filled in by renderFAQ() with live numbers, not data-t (see
+    // the comment in index.html for why).
+    faq_heading: "Frequently asked questions",
+    faq_q_total: "How many Żabka stores are there in Poland?",
+    faq_a_total: "There are {total} active Żabka stores across Poland, in {cities} cities and towns (as of {date}).",
+    faq_q_most: "Where are there the most Żabka stores?",
+    faq_a_most: "{city} has the most Żabka stores of any city – {count} locations.",
+    faq_q_farthest: "Where is the farthest point from any Żabka store?",
+    faq_a_farthest: "The farthest point from any Żabka store in Poland is in the Bieszczady Mountains, about {km} km in a straight line from the nearest one.",
+    faq_q_yearly: "How many new Żabka stores open each year?",
+    faq_a_yearly: "The network grows by well over a thousand new stores a year – the record so far is {year}, with {count} new openings.",
+
     stat_unit_meters_km: " km"
   },
   pl: {
@@ -479,6 +492,17 @@ export const translations = {
     copy_link_aria: "Skopiuj link do tej sekcji",
     link_copied: "Skopiowano link",
     link_copy_failed: "Nie udało się skopiować linku",
+
+    // SEO FAQ (S9)
+    faq_heading: "Najczęściej zadawane pytania",
+    faq_q_total: "Ile jest Żabek w Polsce?",
+    faq_a_total: "W Polsce działa {total} aktywnych sklepów Żabka, w {cities} miastach i miejscowościach (stan na {date}).",
+    faq_q_most: "Gdzie jest najwięcej Żabek?",
+    faq_a_most: "Najwięcej Żabek ma {city} – działa tam {count} sklepów.",
+    faq_q_farthest: "Gdzie jest najdalej do Żabki?",
+    faq_a_farthest: "Najdalszy punkt od jakiejkolwiek Żabki w Polsce leży w Bieszczadach, około {km} km w linii prostej od najbliższego sklepu.",
+    faq_q_yearly: "Ile Żabek przybywa rocznie?",
+    faq_a_yearly: "Sieć rośnie o ponad tysiąc nowych sklepów rocznie – rekordowy był {year} rok z {count} nowymi otwarciami.",
 
     stat_unit_meters_km: " km"
   }
