@@ -165,22 +165,22 @@
 
 <div class="qa">
   <h3 data-t="faq_q_count">Ile jest Żabek w Polsce?</h3>
-  <p data-t="faq_a_count">Ponad 13 200 aktywnych sklepów, w ponad 2200 miastach i miejscowościach. Liczba zmienia się codziennie - sieć otwiera nowe punkty praktycznie bez przerwy, choć część sklepów też zamyka się po drodze (patrz niżej).</p>
+  <p data-t="faq_a_count">Ponad {{STAT_TOTAL_STORES_ROUNDED}} aktywnych sklepów, w ponad {{STAT_CITIES_COUNT_ROUNDED}} miastach i miejscowościach. Liczba zmienia się codziennie - sieć otwiera nowe punkty praktycznie bez przerwy, choć część sklepów też zamyka się po drodze (patrz niżej).</p>
 </div>
 
 <div class="qa">
   <h3 data-t="faq_q_most">Gdzie jest najwięcej Żabek?</h3>
-  <p data-t="faq_a_most">W liczbach bezwzględnych: Warszawa (ponad 1100 sklepów) i województwo mazowieckie jako całość. Ale to głównie efekt wielkości miasta i regionu - większa populacja, więcej sklepów, bez wyjątku. Licząc na mieszkańca, prowadzi pomorskie (ok. 0,46 sklepu na 1000 osób), nie mazowieckie. Ranking odwraca się w zależności od tego, co dzielisz przez co - to nie przypadek, to dokładnie ten sam mechanizm, który opisujemy w sekcji o mieszaniu liczb bezwzględnych z gęstością niżej.</p>
+  <p data-t="faq_a_most">W liczbach bezwzględnych: Warszawa (ponad {{STAT_WARSAW_STORE_COUNT}} sklepów) i województwo {{STAT_LEADER_ABSOLUTE_VOIV}} jako całość. Ale to głównie efekt wielkości miasta i regionu - większa populacja, więcej sklepów, bez wyjątku. Licząc na mieszkańca, prowadzi {{STAT_LEADER_PERCAPITA_VOIV}} (ok. {{STAT_LEADER_PERCAPITA_VALUE}} sklepu na 1000 osób), nie {{STAT_LEADER_ABSOLUTE_VOIV}}. Ranking odwraca się w zależności od tego, co dzielisz przez co - to nie przypadek, to dokładnie ten sam mechanizm, który opisujemy w sekcji o mieszaniu liczb bezwzględnych z gęstością niżej.</p>
 </div>
 
 <div class="qa">
   <h3 data-t="faq_q_farthest">Gdzie jest najdalej do Żabki?</h3>
-  <p data-t="faq_a_farthest">Najdalszy punkt od jakiejkolwiek Żabki w Polsce leży w Bieszczadach, około 46,5 km w linii prostej od najbliższego sklepu. To praktycznie środek Połoniny Wetlińskiej.</p>
+  <p data-t="faq_a_farthest">Najdalszy punkt od jakiejkolwiek Żabki w Polsce leży w Bieszczadach, około {{STAT_VOID_DISTANCE_KM}} km w linii prostej od najbliższego sklepu. To praktycznie środek Połoniny Wetlińskiej.</p>
 </div>
 
 <div class="qa">
   <h3 data-t="faq_q_yearly">Ile Żabek przybywa rocznie?</h3>
-  <p data-t="faq_a_yearly">Rocznie otwiera się od kilkuset do ponad 1900 nowych sklepów - rekordowy był 2025 rok z 1943 otwarciami. Prawie połowa dzisiejszej, wciąż aktywnej sieci powstała od 2023 roku. Tempo przyspieszyło zauważalnie po 2020.</p>
+  <p data-t="faq_a_yearly">Rocznie otwiera się od kilkuset do ponad {{STAT_RECORD_YEAR_OPENINGS}} nowych sklepów - rekordowy był {{STAT_RECORD_YEAR}} rok z {{STAT_RECORD_YEAR_OPENINGS}} otwarciami. Prawie połowa dzisiejszej, wciąż aktywnej sieci powstała od 2023 roku. Tempo przyspieszyło zauważalnie po 2020.</p>
 </div>
 
 <div class="qa">
@@ -190,7 +190,7 @@
 
 <div class="qa">
   <h3 data-t="faq_q_every_city">Czy Żabka jest w każdym mieście w Polsce?</h3>
-  <p data-t="faq_a_every_city">Nie, ale jest blisko - ponad 60% gmin ma co najmniej jedną Żabkę, a pokrycie powiatów jest praktycznie kompletne (314 z 314 powiatów lądowych ma przynajmniej jeden sklep). Miejsca bez Żabki to głównie małe, rozproszone gminy wiejskie.</p>
+  <p data-t="faq_a_every_city">Nie, ale jest blisko - ponad {{STAT_GMINY_COVERAGE_PCT}}% gmin ma co najmniej jedną Żabkę, a pokrycie powiatów jest praktycznie kompletne ({{STAT_POWIAT_COVERED}} z {{STAT_POWIAT_TOTAL}} powiatów lądowych ma przynajmniej jeden sklep). Miejsca bez Żabki to głównie małe, rozproszone gminy wiejskie.</p>
 </div>
 
 <h2 data-t="faq_sec_sources">Skąd pochodzą te dane</h2>
@@ -207,7 +207,7 @@
 
 <div class="qa">
   <h3 data-t="faq_q_download">Czy mogę pobrać te dane samodzielnie?</h3>
-  <p data-t="faq_a_download">Tak. Cała baza DuckDB (~48 MB) jest do pobrania z dashboardu, na licencji CC BY 4.0. Granice województw są dostępne jako GeoJSON. Surowe API jest udokumentowane pod <code>/docs</code>.</p>
+  <p data-t="faq_a_download">Tak. Cała baza DuckDB (~{{STAT_DB_SIZE_MB}} MB) jest do pobrania z dashboardu, na licencji CC BY 4.0. Granice województw są dostępne jako GeoJSON. Surowe API jest udokumentowane pod <code>/docs</code>.</p>
 </div>
 
 <div class="qa">
@@ -220,12 +220,12 @@
 
 <div class="qa flag">
   <h3 data-t="faq_q_econ_correlation">Czy wysoka korelacja na mapach ekonomicznych oznacza, że bogactwo powoduje więcej Żabek?</h3>
-  <p data-t="faq_a_econ_correlation">Nie - i to jest najważniejsza pułapka na całym dashboardzie. Mapy w sekcji "Żabka a Polska" pokazują <strong>korelację</strong>: odchylenie gęstości sieci od trendu wyznaczonego przez zarobki lub bezrobocie w danym powiecie. Współczynnik r (np. r = +0,25 dla płacy) opisuje siłę tej zależności statystycznej - nie mechanizm przyczynowy. Równie dobrze mogłoby być odwrotnie (więcej sklepów napędza lokalną gospodarkę), albo - najbardziej prawdopodobnie - obie zmienne zależą od trzeciego czynnika: gęstości zaludnienia i urbanizacji. Bogate powiaty są zwykle też gęściej zaludnione i bardziej zurbanizowane, a to jest to, co realnie przyciąga sieci convenience - nie sama obecność pieniądza.</p>
+  <p data-t="faq_a_econ_correlation">Nie - i to jest najważniejsza pułapka na całym dashboardzie. Mapy w sekcji "Żabka a Polska" pokazują <strong>korelację</strong>: odchylenie gęstości sieci od trendu wyznaczonego przez zarobki lub bezrobocie w danym powiecie. Współczynnik r (np. r = +{{STAT_R_SALARY}} dla płacy) opisuje siłę tej zależności statystycznej - nie mechanizm przyczynowy. Równie dobrze mogłoby być odwrotnie (więcej sklepów napędza lokalną gospodarkę), albo - najbardziej prawdopodobnie - obie zmienne zależą od trzeciego czynnika: gęstości zaludnienia i urbanizacji. Bogate powiaty są zwykle też gęściej zaludnione i bardziej zurbanizowane, a to jest to, co realnie przyciąga sieci convenience - nie sama obecność pieniądza.</p>
 </div>
 
 <div class="qa flag">
   <h3 data-t="faq_q_amphibians_density">Czy więcej obserwacji płazów w GBIF przy danym sklepie znaczy, że tam żyje więcej żab?</h3>
-  <p data-t="faq_a_amphibians_density">Niekoniecznie. Rekordzista (ponad 2000 obserwacji w promieniu 5 km) to sklep na Ursynowie w Warszawie - gęsto zaludnienia dzielnica z parkami, nie rezerwacie przyrody. Dane GBIF to zgłoszenia obywatelskiej nauki: odzwierciedlają gęstość <em>obserwatorów</em> ze smartfonami, nie tylko gęstość płazów. Dziewicze, słabo zamieszkane tereny (Bieszczady, Puszcza Białowieska) mogą mieć realnie więcej płazów i mniej zgłoszeń - po prostu mniej osób tam patrzy i wgrywa obserwacje.</p>
+  <p data-t="faq_a_amphibians_density">Niekoniecznie. Rekordzista (ponad {{STAT_AMPHIBIAN_RECORD_COUNT}} obserwacji w promieniu 5 km) to sklep na Ursynowie w Warszawie - gęsto zaludnienia dzielnica z parkami, nie rezerwacie przyrody. Dane GBIF to zgłoszenia obywatelskiej nauki: odzwierciedlają gęstość <em>obserwatorów</em> ze smartfonami, nie tylko gęstość płazów. Dziewicze, słabo zamieszkane tereny (Bieszczady, Puszcza Białowieska) mogą mieć realnie więcej płazów i mniej zgłoszeń - po prostu mniej osób tam patrzy i wgrywa obserwacje.</p>
 </div>
 
 <div class="qa flag">
@@ -245,7 +245,7 @@
 
 <div class="qa flag">
   <h3 data-t="faq_q_completeness">Czy ten zbiór danych jest kompletny i wolny od brakujących wartości?</h3>
-  <p data-t="faq_a_completeness">Nie. Około 218 sklepów nie ma daty otwarcia w źródle. Wysokość terenu jest opcjonalna (wymaga ponad 13 tysięcy zapytań HTTP) i bywa NULL. Populacje powiatów to dane roczne z GUS, nie aktualne szacunki. Pełna lista ograniczeń jest na <a href="/methodology.html#czego-nie-gwarantujemy">stronie metodyki</a>.</p>
+  <p data-t="faq_a_completeness">Nie. Około {{STAT_UNDATED_STORES}} sklepów nie ma daty otwarcia w źródle. Wysokość terenu jest opcjonalna (wymaga ponad {{STAT_TOTAL_STORES_ROUNDED}} zapytań HTTP) i bywa NULL. Populacje powiatów to dane roczne z GUS, nie aktualne szacunki. Pełna lista ograniczeń jest na <a href="/methodology.html#czego-nie-gwarantujemy">stronie metodyki</a>.</p>
 </div>
 
 <div class="cta-box">

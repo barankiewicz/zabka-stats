@@ -12,6 +12,52 @@ class SummaryResponse(BaseModel):
     h24_count: int
     last_updated: str | None = None
 
+    # Audit report dynamic tokens fields
+    total_stores_rounded: int | None = None
+    cities_count_rounded: int | None = None
+    data_year_max: int | None = None
+    date_modified: str | None = None
+    pct_since_2023: float | None = None
+    undated_stores: int | None = None
+    oldest_store_year: int | None = None
+    oldest_store_age_years: int | None = None
+    oldest_store_city: str | None = None
+    oldest_store_street: str | None = None
+    newest_store_year: int | None = None
+    newest_store_city: str | None = None
+    newest_store_street: str | None = None
+    void_distance_km: float | None = None
+    elevation_max_m: float | None = None
+    elevation_max_city: str | None = None
+    elevation_max_street: str | None = None
+    elevation_min_m: float | None = None
+    elevation_min_city: str | None = None
+    elevation_min_street: str | None = None
+    isolated_max_km: float | None = None
+    isolated_max_city: str | None = None
+    isolated_max_street: str | None = None
+    powiat_covered: int | None = None
+    powiat_total: int | None = None
+    neighbor_median_m: int | None = None
+    neighbor_avg_m: int | None = None
+    podkarpackie_median_m: int | None = None
+    podkarpackie_avg_km: float | None = None
+    leader_absolute_voiv: str | None = None
+    leader_percapita_voiv: str | None = None
+    leader_percapita_value: float | None = None
+    parks_total: int | None = None
+    parks_national: int | None = None
+    parks_landscape: int | None = None
+    inpost_total: int | None = None
+    gbif_total: int | None = None
+    amphibian_record_count: int | None = None
+    warsaw_store_count: int | None = None
+    record_year: int | None = None
+    record_year_openings: int | None = None
+    gminy_coverage_pct: float | None = None
+    db_size_mb: float | None = None
+    r_salary: float | None = None
+
 class NetworkGrowthItem(BaseModel):
     year: int
     new_stores: int

@@ -62,32 +62,13 @@ def _norm_street(s: str) -> str:
 
 # --- Endpoints ---
 
+from backend.stats_compiler import compile_live_stats
+
 @get("/stats/summary", sync_to_thread=True)
 @cached(ttl=3600)
 def summary() -> SummaryResponse:
-    r = client.execute("""
-        SELECT
-            COUNT(*) AS total_active,
-            COUNT(DISTINCT city) AS cities_count,
-            ROUND(100.0 * SUM(CASE WHEN has_merrychef THEN 1 ELSE 0 END)
-                  / NULLIF(COUNT(has_merrychef), 0), 1) AS merrychef_pct,
-            ROUND(100.0 * SUM(CASE WHEN open_sunday THEN 1 ELSE 0 END)
-                  / NULLIF(COUNT(open_sunday), 0), 1) AS sunday_pct,
-            SUM(CASE WHEN h24 THEN 1 ELSE 0 END) AS h24_count
-        FROM locations
-        WHERE deleted_at IS NULL
-    """).fetchone()
-    last_run = client.execute(
-        "SELECT updated_at FROM etl_meta WHERE key = 'last_run'"
-    ).fetchone()
-    return SummaryResponse(
-        total_active=int(r[0] or 0),
-        cities_count=int(r[1] or 0),
-        merrychef_pct=float(r[2]) if r[2] is not None else None,
-        sunday_pct=float(r[3]) if r[3] is not None else None,
-        h24_count=int(r[4] or 0),
-        last_updated=str(last_run[0]) if last_run and last_run[0] else None
-    )
+    stats = compile_live_stats()
+    return SummaryResponse(**stats)
 
 @get("/stats/network-growth", sync_to_thread=True)
 @cached(ttl=3600)

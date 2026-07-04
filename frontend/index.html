@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Żabkozbiór – interaktywny atlas sieci w Polsce</title>
-<meta name="description" content="Interaktywny atlas sieci Żabka: gdzie, kiedy i jak rosła sieć ponad 13 tysięcy sklepów. Mapy, rankingi, ekonomia i ciekawostki na danych publicznych." data-t-content="meta_description">
+<meta name="description" content="Interaktywny atlas sieci Żabka: gdzie, kiedy i jak rosła sieć ponad {{STAT_TOTAL_STORES_ROUNDED}} sklepów. Mapy, rankingi, ekonomia i ciekawostki na danych publicznych." data-t-content="meta_description">
 <meta name="robots" content="index,follow">
 <link rel="canonical" href="https://zabkozbior.barankiewicz.dev/">
 <link rel="alternate" hreflang="pl" href="https://zabkozbior.barankiewicz.dev/">
@@ -22,7 +22,7 @@
 <meta property="og:locale:alternate" content="en_US">
 <meta property="og:url" content="https://zabkozbior.barankiewicz.dev/">
 <meta property="og:title" content="Żabkozbiór – interaktywny atlas sieci w Polsce" data-t-content="meta_title">
-<meta property="og:description" content="Gdzie, kiedy i jak rosła sieć ponad 13 tysięcy sklepów Żabka. Mapy, rankingi, ekonomia i ciekawostki na danych publicznych." data-t-content="og_description">
+<meta property="og:description" content="Gdzie, kiedy i jak rosła sieć ponad {{STAT_TOTAL_STORES_ROUNDED}} sklepów Żabka. Mapy, rankingi, ekonomia i ciekawostki na danych publicznych." data-t-content="og_description">
 <meta property="og:image" content="https://zabkozbior.barankiewicz.dev/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -31,7 +31,7 @@
 <!-- Twitter / X -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Żabkozbiór – interaktywny atlas sieci w Polsce" data-t-content="meta_title">
-<meta name="twitter:description" content="Gdzie, kiedy i jak rosła sieć ponad 13 tysięcy sklepów Żabka. Mapy, rankingi, ekonomia i ciekawostki na danych publicznych." data-t-content="og_description">
+<meta name="twitter:description" content="Gdzie, kiedy i jak rosła sieć ponad {{STAT_TOTAL_STORES_ROUNDED}} sklepów Żabka. Mapy, rankingi, ekonomia i ciekawostki na danych publicznych." data-t-content="og_description">
 <meta name="twitter:image" content="https://zabkozbior.barankiewicz.dev/og.png">
 <meta name="twitter:image:alt" content="Interaktywny atlas sklepów Żabka w Polsce – ciemna mapa z lokalizacjami i wykresami" data-t-content="og_image_alt">
 
@@ -51,15 +51,15 @@
     {
       "@type": "Dataset",
       "name": "Sieć Żabka w Polsce – lokalizacje i statystyki",
-      "description": "Dane o ponad 13 tysiącach sklepów Żabka w Polsce: lokalizacje, daty otwarcia, gęstość, godziny otwarcia oraz korelacje z danymi GUS, GBIF, InPost i GUGiK.",
+      "description": "Dane o ponad {{STAT_TOTAL_STORES_ROUNDED}} sklepach Żabka w Polsce: lokalizacje, daty otwarcia, gęstość, godziny otwarcia oraz korelacje z danymi GUS, GBIF, InPost i GUGiK.",
       "url": "https://zabkozbior.barankiewicz.dev/",
       "inLanguage": "pl-PL",
       "isAccessibleForFree": true,
       "keywords": ["Żabka", "sklepy convenience", "Polska", "mapa sklepów", "statystyki", "dane otwarte"],
-      "temporalCoverage": "1998/2026",
+      "temporalCoverage": "1998/{{STAT_DATA_YEAR_MAX}}",
       "spatialCoverage": { "@type": "Place", "name": "Polska" },
       "datePublished": "2026-06-17",
-      "dateModified": "2026-06-24",
+      "dateModified": "{{STAT_DATE_MODIFIED}}",
       "creator": {
         "@type": "Person",
         "name": "Alicja Barankiewicz",
@@ -117,10 +117,10 @@
   <header class="historia-hero reveal">
     <canvas id="hero-particles" class="hero-particles" aria-hidden="true"></canvas>
     <div class="hero-inner">
-      <div class="hero-number" id="hero-number">12 323</div>
+      <div class="hero-number" id="hero-number">{{STAT_TOTAL_STORES}}</div>
       <div class="hero-number-label" data-t="hero_number_label_siec">aktywnych sklepów w Polsce</div>
       <h2 class="hero-h1" data-t="hero_h1_siec">Żabka jest wszędzie. Mamy na to twarde dane.</h2>
-      <p class="hero-lede" data-t="hero_lede_siec">45,4% dzisiejszej sieci powstało od 2023 roku. Oto jak trzynaście tysięcy sklepów rozlało się po Polsce, rok po roku.</p>
+      <p class="hero-lede" data-t="hero_lede_siec">{{STAT_PCT_SINCE_2023}}% dzisiejszej sieci powstało od 2023 roku. Oto jak {{STAT_TOTAL_STORES_WORDS}} sklepów rozlało się po Polsce, rok po roku.</p>
     </div>
   </header>
 
@@ -171,7 +171,7 @@
 
   <!-- BIG MAP + KALENDARZ EKSPANSJI (one shared slider drives both) -->
   <div class="card si-reveal" style="margin-bottom:16px">
-    <div class="card-title" data-debug-id="MAPA" data-t="map_growth_title">Tak rosła sieć: 1998–2026</div>
+    <div class="card-title" data-debug-id="MAPA" data-t="map_growth_title">Tak rosła sieć: 1998–{{STAT_DATA_YEAR_MAX}}</div>
     <div class="card-sub" data-t="map_growth_sub">Każda kropka to sklep, pojawia się w roku otwarcia. Obok kalendarz otwarć miesiąc po miesiącu – suwak prowadzi oba.</div>
     <div class="growth-split">
       <div class="growth-map-wrap">
@@ -181,13 +181,13 @@
         </div>
       </div>
       <div class="growth-cal-wrap">
-        <canvas id="canvas-calendar" class="growth-cal" data-t-aria="calendar_aria_label" aria-label="Kalendarz otwarć sklepów miesiąc po miesiącu, 1998–2026. Ciemniejsze pola oznaczają więcej otwarć w danym miesiącu."></canvas>
+        <canvas id="canvas-calendar" class="growth-cal" data-t-aria="calendar_aria_label" aria-label="Kalendarz otwarć sklepów miesiąc po miesiącu, 1998–{{STAT_DATA_YEAR_MAX}}. Ciemniejsze pola oznaczają więcej otwarć w danym miesiącu."></canvas>
       </div>
     </div>
     <div class="growth-slider-wrap">
       <span class="growth-slider-label">1998</span>
-      <input type="range" id="growth-slider" class="growth-slider" min="1998" max="2026" value="2026" step="1" data-t-aria="slider_year_label" aria-label="Rok ekspansji sieci" aria-valuetext="2026">
-      <span class="growth-slider-label">2026</span>
+      <input type="range" id="growth-slider" class="growth-slider" min="1998" max="{{STAT_DATA_YEAR_MAX}}" value="{{STAT_DATA_YEAR_MAX}}" step="1" data-t-aria="slider_year_label" aria-label="Rok ekspansji sieci" aria-valuetext="{{STAT_DATA_YEAR_MAX}}">
+      <span class="growth-slider-label">{{STAT_DATA_YEAR_MAX}}</span>
       <button class="growth-play" id="growth-replay" title="Odtwórz animację" aria-label="Odtwórz animację" data-t-title="play_animation" data-t-aria="play_animation"></button>
     </div>
   </div>
@@ -196,8 +196,8 @@
   <div class="card si-reveal" style="margin-bottom:16px">
     <div class="card-title" data-debug-id="1.1" style="margin-bottom:4px" data-t="chart_growth_title">Kiedy otwarto sklepy, które wciąż działają</div>
     <div class="card-sub" style="margin-bottom:10px" data-t="chart_growth_sub">Słupki: nowe sklepy w roku (oś po lewej). Linia: zmiana rok do roku % (bez własnej osi – najedź kursorem po wartość).</div>
-    <div class="chart-wrap" style="height:340px"><canvas id="chart-growth" aria-label="Wykres wzrostu sieci: słupki pokazują liczbę nowych sklepów w każdym roku 1998–2026, linia pokazuje zmianę rok do roku w procentach." data-t-aria="chart_growth_aria"></canvas></div>
-    <div class="survival-note" data-t="chart_growth_survival_note">Bias przeżywalności: tylko <em>aktywne</em> sklepy — zamknięte wypadły z datasetu. Wczesne lata (1998–2010) niedoszacowane. 218 sklepów bez daty pominięto.</div>
+    <div class="chart-wrap" style="height:340px"><canvas id="chart-growth" aria-label="Wykres wzrostu sieci: słupki pokazują liczbę nowych sklepów w każdym roku 1998–{{STAT_DATA_YEAR_MAX}}, linia pokazuje zmianę rok do roku w procentach." data-t-aria="chart_growth_aria"></canvas></div>
+    <div class="survival-note" data-t="chart_growth_survival_note">Bias przeżywalności: tylko <em>aktywne</em> sklepy — zamknięte wypadły z datasetu. Wczesne lata (1998–2010) niedoszacowane. {{STAT_UNDATED_STORES}} sklepów bez daty pominięto.</div>
   </div>
 
   <!-- ORIGINS: oldest (left) vs newest (right) active Zabka, with era logos -->
@@ -208,8 +208,8 @@
       </div>
       <div class="origin-body">
         <div class="stat-kicker slow" data-t="origin_old_kicker">Najstarsza (wciąż działa)</div>
-        <div class="origin-year slow" id="origin-old-year" data-count="1998">-</div>
-        <div class="origin-place"><span id="origin-old-city">Swarzędz</span>, <span id="origin-old-street">Rynek 4/5</span></div>
+        <div class="origin-year slow" id="origin-old-year" data-count="{{STAT_OLDEST_STORE_YEAR}}">-</div>
+        <div class="origin-place"><span id="origin-old-city">{{STAT_OLDEST_STORE_CITY}}</span>, <span id="origin-old-street">{{STAT_OLDEST_STORE_STREET}}</span></div>
         <div class="origin-note"><span data-t="origin_old_note">otwarta</span> <span id="origin-old-date">-</span> <span data-t="origin_old_note_suffix">– i nadal na mapie</span></div>
       </div>
     </div>
@@ -219,8 +219,8 @@
       </div>
       <div class="origin-body">
         <div class="stat-kicker fast" data-t="origin_new_kicker">Najnowsza Żabka</div>
-        <div class="origin-year fast" id="origin-new-year" data-count="2026">-</div>
-        <div class="origin-place"><span id="origin-new-city">Warszawa</span>, <span id="origin-new-street">Żytnia 64</span></div>
+        <div class="origin-year fast" id="origin-new-year" data-count="{{STAT_NEWEST_STORE_YEAR}}">-</div>
+        <div class="origin-place"><span id="origin-new-city">{{STAT_NEWEST_STORE_CITY}}</span>, <span id="origin-new-street">{{STAT_NEWEST_STORE_STREET}}</span></div>
         <div class="origin-note"><span data-t="origin_new_note">otwarta</span> <span id="origin-new-date">-</span> <span data-t="origin_new_note_suffix">– najświeższy punkt na mapie</span></div>
       </div>
     </div>
@@ -231,7 +231,7 @@
     <div class="card-title" data-debug-id="1.1f-flat" data-t="fingerprint_title">Odcisk wyprostowany – słoje lat, kierunek N–E–S–W–N</div>
     <div class="card-sub" data-t="fingerprint_sub">Te same dane, rozwinięte z układu biegunowego: oś X to kierunek (N–E–S–W–N), oś Y to rok. Każdy słój to jeden rok, a wybrzuszenie to dominujący kierunek ekspansji. Najedź na słój po szczegóły.</div>
     <div class="fingerprint-wrap" style="display:block">
-      <canvas id="canvas-fingerprint-flat" style="display:block;width:100%;height:520px;cursor:crosshair" data-t-aria="fingerprint_aria" aria-label="Odcisk wyprostowany: każdy poziomy słój to rok 1998–2026, wybrzuszenie w lewo lub prawo pokazuje dominujący kierunek ekspansji sieci w danym roku (N–E–S–W–N). Najedź na słój żeby zobaczyć szczegóły."></canvas>
+      <canvas id="canvas-fingerprint-flat" style="display:block;width:100%;height:520px;cursor:crosshair" data-t-aria="fingerprint_aria" aria-label="Odcisk wyprostowany: każdy poziomy słój to rok 1998–{{STAT_DATA_YEAR_MAX}}, wybrzuszenie w lewo lub prawo pokazuje dominujący kierunek ekspansji sieci w danym roku (N–E–S–W–N). Najedź na słój żeby zobaczyć szczegóły."></canvas>
       <div id="fpf-tooltip" style="display:none;position:absolute;background:var(--s2);border:1px solid var(--axis);border-radius:8px;padding:10px 14px;font-size:12px;pointer-events:none;z-index:10;min-width:180px"></div>
       <div id="fpf-hint" class="fpf-hint">
         <span class="hint-mouse" data-t="fingerprint_hint_mouse">Najedź na słój – każdy poziomy pas to jeden rok ekspansji.</span>
@@ -307,13 +307,13 @@
     </div>
     <div class="stat-tile" id="edge-kpi-void-tile" style="cursor:pointer" tabindex="0" role="button" aria-label="Pustka Bieszczad – pokaż na mapie" data-t-aria="edge_kpi_void_tile">
       <div class="stat-kicker" data-t="edge_kpi_void">Pustka Bieszczad</div>
-      <div class="stat-big" style="color:#e8693d"><span class="stat-num" id="edge-kpi-void" data-count="46.52" data-dec="2">-</span><span class="stat-unit"> km</span></div>
+      <div class="stat-big" style="color:#e8693d"><span class="stat-num" id="edge-kpi-void" data-count="{{STAT_VOID_DISTANCE_KM}}" data-dec="2">-</span><span class="stat-unit"> km</span></div>
       <div class="stat-sub" data-t="edge_kpi_void_sub">od najbliższej Żabki</div>
     </div>
     <div class="stat-tile" id="edge-kpi-oldest-tile" style="cursor:pointer" tabindex="0" role="button" aria-label="Najstarsza aktywna Żabka – pokaż na mapie" data-t-aria="edge_kpi_oldest_tile">
       <div class="stat-kicker" data-t="edge_kpi_oldest">Najstarsza aktywna</div>
-      <div class="stat-big" id="edge-kpi-oldest" style="color:var(--green-bright)" data-count="1998">-</div>
-      <div class="stat-sub" id="edge-kpi-oldest-sub">Swarzędz · działa od 28 lat</div>
+      <div class="stat-big" id="edge-kpi-oldest" style="color:var(--green-bright)" data-count="{{STAT_OLDEST_STORE_YEAR}}">-</div>
+      <div class="stat-sub" id="edge-kpi-oldest-sub">Swarzędz · działa od {{STAT_OLDEST_STORE_AGE_YEARS}} lat</div>
     </div>
     <div class="stat-tile" id="edge-kpi-farthestfrog-tile" style="cursor:pointer" tabindex="0" role="button" aria-label="Najdalej od żaby – pokaż na mapie" data-t-aria="edge_kpi_farthestfrog_tile">
       <div class="stat-kicker" data-t="edge_kpi_farthest">Najdalej od zaby</div>
@@ -352,21 +352,21 @@
       </div>
       <div class="edge-panel" id="ep-highest" style="cursor:pointer" tabindex="0" role="button" aria-label="Najwyżej położony sklep – pokaż na mapie" data-t-aria="ep_highest_panel">
         <div class="ep-eyebrow" data-t="ep_highest_eyebrow">Najwyżej n.p.m.</div>
-        <div class="ep-val amber" id="ep-highest-val" data-count="962.6" data-dec="1" data-suffix=" m">-</div>
-        <div class="ep-city" id="ep-highest-city">Kościelisko, małopolskie</div>
-        <div class="ep-street" id="ep-highest-street">Nędzy Kubińca 101</div>
+        <div class="ep-val amber" id="ep-highest-val" data-count="{{STAT_ELEVATION_MAX_M}}" data-dec="1" data-suffix=" m">-</div>
+        <div class="ep-city" id="ep-highest-city">{{STAT_ELEVATION_MAX_CITY}}</div>
+        <div class="ep-street" id="ep-highest-street">{{STAT_ELEVATION_MAX_STREET}}</div>
       </div>
       <div class="edge-panel" id="ep-lowest" style="cursor:pointer" tabindex="0" role="button" aria-label="Sklep poniżej poziomu morza – pokaż na mapie" data-t-aria="ep_lowest_panel">
         <div class="ep-eyebrow" data-t="ep_lowest_eyebrow">Jedyna poniżej morza</div>
-        <div class="ep-val coral" id="ep-lowest-val" data-count="-1.5" data-dec="1" data-suffix=" m">-</div>
-        <div class="ep-city" id="ep-lowest-city">Gdańsk (port), pomorskie</div>
-        <div class="ep-street" id="ep-lowest-street">Przełom 12</div>
+        <div class="ep-val coral" id="ep-lowest-val" data-count="{{STAT_ELEVATION_MIN_M}}" data-dec="1" data-suffix=" m">-</div>
+        <div class="ep-city" id="ep-lowest-city">{{STAT_ELEVATION_MIN_CITY}}</div>
+        <div class="ep-street" id="ep-lowest-street">{{STAT_ELEVATION_MIN_STREET}}</div>
       </div>
       <div class="edge-panel" id="ep-isolated" style="cursor:pointer" tabindex="0" role="button" aria-label="Najbardziej odizolowany sklep – pokaż na mapie" data-t-aria="ep_isolated_panel">
         <div class="ep-eyebrow" data-t="ep_isolated_eyebrow">Najdalej od sąsiadki</div>
-        <div class="ep-val teal" id="ep-isolated-val" data-count="27.3" data-dec="1" data-suffix=" km">-</div>
-        <div class="ep-city" id="ep-isolated-city">Michałowo, podlaskie</div>
-        <div class="ep-street" id="ep-isolated-street">Białostocka 2</div>
+        <div class="ep-val teal" id="ep-isolated-val" data-count="{{STAT_ISOLATED_MAX_KM}}" data-dec="1" data-suffix=" km">-</div>
+        <div class="ep-city" id="ep-isolated-city">{{STAT_ISOLATED_MAX_CITY}}</div>
+        <div class="ep-street" id="ep-isolated-street">{{STAT_ISOLATED_MAX_STREET}}</div>
       </div>
       <div class="edge-panel" id="ep-zerofrog-panel" style="cursor:pointer" tabindex="0" role="button" aria-label="Sklep bez żab w pobliżu – pokaż na mapie" data-t-aria="ep_zerofrog_panel">
         <div class="ep-eyebrow" data-t="ep_zerofrog_eyebrow">Żabka bez żadnej żaby w pobliżu</div>
@@ -394,7 +394,7 @@
       <div class="powiat-cover">
         <div class="powiat-stat">
           <canvas id="powiat-donut" class="powiat-donut" width="200" height="200" data-t-aria="coverage_donut_aria" aria-label="Wykres kołowy: odsetek jednostek administracyjnych z co najmniej jedną Żabką."></canvas>
-          <div class="powiat-frac"><span id="powiat-covered">380</span><span class="powiat-of">/<span id="powiat-total">380</span></span></div>
+          <div class="powiat-frac"><span id="powiat-covered">{{STAT_POWIAT_COVERED}}</span><span class="powiat-of">/<span id="powiat-total">{{STAT_POWIAT_TOTAL}}</span></span></div>
           <div class="powiat-cap" id="powiat-cap">powiatów ma Żabkę</div>
         </div>
         <canvas id="canvas-powiat-map" class="powiat-map" data-t-aria="coverage_map_aria" aria-label="Mapa Polski: zielone jednostki mają Żabkę, czerwone nie mają."></canvas>
@@ -439,7 +439,7 @@
     <canvas class="hero-particles" id="particles-spoleczenstwo" aria-hidden="true"></canvas>
     <div class="hero-inner">
       <div class="hero-eyebrow" data-t="hero_eyebrow_spol">Żabka a Polska · Kultura i naród</div>
-      <div class="hero-number tab-hero-num" id="hero-num-spoleczenstwo">46,52<span class="stat-unit" data-t="stat_unit_meters_km"> km</span></div>
+      <div class="hero-number tab-hero-num" id="hero-num-spoleczenstwo">{{STAT_VOID_DISTANCE_KM}}<span class="stat-unit" data-t="stat_unit_meters_km"> km</span></div>
       <h2 class="hero-h1" data-t="hero_h1_spol">Maksymalny dystans do Żabki w Polsce.</h2>
       <p class="hero-lede" data-t="hero_lede_spol">W Polsce Żabka czuje się jak płaz w wodzie. W prawie 30 lat stała się jednym z kulturowych symboli Polski. Zobaczmy, gdzie jeszcze wpisuje się w polską kulturę. A może ją nadpisuje?</p>
     </div>
@@ -564,13 +564,13 @@
         </div>
       </div>
       <div class="chart-wrap" id="nbl-chart-wrap" style="height:440px"><canvas id="chart-nbl" aria-label="Wykres słupkowy: odległość do najbliższego sklepu wg wybranego poziomu geograficznego i metryki." data-t-aria="chart_nbl_aria"></canvas></div>
-      <div class="caveat" id="nbl-caveat" data-t="knn_caveat">Mediana jest odporna na pojedyncze samotne sklepy; średnią zawyżają wartości skrajne (w podkarpackiem średnia to ~1,8 km, a mediana 459 m).</div>
+      <div class="caveat" id="nbl-caveat" data-t="knn_caveat">Mediana jest odporna na pojedyncze samotne sklepy; średnią zawyżają wartości skrajne (w podkarpackiem średnia to ~{{STAT_PODKARPACKIE_AVG_KM}} km, a mediana {{STAT_PODKARPACKIE_MEDIAN_M}} m).</div>
     </div>
     <div class="card" style="display:flex;flex-direction:column">
-      <div class="card-title" data-t="knn_half_title">Połowa sieci ma sąsiadkę bliżej niż 300 m</div>
+      <div class="card-title" data-t="knn_half_title">Połowa sieci ma sąsiadkę bliżej niż {{STAT_NEIGHBOR_MEDIAN_M}} m</div>
       <div class="card-sub" data-t="knn_half_sub">Rozkład odległości do najbliższego sklepu (k-NN).</div>
       <div style="flex:1;display:flex;flex-direction:column;justify-content:center">
-        <div class="chart-wrap" style="height:380px"><canvas id="spol-knnChart" aria-label="Histogram: rozkład odległości do najbliższego sklepu, mediana 299 m, średnia 942 m." data-t-aria="chart_knn_aria"></canvas></div>
+        <div class="chart-wrap" style="height:380px"><canvas id="spol-knnChart" aria-label="Histogram: rozkład odległości do najbliższego sklepu, mediana {{STAT_NEIGHBOR_MEDIAN_M}} m, średnia {{STAT_NEIGHBOR_AVG_M}} m." data-t-aria="chart_knn_aria"></canvas></div>
         <div class="gran-ref-legend" id="spol-knn-legend" style="margin-top:8px"></div>
         <div class="statline" style="margin-top:6px"><span data-t="knn_stat_max">maks. </span><b id="spol-knn-stat-max">-</b></div>
       </div>
@@ -590,7 +590,7 @@
   <div class="row row-2 reveal" style="margin-bottom:16px">
     <div class="card">
       <div class="card-title" data-debug-id="STREETS" data-t="streets_title">Ulice z największą liczbą Żabek</div>
-      <div class="card-sub" id="streets-sub"><span data-t="streets_sub_prefix">Konkretna ulica i miasto, nie sama nazwa – łącznie </span><span id="streets-distinct">13 168</span><span data-t="streets_sub_suffix"> sklepów</span></div>
+      <div class="card-sub" id="streets-sub"><span data-t="streets_sub_prefix">Konkretna ulica i miasto, nie sama nazwa – łącznie </span><span id="streets-distinct">{{STAT_TOTAL_STORES}}</span><span data-t="streets_sub_suffix"> sklepów</span></div>
       <div class="chart-wrap" style="height:500px"><canvas id="chart-streets" aria-label="Wykres słupkowy: ulice z największą liczbą sklepów Żabka w Polsce, z podaną nazwą ulicy i miasta." data-t-aria="chart_streets_aria"></canvas></div>
     </div>
     <div class="card">

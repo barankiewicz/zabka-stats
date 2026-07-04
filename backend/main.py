@@ -318,23 +318,53 @@ _ASSETS_DIR = frontend_dir / "assets"
 _ASSET_MEDIA_TYPES = {".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml"}
 
 
+def render_html_with_stats(file_name: str) -> Response:
+    from backend.stats_compiler import get_cached_stats
+    file_path = frontend_dir / file_name
+    if not file_path.exists():
+        return Response(status_code=404, content=f"File {file_name} not found")
+        
+    with open(file_path, "r", encoding="utf-8") as f:
+        html = f.read()
+        
+    stats = get_cached_stats()
+    
+    def replacer(match):
+        token = match.group(1).strip()
+        field = token.lower().replace("stat_", "")
+        val = stats.get(field)
+        if val is not None:
+            if field == "total_stores_words":
+                return "trzynaście tysięcy"
+            if field == "date_modified":
+                return str(val)[:10]
+            if isinstance(val, float):
+                return f"{val:.1f}".replace(".", ",")
+            if isinstance(val, int):
+                return f"{val:,}".replace(",", " ")
+            return str(val)
+        return match.group(0)
+
+    html = re.sub(r"\{\{([^}]+)\}\}", replacer, html)
+    return Response(content=html, media_type="text/html")
+
+
 async def _serve_precompressed_asset(request: Request):
     """before_request hook: serve /assets/* preferring the Vite-precompressed
     .br/.gz sibling, short-circuiting the normal static file handler.
-
-    nginx can't do gzip_static/brotli_static here itself - the /assets/
-    location proxies to this backend rather than reading the files directly,
-    because www-data (nginx's user) can't traverse the 700 home directory. The
-    backend process owns these files, so it serves the precompressed variant
-    with the matching Content-Encoding; nginx passes that straight through
-    (its own gzip filter skips responses that already carry a Content-Encoding
-    header, so there's no double-compression). Returning None here falls
-    through to the router's normal file handling (index.html, favicon, plain
-    files with no precompressed variant, no matching Accept-Encoding, etc).
+    
+    Also handles dynamic server-side template replacement for main pages (/,
+    /index.html, /methodology.html, /faq.html) to serve live data to bots/crawlers.
     """
-    if not request.url.path.startswith("/assets/"):
+    path = request.url.path
+    if path in ("/", "/index.html", "/methodology.html", "/faq.html"):
+        import anyio
+        file_name = "index.html" if path in ("/", "/index.html") else path.lstrip("/")
+        return await anyio.to_thread.run_sync(render_html_with_stats, file_name)
+
+    if not path.startswith("/assets/"):
         return None
-    base = (_ASSETS_DIR / request.url.path.removeprefix("/assets/")).resolve()
+    base = (_ASSETS_DIR / path.removeprefix("/assets/")).resolve()
     if _ASSETS_DIR.resolve() not in base.parents:
         return None
     accept_encoding = request.headers.get("accept-encoding", "")

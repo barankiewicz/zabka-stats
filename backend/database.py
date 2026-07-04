@@ -368,6 +368,61 @@ def ensure_extra_tables(con):
     geograficzne (dim_powiat, dim_voivodeship). Z poziomu wymiarow pisze sie
     zapytania zestawiajace Żabki i paczkomaty (JOIN po powiat/voivodeship).
     Bezpieczne do wielokrotnego wywolania."""
+    # Ensure dim_date is created and seeded back to 1998
+    tables = [t[0] for t in con.execute("SELECT table_name FROM information_schema.tables").fetchall()]
+    has_dim_date = 'dim_date' in tables
+    if not has_dim_date:
+        con.execute("""
+            CREATE TABLE dim_date (
+                date_actual DATE PRIMARY KEY,
+                day_name VARCHAR NOT NULL,
+                day_of_week INTEGER NOT NULL,
+                day_of_month INTEGER NOT NULL,
+                day_of_year INTEGER NOT NULL,
+                month_number INTEGER NOT NULL,
+                month_name VARCHAR NOT NULL,
+                year_actual INTEGER NOT NULL,
+                is_weekend BOOLEAN NOT NULL,
+                quarter INTEGER NOT NULL
+            )
+        """)
+        
+    seed_needed = True
+    if has_dim_date:
+        res = con.execute("SELECT MIN(date_actual) FROM dim_date").fetchone()
+        if res and res[0]:
+            import datetime
+            val = res[0]
+            if isinstance(val, str):
+                try:
+                    val = datetime.date.fromisoformat(val[:10])
+                except Exception:
+                    val = None
+            if val and val <= datetime.date(1998, 1, 1):
+                seed_needed = False
+                
+    if seed_needed:
+        print("Seeding dim_date table back to 1998...")
+        con.execute("TRUNCATE TABLE dim_date")
+        con.execute("""
+            INSERT INTO dim_date (
+                date_actual, day_name, day_of_week, day_of_month, day_of_year,
+                month_number, month_name, year_actual, is_weekend, quarter
+            )
+            SELECT
+                d AS date_actual,
+                dayname(d) AS day_name,
+                dayofweek(d) AS day_of_week,
+                dayofmonth(d) AS day_of_month,
+                dayofyear(d) AS day_of_year,
+                month(d) AS month_number,
+                monthname(d) AS month_name,
+                year(d) AS year_actual,
+                CASE WHEN dayofweek(d) IN (0, 6) THEN TRUE ELSE FALSE END AS is_weekend,
+                quarter(d) AS quarter
+            FROM generate_series(DATE '1998-01-01', DATE '2030-12-31', INTERVAL '1 day') AS t(d)
+        """)
+
     # parcel_lockers mirrors locations: external_id is the natural PK (one row per
     # physical locker, no surrogate int id). created_at = first-seen, never
     # overwritten on upsert; deleted_at = when the locker left the source.

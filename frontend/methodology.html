@@ -161,7 +161,7 @@
 <h2 data-t="meth_sec_sources">Źródła danych</h2>
 
 <h3 data-t="meth_source_main_title">Żabka – główne źródło</h3>
-<p data-t="meth_source_main_desc">Lokalizacje sklepów pochodzą z publicznego pliku JSON na <code>zabka.pl</code> – to ten sam plik, z którego korzysta sklepowa wyszukiwarka na ich stronie. Plik ma około 13 200 sklepów, każdy ze współrzędnymi GPS, adresem, godzinami otwarcia i flagami (piec Merrychef, otwarte w niedzielę, 24/7). Z pliku wyrzucamy dane osobowe dyrektorów, stałe pola (kraj, aktywność) i marketingowe URLe. Zostają same dane analityczne.</p>
+<p data-t="meth_source_main_desc">Lokalizacje sklepów pochodzą z publicznego pliku JSON na <code>zabka.pl</code> – to ten sam plik, z którego korzysta sklepowa wyszukiwarka na ich stronie. Plik ma około {{STAT_TOTAL_STORES_ROUNDED}} sklepów, każdy ze współrzędnymi GPS, adresem, godzinami otwarcia i flagami (piec Merrychef, otwarte w niedzielę, 24/7). Z pliku wyrzucamy dane osobowe dyrektorów, stałe pola (kraj, aktywność) i marketingowe URLe. Zostają same dane analityczne.</p>
 
 <h3 data-t="meth_source_map_title">Podział administracyjny i mapowanie</h3>
 <p data-t="meth_source_map_desc">Strukturę podziału terytorialnego Polski (trzy poziomy: województwa, powiaty i gminy) budujemy bezpośrednio z oficjalnych rejestrów GUS BDL oraz TERYT jako pierwszy krok procesu ETL. Sklepy oraz paczkomaty przypisujemy do tej hierarchii relacyjnie na podstawie ich nazw miejscowości, z wykorzystaniem oficjalnej Uniwersalnej Usługi Geokodowania GUGiK do jednoznacznego rozstrzygania przynależności mniejszych miejscowości i wsi, wraz z zapasowym dopasowaniem przestrzennym. Eliminuje to potrzebę stosowania uproszczonych plików GeoJSON i powolnych testów punkt-w-poligon.</p>
@@ -170,19 +170,19 @@
 <p data-t="meth_source_econ_desc">Zarobki, bezrobocie i populacja na poziomie powiatów pochodzą z Banku Danych Lokalnych (zmienne 64428, 60270, 72305). Pobieramy je raz w roku. Nazwy powiatów trzeba normalizować – GUS lubi dodawać prefiksy (<code>Powiat m.</code>), przyrostki czasowe (<code>od 2023</code>) i zmieniać nazwy (<code>jeleniogórski</code> staje się <code>karkonoski</code> w 2021). Wszystko to czyścimy przed zmatchowaniem. Dokładność: dane pochodzą z roku, w którym GUS je opublikował, nie z bieżącego miesiąca.</p>
 
 <h3 data-t="meth_source_parks_title">Parki narodowe i krajobrazowe – GDOŚ</h3>
-<p data-t="meth_source_parks_desc">Granice parków i ich otulin pobieramy z WFS GDOŚ (warstwy <code>ParkiNarodowe</code> + <code>ParkiKrajobrazowe</code>). Mamy 259 obiektów: 46 parków narodowych z otulinami i 213 krajobrazowych. Każdy sklep sprawdzamy punkt-w-poligon – jeśli trafił do parku lub otuliny, dostaje flagę.</p>
+<p data-t="meth_source_parks_desc">Granice parków i ich otulin pobieramy z WFS GDOŚ (warstwy <code>ParkiNarodowe</code> + <code>ParkiKrajobrazowe</code>). Mamy {{STAT_PARKS_TOTAL}} obiektów: {{STAT_PARKS_NATIONAL}} parków narodowych z otulinami i {{STAT_PARKS_LANDSCAPE}} krajobrazowych. Każdy sklep sprawdzamy punkt-w-poligon – jeśli trafił do parku lub otuliny, dostaje flagę.</p>
 
 <h3 data-t="meth_source_elev_title">Wysokość terenu – GUGiK NMT</h3>
-<p data-t="meth_source_elev_desc">Wysokość n.p.m. z Numerycznego Modelu Terenu GUGiK (<code>GetHByXY</code>, współrzędne PL-1992). To jest opt-in (flaga <code>--elevation</code>), bo ponad 13 tysięcy zapytań HTTP. Wyniki trafiają do lokalnego cache (<code>elevation_cache.json</code>) – ponowne odpalenie ETL nie odpytuje punktów, które już mamy. Uwaga: serwis GUGiK przyjmuje tylko współrzędne PL-1992, nie WGS84, więc w ETL jest konwersja własnym kodem (bez pyproj).</p>
+<p data-t="meth_source_elev_desc">Wysokość n.p.m. z Numerycznego Modelu Terenu GUGiK (<code>GetHByXY</code>, współrzędne PL-1992). To jest opt-in (flaga <code>--elevation</code>), bo ponad {{STAT_TOTAL_STORES_ROUNDED}} zapytań HTTP. Wyniki trafiają do lokalnego cache (<code>elevation_cache.json</code>) – ponowne odpalenie ETL nie odpytuje punktów, które już mamy. Uwaga: serwis GUGiK przyjmuje tylko współrzędne PL-1992, nie WGS84, więc w ETL jest konwersja własnym kodem (bez pyproj).</p>
 
 <h3 data-t="meth_source_inpost_title">Paczkomaty InPost</h3>
-<p data-t="meth_source_inpost_desc">Punkty paczkowe z publicznego API InPost ShipX (typ <code>parcel_locker</code>). Każdy paczkomat przypisujemy do podziału administracyjnego za pomocą tego samego geokodera GUGiK i relacyjnego dopasowania co sklepy. To jest jednorazowe pobranie – sieć paczkomatów rośnie wolno, mamy około 31 800 punktów. Porównanie Żabek vs paczkomaty – z podziałem na województwa, powiaty i gminy – jest na dashboardzie.</p>
+<p data-t="meth_source_inpost_desc">Punkty paczkowe z publicznego API InPost ShipX (typ <code>parcel_locker</code>). Każdy paczkomat przypisujemy do podziału administracyjnego za pomocą tego samego geokodera GUGiK i relacyjnego dopasowania co sklepy. To jest jednorazowe pobranie – sieć paczkomatów rośnie wolno, mamy około {{STAT_INPOST_TOTAL}} punktów. Porównanie Żabek vs paczkomaty – z podziałem na województwa, powiaty i gminy – jest na dashboardzie.</p>
 
 <h3 data-t="meth_source_frogs_title">Płazy – GBIF</h3>
-<p data-t="meth_source_frogs_desc">Obserwacje płazów z Global Biodiversity Information Facility (klasa Amphibia, <code>taxonKey=131</code>) w Polsce. Mamy około 46 000 rekordów ze współrzędnymi. BallTree (haversine) zlicza obserwacje w promieniu 5 km od każdego sklepu. Najbardziej żabia Żabka ma 2 028 obserwacji – i to jest w Ursynowie, nie w żadnym parku narodowym.</p>
+<p data-t="meth_source_frogs_desc">Obserwacje płazów z Global Biodiversity Information Facility (klasa Amphibia, <code>taxonKey=131</code>) w Polsce. Mamy około {{STAT_GBIF_TOTAL}} rekordów ze współrzędnymi. BallTree (haversine) zlicza obserwacje w promieniu 5 km od każdego sklepu. Najbardziej żabia Żabka ma {{STAT_AMPHIBIAN_RECORD_COUNT}} obserwacji – i to jest w Ursynowie, nie w żadnym parku narodowym.</p>
 
 <h3 data-t="meth_source_neighbor_title">Sąsiedztwo – obliczenia lokalne</h3>
-<p data-t="meth_source_neighbor_desc">Odległość do najbliższej innej Żabki obliczamy lokalnie przez BallTree (haversine, k=2). Najbardziej odosobniony sklep ma 27 km do najbliższego sąsiada (Michałowo, podlaskie). Punkt najdalszy od jakiejkolwiek Żabki – pusta przestrzeń w Bieszczadach – to około 46,5 km. Zero zapytań sieciowych, czysta geometria na danych już wczytanych.</p>
+<p data-t="meth_source_neighbor_desc">Odległość do najbliższej innej Żabki obliczamy lokalnie przez BallTree (haversine, k=2). Najbardziej odosobniony sklep ma {{STAT_ISOLATED_MAX_KM}} km do najbliższego sąsiada (Michałowo, podlaskie). Punkt najdalszy od jakiejkolwiek Żabki – pusta przestrzeń w Bieszczachach – to około {{STAT_VOID_DISTANCE_KM}} km. Zero zapytań sieciowych, czysta geometria na danych już wczytanych.</p>
 
 <h3 data-t="meth_source_weather_title">Pogoda i niebo – Open-Meteo, OpenLightMap</h3>
 <p data-t="meth_source_weather_desc">Aktualne dane pogodowe z darmowego API Open-Meteo (temperatura, zachmurzenie) dla najzimniejszej i najcieplejszej lokalizacji Żabki. Podobnie najciemniejsze i najjaśniejsze niebo z OpenLightMap. Dane live, pobierane przy otwarciu strony. Nie wypiekamy ich do bazy – pogoda z wczoraj nikomu nie potrzebna.</p>
@@ -204,7 +204,7 @@
 <div class="warn-box">
   <h3 data-t="meth_warn_title">Ograniczenia danych</h3>
   <ul>
-    <li data-t="meth_warn_item1">Około 218 sklepów nie ma daty otwarcia w źródłach – nie pojawiają się na wykresie historii wzrostu.</li>
+    <li data-t="meth_warn_item1">Około {{STAT_UNDATED_STORES}} sklepów nie ma daty otwarcia w źródłach – nie pojawiają się na wykresie historii wzrostu.</li>
     <li data-t="meth_warn_item2">Populacje powiatów to dane roczne z GUS, nie bieżące szacunki.</li>
     <li data-t="meth_warn_item3">Sklepy na granicach uproszczonych poligonów mogą trafić do sąsiedniego województwa (dotyczy około 3 punktów).</li>
     <li data-t="meth_warn_item4">Godziny otwarcia pochodzą ze źródła Żabki, nie z weryfikacji terenowej.</li>
