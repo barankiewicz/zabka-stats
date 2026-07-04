@@ -209,7 +209,7 @@
       </div>
       <div class="origin-body">
         <div class="stat-kicker slow" data-t="origin_old_kicker">Najstarsza (wciąż działa)</div>
-        <div class="origin-year slow" id="origin-old-year" data-count="{{STAT_OLDEST_STORE_YEAR}}">-</div>
+        <div class="origin-year slow" id="origin-old-year" data-count="{{STAT_OLDEST_STORE_YEAR}}" data-nogroup="1">-</div>
         <div class="origin-place"><span id="origin-old-city">{{STAT_OLDEST_STORE_CITY}}</span>, <span id="origin-old-street">{{STAT_OLDEST_STORE_STREET}}</span></div>
         <div class="origin-note"><span data-t="origin_old_note">otwarta</span> <span id="origin-old-date">-</span> <span data-t="origin_old_note_suffix">– i nadal na mapie</span></div>
       </div>
@@ -220,7 +220,7 @@
       </div>
       <div class="origin-body">
         <div class="stat-kicker fast" data-t="origin_new_kicker">Najnowsza Żabka</div>
-        <div class="origin-year fast" id="origin-new-year" data-count="{{STAT_NEWEST_STORE_YEAR}}">-</div>
+        <div class="origin-year fast" id="origin-new-year" data-count="{{STAT_NEWEST_STORE_YEAR}}" data-nogroup="1">-</div>
         <div class="origin-place"><span id="origin-new-city">{{STAT_NEWEST_STORE_CITY}}</span>, <span id="origin-new-street">{{STAT_NEWEST_STORE_STREET}}</span></div>
         <div class="origin-note"><span data-t="origin_new_note">otwarta</span> <span id="origin-new-date">-</span> <span data-t="origin_new_note_suffix">– najświeższy punkt na mapie</span></div>
       </div>
@@ -313,7 +313,7 @@
     </div>
     <div class="stat-tile" id="edge-kpi-oldest-tile" style="cursor:pointer" tabindex="0" role="button" aria-label="Najstarsza aktywna Żabka – pokaż na mapie" data-t-aria="edge_kpi_oldest_tile">
       <div class="stat-kicker" data-t="edge_kpi_oldest">Najstarsza aktywna</div>
-      <div class="stat-big" id="edge-kpi-oldest" style="color:var(--green-bright)" data-count="{{STAT_OLDEST_STORE_YEAR}}">-</div>
+      <div class="stat-big" id="edge-kpi-oldest" style="color:var(--green-bright)" data-count="{{STAT_OLDEST_STORE_YEAR}}" data-nogroup="1">-</div>
       <div class="stat-sub" id="edge-kpi-oldest-sub">Swarzędz · działa od {{STAT_OLDEST_STORE_AGE_YEARS}} lat</div>
     </div>
     <div class="stat-tile" id="edge-kpi-farthestfrog-tile" style="cursor:pointer" tabindex="0" role="button" aria-label="Najdalej od żaby – pokaż na mapie" data-t-aria="edge_kpi_farthestfrog_tile">

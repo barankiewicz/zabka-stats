@@ -139,8 +139,11 @@ export function debounce(fn, wait=150){
 // Animate KPI numbers climbing to their target once they scroll into view.
 // Elements are found via `root.querySelectorAll('[data-count]')`. Reads
 // el.dataset.count (target number), .dataset.dec (decimal places, default 0),
-// .dataset.suffix (plain string appended after the formatted number). Call
-// after setting .dataset.count so the target is ready when the observer fires.
+// .dataset.suffix (plain string appended after the formatted number),
+// .dataset.nogroup ('1' to disable thousands separators - use on years, e.g.
+// 2026, which toLocaleString('en-US') would otherwise render as "2,026").
+// Call after setting .dataset.count so the target is ready when the observer
+// fires.
 export function wireCountUp(root){
   if(!root)return;
   const nodes=root.querySelectorAll('[data-count]');
@@ -150,7 +153,8 @@ export function wireCountUp(root){
     const target=parseFloat(el.dataset.count);
     if(Number.isNaN(target))return;
     const dec=parseInt(el.dataset.dec||'0',10),suf=el.dataset.suffix||'';
-    const f=v=>v.toLocaleString(getLang()==='en'?'en-US':'pl-PL',{minimumFractionDigits:dec,maximumFractionDigits:dec})+suf;
+    const useGrouping=el.dataset.nogroup!=='1';
+    const f=v=>v.toLocaleString(getLang()==='en'?'en-US':'pl-PL',{minimumFractionDigits:dec,maximumFractionDigits:dec,useGrouping})+suf;
     if(prefersReduced){el.textContent=f(target);return;}
     const dur=1300,t0=performance.now();
     (function step(t){let p=Math.min(1,(t-t0)/dur);p=1-Math.pow(1-p,3);el.textContent=f(target*p);if(p<1)requestAnimationFrame(step);})(t0);
