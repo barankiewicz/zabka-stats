@@ -11,10 +11,28 @@ from backend.etl.geo import wgs84_to_puwg1992
 
 class GugikGeoResolver:
     """Klasa odpowiedzialna za mapowanie punktów (sklepów/paczkomatów) na województwa, powiaty i gminy z GUS.
-    
+
     Wykorzystuje cache lokalny oraz usługę UUG GUGiK do geokodowania.
     """
-    
+
+    # Whitelist of normalized city strings (lowercase + diacritic-stripped +
+    # hyphens-as-spaces) that GUGiK is known to mis-resolve. The actual
+    # gmina/city ids are looked up from the database at __init__ time, so
+    # the same whitelist works against both the production DB and in-memory
+    # test fixtures with different auto-incremented ids.
+    #
+    # How a row gets here in practice: GUGiK returns 0 candidates for the
+    # Zabka-source spelling, the spatial fallback then snaps the point to
+    # an adjacent gmina. The fix re-wires it to the right gmina/city.
+    KNOWN_MISS_CITY_KEYS = [
+        # 'Duszniki Zdroj' (Zabka source, spaced) -> Duszniki-Zdroj (GUS,
+        # hyphenated). GUGiK only knows the hyphenated form, so the spaced
+        # query returns 0 candidates and the spatial fallback snaps the two
+        # stores at Rynek 2 and Wojska Polskiego 3a onto the adjacent
+        # Szczytna gmina.
+        "duszniki zdroj",
+    ]
+
     def __init__(self, con, cache_path: str | None = None):
         self.con = con
         if cache_path is None:
@@ -74,11 +92,29 @@ class GugikGeoResolver:
                 gmina_by_gus[gus_id] = g_id
                 
         self.city_by_gmina_id = {}
+        self.gmina_id_by_city_id = {}
         for c_id, gus_id in con.execute("SELECT id, gus_id FROM administrative_division WHERE level = 4").fetchall():
             if gus_id in gmina_by_gus:
                 g_id = gmina_by_gus[gus_id]
                 self.city_by_gmina_id[g_id] = c_id
-            
+                self.gmina_id_by_city_id[c_id] = g_id
+
+        # Resolve KNOWN_MISS_CITY_KEYS against the loaded database. The class
+        # constant is just a list of normalized city strings; we look up the
+        # actual gmina/city ids from whatever DB is loaded, so the same
+        # whitelist works against both production and the in-memory test
+        # fixture (which has different auto-incremented ids).
+        self._known_miss_fixes = []  # list of (norm_key, vid, pid, gid, cid)
+        for key in self.KNOWN_MISS_CITY_KEYS:
+            for c_id, cname, vid, pid in con.execute(
+                "SELECT id, name, voivodeship_id, powiat_id FROM administrative_division WHERE level = 4"
+            ).fetchall():
+                if self._norm_key(cname) == key:
+                    gmina_id = self.gmina_id_by_city_id.get(c_id)
+                    if gmina_id:
+                        self._known_miss_fixes.append((key, vid, pid, gmina_id, c_id))
+                    break
+
     def _load_cache(self) -> dict:
         if os.path.exists(self.cache_path):
             try:
@@ -127,6 +163,22 @@ class GugikGeoResolver:
         s = s.replace(" - ", "-").replace(" -", "-").replace("- ", "-")
         s = re.sub(r"\b(Zdroj|zdroj)\b", "Zdrój", s)
         s = re.sub(r"\b(Zdrój|zdroj)\b", "Zdrój", s)
+        return s
+
+    @staticmethod
+    def _norm_key(s: str) -> str:
+        """Aggressive normalization used to match a store's city string
+        against a KNOWN_MISS_CITY_KEYS entry. Lowercase, strip diacritics,
+        treat hyphens as spaces. Lets 'Duszniki Zdroj' (spaced) hit the
+        'duszniki zdroj' key."""
+        if not s:
+            return ""
+        import unicodedata
+        s = s.lower()
+        s = unicodedata.normalize("NFD", s)
+        s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+        s = s.replace("-", " ")
+        s = re.sub(r"\s+", " ", s).strip()
         return s
 
     def resolve_facts(self, facts: list) -> None:
@@ -250,8 +302,20 @@ class GugikGeoResolver:
 
         # 4. Zapasowy fallback dla nieprzypisanych punktów (najbliższy geograficznie sąsiad)
         self._apply_spatial_fallback(facts)
-        
-        # 5. Zapisujemy zaktualizowany cache
+
+        # 5. Known-bad GUGiK misses: a small whitelist of (normalized) city
+        # strings that GUGiK refuses to resolve but that we know belong to a
+        # specific gmina/city in our dim_* tables. Without this, the spatial
+        # fallback above parks them on a neighbouring gmina (e.g. the Zabka
+        # source ships 'Duszniki Zdroj' with a space, GUGiK only knows
+        # 'Duszniki-Zdroj' with a hyphen, and the spatial fallback then snaps
+        # both stores at Rynek 2 and Wojska Polskiego 3a onto adjacent Szczytna
+        # gmina - hiding the city from the 'cities without a Zabka' widget).
+        fixed = self._apply_known_misses(facts)
+        if fixed:
+            print(f"[gugik-known-miss] Przepisano {fixed} punkt(ow) z szablonu znanych GUGiK-omylek.")
+
+        # 6. Zapisujemy zaktualizowany cache
         self._save_cache()
 
     def _apply_spatial_fallback(self, facts: list) -> None:
@@ -286,3 +350,34 @@ class GugikGeoResolver:
                     fallback_count += 1
             if fallback_count > 0:
                 print(f"[gugik-fallback] Zmapowano zapasowo {fallback_count} punktow do ich najblizszych sasiadow.")
+
+    def _apply_known_misses(self, facts: list) -> int:
+        """Re-wire rows whose store.city matches a KNOWN_MISS_CITY_KEYS entry
+        but whose assigned gmina/city doesn't. Runs after the spatial
+        fallback so it can both catch GUGiK-0-candidate cases (where the
+        spatial fallback parked the row on a neighbouring gmina) and confirm
+        GUGiK-resolved rows that happen to already be on the right gmina.
+
+        Returns the number of rows re-wired."""
+        if not self._known_miss_fixes:
+            return 0
+        miss_index = {k: (vid, pid, gid, cid) for (k, vid, pid, gid, cid) in self._known_miss_fixes}
+        fixed = 0
+        for r in facts:
+            store_city = r.get("city") or ""
+            key = self._norm_key(store_city)
+            if key not in miss_index:
+                continue
+            vid, pid, gid, cid = miss_index[key]
+            if r.get("gmina_id") == gid and r.get("miasto_id") == cid:
+                # Already on the right gmina/city (GUGiK happened to nail it
+                # or a previous ETL run fixed it). No-op.
+                continue
+            r["voivodeship_id"] = vid
+            r["powiat_id"] = pid
+            r["gmina_id"] = gid
+            r["miasto_id"] = cid
+            r["voivodeship"] = self.voiv_by_id.get(vid)
+            r["powiat"] = self.powiat_by_id.get(pid)
+            fixed += 1
+        return fixed
