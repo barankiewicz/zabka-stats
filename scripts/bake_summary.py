@@ -19,6 +19,7 @@ if the file is missing the Vite plugin warns and falls back to the
 runtime-only path (with the original flash).
 """
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -29,8 +30,27 @@ from backend.stats_compiler import compile_live_stats
 OUT_PATH = Path(__file__).resolve().parent.parent / "frontend" / "baked-summary.json"
 
 
+def _json_safe(stats: dict) -> dict:
+    """Replace NaN/Infinity floats with None.
+
+    Python's json.dumps happily writes bare NaN/Infinity/-Infinity tokens
+    (valid Python, not valid JSON - see RFC 8259), which the Vite plugin's
+    JSON.parse() on the other end then chokes on, taking the whole build down.
+    A statistic can come out non-finite on a DB with degenerate inputs (for
+    example a divide-by-zero feeding a correlation coefficient on a database
+    that has schema but no ETL-loaded rows yet - the exact state of a fresh
+    checkout before the first ETL run). Round-tripping to None keeps the file
+    valid JSON; the {{STAT_*}} replacer already treats a missing/None value as
+    "leave the token for the runtime fetch to resolve".
+    """
+    return {
+        k: (None if isinstance(v, float) and not math.isfinite(v) else v)
+        for k, v in stats.items()
+    }
+
+
 def main():
-    stats = compile_live_stats()
+    stats = _json_safe(compile_live_stats())
     OUT_PATH.write_text(
         json.dumps(stats, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",

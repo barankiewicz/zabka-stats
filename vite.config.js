@@ -105,4 +105,14 @@ export default defineConfig({
       '/api': 'http://localhost:8000',
     },
   },
+  test: {
+    // vitest's default include glob also matches *.spec.js, which collides
+    // with test/performance.spec.js - that file is a Playwright e2e/perf-budget
+    // test (imports `test`/`expect` from @playwright/test, needs a running
+    // `vite preview` server and a real browser), not a vitest unit test.
+    // Without this exclude, `vitest run` (== `npm test`) fails outright with
+    // "Playwright Test did not expect test.describe() to be called here."
+    // before any real unit test gets a chance to run.
+    exclude: ['**/node_modules/**', '**/dist/**', 'test/performance.spec.js'],
+  },
 })

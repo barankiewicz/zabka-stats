@@ -101,6 +101,12 @@ Revert frontend implementation
 - [x] V3: 3D density towers (powiat and voivodeship extrusion in pitched view)
 - [ ] Comparison modes (voivodeship vs national trend)
 - [ ] Run ETL with `--elevation` and full GBIF/GUS to populate NULL columns (amphibians, elevation, powiat economics)
+- [ ] Bump `requests` past `2.32.0` (two known low-severity CVEs - `.netrc` leak via
+      redirect, predictable temp filename; only calls fixed, trusted GUS/GUGiK/GBIF/InPost
+      endpoints here, so risk is low, but the fix is a one-line version bump) - deliberately
+      deferred out of a 2026-07-04 prod-readiness/i18n hardening pass, everything else from
+      that pass (starlette removal, CSP header, error-leak fixes, Vite 5->8, fact-page tests,
+      CI frontend job, i18n key/placeholder/JSON-LD fixes) shipped in the same pass.
 
 ## Future improvements
 
@@ -159,8 +165,17 @@ python -m backend.daily_etl --elevation
 
 ### 4. Run tests
 ```bash
-python -m pytest test/test_api.py
+python -m pytest test/
 ```
+Covers the API (`test_api.py`, `test_api_extra.py`), the ETL pipeline (`test_etl.py`), and
+the `/fakt/{slug}` share pages + OG images (`test_fact_pages.py`). Frontend unit tests live
+in `frontend/test/frontend.test.js` (run via `npm test`, i.e. `vitest run`); `npm run build`
+should also succeed on a clean checkout. CI (`.github/workflows/tests.yml`) runs both the
+backend pytest suite and a `frontend` job (build + `npm test`) on every push/PR to `main` -
+`frontend/test/performance.spec.js` (a Playwright Core Web Vitals budget check) is
+deliberately excluded from both `npm test` and CI, since it needs installed browser binaries
+and a running `vite preview` server and its thresholds are timing-based, unreliable on a
+shared CI runner; run it manually when touching anything perf-sensitive.
 
 ## Workflow: loading new data
 
@@ -199,7 +214,20 @@ under a non-root `zabka` user.
 `127.0.0.1:8000`, with a Let's Encrypt cert (certbot `--nginx`, auto-renew via the
 `certbot.timer`) and a 80->443 redirect. Port 8000 is not exposed - the firewall
 (ufw) allows only SSH, 80, and 443; the backend is reachable only over loopback
-behind nginx. nginx also handles **gzip** for API/JSON and the JS/CSS bundle
+behind nginx. Every response also carries `X-Content-Type-Options: nosniff`,
+`Referrer-Policy: strict-origin-when-cross-origin`, HSTS (`max-age=31536000;
+includeSubDomains`), and a `Content-Security-Policy` (`default-src 'self'` plus the
+specific carve-outs the site actually needs: Google Fonts, the inline i18n bootstrap
+module on `faq.html`/`methodology.html`, index.html's inline speculation-rules hint - the
+full reasoning is a comment right above the header in `deploy/nginx_zabka.conf`). This file
+is a reference copy only - `deploy/deploy.sh` never pushes it to the VPS, so a header edit
+here has zero effect until it's copied to `/etc/nginx/sites-available/zabka` by hand and
+reloaded (`nginx -t` then `systemctl reload nginx`). Take that seriously: a `certbot --nginx`
+run during a past domain migration already regenerated that live file from scratch once and
+silently dropped the `/assets/` `Cache-Control` block along with it (discovered 2026-07-01,
+see the file's own "NOTE ON DRIFT" comment) - the same regeneration risk applies to these
+security headers, so diff the live file against this copy after any certbot run. nginx also
+handles **gzip** for API/JSON and the JS/CSS bundle
 (`gzip_proxied any`, types include `application/json` and `text/javascript`) so
 the single worker never spends CPU compressing - the app sends plain bytes and
 nginx compresses on the way out. A small 2 s **microcache** (`proxy_cache` +
@@ -308,8 +336,8 @@ frontend/                - Vite SPA, modular ES + Chart.js + MapLibre GL + D3 (c
   methodology.html       - methodology page
   faq.html                - FAQ page: basic facts + a dedicated "common misconceptions"
                            section (correlation vs causation, survivorship bias, observer
-                           bias, raw-count vs per-capita) - PL-only static content, same
-                           convention as methodology.html; FAQPage JSON-LD lives here
+                           bias, raw-count vs per-capita) - same PL/EN i18n toggle as
+                           methodology.html and the main SPA; FAQPage JSON-LD lives here
   src/                   - main.js (tab router, lazy chunks), data.js (fetch buckets),
                            config.js (colors/plugins), state.js, utils.js, style.css,
                            export-image.js (PNG export: canvas compositing + clipboard/download)
@@ -468,8 +496,13 @@ Litestar serves modular native API routers (`backend/api/`) grouped under a pare
   - `GET /api/download/database` -> Downloads the raw `zabka.duckdb` (~30MB)
   - `GET /api/download/geojson` -> Downloads voivodeships GeoJSON
   - `GET /api/download/parquet` -> Downloads the locations table in Parquet format
-- **Protected Actions:**
-  - `POST /api/snapshot?token=YOUR_TOKEN` -> Uploads a new JSON snapshot to trigger ETL
+- **Protected Actions:** neither ever accepts the token as a query-string parameter (that
+  would end up in nginx access logs) - each takes it from a different place, matching how
+  each request is shaped.
+  - `POST /api/snapshot` (token in the POST form body, alongside `file`/`source_date`) ->
+    Uploads a new JSON snapshot to trigger ETL
+  - `POST /api/cache/clear` (token via the `X-API-Token` header or an `Authorization: Bearer`
+    header) -> Manually clears the Redis cache
 - **Shareable Fact Pages** (`backend/api/fact_pages.py`, not under `/api` - these are
   top-level routes so they can be linked/crawled directly):
   - `GET /fakt/{slug}` -> Serves the SPA `index.html` with per-fact `<title>`,
@@ -480,13 +513,21 @@ Litestar serves modular native API routers (`backend/api/`) grouped under a pare
     unknown slugs 404. The frontend's `initFactDeepLink()` (`main.js`) then lands the
     SPA on that fact - flying the Atlas map to it via `selectFact()`, or scrolling to
     the neighbor-median stat tile for the one fact with no map point.
+  - Language: an optional `?lang=en` query param (default `pl`) picks which of the two
+    fully-translated fact dicts (`FACTS["pl"][slug]` / `FACTS["en"][slug]`) the injected
+    `<title>`/meta text, `<html lang>`, and canonical/OG URL (which carries the same
+    `?lang=en` suffix) come from - the same param the SPA itself already reads on
+    first load, so a shared `?lang=en` link stays in English end-to-end.
   - `GET /fakt/{slug}/og.png` -> Per-fact OG preview image (PNG, generated by
     `backend/og_image.py` with Pillow, using the bundled IBM Plex Sans / JetBrains
-    Mono fonts in `backend/assets/fonts/`), served for the same slugs.
-  - Both endpoints lazily build `FACTS`/the OG image cache from live DuckDB queries
-    on first access if the `startup_facts` on_startup hook hasn't run yet (same
-    lazy-build pattern as `_pow_geo()`/`_voiv_area()` in `geo_router.py`) - a slow or
-    skipped startup just costs one slower request, never a 404.
+    Mono fonts in `backend/assets/fonts/`), served for the same slugs and the same
+    `?lang=` param (image text comes from the matching language's fact dict).
+  - Both endpoints lazily build `FACTS`/the OG image cache (keyed by `(slug, lang)`)
+    from live DuckDB queries on first access if the `startup_facts` on_startup hook
+    hasn't run yet (same lazy-build pattern as `_pow_geo()`/`_voiv_area()` in
+    `geo_router.py`) - a slow or skipped startup just costs one slower request, never
+    a 404. Covered by `test/test_fact_pages.py` (200s for every valid slug's page and
+    OG image, 404s for unknown slugs).
 
 
 ---
@@ -885,21 +926,35 @@ headline total.
 
 **SEO.** All three static HTML pages (`index.html`, `methodology.html`, `faq.html`) carry a
 full `<head>` stack: unique `<title>` and `<meta name="description">`, `<link
-rel="canonical">`, Open Graph (`og:title`, `og:description`, `og:image`, `og:type`), Twitter
+rel="canonical">`, `<link rel="alternate" hreflang="...">` for `pl`/`en`/`x-default` (the
+`en` variant points at the same URL with `?lang=en`, matching the query-param language
+mechanism below), Open Graph (`og:title`, `og:description`, `og:image`, `og:type`), Twitter
 Card (`summary_large_image`), and JSON-LD structured data. `index.html` carries `WebSite` +
 `Dataset` schema (original data is a real candidate for Google rich results); `faq.html`
-carries its own `FAQPage` schema mirroring its visible Q&A. `index.html` also links out to
-`faq.html` via a small nav link next to the language switcher (`.nav-faq-link`), and
-`methodology.html`/`faq.html` cross-link each other. The OG image (`/og.png`, 1200x630, dark
-theme: a glowing dot map of every active store plus the headline store count) lives in
-`frontend/public/` and is copied to `dist/` by Vite. It's a static file, not rendered per
-request - regenerate it by hand with `python data/tools/generate_og_image.py` whenever the
-brand visuals change (it does not need to track the daily ETL; the store count only needs to
-be roughly right). `robots.txt` and `sitemap.xml` also live in `frontend/public/` (Vite
-copies both to dist root); `faq.html` is listed in the sitemap.
+carries its own `FAQPage` schema mirroring its visible Q&A; `methodology.html` carries
+`Article` schema. All three JSON-LD blocks carry a stable `id` (`jsonld-main` /
+`jsonld-faq` / `jsonld-meth`) and are kept in sync with the page's current language by
+`updateJsonLd()` in `src/i18n.js`, which reruns on every `translateDOM()` pass (initial
+load and every language-switcher click) - `jsonld-faq`'s per-question `name`/
+`acceptedAnswer.text` are regenerated straight from the same `faq_q_*`/`faq_a_*`
+translation keys the visible Q&A uses (HTML tags stripped for clean structured data), so
+there's exactly one place to edit an FAQ answer, not two copies that can drift. `index.html`
+also links out to `faq.html` via a small nav link next to the language switcher
+(`.nav-faq-link`), and `methodology.html`/`faq.html` cross-link each other. The OG image
+(`/og.png`, 1200x630, dark theme: a glowing dot map of every active store plus the headline
+store count) lives in `frontend/public/` and is copied to `dist/` by Vite. It's a static
+file, not rendered per request - regenerate it by hand with `python
+data/tools/generate_og_image.py` whenever the brand visuals change (it does not need to
+track the daily ETL; the store count only needs to be roughly right). `robots.txt` and
+`sitemap.xml` also live in `frontend/public/` (Vite copies both to dist root); `faq.html` is
+listed in the sitemap.
 
-**FAQ page (`faq.html`).** PL-only static content (same convention as `methodology.html` -
-no JS, no language toggle). Three sections: basic network facts (count, most/farthest,
+**FAQ page (`faq.html`).** Carries the same PL/EN i18n toggle as `methodology.html` and the
+main SPA (imports `translateDOM`/`setLang` from `src/i18n.js`, reads `?lang=`/localStorage
+the same way, renders the `#lang-toggle` PL/EN switcher) - this is a change from the
+project's earlier convention where both pages were static PL-only content; if you're reading
+an older description of this project elsewhere, treat this paragraph as current. Three
+sections: basic network facts (count, most/farthest,
 yearly growth - all also on the dashboard, just phrased as search-friendly questions),
 where the data comes from (cross-links `methodology.html` for the full pipeline), and a
 "Częste błędne wnioski" (common misconceptions) section that exists specifically to head off

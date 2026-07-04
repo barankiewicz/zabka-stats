@@ -21,3 +21,56 @@ jobs:
 
       - name: Run tests
         run: python -m pytest test/ -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The frontend build ("npm run build" -> "python scripts/bake_summary.py
+      # && vite build") bakes live /api/stats/summary values into the HTML at
+      # build time (see vite.config.js's bakeSummaryPlugin), which means the
+      # bake script needs backend.database importable and a DuckDB file with
+      # the expected schema - a totally fresh checkout has neither (zabka.duckdb
+      # is gitignored, built by the ETL). Python + an empty-but-schema-valid
+      # DuckDB is enough: compile_live_stats() just reads zero rows and the
+      # bake writes nulls/zeros, same safe-skip path the plugin already takes
+      # when baked-summary.json is missing entirely.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install backend dependencies (needed for the build's bake step)
+        run: pip install -r requirements.txt
+
+      - name: Initialize an empty DuckDB schema for the bake step
+        run: python -c "from backend.database import init_db; init_db()"
+
+      # Vite 8 requires Node ^20.19.0 || >=22.12.0 - pin the major to 22 rather
+      # than 20, since setup-node's "20" resolves to whatever the latest 20.x
+      # happens to be at the time and there's no guarantee it clears 20.19.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      # npm test (vitest run) covers frontend/test/frontend.test.js with the
+      # happy-dom environment - no real browser needed, safe to run headless
+      # here. It does NOT cover frontend/test/performance.spec.js: that one is
+      # a Playwright Core-Web-Vitals budget test that needs installed browser
+      # binaries and a running `vite preview` server on a fixed port, and its
+      # pass/fail thresholds are timing-based - not reliable on a shared,
+      # variable-load GitHub-hosted runner. vite.config.js's test.exclude
+      # already keeps it out of the vitest run (vitest's default include glob
+      # would otherwise also match *.spec.js and crash on the Playwright
+      # import). Running the Playwright perf test in CI is left as a separate,
+      # deliberate follow-up rather than being force-fit here.
+      - name: Run frontend unit tests
+        run: npm test

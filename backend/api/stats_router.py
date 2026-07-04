@@ -697,15 +697,15 @@ def clear_all_cache(request: Request) -> dict:
             detail="API token not configured"
         )
     
-    # Try to get token from header, query parameter, or JSON/form
+    # Token comes only from a header - never the query string (query params end
+    # up in nginx access logs, same reasoning as the /api/snapshot form-body-only
+    # check in main.py).
     token = request.headers.get("X-API-Token")
     if not token:
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header[7:]
-    if not token:
-        token = request.query_params.get("token")
-        
+
     if not token or not hmac.compare_digest(token, api_token):
         raise HTTPException(
             status_code=401,

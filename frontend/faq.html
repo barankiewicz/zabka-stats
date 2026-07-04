@@ -7,6 +7,9 @@
   <meta name="description" content="Ile jest Żabek w Polsce, gdzie jest ich najwięcej, jak daleko do najbliższej - i dlaczego korelacja na mapach ekonomicznych nie znaczy przyczynowości. Pytania i odpowiedzi, z danymi." data-t-content="faq_meta_desc">
   <meta name="robots" content="index,follow">
   <link rel="canonical" href="https://zabkozbior.barankiewicz.dev/faq.html">
+  <link rel="alternate" hreflang="pl" href="https://zabkozbior.barankiewicz.dev/faq.html">
+  <link rel="alternate" hreflang="en" href="https://zabkozbior.barankiewicz.dev/faq.html?lang=en">
+  <link rel="alternate" hreflang="x-default" href="https://zabkozbior.barankiewicz.dev/faq.html">
   <meta name="theme-color" content="#0a120a">
 
   <!-- Analityka: GoatCounter (self-hosted, /gc/) - bez cookies, bez GDPR bannera -->
@@ -22,20 +25,25 @@
   <meta property="og:image" content="https://zabkozbior.barankiewicz.dev/og.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="FAQ o sieci Żabka w liczbach - fakty, źródła i błędne wnioski">
+  <meta property="og:image:alt" content="FAQ o sieci Żabka w liczbach - fakty, źródła i błędne wnioski" data-t-content="faq_og_image_alt">
 
   <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="FAQ – najczęstsze pytania o sieć Żabka i te dane" data-t-content="faq_title">
   <meta name="twitter:description" content="Ile jest Żabek w Polsce, gdzie jest ich najwięcej, jak daleko do najbliższej - i dlaczego korelacja nie znaczy przyczynowości." data-t-content="faq_meta_desc">
   <meta name="twitter:image" content="https://zabkozbior.barankiewicz.dev/og.png">
-  <meta name="twitter:image:alt" content="FAQ o sieci Żabka w liczbach - fakty, źródła i błędne wnioski">
+  <meta name="twitter:image:alt" content="FAQ o sieci Żabka w liczbach - fakty, źródła i błędne wnioski" data-t-content="faq_og_image_alt">
 
-  <!-- Structured data: FAQPage - mirrors the visible Q&A below -->
-  <script type="application/ld+json">
+  <!-- Structured data: FAQPage - mirrors the visible Q&A below. The initial
+       text here is Polish (matching the page's default lang); i18n.js's
+       updateJsonLd() rewrites name/acceptedAnswer.text from the same
+       faq_q_*/faq_a_* translation keys whenever the language switches, so
+       this never drifts from the visible copy or stays stuck in Polish. -->
+  <script type="application/ld+json" id="jsonld-faq">
   {
     "@context": "https://schema.org",
     "@type": "FAQPage",
+    "inLanguage": "pl-PL",
     "mainEntity": [
       {"@type":"Question","name":"Ile jest Żabek w Polsce?","acceptedAnswer":{"@type":"Answer","text":"Ponad {{STAT_TOTAL_STORES_ROUNDED}} aktywnych sklepów Żabka, w ponad {{STAT_CITIES_COUNT_ROUNDED}} miastach i miejscowościach. Liczba zmienia się codziennie - sieć otwiera nowe punkty praktycznie non-stop, choć część sklepów też zamyka się po drodze."}},
       {"@type":"Question","name":"Gdzie jest najwięcej Żabek?","acceptedAnswer":{"@type":"Answer","text":"W liczbach bezwzględnych - Warszawa, z ponad {{STAT_WARSAW_STORE_COUNT}} sklepami, i województwo {{STAT_LEADER_ABSOLUTE_VOIV}} jako całość. Ale to głównie efekt wielkości miasta/regionu. Licząc na mieszkańca, prowadzi {{STAT_LEADER_PERCAPITA_VOIV}} (ok. {{STAT_LEADER_PERCAPITA_VALUE}} sklepu na 1000 osób), nie {{STAT_LEADER_ABSOLUTE_VOIV}}."}},

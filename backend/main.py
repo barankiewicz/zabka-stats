@@ -80,11 +80,12 @@ def health_check() -> Response:
             }
         )
     except Exception as e:
+        print(f"Health check failed: {e}")
         return Response(
             status_code=500,
             content={
                 "status": "unhealthy",
-                "error": str(e)
+                "database": "unreachable"
             }
         )
 
@@ -252,7 +253,11 @@ async def upload_snapshot(request: Request) -> Response:
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing snapshot: {str(e)}")
+        print(f"Error processing snapshot: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Error processing snapshot. Check server logs for details."
+        )
 
 
 # Router modules to import startup lifecycle hooks from

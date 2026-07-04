@@ -18,7 +18,6 @@ export const translations = {
 
 
     // Siec Tab - Hero
-    hero_eyebrow_siec: "Żabka Atlas - Snapshot",
     hero_eyebrow_siec_snapshot: "Żabka Atlas - Snapshot {date}",
     hero_eyebrow_siec_data: "Żabka Atlas - Data {year}",
     hero_number_label_siec: "active stores in Poland",
@@ -76,6 +75,7 @@ export const translations = {
     bridge_expansion: "Expansion direction year-by-year is one story. The other is: how many stores and where. {{STAT_LEADER_ABSOLUTE_VOIV}} leads in absolute numbers - but {{STAT_LEADER_PERCAPITA_VOIV}} wins per capita.",
     bridge_econ_text: "The network looks evenly spread. The data tells a different story.",
     bridge_econ: "Wealthier districts have more stores. The West closes on Sundays, while the rest does not. None of these patterns are accidental.",
+    bridge_cta_spoleczenstwo: "Żabka & Poland →",
 
     // Najwiecej Zabek (Granular)
     gran_title: "Most Żabkas - districts",
@@ -211,8 +211,8 @@ export const translations = {
     knn_mean: "Average",
     knn_rarest: "Rarest",
     knn_densest: "Densest",
-    knn_caveat: "The median is robust against single isolated stores; the average is skewed upward by extremes (in Podkarpackie the average is ~1.8 km, while the median is 459 m).",
-    knn_half_title: "Half of the network has a neighbor closer than 300 m",
+    knn_caveat: "The median is robust against single isolated stores; the average is skewed upward by extremes (in Podkarpackie the average is ~{{STAT_PODKARPACKIE_AVG_KM}} km, while the median is {{STAT_PODKARPACKIE_MEDIAN_M}} m).",
+    knn_half_title: "Half of the network has a neighbor closer than {{STAT_NEIGHBOR_MEDIAN_M}} m",
     knn_half_sub: "Distribution of distance to the nearest store (k-NN).",
     knn_stat_max: "max.",
 
@@ -253,9 +253,10 @@ export const translations = {
     link_copied: "Link copied",
     link_copy_failed: "Couldn't copy the link",
 
-    // Nav link to the dedicated FAQ page (/faq.html - PL-only content, like
-    // methodology.html, so just the link label is translated)
+    // Nav links to the dedicated FAQ and methodology pages - both pages
+    // carry the full i18n toggle (data-t/JSON-LD), same as this SPA
     nav_faq_link: "FAQ",
+    nav_methodology_link: "Methodology",
 
     // PNG export toolbar (S3)
     export_copy_aria: "Copy image to clipboard",
@@ -269,6 +270,7 @@ export const translations = {
     // FAQ Page
     faq_title: "FAQ - Frequently Asked Questions about the Żabka Network and Data",
     faq_meta_desc: "How many Żabka stores are in Poland, where are they located, how far is the nearest - and why correlation on economic maps does not imply causation. Questions and answers with data.",
+    faq_og_image_alt: "FAQ about the Żabka network in numbers - facts, sources and common misconceptions",
     faq_h1: "FAQ",
     faq_sub: "Frequently asked questions about the Żabka network - backed by data, not intuition. Plus the questions that *should* be asked when looking at correlation maps, but usually aren't.",
     faq_disclaimer: "Zabkozbior is an independent fan/analytical project based on public data. It is not affiliated with Żabka Polska sp. z o.o. or Żabka Group. The name \"Żabka\" and related trademarks belong to their respective owners.",
@@ -316,6 +318,7 @@ export const translations = {
     // Methodology Page
     meth_title: "Methodology and Data Sources - Żabka in Numbers",
     meth_meta_desc: "Where the data about the Żabka network comes from: store locator, GUS BDL, GBIF, InPost, and GUGiK. Full methodology, definitions, and known limitations.",
+    meth_og_image_alt: "Żabka data methodology - sources, definitions and limitations",
     meth_h1: "Methodology",
     meth_sub: "Where we get the data from, what we do with it, and what we don't know. Sources, limitations, and the entire pipeline step by step.",
     meth_disclaimer: "Zabkozbior is an independent fan/analytical project based on public data. It is not affiliated with Żabka Polska sp. z o.o. or Żabka Group. The name \"Żabka\" and related trademarks belong to their respective owners.",
@@ -359,14 +362,14 @@ export const translations = {
     meth_foot_back: "Built with public data. <a href=\"/\" class=\"foot-link\">Back to dashboard</a>",
 
     // Atlas of Extremes (Kraniec) facts
-    kr_cap_default: "Click a phenomenon – the map will fly to it and highlight the dots.",
+    kr_cap_default: "Click a phenomenon - the map will fly to it and highlight the dots.",
     unit_store_singular: "store",
     unit_store_plural: "stores",
-    fact_grp_compass: "Compass – four directions",
-    fact_grp_elevation: "Elevation – high and low",
-    fact_grp_isolation: "Isolation – loner",
+    fact_grp_compass: "Compass - four directions",
+    fact_grp_elevation: "Elevation - high and low",
+    fact_grp_isolation: "Isolation - loner",
     fact_grp_history: "Network history",
-    fact_grp_void: "Void – blank spot",
+    fact_grp_void: "Void - blank spot",
     fact_grp_frog: "Żabka & frogs",
     fact_grp_h24: "24/7",
     fact_grp_nature: "In the lap of nature",
@@ -389,21 +392,21 @@ export const translations = {
     fact_lab_h24: "24/7 stores",
     fact_lab_parks: "In national parks",
     fact_lab_twins: "Stores right next to each other",
-    fact_desc_north: "The northernmost Żabka in the country – right by the Baltic cliff.",
+    fact_desc_north: "The northernmost Żabka in the country - right by the Baltic cliff.",
     fact_desc_south: "The southern edge: Cisna in the Bieszczady Mountains, the gateway to the peaks.",
-    fact_desc_east: "Farthest east – Hrubieszow, almost at the border with Ukraine.",
+    fact_desc_east: "Farthest east - Hrubieszow, almost at the border with Ukraine.",
     fact_desc_west: "The western extreme: Cedynia on the Oder River, a few kilometers from Germany.",
     fact_desc_highest: "The highest situated Żabka in the network.",
     fact_desc_lowest: "The only Żabka below sea level.",
     fact_desc_isolated: "The most isolated Żabka in the network.",
     fact_desc_oldest: "The oldest still operating Żabka in the network. Opened in {year}, active for {age} years.",
-    fact_desc_void: "A point in Bieszczady located {distance} km from any Żabka – the largest blank spot on the map.",
+    fact_desc_void: "A point in Bieszczady located {distance} km from any Żabka - the largest blank spot on the map.",
     fact_desc_crown: "A Żabka on Green Frog Street.",
     fact_desc_frogrecord: "The highest number of amphibian observations within 5 km among all stores in the network.",
     fact_desc_farfrog: "The Żabka farthest from the nearest amphibian observation.",
-    fact_desc_zerofrog: "This many stores do not have a single amphibian observation within a 5 km radius (GBIF, Amphibia). The most isolated: {isolated_store} – {distance} km from the nearest frog.",
+    fact_desc_zerofrog: "This many stores do not have a single amphibian observation within a 5 km radius (GBIF, Amphibia). The most isolated: {isolated_store} - {distance} km from the nearest frog.",
     fact_desc_zerofrog_simple: "This many stores do not have a single amphibian observation within a 5 km radius (GBIF, Amphibia).",
-    fact_desc_h24: "Żabkas that never close. Very rare in the network – {count} out of {total}.",
+    fact_desc_h24: "Żabkas that never close. Very rare in the network - {count} out of {total}.",
     fact_desc_parks: "Stores in landscape parks and buffer zones.",
     fact_desc_twins: "The opposite of the loner: {count} stores have another Żabka within a 50-meter radius.",
     fact_short_zerofrog: "stores with no amphibian observations within 5 km",
@@ -494,6 +497,8 @@ export const translations = {
 
 
     // Siec Tab - Hero
+    hero_eyebrow_siec_snapshot: "Atlas Żabek - migawka {date}",
+    hero_eyebrow_siec_data: "Atlas Żabek - dane {year}",
     hero_number_label_siec: "aktywnych sklepów",
     hero_h1_siec: "Żabka jest wszędzie. Mamy na to twarde dane.",
     hero_lede_siec: "{{STAT_PCT_SINCE_2023}}% dzisiejszej sieci powstało od 2023 roku. Oto jak {{STAT_TOTAL_STORES_WORDS}} sklepów rozlało się po Polsce - rok po roku.",
@@ -549,6 +554,7 @@ export const translations = {
     bridge_expansion: "Kierunek ekspansji rok po roku to jedna historia. Druga: ile sklepów i gdzie. {{STAT_LEADER_ABSOLUTE_VOIV}} prowadzi w liczbach bezwzględnych, ale per capita wygrywa {{STAT_LEADER_PERCAPITA_VOIV}}.",
     bridge_econ_text: "Sieć wygląda równomiernie. Dane odsłaniają obraz pod spodem.",
     bridge_econ: "Bogatsze powiaty mają więcej sklepów. Zachód zamyka w niedziele, choć reszta nie. 32 Żabki mają odległość do najbliższej Żabki równą 0. Sprawmy, jak to możliwe i jak jeszcze Żabka wpisuje się w obraz współczesnej Polski.",
+    bridge_cta_spoleczenstwo: "Żabka a Polska →",
 
     // Najwiecej Zabek (Granular)
     gran_title: "Najwięcej Żabek - powiaty",
@@ -612,7 +618,7 @@ export const translations = {
     ep_zerofrog_sub: "sklepów bez ani jednej obserwacji płaza w promieniu 5 km",
     oldest_active_sub: "{city} - działa od {age} lat",
     ep_zerofrog_note: "sklepów ({pct}%) bez ani jednej obserwacji płaza w promieniu 5 km",
-    frog_street_note: "Żabka przy ulicy Zielonej Żabki.",
+    frog_street_note: "Żabka przy ulicy Zielonej Żabki - jeden z {cnt} sklepów na ulicach z żabim motywem.",
     cities_funnel_text: "z {total} polskich miast ma Żabkę",
     tooltip_year: "Rok: {year}",
     tooltip_new_stores: "Nowe sklepy: {count}",
@@ -658,7 +664,7 @@ export const translations = {
 
     // Spoleczenstwo Tab - KPI Strip
     spol_kpi_residents_kicker: "Jeden sklep na",
-    spol_kpi_residents_unit: "",
+    spol_kpi_residents_unit: " os.",
     spol_kpi_residents_sub: "mieszkańców Polski",
     spol_kpi_gminy_kicker: "Pokrycie gmin",
     spol_kpi_gminy_sub: "gmin ma co najmniej jedną Żabkę",
@@ -706,7 +712,7 @@ export const translations = {
 
     // Econ maps
     econ_intro_title: "Gdzie Żabek jest więcej, niż wynikałoby z ekonomii",
-    econ_intro_sub: "Dwie mapy powiatów. Kolor to nie surowe zagęszczenie, tylko odchylenie od trendu: o ile sklepów na 1000 mieszkańców jest więcej (zielony) albo mniej (czerwony), niż przewiduje prosta zależność od danego wskaźnika. Biały powiat leży dokładnie na linii trendu. Zieleń tam, gdzie sieć jest gęstsza, niż tłumaczyłaby to ekonomia.",
+    econ_intro_sub: "Dwie mapy powiatów. Kolor to nie surowe zagęszczenie, tylko odchylenie od trendu: o ile sklepów na 1000 mieszkańców jest więcej (zielony) albo mniej (czerwony), niż przewiduje prosta zależność od wskaźnika korelacji. Biały powiat leży dokładnie na linii trendu. Zieleń tam, gdzie sieć jest gęstsza, niż tłumaczyłaby to korelacja.",
     econ_unemp_title: "Reszty wobec bezrobocia",
     econ_unemp_sub: "Zwykle im wyższe bezrobocie, tym rzadsza sieć. Zieleń pokazuje powiaty, które i tak mają więcej Żabek, niż sugeruje bezrobocie.",
     econ_salary_title: "Reszty wobec płacy",
@@ -719,15 +725,15 @@ export const translations = {
     foot_methodology: "Metodyka",
     foot_portfolio: "Portfolio",
     foot_last_updated: "Aktualizacja danych",
-    foot_disclaimer: "Niezależny projekt fanowski/analityczny na danych publicznych. Niezwiązany z Żabka Polska ani Żabka Group. Znaki towarowe należą do ich właścicieli.",
+    foot_disclaimer: "Niezależny projekt fanowski/analityczny na danych publicznych. Niezwiązany z Żabką. Znaki towarowe należą do ich właścicieli.",
 
     // Deep links / copy-link (S1)
     copy_link_aria: "Skopiuj link do tej sekcji",
     link_copied: "Skopiowano link",
     link_copy_failed: "Nie udało się skopiować linku",
 
-    // Link do dedykowanej strony FAQ (/faq.html - treść PL-only, jak
-    // methodology.html, więc tłumaczona jest tylko etykieta linku)
+    // Linki do stron FAQ i metodyki - obie strony mają pełny przełącznik
+    // językowy (data-t/JSON-LD), tak jak główny SPA
     nav_faq_link: "FAQ",
     nav_methodology_link: "Metodyka",
 
@@ -741,10 +747,11 @@ export const translations = {
     stat_unit_meters_km: " km",
 
     // FAQ Page
-    faq_title: "FAQ - najczęstsze pytania o sieć Żabka i te dane",
-    faq_meta_desc: "Ile jest Żabek w Polsce, gdzie jest ich najwięcej, jak daleko do najbliższej - i dlaczego korelacja na mapach ekonomicznych nie znaczy przyczynowości. Pytania i odpowiedzi, z danymi.",
+    faq_title: "FAQ - najczęstsze pytania o sieć Żabka i dane",
+    faq_meta_desc: "Ile jest Żabek w Polsce, gdzie jest ich najwięcej, jak daleko do najbliższej - i dlaczego korelacja na mapach ekonomicznych nie znaczy przyczynowości. Pytania i odpowiedzi.",
+    faq_og_image_alt: "FAQ o Żabkozbiorze - fakty, źródła i błędne wnioski",
     faq_h1: "FAQ",
-    faq_sub: "Najczęstsze pytania o sieć Żabka - z danymi, nie z wyczuciem. I te pytania, które *powinny* paść, kiedy ktoś patrzy na mapy korelacji, ale zwykle nie padają.",
+    faq_sub: "Najczęstsze pytania o sieć Żabka oraz projekt Żabkozbiór.",
     faq_disclaimer: "Żabkozbiór to niezależny projekt fanowski/analityczny oparty na danych publicznych. Nie jest powiązany z Żabka Polska sp. z o.o. ani Żabka Group. Nazwa \"Żabka\" i powiązane znaki towarowe należą do ich właścicieli.",
     faq_sec_facts: "Podstawowe fakty o sieci",
     faq_q_count: "Ile jest Żabek w Polsce?",
@@ -756,40 +763,41 @@ export const translations = {
     faq_q_yearly: "Ile Żabek przybywa rocznie?",
     faq_a_yearly: "Rocznie otwiera się od kilkuset do ponad {{STAT_RECORD_YEAR_OPENINGS}} nowych sklepów - rekordowy był {{STAT_RECORD_YEAR}} rok z {{STAT_RECORD_YEAR_OPENINGS}} otwarciami. {{STAT_PCT_SINCE_2023}}% dzisiejszej, wciąż aktywnej sieci powstała od 2023 roku. Tempo przyspieszyło zauważalnie po 2020.",
     faq_q_closes: "Czy Żabka też zamyka sklepy, czy tylko otwiera nowe?",
-    faq_a_closes: "Tak, zamyka - to normalna rotacja sieci convenience, nie coś wyjątkowego. Problem jest inny: nasz wykres historii wzrostu (na dashboardzie, sekcja Sieć) liczy otwarcia tylko dla sklepów, które są aktywne <em>dziś</em>. Sklep, który otworzył się w 2015 i zamknął w 2022, po prostu nie istnieje w tym wykresie - jakby nigdy go nie było. To sprawia, że wcześniejsze lata wyglądają na słabsze niż realnie były (patrz \"survivorship bias\" niżej). Zamykanie sklepów zaczęliśmy śledzić dopiero, odkąd ten projekt działa - to osobna, znacznie krótsza historia.",
+    faq_a_closes: "Tak, zamyka. Problem jest inny: nasz wykres historii wzrostu liczy otwarcia tylko dla sklepów, które są aktywne <em>dziś</em>. Sklep, który otworzył się w 2015 i zamknął w 2022, po prostu nie istnieje w tym wykresie - jakby nigdy go nie było. To sprawia, że wcześniejsze lata wyglądają na słabsze niż realnie były (patrz \"survivorship bias\" niżej). Zamykanie sklepów zaczęliśmy śledzić dopiero, odkąd ten projekt działa - wraz z czasem danych przybędzie, ale na razie jest ich na tyle mało, że ich nie prezentujemy.",
     faq_q_every_city: "Czy Żabka jest w każdym mieście w Polsce?",
-    faq_a_every_city: "Nie, ale jest blisko - ponad {{STAT_GMINY_COVERAGE_PCT}}% gmin ma co najmniej jedną Żabkę, a pokrycie powiatów jest praktycznie kompletne ({{STAT_POWIAT_COVERED}} z {{STAT_POWIAT_TOTAL}} powiatów lądowych ma przynajmniej jeden sklep). Miejsca bez Żabki to głównie małe, rozproszone gminy wiejskie.",
+    faq_a_every_city: "Nie, ale jest blisko - ponad {{STAT_GMINY_COVERAGE_PCT}}% gmin ma co najmniej jedną Żabkę, a pokrycie powiatów jest praktycznie kompletne ({{STAT_POWIAT_COVERED}} z {{STAT_POWIAT_TOTAL}} powiatów lądowych ma przynajmniej jeden sklep). Miejsca bez Żabki to głównie małe, rozproszone gminy wiejskie - zobacz w Atlasie Krańców, które!",
     faq_sec_sources: "Skąd pochodzą te dane",
     faq_q_source_origin: "Skąd pochodzą te dane?",
     faq_a_source_origin: "Główne źródło to publiczny plik lokalizatora sklepów na <code>Żabka.pl</code> - ten sam, z którego korzysta wyszukiwarka sklepów na ich stronie. Wzbogacamy go danymi GUS BDL (zarobki, bezrobocie, populacja), GBIF (obserwacje płazów), InPost ShipX (paczkomaty) i GUGiK (granice administracyjne, geokodowanie, wysokość terenu). Pełny opis źródeł, cały potok ETL i lista znanych ograniczeń są na <a href=\"/methodology.html\">stronie metodyki</a>.",
     faq_q_update_freq: "Jak często aktualizowane są dane?",
-    faq_a_update_freq: "Codziennie, automatycznym potokiem o 3:00 w nocy czasu warszawskiego. Ekonomiczne dane GUS (zarobki, bezrobocie, populacja) aktualizują się rzadziej, bo GUS sam publikuje je raz w roku.",
+    faq_a_update_freq: "Codziennie cronem o 3:00. Ekonomiczne dane GUS (zarobki, bezrobocie, populacja) aktualizują się rzadziej, bo GUS sam publikuje je raz w roku.",
     faq_q_download: "Czy mogę pobrać te dane samodzielnie?",
     faq_a_download: "Tak. Cała baza DuckDB (~{{STAT_DB_SIZE_MB}} MB) jest do pobrania z dashboardu, na licencji CC BY 4.0. Granice województw są dostępne jako GeoJSON. Surowe API jest udokumentowane pod <code>/docs</code>.",
     faq_q_official: "Czy to oficjalna strona Żabki?",
-    faq_a_official: "Nie. Żabkozbiór jest niezależnym projektem fanowskim/analitycznym na danych publicznych, niezwiązanym z Żabka Polska sp. z o.o. ani Żabka Group. Nazwa \"Żabka\" i powiązane znaki towarowe należą do ich właścicieli.",
+    faq_a_official: "Nie. Żabkozbiór jest niezależnym projektem fanowskim/analitycznym na danych publicznych, niezwiązanym z Żabka. Nazwa \"Żabka\" i powiązane znaki towarowe należą do ich właścicieli.",
     faq_sec_pitfalls: "Częste błędne wnioski",
     faq_pitfalls_note: "Ta sekcja istnieje, bo dane statystyczne łatwo naginają się do historii, którą chcemy usłyszeć. Poniżej są konkretne pułapki, w które łatwo wpaść, patrząc na ten dashboard - i dlaczego wniosek \"oczywisty na pierwszy rzut oka\" bywa nieprawdziwy.",
     faq_q_econ_correlation: "Czy wysoka korelacja na mapach ekonomicznych oznacza, że bogactwo powoduje więcej Żabek?",
-    faq_a_econ_correlation: "Nie - i to jest najważniejsza pułapka na całym dashboardzie. Mapy w sekcji \"Żabka a Polska\" pokazują <strong>korelację</strong>: odchylenie gęstości sieci od trendu wyznaczonego przez zarobki lub bezrobocie w danym powiecie. Współczynnik r (np. r = +{{STAT_R_SALARY}} dla płacy) opisuje siłę tej zależności statystycznej - nie mechanizm przyczynowy. Równie dobrze mogłoby być odwrotnie (więcej sklepów napędza lokalną gospodarkę), albo - najbardziej prawdopodobnie - obie zmienne zależą od trzeciego czynnika: gęstości zaludnienia i urbanizacji. Bogate powiaty są zwykle też gęściej zaludnione i bardziej zurbanizowane, a to jest to, co realnie przyciąga sieci convenience - nie sama obecność pieniądza.",
+    faq_a_econ_correlation: "Nie - i to jest najważniejsza pułapka na całym dashboardzie. Mapy w sekcji \"Żabka a Polska\" pokazują <strong>korelację</strong>: odchylenie gęstości sieci od trendu wyznaczonego przez zarobki lub bezrobocie w danym powiecie. Współczynnik r (np. r = +{{STAT_R_SALARY}} dla płacy) opisuje siłę tej zależności statystycznej - nie mechanizm przyczynowy. Równie dobrze mogłoby być odwrotnie (więcej sklepów napędza lokalną gospodarkę), albo - najbardziej prawdopodobnie - obie zmienne zależą od trzeciego czynnika: gęstości zaludnienia i urbanizacji. Bogate powiaty są zwykle też gęściej zaludnione i bardziej zurbanizowane, a to jest to, co realnie przyciąga sieci takie jak Żabka - nie sama obecność pieniądza.",
     faq_q_amphibians_density: "Czy więcej obserwacji płazów w GBIF przy danym sklepie znaczy, że tam żyje więcej żab?",
-    faq_a_amphibians_density: "Niekoniecznie. Rekordzista (ponad {{STAT_AMPHIBIAN_RECORD_COUNT}} obserwacji w promieniu 5 km) to sklep na Ursynowie w Warszawie - gęsto zaludnionej dzielnicy z parkami, nie rezerwacie przyrody. Dane GBIF to zgłoszenia obywatelskiej nauki: odzwierciedlają gęstość <em>obserwatorów</em> ze smartfonami, nie tylko gęstość płazów. Dziewicze, słabo zamieszkane tereny (Bieszczady, Puszcza Białowieska) mogą mieć realnie więcej płazów i mniej zgłoszeń - po prostu mniej osób tam patrzy i wgrywa obserwacje.",
+    faq_a_amphibians_density: "Właśnie nie! Rekordzista (ponad {{STAT_AMPHIBIAN_RECORD_COUNT}} obserwacji w promieniu 5 km) to sklep na Ursynowie w Warszawie - gęsto zaludnionej dzielnicy z parkami, nie w rezerwacie przyrody. Dane GBIF to zgłoszenia obywatelskiej nauki: odzwierciedlają gęstość <em>obserwatorów</em> ze smartfonami, nie tylko gęstość płazów. Dziewicze, słabo zamieszkane tereny (Bieszczady, Puszcza Białowieska) mogą mieć realnie więcej płazów i mniej zgłoszeń - po prostu mniej osób tam patrzy i wgrywa obserwacje.",
     faq_q_growth_bias: "Czy wykres wzrostu sieci od 1998 roku pokazuje pełną historię otwarć?",
-    faq_a_growth_bias: "Nie - to jest survivorship bias w czystej formie. Wykres liczy otwarcia wyłącznie dla sklepów, które są aktywne <em>dziś</em>. Sklep, który otworzył się w 2003 i zamknął w 2015, jest niewidoczny - jakby nigdy nie istniał. To sprawia, że wczesne lata (1998-2010) wyglądają na słabsze, niż realnie były, bo część tamtej kohorty już wypadła z danych. Krzywa, którą widzisz, to \"historia zwycięzców\", nie kompletna historia sieci.",
+    faq_a_growth_bias: "Nie. Wykres liczy otwarcia wyłącznie dla sklepów, które są aktywne <em>dziś</em>. Sklep, który otworzył się w 2003 i zamknął w 2015, jest niewidoczny - jakby nigdy nie istniał. To sprawia, że wczesne lata (1998-2010) wyglądają na słabsze, niż realnie były, bo część tamtej kohorty już wypadła z danych.",
     faq_q_saturation_warsaw: "Skoro Warszawa ma najwięcej Żabek, to znaczy, że rynek jest tam najbardziej nasycony?",
-    faq_a_saturation_warsaw: "Nie wynika to z samej liczby. Ranking liczb bezwzględnych to w gruncie rzeczy ranking wielkości miast i regionów - większa populacja, więcej sklepów, praktycznie bez wyjątku. Żeby ocenić realne nasycenie, trzeba znormalizować: sklepów na 1000 mieszkańców albo na km². Te dwa ranking wyglądają zupełnie inaczej niż ranking liczb bezwzględnych (patrz sekcja GRAN na dashboardzie, z przełącznikiem między metrykami) - i to jest dokładnie powód, dla którego ten przełącznik istnieje.",
+    faq_a_saturation_warsaw: "Nie wynika to z samej liczby. Ranking liczb bezwzględnych to w gruncie rzeczy ranking wielkości miast i regionów - większa populacja, więcej sklepów, praktycznie bez wyjątku. Żeby ocenić realne nasycenie, trzeba znormalizować: sklepów na 1000 mieszkańców albo na km². Te dwa ranking wyglądają zupełnie inaczej niż ranking liczb bezwzględnych - i dlatego analiza umożliwia przełączanie pomiędzy metrykami.",
     faq_q_sunday_strategy: "Czy różnice w otwarciu w niedzielę między województwami to celowa strategia regionalna?",
-    faq_a_sunday_strategy: "Dane pokazują tylko wynik (flaga <code>open_sunday</code> per sklep), nie przyczynę. Różnice w odsetku sklepów zamkniętych w niedzielę między regionami odzwierciedlają najpewniej lokalne wzorce ruchu klientów i indywidualne decyzje na poziomie pojedynczych punktów (część placówek korzysta z wyjątków od ustawowego zakazu handlu, np. na stacjach paliw czy w miejscach o określonej strukturze przychodów) - nie scentralizowaną politykę \"zamykamy zachód, a nie wschód\".",
+    faq_a_sunday_strategy: "Dane pokazują tylko wynik (flaga <code>open_sunday</code> per sklep), nie przyczynę. Nie chcę spekulować na temat przyczyn.",
     faq_q_completeness: "Czy ten zbiór danych jest kompletny i wolny od brakujących wartości?",
-    faq_a_completeness: "Nie. Około {{STAT_UNDATED_STORES}} sklepów nie ma daty otwarcia w źródle. Wysokość terenu jest opcjonalna (wymaga ponad {{STAT_TOTAL_STORES_ROUNDED}} zapytań HTTP) i bywa NULL. Populacje powiatów to dane roczne z GUS, nie aktualne szacunki. Pełna lista ograniczeń jest na <a href=\"/methodology.html#czego-nie-gwarantujemy\">stronie metodyki</a>.",
+    faq_a_completeness: "Nie. W danych jest szereg quality issues. Około {{STAT_UNDATED_STORES}} sklepów nie ma daty otwarcia w źródle. Populacje powiatów to dane roczne z GUS, nie aktualne szacunki. Pełna lista ograniczeń jest na <a href=\"/methodology.html#czego-nie-gwarantujemy\">stronie metodyki</a>.",
     faq_cta_text: "Chcesz zobaczyć te dane na mapach i wykresach, nie w tekście?",
     faq_cta_btn: "Otwórz dashboard →",
     faq_foot_back: "Zbudowane z danych publicznych. <a href=\"/\" class=\"foot-link\">Powrót na dashboard</a> - <a href=\"/methodology.html\" class=\"foot-link\">Metodyka</a>",
     nav_back_dashboard: "Powrót na dashboard",
 
     // Methodology Page
-    meth_title: "Metodyka i źródła danych - Żabka w liczbach",
+    meth_title: "Metodyka i źródła danych - Żabkozbiór",
     meth_meta_desc: "Skąd pochodzą dane o sieci Żabka: lokalizator sklepów, GUS BDL, GBIF, InPost i GUGiK. Pełna metodyka, definicje i znane ograniczenia.",
+    meth_og_image_alt: "Metodyka danych Żabka w liczbach - źródła, definicje i ograniczenia",
     meth_h1: "Metodyka",
     meth_sub: "Skąd bierzemy dane, co z nimi robimy i czego nie wiemy. Źródła, ograniczenia i cały pipeline krok po kroku.",
     meth_disclaimer: "Żabkozbiór to niezależny projekt fanowski/analityczny oparty na danych publicznych. Nie jest powiązany z Żabka Polska sp. z o.o. ani Żabka Group. Nazwa \"Żabka\" i powiązane znaki towarowe należą do ich właścicieli.",
@@ -801,47 +809,45 @@ export const translations = {
     meth_source_econ_title: "Gospodarka - GUS BDL",
     meth_source_econ_desc: "Zarobki, bezrobocie i populacja na poziomie powiatów pochodzą z Banku Danych Lokalnych (zmienne 64428, 60270, 72305). Pobieramy je raz w roku. Nazwy powiatów trzeba normalizować - GUS lubi dodawać prefiksy (<code>Powiat m.</code>), przyrostki czasowe (<code>od 2023</code>) i zmieniać nazwy (<code>jeleniogórski</code> staje się <code>karkonoski</code> w 2021). Wszystko to czyścimy przed zmatchowaniem. Dokładność: dane pochodzą z roku, w którym GUS je opublikował, nie z bieżącego miesiąca.",
     meth_source_parks_title: "Parki narodowe i krajobrazowe - GDOŚ",
-    meth_source_parks_desc: "Granice parków i ich otulin pobieramy z WFS GDOŚ (warstwy <code>ParkiNarodowe</code> + <code>ParkiKrajobrazowe</code>). Mamy {{STAT_PARKS_TOTAL}} obiektów: {{STAT_PARKS_NATIONAL}} parków narodowych z otulinami i {{STAT_PARKS_LANDSCAPE}} krajobrazowych. Każdy sklep sprawdzamy punkt-w-poligon - jeśli trafił do parku lub otuliny, dostaje flagę.",
+    meth_source_parks_desc: "Granice parków i ich otulin pobieramy z WFS GDOŚ (warstwy <code>ParkiNarodowe</code> + <code>ParkiKrajobrazowe</code>). Mamy {{STAT_PARKS_TOTAL}} obiektów: {{STAT_PARKS_NATIONAL}} parków narodowych z otulinami i {{STAT_PARKS_LANDSCAPE}} krajobrazowych. Każdy sklep sprawdzamy point-in-poligon. Jeśli trafił do parku lub otuliny, dostaje flagę.",
     meth_source_elev_title: "Wysokość terenu - GUGiK NMT",
-    meth_source_elev_desc: "Wysokość n.p.m. z Numerycznego Modelu Terenu GUGiK (<code>GetHByXY</code>, współrzędne PL-1992). To jest opt-in (flaga <code>--elevation</code>), bo ponad {{STAT_TOTAL_STORES_ROUNDED}} zapytań HTTP. Wyniki trafiają do lokalnego cache (<code>elevation_cache.json</code>) - ponowne odpalenie ETL nie odpytuje punktów, które już mamy. Uwaga: serwis GUGiK przyjmuje tylko współrzędne PL-1992, nie WGS84, więc w ETL jest konwersja własnym kodem (bez pyproj).",
+    meth_source_elev_desc: "Wysokość n.p.m. z Numerycznego Modelu Terenu GUGiK (<code>GetHByXY</code>, współrzędne PL-1992). Wyniki trafiają do lokalnego cache (<code>elevation_cache.json</code>) - ponowne odpalenie ETL nie odpytuje punktów, które już mamy. Uwaga: serwis GUGiK przyjmuje tylko współrzędne PL-1992, nie WGS84, więc w ETL jest konwersja własnym kodem (bez pyproj).",
     meth_source_inpost_title: "Paczkomaty InPost",
-    meth_source_inpost_desc: "Punkty paczkowe z publicznego API InPost ShipX (typ <code>parcel_locker</code>). Każdy paczkomat przypisujemy do podziału administracyjnego za pomocą tego samego geokodera GUGiK i relacyjnego dopasowania co sklepy. To jest jednorazowe pobranie - sieć paczkomatów rośnie wolno, mamy około {{STAT_INPOST_TOTAL}} punktów. Porównanie Żabek vs paczkomaty - z podziałem na województwa, powiaty i gminy - jest na dashboardzie.",
+    meth_source_inpost_desc: "Punkty paczkowe z publicznego API InPost ShipX (typ <code>parcel_locker</code>). Każdy paczkomat przypisujemy do podziału administracyjnego za pomocą tego samego geokodera GUGiK i relacyjnego dopasowania, co sklepy. To jest jednorazowe pobranie - sieć paczkomatów rośnie wolno, mamy około {{STAT_INPOST_TOTAL}} punktów. Porównanie Żabek vs paczkomaty - z podziałem na województwa, powiaty i gminy - jest na dashboardzie.",
     meth_source_frogs_title: "Płazy - GBIF",
-    meth_source_frogs_desc: "Obserwacje płazów z Global Biodiversity Information Facility (klasa Amphibia, <code>taxonKey=131</code>) w Polsce. Mamy około {{STAT_GBIF_TOTAL}} rekordów ze współrzędnymi. BallTree (haversine) zlicza obserwacje w promieniu 5 km od każdego sklepu. Najbardziej żabia Żabka ma {{STAT_AMPHIBIAN_RECORD_COUNT}} obserwacji - i to jest w Ursynowie, nie w żadnym parku narodowym.",
+    meth_source_frogs_desc: "Obserwacje płazów z Global Biodiversity Information Facility (klasa Amphibia, <code>taxonKey=131</code>) w Polsce. Mamy około {{STAT_GBIF_TOTAL}} rekordów ze współrzędnymi. Za pomocą BallTree (haversine) zliczamy obserwacje w promieniu 5 km od każdego sklepu. Najbardziej żabia Żabka ma {{STAT_AMPHIBIAN_RECORD_COUNT}} obserwacji - i to w Ursynowie, nie w żadnym parku narodowym.",
     meth_source_neighbor_title: "Sąsiedztwo - obliczenia lokalne",
-    meth_source_neighbor_desc: "Odległość do najbliższej innej Żabki obliczamy lokalnie przez BallTree (haversine, k=2). Najbardziej odosobniony sklep ma {{STAT_ISOLATED_MAX_KM}} km do najbliższego sąsiada (Michałowo, podlaskie). Punkt najdalszy od jakiejkolwiek Żabki - pusta przestrzeń w Bieszczady - to około {{STAT_VOID_DISTANCE_KM}} km. Zero zapytań sieciowych, czysta geometria na danych już wczytanych.",
-    meth_source_weather_title: "Pogoda i niebo - Open-Meteo, OpenLightMap",
-    meth_source_weather_desc: "Aktualne dane pogodowe z darmowego API Open-Meteo (temperatura, zachmurzenie) dla najzimniejszej i najcieplejszej lokalizacji Żabki. Podobnie najciemniejsze i najjaśniejsze niebo z OpenLightMap. Dane live, pobierane przy otwarciu strony. Nie wypiekamy ich do bazy - pogoda z wczoraj nikomu nie potrzebna.",
-    meth_sec_pipeline: "Potok ETL",
-    meth_pipeline_desc: "Mamy codzienny potok, który pobiera dane, czyści, wzbogaca i zapisuje do bazy. Wygląda tak:",
-    meth_etl_step1: "<strong>Pobranie.</strong> Pobieramy publiczny plik JSON z lokalizacjami sklepów. Jak API niedostępne, bierzemy z lokalnego pliku fallback z <code>data/input/</code>.",
-    meth_etl_step2: "<strong>Oczyszczenie.</strong> Deduplikacja po <code>storeId</code> (około 32 duplikaty w źródłach), normalizacja nazw miast (<code>LEGNICA</code> staje się <code>Legnica</code>), usuwanie <code>&lt;br&gt;</code> i kodów pocztowych z ulic, wyrzucenie danych osobowych i stałych pól.",
-    meth_etl_step3: "<strong>Wzbogacenie.</strong> Każde źródło niezależnie: regiony, sąsiedztwo, płazy, parki, elewacja, GUS, paczkomaty. Błąd jednego źródła nie przerywa potoku - kolumna zostaje NULL i ETL idzie dalej. Każde zapytanie sieciowe ma retry: 3 próby z odstępem 60 sekund.",
-    meth_etl_step4: "<strong>Diff.</strong> Porównujemy z poprzednim snapshotem: nowe <code>store_id</code> to sklep otwarty, zniknięte - zamknięty. Wynik zapisujemy jako historia zmian.",
-    meth_etl_step5: "<strong>Zapis do bazy.</strong> Zapis do DuckDB. Nowe kolumny dodajemy przez <code>ALTER TABLE ADD COLUMN IF NOT EXISTS</code> (bez DEFAULT, bo DuckDB nie obsługuje DEFAULT w ALTER). Baza przechowuje ostatnie 6 miesięcy snapshotów - starsze usuwamy.",
-    meth_etl_step6: "<strong>Czyszczenie cache.</strong> Po udanym ETL czyścimy cache Redis. Backend odbudowuje odpowiedzi na następnym zapytaniu. Redis jest opcjonalny - jak niedostępny, backend działa bez niego.",
+    meth_source_neighbor_desc: "Odległość do najbliższej innej Żabki obliczamy lokalnie przez BallTree (haversine, k=2). Najbardziej odosobniony sklep ma {{STAT_ISOLATED_MAX_KM}} km do najbliższego sąsiada (Michałowo, podlaskie). Punkt najdalszy od jakiejkolwiek Żabki - pusta przestrzeń w Bieszczady - to około {{STAT_VOID_DISTANCE_KM}} km. Czysta geometria na wczytanych już danych.",
+    meth_sec_pipeline: "Pipeline ETL",
+    meth_pipeline_desc: "Mamy codzienny proces ETL, który pobiera dane, czyści, wzbogaca i zapisuje do bazy. Wygląda tak:",
+    meth_etl_step1: "<strong>Pobranie.</strong> Pobieramy publiczny plik JSON z lokalizacjami sklepów. Jeśli API niedostępne, bierzemy z lokalnego pliku fallback z <code>data/input/</code>.",
+    meth_etl_step2: "<strong>Oczyszczenie.</strong> Deduplikacja po <code>storeId</code>, normalizacja nazw miast, usuwanie <code>&lt;br&gt;</code> i kodów pocztowych z ulic, wyrzucenie danych osobowych i stałych pól.",
+    meth_etl_step3: "<strong>Wzbogacenie.</strong> Każde źródło niezależnie: regiony, sąsiedztwo, płazy, parki, elewacja, GUS, paczkomaty. Błąd jednego źródła nie przerywa potoku - kolumna dostaje NULL i ETL idzie dalej. Każde zapytanie sieciowe ma retry 3 próby z odstępem 60s.",
+    meth_etl_step4: "<strong>Diff.</strong> Porównujemy z poprzednim snapshotem: nowe <code>store_id</code> to sklep otwarty, zniknięte - zamknięty. Wynik zapisujemy jako historia zmian bezpośrednio w tabeli lokalizacji za pomocą pola deleted_at.",
+    meth_etl_step5: "<strong>Zapis do bazy.</strong> Zapis do DuckDB. Nowe kolumny dodajemy przez <code>ALTER TABLE ADD COLUMN IF NOT EXISTS</code>.",
+    meth_etl_step6: "<strong>Czyszczenie cache.</strong> Po sukcesie ETL czyścimy cache Redis. Backend odbudowuje odpowiedzi na nowym stanie. Redis jest opcjonalny - jak niedostępny (np na srodowisku lokalnym), backend działa bez niego.",
     meth_sec_warn: "Czego nie gwarantujemy",
     meth_warn_title: "Ograniczenia danych",
     meth_warn_item1: "Około {{STAT_UNDATED_STORES}} sklepów nie ma daty otwarcia w źródłach - nie pojawiają się na wykresie historii wzrostu.",
     meth_warn_item2: "Populacje powiatów to dane roczne z GUS, nie bieżące szacunki.",
     meth_warn_item3: "Sklepy na granicach uproszczonych poligonów mogą trafić do sąsiedniego województwa (dotyczy około 3 punktów).",
     meth_warn_item4: "Godziny otwarcia pochodzą ze źródła Żabki, nie z weryfikacji terenowej.",
-    meth_warn_item5: "Dane pogodowe są live - mogą różnić się od off-line bazy.",
+    meth_warn_item5: "Dane dot. lokalizacji Żabek obejmuje JEDYNIE AKTUALNIE AKTYWNE SKLEPY. Nie mamy więc danych historycznych - najstarsza Żabka niekoniecznie musi być najstarsza w ogóle, bo jest najstarsza Z AKTYWNYCH.",
     meth_warn_item6: "Obserwacje GBIF zależą od aktywności obserwatorów - mniej zamieszkałe regiony mają mniej rekordów nie dlatego, że jest mniej płazów, tylko dlatego, że mniej osób tam patrzy.",
     meth_warn_item7: "Brakujące źródło wzbogacenia zostawia kolumnę NULL - tabela jest spójna, ale niekompletna.",
     meth_warn_item8: "Soft delete: sklepy, które zniknęły ze źródła, dostają <code>deleted_at</code> w bazie. Zapytania domyślnie filtrują <code>deleted_at IS NULL</code>, więc zamknięte sklepy nie psują statystyk.",
     meth_foot_back: "Zbudowane z danych publicznych. <a href=\"/\" class=\"foot-link\">Powrót na dashboard</a>",
 
     // Atlas of Extremes (Kraniec) facts
-    kr_cap_default: "Kliknij zjawisko – mapa doleci i podświetli kropki.",
+    kr_cap_default: "Kliknij zjawisko - mapa doleci i podświetli kropki.",
     unit_store_singular: "sklep",
     unit_store_plural: "sklepów",
-    fact_grp_compass: "Kompas – cztery kierunki",
-    fact_grp_elevation: "Wysokość – góra i dół",
-    fact_grp_isolation: "Izolacja – samotnik",
+    fact_grp_compass: "Kompas",
+    fact_grp_elevation: "Wysokość",
+    fact_grp_isolation: "Izolacja - samotnik",
     fact_grp_history: "Historia sieci",
-    fact_grp_void: "Pustka – biała plama",
-    fact_grp_frog: "Żabka a żabki",
+    fact_grp_void: "Pustka - biała plama",
+    fact_grp_frog: "Żabka a żabki (obserwacje płazów)",
     fact_grp_h24: "24/7",
     fact_grp_nature: "Na łonie natury",
     fact_grp_twins: "Tuż obok siebie",
@@ -853,34 +859,34 @@ export const translations = {
     fact_lab_west: "Najdalej na zachód",
     fact_lab_highest: "Najwyżej n.p.m.",
     fact_lab_lowest: "Poniżej morza",
-    fact_lab_isolated: "Najdalej od sąsiadki",
+    fact_lab_isolated: "Najdalej od innej Żabki",
     fact_lab_oldest: "Najstarsza wciąż czynna",
     fact_lab_void: "Największa pustka",
     fact_lab_crown: "Korona kolekcji",
-    fact_lab_frogrecord: "Rekord płazów",
-    fact_lab_farfrog: "Najdalej od żaby",
-    fact_lab_zerofrog: "Bez żadnej żaby w pobliżu",
+    fact_lab_frogrecord: "Rekord obserwacji płazów",
+    fact_lab_farfrog: "Najdalej od obsrwacji żaby",
+    fact_lab_zerofrog: "Bez żadnej obserwacji żaby w pobliżu",
     fact_lab_h24: "Sklepy całodobowe",
     fact_lab_parks: "W parkach i rezerwatach",
     fact_lab_twins: "Sklepy tuż obok siebie",
-    fact_desc_north: "Najbardziej wysunięta na północ Żabka w kraju – tuż przy nadbałtyckim klifie.",
+    fact_desc_north: "Najbardziej wysunięta na północ Żabka w kraju - tuż przy nadbałtyckim klifie.",
     fact_desc_south: "Kraniec południa: Cisna w Bieszczadach, brama w góry.",
-    fact_desc_east: "Najbardziej na wschód – Hrubieszów, niemal przy granicy z Ukrainą.",
+    fact_desc_east: "Najbardziej na wschód - Hrubieszów, niemal przy granicy z Ukrainą.",
     fact_desc_west: "Skrajny zachód: Cedynia nad Odrą, kilka kilometrów od Niemiec.",
     fact_desc_highest: "Najwyżej położona Żabka w sieci.",
     fact_desc_lowest: "Jedyna Żabka poniżej poziomu morza.",
     fact_desc_isolated: "Najbardziej samotna Żabka w sieci.",
     fact_desc_oldest: "Najstarsza wciąż działająca Żabka w sieci. Otwarta w {year}, w sieci od {age} lat.",
-    fact_desc_void: "Punkt w Bieszczadach oddalony o {distance} km od jakiejkolwiek Żabki – największa biała plama na mapie.",
+    fact_desc_void: "Punkt w Bieszczadach oddalony o {distance} km od jakiejkolwiek Żabki - największa biała plama na mapie.",
     fact_desc_crown: "Żabka przy ulicy Zielonej Żabki.",
     fact_desc_frogrecord: "Najwięcej obserwacji płazów w promieniu 5 km ze wszystkich sklepów sieci.",
     fact_desc_farfrog: "Żabka najbardziej oddalona od najbliższej obserwacji płaza.",
-    fact_desc_zerofrog: "Tyle sklepów nie ma ani jednej obserwacji płaza w promieniu 5 km (GBIF, Amphibia). Najbardziej odizolowana Żabka: {isolated_store} – {distance} km od najbliższej żaby.",
+    fact_desc_zerofrog: "Tyle sklepów nie ma ani jednej obserwacji płaza w promieniu 5 km (GBIF, Amphibia). Najbardziej odizolowana Żabka: {isolated_store} - {distance} km od najbliższej obserwacji żaby.",
     fact_desc_zerofrog_simple: "Tyle sklepów nie ma ani jednej obserwacji płaza w promieniu 5 km (GBIF, Amphibia).",
-    fact_desc_h24: "Żabki, które nigdy nie zamykają. Bardzo rzadkie w sieci – {count} na {total}.",
+    fact_desc_h24: "Żabki, które nigdy nie zamykają. Bardzo rzadkie w sieci - {count} na {total}.",
     fact_desc_parks: "Sklepy w parkach krajobrazowych i otulinach.",
     fact_desc_twins: "Przeciwieństwo samotnika: {count} sklepów ma inną Żabkę w promieniu 50 m.",
-    fact_short_zerofrog: "sklepy bez obserwacji płaza w 5 km",
+    fact_short_zerofrog: "sklepy bez obserwacji płaza w promieniu 5 km",
     fact_short_h24: "Żabki, które nigdy nie śpią",
     fact_short_parks: "Żabka w parku lub otulinie",
     fact_short_twins: "sieć dusi się od zagęszczenia",
@@ -888,12 +894,12 @@ export const translations = {
     fact_val_twins: "{count} w 50 m",
 
     // i18n coverage audit additions
-    meta_title: "Żabkozbiór – interaktywny atlas sieci w Polsce",
-    meta_description: "Interaktywny atlas sieci Żabka: gdzie, kiedy i jak rosła sieć ponad 13 tysięcy sklepów. Mapy, rankingi, ekonomia i ciekawostki na danych publicznych.",
-    og_description: "Gdzie, kiedy i jak rosła sieć ponad 13 tysięcy sklepów Żabka. Mapy, rankingi, ekonomia i ciekawostki na danych publicznych.",
-    og_image_alt: "Interaktywny atlas sklepów Żabka w Polsce – ciemna mapa z lokalizacjami i wykresami",
-    jsonld_website_desc: "Interaktywny atlas sieci Żabka w Polsce na danych publicznych.",
-    jsonld_dataset_name: "Sieć Żabka w Polsce – lokalizacje i statystyki",
+    meta_title: "Żabkozbiór - interaktywny atlas Żabek",
+    meta_description: "Interaktywny atlas sieci Żabka: gdzie, kiedy i jak rosła sieć ponad 13 tysięcy sklepów? Mapy, rankingi, ekonomia i ciekawostki na danych publicznych.",
+    og_description: "Gdzie, kiedy i jak rosła sieć ponad 13 tysięcy sklepów Żabka? Mapy, rankingi, ekonomia i ciekawostki na danych publicznych.",
+    og_image_alt: "Interaktywny atlas sklepów Żabka w Polsce - ciemna mapa z lokalizacjami i wykresami",
+    jsonld_website_desc: "Interaktywny atlas Żabek zbudowany na danych publicznych.",
+    jsonld_dataset_name: "Sieć Żabka w Polsce - lokalizacje i statystyki",
     jsonld_dataset_desc: "Dane o ponad 13 tysiącach sklepów Żabka w Polsce: lokalizacje, daty otwarcia, gęstość, godziny otwarcia oraz korelacje z danymi GUS, GBIF, InPost i GUGiK.",
     lang_toggle_aria: "Wybór języka",
     chart_growth_aria: "Wykres wzrostu sieci: słupki pokazują liczbę nowych sklepów w każdym roku 1998-2026, linia pokazuje zmianę rok do roku w procentach.",
@@ -910,7 +916,7 @@ export const translations = {
     aria_gmina_metric: "Metryka gminy",
     chart_nbl_aria: "Wykres słupkowy: odległość do najbliższego sklepu wg wybranego poziomu geograficznego i metryki.",
     chart_knn_aria: "Histogram: rozkład odległości do najbliższego sklepu, mediana 299 m, średnia 942 m.",
-    chart_elevation_aria: "Histogram: rozkład wysokości sklepów Żabka nad poziomem morza w Polsce, w kubełkach co 50 metrów.",
+    chart_elevation_aria: "Histogram: rozkład wysokości sklepów Żabka nad poziomem morza w Polsce w kubełkach co 50 metrów.",
     chart_streets_aria: "Wykres słupkowy: ulice z największą liczbą sklepów Żabka w Polsce, z podaną nazwą ulicy i miasta.",
     chart_gmina_lead_aria: "Wykres słupkowy: gminy z największą liczbą sklepów na mieszkańca lub na km², wg wybranej metryki.",
     gran_dim_gmina: "Gminy",
@@ -930,9 +936,9 @@ export const translations = {
     atlas_map_unavailable: "Atlas krańców niedostępny",
     fpf_tooltip_new: "Nowych:",
     fpf_tooltip_cursor: "Kursor:",
-    fpf_tooltip_dominant_year: "dominanta ROKU:",
-    chart_growth_xaxis: "Rok →",
-    chart_growth_new_axis: "↑ Nowe sklepy",
+    fpf_tooltip_dominant_year: "dominanta roku:",
+    chart_growth_xaxis: "Rok",
+    chart_growth_new_axis: "Nowe sklepy",
     months_full: ["stycznia","lutego","marca","kwietnia","maja","czerwca","lipca","sierpnia","września","października","listopada","grudnia"],
     months_initial: ["S","L","M","K","M","C","L","S","W","P","L","G"],
     map_tip_per1k_suffix: "/1k mieszk.",
@@ -940,7 +946,7 @@ export const translations = {
     nbl_axis_meters: "metry do najbliższej Żabki",
     ratio_label: "stosunek",
     brand_zabka: "Żabka",
-    nat_avg_prefix: "śr. kraj ",
+    nat_avg_prefix: "śr. kraj.",
     inpost_lockers_per_store_suffix: " paczkomaty na każdą Żabkę w Polsce",
     econ_tip_no_data: "brak danych ekonomicznych",
     econ_tip_avg_salary: "Średnia płaca:",
@@ -1003,23 +1009,72 @@ export function t(key) {
   return txt;
 }
 
+// FAQPage mainEntity order on faq.html - keeps the JSON-LD text in sync with
+// the visible Q&A instead of duplicating a second hardcoded copy per language.
+const FAQ_JSONLD_KEYS = [
+  ['faq_q_count', 'faq_a_count'],
+  ['faq_q_most', 'faq_a_most'],
+  ['faq_q_farthest', 'faq_a_farthest'],
+  ['faq_q_yearly', 'faq_a_yearly'],
+  ['faq_q_closes', 'faq_a_closes'],
+  ['faq_q_source_origin', 'faq_a_source_origin'],
+  ['faq_q_update_freq', 'faq_a_update_freq'],
+  ['faq_q_official', 'faq_a_official'],
+  ['faq_q_econ_correlation', 'faq_a_econ_correlation'],
+  ['faq_q_amphibians_density', 'faq_a_amphibians_density'],
+  ['faq_q_growth_bias', 'faq_a_growth_bias'],
+  ['faq_q_saturation_warsaw', 'faq_a_saturation_warsaw'],
+];
+
+function _htmlToText(htmlStr) {
+  const div = document.createElement('div');
+  div.innerHTML = htmlStr;
+  return div.textContent.replace(/\s+/g, ' ').trim();
+}
+
+function _readJsonLd(id) {
+  const script = document.getElementById(id);
+  if (!script) return null;
+  try { return { script, data: JSON.parse(script.textContent) }; } catch (e) { return null; }
+}
+
 function updateJsonLd() {
-  const script = document.getElementById('jsonld-main');
-  if (!script) return;
-  let data;
-  try { data = JSON.parse(script.textContent); } catch (e) { return; }
   const lang = getLang() === 'en' ? 'en' : 'pl-PL';
-  (data['@graph'] || []).forEach(node => {
-    if (node['@type'] === 'WebSite') {
-      node.description = t('jsonld_website_desc');
-      node.inLanguage = lang;
-    } else if (node['@type'] === 'Dataset') {
-      node.name = t('jsonld_dataset_name');
-      node.description = t('jsonld_dataset_desc');
-      node.inLanguage = lang;
-    }
-  });
-  script.textContent = JSON.stringify(data, null, 2);
+
+  const main = _readJsonLd('jsonld-main');
+  if (main) {
+    (main.data['@graph'] || []).forEach(node => {
+      if (node['@type'] === 'WebSite') {
+        node.description = t('jsonld_website_desc');
+        node.inLanguage = lang;
+      } else if (node['@type'] === 'Dataset') {
+        node.name = t('jsonld_dataset_name');
+        node.description = t('jsonld_dataset_desc');
+        node.inLanguage = lang;
+      }
+    });
+    main.script.textContent = JSON.stringify(main.data, null, 2);
+  }
+
+  const meth = _readJsonLd('jsonld-meth');
+  if (meth) {
+    meth.data.headline = t('meth_title');
+    meth.data.description = t('meth_meta_desc');
+    meth.data.inLanguage = lang;
+    meth.script.textContent = JSON.stringify(meth.data, null, 2);
+  }
+
+  const faq = _readJsonLd('jsonld-faq');
+  if (faq && Array.isArray(faq.data.mainEntity)) {
+    faq.data.inLanguage = lang;
+    faq.data.mainEntity.forEach((item, i) => {
+      const pair = FAQ_JSONLD_KEYS[i];
+      if (!pair) return;
+      item.name = _htmlToText(t(pair[0]));
+      if (item.acceptedAnswer) item.acceptedAnswer.text = _htmlToText(t(pair[1]));
+    });
+    faq.script.textContent = JSON.stringify(faq.data, null, 2);
+  }
 }
 
 export function translateDOM() {

@@ -7,6 +7,9 @@
   <meta name="description" content="Skąd pochodzą dane o sieci Żabka: lokalizator sklepów, GUS BDL, GBIF, InPost i GUGiK. Pełna metodyka, definicje i znane ograniczenia." data-t-content="meth_meta_desc">
   <meta name="robots" content="index,follow">
   <link rel="canonical" href="https://zabkozbior.barankiewicz.dev/methodology.html">
+  <link rel="alternate" hreflang="pl" href="https://zabkozbior.barankiewicz.dev/methodology.html">
+  <link rel="alternate" hreflang="en" href="https://zabkozbior.barankiewicz.dev/methodology.html?lang=en">
+  <link rel="alternate" hreflang="x-default" href="https://zabkozbior.barankiewicz.dev/methodology.html">
   <meta name="theme-color" content="#0a120a">
 
   <!-- Analityka: GoatCounter (self-hosted, /gc/) - bez cookies, bez GDPR bannera -->
@@ -22,17 +25,18 @@
   <meta property="og:image" content="https://zabkozbior.barankiewicz.dev/og.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="Metodyka danych Żabka w liczbach – źródła, definicje i ograniczenia">
+  <meta property="og:image:alt" content="Metodyka danych Żabka w liczbach – źródła, definicje i ograniczenia" data-t-content="meth_og_image_alt">
 
   <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Metodyka i źródła danych – Żabka w liczbach" data-t-content="meth_title">
   <meta name="twitter:description" content="Skąd pochodzą dane o sieci Żabka i jak je liczymy. Źródła, definicje i znane ograniczenia." data-t-content="meth_meta_desc">
   <meta name="twitter:image" content="https://zabkozbior.barankiewicz.dev/og.png">
-  <meta name="twitter:image:alt" content="Metodyka danych Żabka w liczbach – źródła, definicje i ograniczenia">
+  <meta name="twitter:image:alt" content="Metodyka danych Żabka w liczbach – źródła, definicje i ograniczenia" data-t-content="meth_og_image_alt">
 
-  <!-- Structured data -->
-  <script type="application/ld+json">
+  <!-- Structured data. i18n.js's updateJsonLd() rewrites headline/description/
+       inLanguage from meth_title/meth_meta_desc whenever the language switches. -->
+  <script type="application/ld+json" id="jsonld-meth">
   {
     "@context": "https://schema.org",
     "@type": "Article",
@@ -141,7 +145,7 @@
       Żabka w liczbach
     </a>
     <div class="nav-links">
-      <a href="/faq.html" class="nav-link">FAQ</a>
+      <a href="/faq.html" class="nav-link" data-t="nav_faq_link">FAQ</a>
       <a href="/" class="nav-link" data-t="nav_back_dashboard">Powrót na dashboard</a>
       <div class="lang-toggle" role="group" aria-label="Language selection" id="lang-toggle">
         <button class="lang-btn active" data-lang="pl">PL</button>
@@ -183,10 +187,6 @@
 
 <h3 data-t="meth_source_neighbor_title">Sąsiedztwo – obliczenia lokalne</h3>
 <p data-t="meth_source_neighbor_desc">Odległość do najbliższej innej Żabki obliczamy lokalnie przez BallTree (haversine, k=2). Najbardziej odosobniony sklep ma {{STAT_ISOLATED_MAX_KM}} km do najbliższego sąsiada (Michałowo, podlaskie). Punkt najdalszy od jakiejkolwiek Żabki – pusta przestrzeń w Bieszczachach – to około {{STAT_VOID_DISTANCE_KM}} km. Zero zapytań sieciowych, czysta geometria na danych już wczytanych.</p>
-
-<h3 data-t="meth_source_weather_title">Pogoda i niebo – Open-Meteo, OpenLightMap</h3>
-<p data-t="meth_source_weather_desc">Aktualne dane pogodowe z darmowego API Open-Meteo (temperatura, zachmurzenie) dla najzimniejszej i najcieplejszej lokalizacji Żabki. Podobnie najciemniejsze i najjaśniejsze niebo z OpenLightMap. Dane live, pobierane przy otwarciu strony. Nie wypiekamy ich do bazy – pogoda z wczoraj nikomu nie potrzebna.</p>
-
 <h2 data-t="meth_sec_pipeline">Potok ETL</h2>
 <p data-t="meth_pipeline_desc">Mamy codzienny potok, który pobiera dane, czyści, wzbogaca i zapisuje do bazy. Wygląda tak:</p>
 
