@@ -17,7 +17,12 @@ from backend.etl.io import HTTP_TIMEOUT, USER_AGENT, with_retries
 # promieniu oraz dystans do najblizszej. Tematyczny uklon do nazwy sieci.
 GBIF_OCCURRENCE_URL = "https://api.gbif.org/v1/occurrence/search"
 GBIF_AMPHIBIA_TAXON = os.getenv("GBIF_AMPHIBIA_TAXON", "131")   # klasa Amphibia
-AMPHIBIAN_CACHE = os.getenv("AMPHIBIAN_CACHE", "data/geo/amphibians_pl.json")
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+AMPHIBIAN_CACHE = os.getenv("AMPHIBIAN_CACHE")
+if AMPHIBIAN_CACHE:
+    AMPHIBIAN_CACHE = os.path.abspath(AMPHIBIAN_CACHE)
+else:
+    AMPHIBIAN_CACHE = os.path.join(_PROJECT_ROOT, "data", "geo", "amphibians_pl.json")
 AMPHIBIAN_RADIUS_KM = float(os.getenv("AMPHIBIAN_RADIUS_KM", "5"))
 GBIF_PAGE = 300
 GBIF_OFFSET_CAP = 100000          # twardy limit offsetu w GBIF search

@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 REDIS_SOCKET = os.getenv(
     "REDIS_SOCKET",
-    "/usr/local/redis/sockets/server441858.sock"
+    "/run/redis/redis-server.sock"
 )
 
 try:
@@ -110,11 +110,24 @@ def clear_cache(pattern: str = "*") -> None:
 
 
 def _cache_key(func, args, kwargs) -> str:
-    # Serialize serializable positional arguments and sorted keyword arguments
-    args_serializable = [arg for arg in args if isinstance(arg, (int, float, str, bool, type(None)))]
+    # Safely serialize positional and keyword arguments to avoid collision and TypeError
+    args_serializable = []
+    for arg in args:
+        if isinstance(arg, (int, float, str, bool, type(None))):
+            args_serializable.append(arg)
+        else:
+            args_serializable.append(f"__repr__:{repr(arg)}")
+
+    kwargs_serializable = {}
+    for k, v in sorted(kwargs.items()):
+        if isinstance(v, (int, float, str, bool, type(None))):
+            kwargs_serializable[k] = v
+        else:
+            kwargs_serializable[k] = f"__repr__:{repr(v)}"
+
     key_data = {
         "args": args_serializable,
-        "kwargs": {k: v for k, v in sorted(kwargs.items())}
+        "kwargs": kwargs_serializable
     }
     return f"{func.__name__}:{json.dumps(key_data, sort_keys=True)}"
 
@@ -130,13 +143,15 @@ def cached(ttl: int = 3600):
     rather than a coroutine to await.
     """
     def decorator(func):
+        from litestar import Response as LitestarResponse
+
         if inspect.iscoroutinefunction(func):
             @wraps(func)
             async def async_wrapper(*args, **kwargs):
                 key = _cache_key(func, args, kwargs)
-                cached_val = get_cache(key)
-                if cached_val is not None:
-                    return cached_val
+                cached_json = get_cached_blob(key)
+                if cached_json is not None:
+                    return LitestarResponse(content=cached_json, media_type="application/json")
                 result = await func(*args, **kwargs)
                 set_cache(key, result, ttl)
                 return result
@@ -145,9 +160,9 @@ def cached(ttl: int = 3600):
         @wraps(func)
         def sync_wrapper(*args, **kwargs):
             key = _cache_key(func, args, kwargs)
-            cached_val = get_cache(key)
-            if cached_val is not None:
-                return cached_val
+            cached_json = get_cached_blob(key)
+            if cached_json is not None:
+                return LitestarResponse(content=cached_json, media_type="application/json")
             result = func(*args, **kwargs)
             set_cache(key, result, ttl)
             return result

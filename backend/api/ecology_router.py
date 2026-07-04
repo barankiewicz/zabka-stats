@@ -57,13 +57,13 @@ def amphibians() -> Response:
     """).fetchone()
     
     most_froggy = {
-        "city": most_froggy_db[0] if most_froggy_db else "Warszawa",
-        "voivodeship": most_froggy_db[1] if most_froggy_db else "mazowieckie",
-        "street": most_froggy_db[2] if most_froggy_db else "al. KEN 36 (Ursynow)",
-        "amphibian_occurrences_5km": int(most_froggy_db[3]) if most_froggy_db else 2028,
-        "nearest_amphibian_km": float(most_froggy_db[4]) if most_froggy_db else 0.3,
-        "latitude": float(most_froggy_db[5]) if most_froggy_db else 52.15,
-        "longitude": float(most_froggy_db[6]) if most_froggy_db else 21.05,
+        "city": most_froggy_db[0] if most_froggy_db else None,
+        "voivodeship": most_froggy_db[1] if most_froggy_db else None,
+        "street": most_froggy_db[2] if most_froggy_db else None,
+        "amphibian_occurrences_5km": int(most_froggy_db[3]) if most_froggy_db else None,
+        "nearest_amphibian_km": float(most_froggy_db[4]) if most_froggy_db else None,
+        "latitude": float(most_froggy_db[5]) if most_froggy_db else None,
+        "longitude": float(most_froggy_db[6]) if most_froggy_db else None,
     }
     
     # Zero-frog count
@@ -267,7 +267,7 @@ def section3_rare() -> Section3RareResponse:
         SELECT latitude, longitude
         FROM locations
         WHERE deleted_at IS NULL 
-          AND voivodeship IN ('dolnoslaskie', 'zachodniopomorskie', 'lubuskie')
+          AND voivodeship IN ('dolnośląskie', 'zachodniopomorskie', 'lubuskie')
         ORDER BY hash(store_id)
         LIMIT 240
     """).fetchall()
@@ -294,8 +294,8 @@ def section3_rare() -> Section3RareResponse:
                 city
             FROM locations
             WHERE deleted_at IS NULL 
-              AND street IS NOT NULL AND street != '' AND street != 'nieokreslona'
-              AND LOWER(street) NOT LIKE '%nieokresl%'
+              AND street IS NOT NULL AND street != '' AND street != 'nieokreślona'
+              AND LOWER(street) NOT LIKE '%nieokreśl%'
         )
         SELECT street_name, city, COUNT(*) AS cnt
         FROM cleaned

@@ -1,5 +1,5 @@
 import { M } from '../state.js';
-import { capName } from '../utils.js';
+import { capName, escapeHtml } from '../utils.js';
 import { t } from '../i18n.js';
 
 export function renderEdgeKPIs() {
@@ -8,6 +8,7 @@ export function renderEdgeKPIs() {
   const parks = s3.parks || {};
   const ns = M.neighbor_stats || {};
   const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+  const setText = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
   const setCount = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.dataset.count = v; };
 
   if (s.h24_count != null) setCount('edge-kpi-h24', s.h24_count);
@@ -29,8 +30,8 @@ export function renderEdgeKPIs() {
   const loner = ns.loner || {};
   if (loner.nearest_neighbor_distance_meters) {
     setCount('ep-isolated-val', loner.nearest_neighbor_distance_meters / 1000);
-    if (loner.city) set('ep-isolated-city', `${loner.city}${loner.voivodeship ? ', ' + capName(loner.voivodeship) : ''}`);
-    if (loner.street) set('ep-isolated-street', loner.street);
+    if (loner.city) setText('ep-isolated-city', `${loner.city}${loner.voivodeship ? ', ' + capName(loner.voivodeship) : ''}`);
+    if (loner.street) setText('ep-isolated-street', loner.street);
   }
 
   // oldest KPI tile from network_origin
@@ -57,13 +58,13 @@ export function renderEdgeKPIs() {
     const bot = elev.extremes.find(e => e.which === 'bottom');
     if (top) {
       setCount('ep-highest-val', top.elevation_meters);
-      if (top.city) set('ep-highest-city', `${top.city}${top.voivodeship ? ', ' + capName(top.voivodeship) : ''}`);
-      if (top.street) set('ep-highest-street', top.street);
+      if (top.city) setText('ep-highest-city', `${top.city}${top.voivodeship ? ', ' + capName(top.voivodeship) : ''}`);
+      if (top.street) setText('ep-highest-street', top.street);
     }
     if (bot) {
       setCount('ep-lowest-val', bot.elevation_meters);
-      if (bot.city) set('ep-lowest-city', `${bot.city}${bot.voivodeship ? ', ' + capName(bot.voivodeship) : ''}`);
-      if (bot.street) set('ep-lowest-street', bot.street);
+      if (bot.city) setText('ep-lowest-city', `${bot.city}${bot.voivodeship ? ', ' + capName(bot.voivodeship) : ''}`);
+      if (bot.street) setText('ep-lowest-street', bot.street);
     }
   }
 
@@ -71,7 +72,7 @@ export function renderEdgeKPIs() {
   const frogStreets = s3.frog_streets || [];
   if (frogStreets.length) {
     const crown = frogStreets[0];
-    if (crown.city) set('ep-frogstreet-city', `${crown.city}${crown.voivodeship ? ', ' + capName(crown.voivodeship) : ''}`);
+    if (crown.city) setText('ep-frogstreet-city', `${crown.city}${crown.voivodeship ? ', ' + capName(crown.voivodeship) : ''}`);
     const cnt = s3.frog_streets_count || frogStreets.length;
     set('ep-frogstreet-note', t('frog_street_note').replace('{cnt}', cnt));
   }

@@ -17,7 +17,9 @@ from backend.etl.geo import assign_region, build_polygon_index, nearest_region
 from backend.schemas.api_models import (
     ByDimensionItem,
     ByDimensionResponse,
+    CitiesWithoutZabkaResponse,
     CityCoverageResponse,
+    CityWithoutZabkaItem,
     CoverageFunnelItem,
     GminaLeadersItem,
     GminaLeadersResponse,
@@ -410,6 +412,31 @@ def city_coverage() -> CityCoverageResponse:
         zabka_localities=zab_localities
     )
 
+@get("/stats/cities-without-zabka", sync_to_thread=True)
+@cached(ttl=3600)
+def cities_without_zabka() -> CitiesWithoutZabkaResponse:
+    total_row = client.execute("SELECT COUNT(*) FROM dim_city").fetchone()
+    total = total_row[0] if total_row else 302
+
+    rows = client.execute("""
+        SELECT dc.name, dv.name AS voivodeship, dc.population
+        FROM dim_city dc
+        JOIN dim_voivodeship dv ON dv.id = dc.voivodeship_id
+        WHERE dc.id NOT IN (
+            SELECT DISTINCT miasto_id FROM locations
+            WHERE deleted_at IS NULL AND miasto_id IS NOT NULL
+        )
+        ORDER BY dc.population DESC NULLS LAST
+    """).fetchall()
+    cities = [CityWithoutZabkaItem(name=r[0], voivodeship=r[1], population=r[2]) for r in rows]
+    without = len(cities)
+    return CitiesWithoutZabkaResponse(
+        total_cities=total,
+        without_zabka=without,
+        pct=round(100.0 * without / total, 1) if total else 0,
+        cities=cities,
+    )
+
 @get("/stats/coverage-funnel", sync_to_thread=True)
 @cached(ttl=3600)
 def coverage_funnel() -> list[CoverageFunnelItem]:
@@ -632,6 +659,7 @@ router = Router(
         powiat_economics_geo,
         powiat_coverage,
         city_coverage,
+        cities_without_zabka,
         coverage_funnel,
         by_dimension,
         gmina_leaders,

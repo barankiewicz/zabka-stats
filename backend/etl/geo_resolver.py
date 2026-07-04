@@ -15,9 +15,13 @@ class GugikGeoResolver:
     Wykorzystuje cache lokalny oraz usługę UUG GUGiK do geokodowania.
     """
     
-    def __init__(self, con, cache_path: str = "data/geo/.city_gugik_cache.json"):
+    def __init__(self, con, cache_path: str | None = None):
         self.con = con
-        self.cache_path = cache_path
+        if cache_path is None:
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            self.cache_path = os.path.join(project_root, "data", "geo", ".city_gugik_cache.json")
+        else:
+            self.cache_path = cache_path
         self.gugik_cache = self._load_cache()
         self.cache_dirty = False
         

@@ -9,12 +9,12 @@ tutaj; wzbogacenia (etl/sources) operuja juz tylko na liscie wierszy.
 
 import json
 import os
+from pathlib import Path
 import re
 import time
 from collections import defaultdict
 from datetime import date, datetime
 
-import h3
 import numpy as np
 import polars as pl
 import requests
@@ -22,7 +22,12 @@ import requests
 from backend.database import ENRICHMENT_COLUMNS
 from backend.etl.geo import poland_rings
 
-DB_PATH = os.getenv("ZABKA_DB", "data/zabka.duckdb")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+DB_PATH = os.getenv("ZABKA_DB")
+if DB_PATH:
+    DB_PATH = str(Path(DB_PATH).resolve())
+else:
+    DB_PATH = str(PROJECT_ROOT / "data" / "zabka.duckdb")
 # Zrodlo danych Zabki - publiczny locator. Nadpisywalny przez env.
 ZABKA_SOURCE_URL = os.getenv(
     "ZABKA_SOURCE_URL",
@@ -61,7 +66,7 @@ def with_retries(fn, label, attempts=None, delay=None):
 # Granice administracyjne Polski (ppatrzyk/polska-geojson). Pobierane raz, cache lokalny.
 GEOJSON_WOJ = "https://raw.githubusercontent.com/ppatrzyk/polska-geojson/master/wojewodztwa/wojewodztwa-min.geojson"
 GEOJSON_POW = "https://raw.githubusercontent.com/ppatrzyk/polska-geojson/master/powiaty/powiaty-min.geojson"
-GEO_DIR = "data/geo"
+GEO_DIR = str(PROJECT_ROOT / "data" / "geo")
 
 # Pola PII ze zrodla Zabki - NIGDY nie zapisujemy (dane osobowe dyrektorow)
 _PII_FIELDS = {"salesZoneDirector", "salesZoneDirectorEmail", "salesZoneDirectorId"}
@@ -171,8 +176,19 @@ def to_tabular(raw) -> list:
         street = _clean_street(raw_street)
         if raw_street and ("<br>" in raw_street or re.search(r"\b\d{2}-\d{3}\b", raw_street)):
             cleaned_streets += 1
-        lat = float(loc.get("lat", loc.get("latitude")))
-        lon = float(loc.get("lon", loc.get("longitude")))
+        try:
+            lat_val = loc.get("lat")
+            if lat_val is None:
+                lat_val = loc.get("latitude")
+            lon_val = loc.get("lon")
+            if lon_val is None:
+                lon_val = loc.get("longitude")
+            if lat_val is None or lon_val is None:
+                continue
+            lat = float(lat_val)
+            lon = float(lon_val)
+        except (TypeError, ValueError):
+            continue
         rows.append({
             "store_id": loc.get("storeId") or loc.get("locationId"),
             "city": _normalize_city(loc.get("town") or loc.get("city")),
@@ -188,7 +204,6 @@ def to_tabular(raw) -> list:
             "is_visible": bool(loc.get("isVisible")) if loc.get("isVisible") is not None else None,
             "is_new_month": bool(loc.get("locatorNewMonth")),
             "is_new_two_weeks": bool(loc.get("locatorNewTwoWeeks")),
-            "h3_index_9": h3.latlng_to_cell(lat, lon, 9),
         })
     print(f"[tabular] {n_raw:,} surowych -> {n_dedup:,} po dedup "
           f"({n_raw-n_dedup} duplikatow usunietych); {cleaned_streets} ulic wyczyszczonych")
@@ -253,8 +268,8 @@ def resolve_poland_boundaries(raw) -> dict:
     geokodowaniu. Opcjonalnie nadpisywalne polem `woj_geo` w zrodle lub plikiem."""
     woj_geo = raw.get("woj_geo") if isinstance(raw, dict) else None
     if not woj_geo:
-        cand = "data/woj_geo.json"
-        if os.path.exists(cand):
+        cand = PROJECT_ROOT / "data" / "woj_geo.json"
+        if cand.exists():
             with open(cand, encoding="utf-8") as f:
                 wj = json.load(f)
             woj_geo = wj.get("woj_geo", wj) if isinstance(wj, dict) else None
@@ -385,7 +400,6 @@ def load_to_duckdb(con, rows: list, meta: dict):
         "nearest_amphibian_km": pl.Float64,
         "gmina_id": pl.Int32,
         "miasto_id": pl.Int32,
-        "h3_index_9": pl.Utf8,
     }
 
     for r in rows:
@@ -401,13 +415,22 @@ def load_to_duckdb(con, rows: list, meta: dict):
     for idx in ("idx_locations_city", "idx_locations_voivodeship", "idx_locations_powiat",
                 "idx_locations_deleted_at", "idx_locations_created_at",
                 "idx_locations_voivodeship_id", "idx_locations_powiat_id",
-                "idx_locations_miasto_id", "idx_locations_gmina_id", "idx_locations_h3_index_9"):
+                "idx_locations_miasto_id", "idx_locations_gmina_id"):
         try:
             con.execute(f"DROP INDEX IF EXISTS {idx}")
         except Exception:
             pass
 
     con.register("incoming_df", incoming_df)
+
+    # Safety guard: prevent mass soft-deletes on truncated/partial snapshots
+    active_count = con.execute("SELECT COUNT(*) FROM locations WHERE deleted_at IS NULL").fetchone()[0]
+    incoming_count = incoming_df.height
+    if active_count > 0 and incoming_count < 0.7 * active_count:
+        raise ValueError(
+            f"ETL safety guard triggered: incoming snapshot count ({incoming_count}) is less than 70% "
+            f"of currently active stores ({active_count}). Aborting ETL to prevent mass soft-deletes."
+        )
 
     # Soft-delete: stores active in DB but absent from this snapshot
     deleted = con.execute("""
@@ -428,9 +451,8 @@ def load_to_duckdb(con, rows: list, meta: dict):
             opening_hours_monsat, opening_hours_sun, first_opening_date,
             is_visible, is_new_month, is_new_two_weeks,
             elevation_meters, is_in_nature_park, nature_park_id,
-            nearest_neighbor_distance_meters,
             amphibian_occurrences_5km, nearest_amphibian_km,
-            gmina_id, miasto_id, h3_index_9,
+            gmina_id, miasto_id,
             created_at, deleted_at
         )
         SELECT
@@ -442,7 +464,7 @@ def load_to_duckdb(con, rows: list, meta: dict):
             elevation_meters, is_in_nature_park, nature_park_id,
             nearest_neighbor_distance_meters,
             amphibian_occurrences_5km, nearest_amphibian_km,
-            gmina_id, miasto_id, h3_index_9,
+            gmina_id, miasto_id,
             ? AS created_at,
             CAST(NULL AS TIMESTAMP) AS deleted_at
         FROM incoming_df
@@ -472,7 +494,6 @@ def load_to_duckdb(con, rows: list, meta: dict):
             nearest_amphibian_km = excluded.nearest_amphibian_km,
             gmina_id = excluded.gmina_id,
             miasto_id = excluded.miasto_id,
-            h3_index_9 = excluded.h3_index_9,
             deleted_at = NULL
     """, [src_dt])
 
@@ -480,12 +501,18 @@ def load_to_duckdb(con, rows: list, meta: dict):
 
     try:
         print("[load] clustering/sorting table by deleted_at, voivodeship_id, powiat_id...")
+        con.execute("BEGIN TRANSACTION")
         con.execute("CREATE TEMP TABLE temp_locations AS SELECT * FROM locations ORDER BY deleted_at DESC, voivodeship_id, powiat_id")
         con.execute("DELETE FROM locations")
         con.execute("INSERT INTO locations SELECT * FROM temp_locations")
         con.execute("DROP TABLE temp_locations")
+        con.execute("COMMIT")
         print("[load] table clustering complete")
     except Exception as e:
+        try:
+            con.execute("ROLLBACK")
+        except Exception:
+            pass
         print(f"[load] warning: table clustering skipped: {e}")
 
     for stmt in (
@@ -496,7 +523,6 @@ def load_to_duckdb(con, rows: list, meta: dict):
         "CREATE INDEX IF NOT EXISTS idx_locations_powiat_id ON locations(powiat_id)",
         "CREATE INDEX IF NOT EXISTS idx_locations_miasto_id ON locations(miasto_id)",
         "CREATE INDEX IF NOT EXISTS idx_locations_gmina_id ON locations(gmina_id)",
-        "CREATE INDEX IF NOT EXISTS idx_locations_h3_index_9 ON locations(h3_index_9)",
     ):
         try:
             con.execute(stmt)

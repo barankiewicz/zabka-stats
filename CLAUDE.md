@@ -309,7 +309,7 @@ frontend/                - Vite SPA, modular ES + Chart.js + MapLibre GL + D3 (c
                            bias, raw-count vs per-capita) - PL-only static content, same
                            convention as methodology.html; FAQPage JSON-LD lives here
   src/                   - main.js (tab router, lazy chunks), data.js (fetch buckets),
-                           config.js (colors/plugins), filter.js, state.js, utils.js, style.css,
+                           config.js (colors/plugins), state.js, utils.js, style.css,
                            export-image.js (PNG export: canvas compositing + clipboard/download)
   src/tabs/              - one module per tab: siec.js + spoleczenstwo.js (lazy-loaded),
                            plus econ.js, edge.js, kraniec.js, bubble.js (bundled into their parent)
@@ -450,7 +450,7 @@ Litestar serves modular native API routers (`backend/api/`) grouped under a pare
 - **Analytical Stats (SIEC tab):**
   - `/api/stats/summary`, `/api/stats/network-growth`, `/api/stats/network-origin`, `/api/stats/stores-timeline`, `/api/stats/openings-monthly`, `/api/stats/opening-hours`, `/api/stats/opening-seasonality`, `/api/stats/by-dimension`
 - **Spatial / Coverage / Extremes:**
-  - `/api/stats/powiat-coverage`, `/api/stats/city-coverage`, `/api/stats/coverage-funnel`, `/api/stats/neighbor-by-level`, `/api/stats/neighbor-stats`, `/api/stats/twins`, `/api/stats/kraniec-facts`, `/api/stats/elevation`, `/api/stats/parks-stores`, `/api/stats/section3-rare`, `/api/stats/amphibians`
+  - `/api/stats/powiat-coverage`, `/api/stats/city-coverage`, `/api/stats/cities-without-zabka`, `/api/stats/coverage-funnel`, `/api/stats/neighbor-by-level`, `/api/stats/neighbor-stats`, `/api/stats/twins`, `/api/stats/kraniec-facts`, `/api/stats/elevation`, `/api/stats/parks-stores`, `/api/stats/section3-rare`, `/api/stats/amphibians`
 - **Socioeconomics (ŻABKA A POLSKA tab):**
   - `/api/stats/per-capita`, `/api/stats/powiat-economics` (average gross salary, unemployment rate)
   - `/api/stats/powiat-economics-geo` (powiat boundaries joined with per-powiat density residuals vs salary and vs unemployment - feeds the two residual choropleths; cities with powiat rights inherit the nearest land powiat)
@@ -520,8 +520,8 @@ GDOŚ parks get their own dimension (`dim_park`), linked from `locations` by
     nature_park_id   -> dim_park.id            unemployment_rate
     city, street, lat, lon, flags, ...
     elevation_meters, is_in_nature_park,     dim_voivodeship
-    neighbor dist, amphibian fields,           id (PK)
-    h3_index_9                                 name
+    neighbor dist, amphibian fields
+
                                                population
   parcel_lockers (parcel lockers)
     external_id (PK)                         dim_gmina
@@ -571,7 +571,7 @@ The flow (`python -m backend.daily_etl`, orchestrated in
    `--fallback <file>`).
 2. **Tabularize** - flatten to rows: dedup by `storeId`, drop PII and junk
    fields, clean streets (remove `<br>` and any embedded postcode from the display string), normalize city
-   names, derive flags (h24, Sunday, merrychef), and calculate a resolution 9 H3 index (`h3_index_9`) for each store coordinates using the Python `h3` library.
+   names, and derive flags (h24, Sunday, merrychef).
 3. **Enrich Żabki** - each source enriches the stores independently (best-effort:
 
    a missing source does not abort the ETL, the column just stays empty). Order:
@@ -872,7 +872,7 @@ the DOM scaffold + `<head>`; all logic lives in modular ES under `frontend/src/`
 economics). The old EDGE CASE'Y and PŁAZY tabs were folded in: the extremes atlas, parks,
 twins and amphibian facts now live inside SIEĆ; the econ residual maps live inside ŻABKA A
 POLSKA. There is no longer a global header KPI strip — the hero count-up carries the
-headline total (`renderKPI` is a guarded no-op kept for the cross-filter callback).
+headline total.
 
 **SEO.** All three static HTML pages (`index.html`, `methodology.html`, `faq.html`) carry a
 full `<head>` stack: unique `<title>` and `<meta name="description">`, `<link
@@ -928,8 +928,7 @@ separate Rollup chunks (`TAB_LOADERS`). `econ.js` is bundled into the spoleczens
 the other renders on first click and is marked in `RENDERED` so it never double-renders.
 
 Note: `loadSpoleczenstwo()` still fetches `voivodeship` (merrychef); it is not rendered as
-a card (the merrychef-gap visual was retired from the visible layout) but stays in `M` -
-`voivodeship_merrychef` still feeds the cross-filter (`filter.js`). `voivodeship_density`
+a card (the merrychef-gap visual was retired from the visible layout) but stays in `M`. `voivodeship_density`
 and `sunday-by-voivodeship` now feed the KPI strip's density-outlier and Sunday Wall tiles
 (see the ŻABKA A POLSKA KPI strip row below) - `opening-hours` moved to `loadCore()` since
 SIEĆ's own stat strip needs it above the fold now.
@@ -1017,10 +1016,11 @@ Imports `bubble.js` (D3 force chart), `kraniec.js` (Atlas krańców), `edge.js` 
 | MAPA growth map + calendar | MapLibre GL (WebGL circles) + Canvas 2D (calendar) | `/geo/voivodeships`, `/stats/stores-timeline`, `/stats/openings-monthly` | Large dark vector map of Poland (no tiles), pitched to 38° (drag-to-rotate / right-click tilts). All 13k+ stores are a single WebGL circle layer that animates in by opening year via a `setFilter` sweep, a ~2.8s sweep 1998->2026 with year label + replay. A companion calendar grid (Canvas 2D) shows month-by-month openings. |
 | 1.1f fingerprint | Canvas 2D | `/stats/network-growth`, `/stats/stores-timeline` | The "odcisk" unrolled flat: X = compass direction (N-E-S-W-N), Y = year (1998->2026); each row bulges toward that year's dominant expansion bearing. Hover -> year + direction. |
 | 1.1 growth chart | Chart.js | `/stats/network-growth` | One x-axis (years), two y-axes: bars = new stores/year, line = YoY change %. Era background bands. Footnote: covers only currently-active stores; early years underrepresented. |
-| GRAN ranking | Chart.js (bar) + MapLibre GL (choropleth) | `/stats/by-dimension`, `/geo/voivodeships` | Left: horizontal ranking bar with three switchers — level (Woj./Powiaty/Miasta) x metric (Liczba / na 1000 mieszk. / na km²) x sort (Największe/Najmniejsze). Right: voivodeship choropleth (always voivodeship-level, value labels as HTML markers). Click a row sets the cross-filter. |
+| GRAN ranking | Chart.js (bar) + MapLibre GL (choropleth) | `/stats/by-dimension`, `/geo/voivodeships` | Left: horizontal ranking bar with three switchers — level (Woj./Powiaty/Miasta) x metric (Liczba / na 1000 mieszk. / na km²) x sort (Największe/Najmniejsze). Right: voivodeship choropleth (always voivodeship-level, value labels as HTML markers). |
 | Edge KPI strip | DOM | `/stats/section3-rare`, `/elevation`, `/neighbor-stats`, `/amphibians` | Six clickable tiles feeding the Atlas: 32 h24 stores (amber), stores in parks, frog record, the 46.5 km void, oldest active, farthest-from-frog. Click flies the Atlas map to that fact. |
 | Atlas krańców | MapLibre GL + mini panels | `/stats/kraniec-facts`, `/elevation`, `/neighbor-stats`, `/parks-stores`, `/twins`, `/amphibians` | One interactive Poland map (tile-free) with a faint store backdrop. Compass points, highest/lowest store, the loner, the Bieszczady void (dashed geodesic circle, no dots inside), the frog street, h24, parks, twins. Hover/click a fact -> `flyTo` + tooltip; leave -> national view. |
 | POWIATY coverage | Chart.js (donut) + Canvas 2D | `/stats/powiat-coverage`, `/stats/coverage-funnel`, `/geo/voivodeships` | Animated donut: % of powiats / miasta / gminy with at least one Żabka (level toggle). Canvas mini-map: green = covered, red = uncovered. |
+| CITY-GAP | DOM | `/stats/cities-without-zabka` | Scrollable multi-column list of every city with zero Żabki (typically a small minority - most Polish cities have at least one), sorted by population descending so the most surprising gaps surface first. Each row: city name, population, voivodeship. |
 
 ### Tab ŻABKA A POLSKA (`spoleczenstwo.js`, default tab, render order)
 
@@ -1106,12 +1106,7 @@ vertically) and the D3 bubble still render at phone widths. Touch interactions
 from desktop, so some affordances (e.g. "ctrl + scroll przybliża") don't apply
 on touch.
 
-**Cross-filter:** Single global state `STATE.filter` (`src/filter.js`), voivodeship only.
-Set by clicking a GRAN ranking row. Render callbacks are registered per tab in `main.js`
-(`registerFilterCallbacks`): the GRAN chart (`renderGranular`) and the InPost dumbbell
-(`renderDumbbellByLevel`) react; the `renderKPI` callback is a guarded no-op since the
-header tiles were removed. What does NOT react: the 1.1 growth chart and fingerprint
-(network-level story), and the Atlas krańców / coverage / amphibian views (always national).
+
 
 ---
 

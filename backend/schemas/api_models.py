@@ -375,6 +375,17 @@ class CityCoverageResponse(BaseModel):
     pct: float
     zabka_localities: int
 
+class CityWithoutZabkaItem(BaseModel):
+    name: str
+    voivodeship: str
+    population: int | None
+
+class CitiesWithoutZabkaResponse(BaseModel):
+    total_cities: int
+    without_zabka: int
+    pct: float
+    cities: list[CityWithoutZabkaItem]
+
 class CoverageFunnelItem(BaseModel):
     level: str
     covered: int

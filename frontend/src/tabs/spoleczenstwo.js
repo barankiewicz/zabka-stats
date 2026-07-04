@@ -8,9 +8,9 @@ function ensureMaplibre(){
     return m;
   });
 }
-import { C, STATE, GRAN_FILL_STOPS } from '../config.js';
+import { C, STATE, GRAN_FILL_STOPS, interpolateColorRamp } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
-import { fmt, getFont, destroyChart, startTabParticles, capName, whenVisible, wireCountUp } from '../utils.js';
+import { fmt, getFont, destroyChart, startTabParticles, capName, whenVisible, wireCountUp, escapeHtml, showChartStatus } from '../utils.js';
 import { t, getLang } from '../i18n.js';
 import { fetchJSON } from '../data.js';
 
@@ -86,11 +86,7 @@ function renderSpolecKPIs(){
 
 const _IP_STOPS=['#132912','#1e4019','#2d6324','#4a9228','#72c133','#a6e84a'];
 function _ipRamp(t){
-  t=Math.max(0,Math.min(1,t));
-  const seg=t*(_IP_STOPS.length-1),i=Math.min(_IP_STOPS.length-2,Math.floor(seg)),u=seg-i;
-  const h=k=>[parseInt(k.slice(1,3),16),parseInt(k.slice(3,5),16),parseInt(k.slice(5,7),16)];
-  const a=h(_IP_STOPS[i]),b=h(_IP_STOPS[i+1]);
-  return`rgb(${Math.round(a[0]+(b[0]-a[0])*u)},${Math.round(a[1]+(b[1]-a[1])*u)},${Math.round(a[2]+(b[2]-a[2])*u)})`;
+  return interpolateColorRamp(_IP_STOPS, t);
 }
 
 let _ipMap=null,_ipSrcReady=false,_ipPending=false;
@@ -165,7 +161,7 @@ function _setIpData(data, geojson) {
       const zabkaLabel = getLang() === 'en' ? 'Zabka' : 'Żabka';
       const ratioLabel = getLang() === 'en' ? 'ratio' : 'stosunek';
       
-      nf.properties._tip = `<div style="font-weight:700;font-size:13px;margin-bottom:3px">${nf.properties._name}</div>` +
+      nf.properties._tip = `<div style="font-weight:700;font-size:13px;margin-bottom:3px">${escapeHtml(nf.properties._name)}</div>` +
         `<div style="font-size:12px;color:#93a487">${zabkaLabel}: ${(getLang() === 'en' ? z : z.replace('.', ','))}/100k</div>` +
         `<div style="font-size:12px;color:#93a487">InPost: ${(getLang() === 'en' ? p : p.replace('.', ','))}/100k</div>` +
         `<div style="font-size:12px;color:#93a487">${ratioLabel}: ${(getLang() === 'en' ? rr : rr.replace('.', ','))}x</div>`;
@@ -310,12 +306,21 @@ async function _buildInpostMap(el){
 }
 
 async function ensurePowGeo() {
-  if (_powGeo) return _powGeo;
-  _powGeo = await fetchJSON('/api/geo/powiats');
+  if (M.powGeo) {
+    _powGeo = M.powGeo;
+    return _powGeo;
+  }
+  M.powGeo = await fetchJSON('/api/geo/powiats');
+  _powGeo = M.powGeo;
   return _powGeo;
 }
 
+let _fillInpostSeq = 0;
+let _nblSeq = 0;
+let _dbSeq = 0;
+
 async function _fillInpost(){
+  const seq = ++_fillInpostSeq;
   // There is no per-city boundary GeoJSON (only /api/geo/voivodeships and
   // /api/geo/powiats), so "Miasto" can't get its own choropleth - it falls
   // back to the voivodeship view rather than joining city-level rows onto
@@ -328,18 +333,26 @@ async function _fillInpost(){
     data = M.inpost_vs_zabka || [];
   } else {
     const res = await fetchDumbbellLevel('powiat', 400);
+    if (seq !== _fillInpostSeq) return;
     data = res ? res.rows : [];
   }
   if (!data.length) return;
 
   const geojson = level === 'voivodeship' ? M.woj_geo : await ensurePowGeo();
+  if (seq !== _fillInpostSeq) return;
 
   const push=()=>{ if(_ipMap&&_ipMap.getSource('ip-woj')) _setIpData(data,geojson); };
   if(_ipSrcReady)push(); else if(_ipMap)_ipMap.once('load',push);
 }
+let _cancelParticles = null;
+
 export function renderSpoleczenstwo(){
+  if (_cancelParticles) {
+    _cancelParticles();
+    _cancelParticles = null;
+  }
   if(!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)){
-    startTabParticles('particles-spoleczenstwo',[188,224,58],60);
+    _cancelParticles = startTabParticles('particles-spoleczenstwo',[188,224,58],60);
   }
   renderSpolecKPIs();
   wireCountUp(document.getElementById('spol-kpi-strip'));
@@ -389,7 +402,25 @@ export function renderSpoleczenstwo(){
 export function renderStreets(){
   const ps=M.section3_rare&&M.section3_rare.physical_streets;
   const rows=(ps||[]).slice(0,15);
-  if(!rows.length)return;
+  const canvas = document.getElementById('chart-streets');
+  if (M.section3_rare && M.section3_rare._error) {
+    showChartStatus(canvas, 'error', async () => {
+      try {
+        const r = await fetchJSON('/api/stats/section3-rare');
+        M.section3_rare = r;
+        showChartStatus(canvas, null);
+        renderStreets();
+      } catch (e) {
+        showChartStatus(canvas, 'error');
+      }
+    });
+    return;
+  }
+  if(!rows.length){
+    showChartStatus(canvas, 'empty');
+    return;
+  }
+  showChartStatus(canvas, null);
   const distEl=document.getElementById('streets-distinct');
   if(distEl){
     const total=(M.summary&&M.summary.total_active)||0;
@@ -448,7 +479,25 @@ let _gminaMetric='per_1k';
 export function renderGminaLeaders(){
   const gl=M.gmina_leaders||{};
   const rows=(_gminaMetric==='per_1k'?gl.per_1k:gl.per_km2)||[];
-  if(!rows.length)return;
+  const canvas = document.getElementById('chart-gmina-lead');
+  if (gl._error) {
+    showChartStatus(canvas, 'error', async () => {
+      try {
+        const r = await fetchJSON('/api/stats/gmina-leaders?limit=12');
+        M.gmina_leaders = r;
+        showChartStatus(canvas, null);
+        renderGminaLeaders();
+      } catch (e) {
+        showChartStatus(canvas, 'error');
+      }
+    });
+    return;
+  }
+  if(!rows.length){
+    showChartStatus(canvas, 'empty');
+    return;
+  }
+  showChartStatus(canvas, null);
   const r12=rows.slice(0,12);
   const per1k=_gminaMetric==='per_1k';
   const sub=document.getElementById('gmina-lead-sub');
@@ -497,9 +546,9 @@ function wireStreetsAndGmina(){
 let _nblLevel='voivodeship', _nblMetric='median_m', _nblSort='asc';
 const _nblCache={};
 const _NBL_LABEL={
-  voivodeship: getLang() === 'en' ? 'voivodeships' : 'województw',
-  powiat: getLang() === 'en' ? 'districts' : 'powiatów',
-  city: getLang() === 'en' ? 'cities' : 'miast'
+  get voivodeship() { return getLang() === 'en' ? 'voivodeships' : 'województw'; },
+  get powiat() { return getLang() === 'en' ? 'districts' : 'powiatów'; },
+  get city() { return getLang() === 'en' ? 'cities' : 'miast'; }
 };
 
 async function _fetchNbl(level,metric,sort){
@@ -513,8 +562,19 @@ async function _fetchNbl(level,metric,sort){
 }
 
 function _drawNbl(data){
-  const rows=(data&&data.rows||[]).slice(0,20);
-  if(!rows.length)return;
+  const canvas = document.getElementById('chart-nbl');
+  if (!data || data._error) {
+    showChartStatus(canvas, 'error', async () => {
+      await renderNbl();
+    });
+    return;
+  }
+  const rows=(data.rows||[]).slice(0,20);
+  if(!rows.length){
+    showChartStatus(canvas, 'empty');
+    return;
+  }
+  showChartStatus(canvas, null);
   const metric=_nblMetric;
   const total=data&&data.total||rows.length;
   const sub=document.getElementById('nbl-sub');
@@ -560,6 +620,7 @@ function _drawNbl(data){
 }
 
 export async function renderNbl(){
+  const seq = ++_nblSeq;
   let data;
   if(_nblLevel==='voivodeship'&&_nblMetric==='median_m'&&_nblSort==='asc'
      &&M.neighbor_by_level&&(M.neighbor_by_level.rows||[]).length){
@@ -567,6 +628,7 @@ export async function renderNbl(){
   }else{
     data=await _fetchNbl(_nblLevel,_nblMetric,_nblSort)||M.neighbor_by_level;
   }
+  if (seq !== _nblSeq) return;
   _drawNbl(data);
 }
 
@@ -600,10 +662,10 @@ let _dbDataCache={};
 
 const _DB_LEVEL_MAP={'voivodeship':'voivodeship','powiat':'powiat','city':'city','gmina':'gmina'};
 const _DB_LEVEL_LABEL_PL={
-  voivodeship: getLang() === 'en' ? 'voivodeships' : 'województw',
-  powiat: getLang() === 'en' ? 'districts' : 'powiatów',
-  city: getLang() === 'en' ? 'cities' : 'miast',
-  gmina: getLang() === 'en' ? 'communes' : 'gmin'
+  get voivodeship() { return getLang() === 'en' ? 'voivodeships' : 'województw'; },
+  get powiat() { return getLang() === 'en' ? 'districts' : 'powiatów'; },
+  get city() { return getLang() === 'en' ? 'cities' : 'miast'; },
+  get gmina() { return getLang() === 'en' ? 'communes' : 'gmin'; }
 };
 
 async function fetchDumbbellLevel(level,limit){
@@ -663,23 +725,21 @@ export function renderDumbbell(data){
   arr.forEach((d,i)=>{
     const y=22+i*ROW;
     const xz=px(d.zabki_per_100k||0),xi=px(d.lockers_per_100k||0);
-    const isFiltered=STATE.filter&&d.voivodeship&&d.voivodeship.toLowerCase()!==STATE.filter.toLowerCase();
-    const alpha=isFiltered?'0.15':'1';
     const ln=document.createElementNS('http://www.w3.org/2000/svg','line');
     ln.setAttribute('x1',Math.min(xz,xi));ln.setAttribute('y1',y);ln.setAttribute('x2',Math.max(xz,xi));ln.setAttribute('y2',y);
-    ln.setAttribute('stroke','#3a3a4a');ln.setAttribute('stroke-width','1.5');ln.setAttribute('opacity',alpha);
+    ln.setAttribute('stroke','#3a3a4a');ln.setAttribute('stroke-width','1.5');ln.setAttribute('opacity','1');
     svg.appendChild(ln);
     const cz=document.createElementNS('http://www.w3.org/2000/svg','circle');
     cz.setAttribute('cx',xz);cz.setAttribute('cy',y);cz.setAttribute('r',DOT_R);
-    cz.setAttribute('fill','#84c341');cz.setAttribute('opacity',alpha);
+    cz.setAttribute('fill','#84c341');cz.setAttribute('opacity','1');
     svg.appendChild(cz);
     const ci=document.createElementNS('http://www.w3.org/2000/svg','circle');
     ci.setAttribute('cx',xi);ci.setAttribute('cy',y);ci.setAttribute('r',DOT_R);
-    ci.setAttribute('fill','#f2a359');ci.setAttribute('opacity',alpha);
+    ci.setAttribute('fill','#f2a359');ci.setAttribute('opacity','1');
     svg.appendChild(ci);
     const lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
     lbl.setAttribute('x',PAD_L-6);lbl.setAttribute('y',y+3.5);lbl.setAttribute('text-anchor','end');
-    lbl.setAttribute('fill',isFiltered?'#3a3a5a':'#c8c8d8');lbl.setAttribute('font-size',FONT_LABEL);
+    lbl.setAttribute('fill','#c8c8d8');lbl.setAttribute('font-size',FONT_LABEL);
     const rawName=d.name||d.voivodeship||'';
     const name=rawName.replace(/^M\.st\.\s*/i,'').replace(/\s+od\s+\d{4}\s*$/i,'').replace(/^powiat\s+/i,'').trim();
     lbl.textContent=name?capName(name):rawName;
@@ -710,7 +770,7 @@ export function renderDumbbell(data){
       const p=(d.lockers_per_100k||0).toFixed(1);
       const ratio=typeof d.ratio==='number'?(getLang() === 'en' ? d.ratio.toFixed(2) : d.ratio.toFixed(2).replace('.',',')):String(d.ratio||'–');
       const ratioLabel = getLang() === 'en' ? 'ratio' : 'stosunek';
-      _dbTip.innerHTML=`<div style="font-weight:700;margin-bottom:2px">${name}</div>`+
+      _dbTip.innerHTML=`<div style="font-weight:700;margin-bottom:2px">${escapeHtml(name)}</div>`+
         `<span style="color:#84c341">${getLang() === 'en' ? 'Zabka' : 'Żabka'}: ${(getLang() === 'en' ? z : z.replace('.', ','))}/100k</span>&nbsp;&nbsp;`+
         `<span style="color:#f2a359">InPost: ${(getLang() === 'en' ? p : p.replace('.', ','))}/100k</span>`+
         `<div style="color:#93a487;margin-top:2px">${ratioLabel}: ${ratio}x</div>`;
@@ -731,11 +791,31 @@ export function renderDumbbell(data){
 }
 
 export async function renderDumbbellByLevel(){
+  const seq = ++_dbSeq;
+  const container = document.getElementById('inpost-dumbbell');
   if(_dbLevel==='voivodeship'){
-    renderDumbbell(M.inpost_vs_zabka);
+    if (M.inpost_vs_zabka && M.inpost_vs_zabka._error) {
+      showChartStatus(container, 'error', async () => {
+        try {
+          const r = await fetchJSON('/api/stats/inpost-vs-zabka');
+          M.inpost_vs_zabka = r;
+          showChartStatus(container, null);
+          renderDumbbellByLevel();
+        } catch (e) {
+          showChartStatus(container, 'error');
+        }
+      });
+      return;
+    }
+    const inpostRows=M.inpost_vs_zabka||[];
+    if (!inpostRows.length) {
+      showChartStatus(container, 'empty');
+      return;
+    }
+    showChartStatus(container, null);
+    renderDumbbell(inpostRows);
     const title=document.querySelector('[data-debug-id="2.3"]');
     if(title){
-      const inpostRows=M.inpost_vs_zabka||[];
       const sumZ=inpostRows.reduce((s,d)=>s+(d.zabki_per_100k||0),0);
       const sumI=inpostRows.reduce((s,d)=>s+(d.lockers_per_100k||0),0);
       const ratio=sumZ>0?sumI/sumZ:null;
@@ -746,7 +826,18 @@ export async function renderDumbbellByLevel(){
     return;
   }
   const d=await fetchDumbbellLevel(_dbLevel,_DB_LIMIT);
-  if(!d){renderDumbbell(M.inpost_vs_zabka);return}
+  if (seq !== _dbSeq) return;
+  if(!d){
+    showChartStatus(container, 'error', async () => {
+      await renderDumbbellByLevel();
+    });
+    return;
+  }
+  if (!d.rows || !d.rows.length) {
+    showChartStatus(container, 'empty');
+    return;
+  }
+  showChartStatus(container, null);
   const label=_DB_LEVEL_LABEL_PL[_dbLevel]||_dbLevel;
   const title=document.querySelector('[data-debug-id="2.3"]');
   if(title) title.textContent = t('dumbbell_title_template').replace('{length}', d.rows.length).replace('{label}', label).replace('{total}', d.total);
@@ -769,7 +860,25 @@ function wireInpostLevel(){
 function renderSpolKnn(){
   const ns=M.neighbor_stats||{};
   const dist=(ns.distribution||{buckets:[]}).buckets;
-  if(!dist.length)return;
+  const canvas = document.getElementById('spol-knnChart');
+  if (ns._error) {
+    showChartStatus(canvas, 'error', async () => {
+      try {
+        const r = await fetchJSON('/api/stats/neighbor-stats');
+        M.neighbor_stats = r;
+        showChartStatus(canvas, null);
+        renderSpolKnn();
+      } catch (e) {
+        showChartStatus(canvas, 'error');
+      }
+    });
+    return;
+  }
+  if(!dist.length){
+    showChartStatus(canvas, 'empty');
+    return;
+  }
+  showChartStatus(canvas, null);
   const loner=ns.loner||{};
   const d=ns.distribution||{};
 
@@ -836,7 +945,25 @@ function renderSpolKnn(){
 function renderElevationHistogram(){
   const ele=M.elevation||{};
   const hist=ele.histogram||[];
-  if(!hist.length)return;
+  const canvas = document.getElementById('chart-elevation');
+  if (ele._error) {
+    showChartStatus(canvas, 'error', async () => {
+      try {
+        const r = await fetchJSON('/api/stats/elevation');
+        M.elevation = r;
+        showChartStatus(canvas, null);
+        renderElevationHistogram();
+      } catch (e) {
+        showChartStatus(canvas, 'error');
+      }
+    });
+    return;
+  }
+  if(!hist.length){
+    showChartStatus(canvas, 'empty');
+    return;
+  }
+  showChartStatus(canvas, null);
   const pct=ele.percentiles||{};
 
   // Gradient: low elevation green, high elevation amber - matches the terrain story.

@@ -10,7 +10,7 @@
 // FeatureCollection and render each map from a different property.
 import { M, MAPS } from '../state.js';
 import { fetchJSON } from '../data.js';
-import { debounce } from '../utils.js';
+import { debounce, escapeHtml } from '../utils.js';
 import { loadMaplibre } from '../maplibre-lazy.js';
 
 // MapLibre is already loaded higher up this tab (the InPost choropleth), so this
@@ -53,7 +53,7 @@ function ensureTip() {
 
 function tipHtml(p, propKey, econKey) {
   if (!('per_1k' in p)) {
-    return `<b>${p.nazwa || ''}</b><br/><span style="color:#93a487">brak danych ekonomicznych</span>`;
+    return `<b>${escapeHtml(p.nazwa || '')}</b><br/><span style="color:#93a487">brak danych ekonomicznych</span>`;
   }
   const resid = propKey === 'resid_salary' ? p.resid_salary : p.resid_unemp;
   const denser = resid >= 0;
@@ -61,7 +61,7 @@ function tipHtml(p, propKey, econKey) {
     ? `Średnia płaca: <b>${Number(p.avg_salary).toLocaleString('pl-PL')} zł</b>`
     : `Bezrobocie: <b>${String(p.unemployment_rate).replace('.', ',')}%</b>`;
   return `<span style="font-family:JetBrains Mono;font-size:12px;line-height:1.6;color:#eef3e6">
-    <b>${p.name || p.nazwa}</b><br/>
+    <b>${escapeHtml(p.name || p.nazwa)}</b><br/>
     Żabki / 1000 mieszk.: <b>${Number(p.per_1k).toFixed(3).replace('.', ',')}</b><br/>
     ${econLine}<br/>
     <span style="color:${denser ? '#a6e84a' : '#e8693d'}">${denser ? 'gęściej' : 'rzadziej'} niż przewiduje trend (${dec3(resid)})</span></span>`;
@@ -182,7 +182,25 @@ async function loadAndRender() {
 let _econDone = false;
 export function renderEcon() {
   const root = document.getElementById('ec-root'); if (!root) return;
-  if (_econDone) return;   // maps built once
+  if (_econDone) {
+    const fc = M.powiat_economics_geo;
+    if (fc) {
+      const meta = fc.meta || {};
+      const setR = (id, r) => {
+        const el = document.getElementById(id);
+        if (el && r != null) {
+          const old = el.querySelector('.econ-r');
+          if (old) old.remove();
+          el.insertAdjacentHTML('beforeend', ` <span class="econ-r">r = ${plr(r)}</span>`);
+        }
+      };
+      setR('econ-map-unemp-title', meta.r_unemp);
+      setR('econ-map-salary-title', meta.r_salary);
+      const lu = document.getElementById('econ-legend-unemp'); if (lu) lu.innerHTML = legendHtml();
+      const ls = document.getElementById('econ-legend-salary'); if (ls) ls.innerHTML = legendHtml();
+    }
+    return;
+  }
   _econDone = true;
   loadAndRender();
 }

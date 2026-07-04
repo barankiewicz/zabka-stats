@@ -47,18 +47,11 @@ def elevation() -> ElevationResponse:
     p95 = round(float(pct_row[1])) if pct_row and pct_row[1] is not None else None
     
     extremes = []
-    if top:
+    if top and bot:
         extremes.append({"which": "top", "city": top[0], "voivodeship": top[1] or "",
                           "street": top[2] or "", "elevation_meters": float(top[3])})
         extremes.append({"which": "bottom", "city": bot[0], "voivodeship": bot[1] or "",
                           "street": bot[2] or "", "elevation_meters": float(bot[3])})
-    else:
-        extremes = [
-            {"which": "top", "city": "Koscielisko", "voivodeship": "malopolskie",
-             "street": "Nedzy Kubinca 101", "elevation_meters": 962.6},
-            {"which": "bottom", "city": "Gdansk", "voivodeship": "pomorskie",
-             "street": "Przelom 12", "elevation_meters": -1.5},
-        ]
         
     histogram = [{"bucket_m": int(r[0]), "cnt": int(r[1])} for r in hist_rows]
     return ElevationResponse(
@@ -110,15 +103,15 @@ def neighbor_stats() -> NeighborStatsResponse:
     """).fetchone()
     return NeighborStatsResponse(
         loner={
-            "city": loner[0] if loner else "Michalowo",
-            "voivodeship": loner[1] if loner else "podlaskie",
-            "street": loner[2] if loner else "—",
-            "nearest_neighbor_distance_meters": int(loner[3]) if loner else 27321,
+            "city": loner[0] if loner and loner[0] is not None else None,
+            "voivodeship": loner[1] if loner and loner[1] is not None else None,
+            "street": loner[2] if loner and loner[2] is not None else None,
+            "nearest_neighbor_distance_meters": int(loner[3]) if loner and loner[3] is not None else None,
         },
         distribution={
-            "median_m": float(stats[0] or 0) if stats else 299,
-            "avg_m": float(stats[1] or 0) if stats else 942,
-            "max_m": float(stats[2] or 0) if stats else 27321,
+            "median_m": float(stats[0]) if stats and stats[0] is not None else None,
+            "avg_m": float(stats[1]) if stats and stats[1] is not None else None,
+            "max_m": float(stats[2]) if stats and stats[2] is not None else None,
             "buckets": [{"bucket": r[0], "cnt": int(r[1])} for r in buckets],
         },
         zero_distance_count=int(zero_dist[0] or 0) if zero_dist else 0,
@@ -174,7 +167,7 @@ def kraniec_facts() -> KraniecFactsResponse:
         SELECT street, city, voivodeship, latitude, longitude
         FROM locations WHERE deleted_at IS NULL 
           AND LOWER(street) LIKE '%zielonej%'
-          AND LOWER(city) LIKE '%zabia%'
+          AND LOWER(city) LIKE '%żabia%'
         LIMIT 1
     """).fetchone()
     

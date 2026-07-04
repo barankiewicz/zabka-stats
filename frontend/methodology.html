@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Metodyka i źródła danych – Żabka w liczbach</title>
-  <meta name="description" content="Skąd pochodzą dane o sieci Żabka: lokalizator sklepów, GUS BDL, GBIF, InPost i GUGiK. Pełna metodyka, definicje i znane ograniczenia.">
+  <title data-t="meth_title">Metodyka i źródła danych – Żabka w liczbach</title>
+  <meta name="description" content="Skąd pochodzą dane o sieci Żabka: lokalizator sklepów, GUS BDL, GBIF, InPost i GUGiK. Pełna metodyka, definicje i znane ograniczenia." data-t-content="meth_meta_desc">
   <meta name="robots" content="index,follow">
   <link rel="canonical" href="https://zabkozbior.barankiewicz.dev/methodology.html">
   <meta name="theme-color" content="#0a120a">
@@ -17,8 +17,8 @@
   <meta property="og:site_name" content="Żabka w liczbach">
   <meta property="og:locale" content="pl_PL">
   <meta property="og:url" content="https://zabkozbior.barankiewicz.dev/methodology.html">
-  <meta property="og:title" content="Metodyka i źródła danych – Żabka w liczbach">
-  <meta property="og:description" content="Skąd pochodzą dane o sieci Żabka i jak je liczymy. Źródła, definicje i znane ograniczenia.">
+  <meta property="og:title" content="Metodyka i źródła danych – Żabka w liczbach" data-t-content="meth_title">
+  <meta property="og:description" content="Skąd pochodzą dane o sieci Żabka i jak je liczymy. Źródła, definicje i znane ograniczenia." data-t-content="meth_meta_desc">
   <meta property="og:image" content="https://zabkozbior.barankiewicz.dev/og.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -26,8 +26,8 @@
 
   <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Metodyka i źródła danych – Żabka w liczbach">
-  <meta name="twitter:description" content="Skąd pochodzą dane o sieci Żabka i jak je liczymy. Źródła, definicje i znane ograniczenia.">
+  <meta name="twitter:title" content="Metodyka i źródła danych – Żabka w liczbach" data-t-content="meth_title">
+  <meta name="twitter:description" content="Skąd pochodzą dane o sieci Żabka i jak je liczymy. Źródła, definicje i znane ograniczenia." data-t-content="meth_meta_desc">
   <meta name="twitter:image" content="https://zabkozbior.barankiewicz.dev/og.png">
   <meta name="twitter:image:alt" content="Metodyka danych Żabka w liczbach – źródła, definicje i ograniczenia">
 
@@ -70,7 +70,7 @@
     body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
     body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       background:radial-gradient(ellipse 900px 700px at 10% 15%,rgba(0,192,96,.07) 0%,transparent 60%),
-                 radial-gradient(ellipse 700px 600px at 90% 85%,rgba(0,180,200,.05) 0%,transparent 55%)}
+      radial-gradient(ellipse 700px 600px at 90% 85%,rgba(0,180,200,.05) 0%,transparent 55%)}
 
     .skip-link{position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden}
     .skip-link:focus{position:fixed;top:8px;left:8px;width:auto;height:auto;padding:8px 16px;background:var(--green);color:#0a120a;font-weight:700;font-size:14px;border-radius:6px;z-index:9999;text-decoration:none;outline:2px solid #0a120a;outline-offset:2px}
@@ -81,8 +81,15 @@
     .brand:hover .brand-dot{box-shadow:0 0 18px var(--green)}
     .brand-dot{width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);flex-shrink:0;transition:box-shadow .3s}
     .nav-link{color:var(--muted);text-decoration:none;font-size:13px;border-bottom:1px solid rgba(147,164,135,.3);transition:color .2s,border-color .2s}
-    .nav-links{margin-left:auto;display:flex;gap:20px}
+    .nav-links{margin-left:auto;display:flex;gap:20px;align-items:center}
     .nav-link:hover{color:var(--green);border-bottom-color:var(--green)}
+
+    /* LANGUAGE SWITCHER */
+    .lang-toggle{display:flex;align-items:center;gap:1px;flex-shrink:0;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:99px;padding:2px}
+    .lang-btn{border:0;background:transparent;color:var(--muted);font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.03em;padding:5px 10px;border-radius:99px;cursor:pointer;transition:color .2s,background .2s,box-shadow .2s;line-height:1}
+    .lang-btn:hover{color:var(--ink);background:rgba(255,255,255,.06)}
+    .lang-btn.active{color:var(--bg);background:var(--green);box-shadow:0 0 10px rgba(132,195,65,.4)}
+    .lang-btn.active:hover{color:var(--bg);background:var(--green)}
 
     .page{max-width:720px;margin:0 auto;padding:56px 24px 80px;position:relative;z-index:1}
 
@@ -125,17 +132,21 @@
 </head>
 <body>
 
-<a class="skip-link" href="#main-content">Przejdź do treści</a>
+<a class="skip-link" href="#main-content" data-t="skip_link">Przejdź do treści</a>
 
-<nav aria-label="Nawigacja główna">
+<nav aria-label="Nawigacja główna" data-t-aria="nav_aria">
   <div class="nav-inner">
-    <a href="/" class="brand">
+    <a href="/" class="brand" data-t="brand_title">
       <span class="brand-dot"></span>
       Żabka w liczbach
     </a>
     <div class="nav-links">
       <a href="/faq.html" class="nav-link">FAQ</a>
-      <a href="/" class="nav-link">Powrót na dashboard</a>
+      <a href="/" class="nav-link" data-t="nav_back_dashboard">Powrót na dashboard</a>
+      <div class="lang-toggle" role="group" aria-label="Language selection" id="lang-toggle">
+        <button class="lang-btn active" data-lang="pl">PL</button>
+        <button class="lang-btn" data-lang="en">EN</button>
+      </div>
     </div>
   </div>
 </nav>
@@ -143,65 +154,64 @@
 <main id="main-content">
 <div class="page">
 
-<h1>Metodyka</h1>
-<p>Skąd bierzemy dane, co z nimi robimy i czego nie wiemy. Źródła, ograniczenia i cały pipeline krok po kroku.</p>
-<p><em>Żabkozbiór to niezależny projekt fanowski/analityczny oparty na danych publicznych. Nie jest powiązany z Żabka Polska sp. z o.o. ani Żabka Group. Nazwa "Żabka" i powiązane znaki towarowe należą do ich właścicieli.</em></p>
+<h1 data-t="meth_h1">Metodyka</h1>
+<p data-t="meth_sub">Skąd bierzemy dane, co z nimi robimy i czego nie wiemy. Źródła, ograniczenia i cały pipeline krok po kroku.</p>
+<p data-t="meth_disclaimer"><em>Żabkozbiór to niezależny projekt fanowski/analityczny oparty na danych publicznych. Nie jest powiązany z Żabka Polska sp. z o.o. ani Żabka Group. Nazwa "Żabka" i powiązane znaki towarowe należą do ich właścicieli.</em></p>
 
-<h2>Źródła danych</h2>
+<h2 data-t="meth_sec_sources">Źródła danych</h2>
 
-<h3>Żabka – główne źródło</h3>
-<p>Lokalizacje sklepów pochodzą z publicznego pliku JSON na <code>zabka.pl</code> – to ten sam plik, z którego korzysta sklepowa wyszukiwarka na ich stronie. Plik ma około 13 200 sklepów, każdy ze współrzędnymi GPS, adresem, godzinami otwarcia i flagami (piec Merrychef, otwarte w niedzielę, 24/7). Z pliku wyrzucamy dane osobowe dyrektorów, stałe pola (kraj, aktywność) i marketingowe URLe. Zostają same dane analityczne.</p>
+<h3 data-t="meth_source_main_title">Żabka – główne źródło</h3>
+<p data-t="meth_source_main_desc">Lokalizacje sklepów pochodzą z publicznego pliku JSON na <code>zabka.pl</code> – to ten sam plik, z którego korzysta sklepowa wyszukiwarka na ich stronie. Plik ma około 13 200 sklepów, każdy ze współrzędnymi GPS, adresem, godzinami otwarcia i flagami (piec Merrychef, otwarte w niedzielę, 24/7). Z pliku wyrzucamy dane osobowe dyrektorów, stałe pola (kraj, aktywność) i marketingowe URLe. Zostają same dane analityczne.</p>
 
-<h3>Podział administracyjny i mapowanie</h3>
-<p>Strukturę podziału terytorialnego Polski (trzy poziomy: województwa, powiaty i gminy) budujemy bezpośrednio z oficjalnych rejestrów GUS BDL oraz TERYT jako pierwszy krok procesu ETL. Sklepy oraz paczkomaty przypisujemy do tej hierarchii relacyjnie na podstawie ich nazw miejscowości, z wykorzystaniem oficjalnej Uniwersalnej Usługi Geokodowania GUGiK do jednoznacznego rozstrzygania przynależności mniejszych miejscowości i wsi, wraz z zapasowym dopasowaniem przestrzennym. Eliminuje to potrzebę stosowania uproszczonych plików GeoJSON i powolnych testów punkt-w-poligon.</p>
+<h3 data-t="meth_source_map_title">Podział administracyjny i mapowanie</h3>
+<p data-t="meth_source_map_desc">Strukturę podziału terytorialnego Polski (trzy poziomy: województwa, powiaty i gminy) budujemy bezpośrednio z oficjalnych rejestrów GUS BDL oraz TERYT jako pierwszy krok procesu ETL. Sklepy oraz paczkomaty przypisujemy do tej hierarchii relacyjnie na podstawie ich nazw miejscowości, z wykorzystaniem oficjalnej Uniwersalnej Usługi Geokodowania GUGiK do jednoznacznego rozstrzygania przynależności mniejszych miejscowości i wsi, wraz z zapasowym dopasowaniem przestrzennym. Eliminuje to potrzebę stosowania uproszczonych plików GeoJSON i powolnych testów punkt-w-poligon.</p>
 
-<h3>Gospodarka – GUS BDL</h3>
-<p>Zarobki, bezrobocie i populacja na poziomie powiatów pochodzą z Banku Danych Lokalnych (zmienne 64428, 60270, 72305). Pobieramy je raz w roku. Nazwy powiatów trzeba normalizować – GUS lubi dodawać prefiksy (<code>Powiat m.</code>), przyrostki czasowe (<code>od 2023</code>) i zmieniać nazwy (<code>jeleniogórski</code> staje się <code>karkonoski</code> w 2021). Wszystko to czyścimy przed zmatchowaniem. Dokładność: dane pochodzą z roku, w którym GUS je opublikował, nie z bieżącego miesiąca.</p>
+<h3 data-t="meth_source_econ_title">Gospodarka – GUS BDL</h3>
+<p data-t="meth_source_econ_desc">Zarobki, bezrobocie i populacja na poziomie powiatów pochodzą z Banku Danych Lokalnych (zmienne 64428, 60270, 72305). Pobieramy je raz w roku. Nazwy powiatów trzeba normalizować – GUS lubi dodawać prefiksy (<code>Powiat m.</code>), przyrostki czasowe (<code>od 2023</code>) i zmieniać nazwy (<code>jeleniogórski</code> staje się <code>karkonoski</code> w 2021). Wszystko to czyścimy przed zmatchowaniem. Dokładność: dane pochodzą z roku, w którym GUS je opublikował, nie z bieżącego miesiąca.</p>
 
-<h3>Parki narodowe i krajobrazowe – GDOŚ</h3>
-<p>Granice parków i ich otulin pobieramy z WFS GDOŚ (warstwy <code>ParkiNarodowe</code> + <code>ParkiKrajobrazowe</code>). Mamy 259 obiektów: 46 parków narodowych z otulinami i 213 krajobrazowych. Każdy sklep sprawdzamy punkt-w-poligon – jeśli trafił do parku lub otuliny, dostaje flagę.</p>
+<h3 data-t="meth_source_parks_title">Parki narodowe i krajobrazowe – GDOŚ</h3>
+<p data-t="meth_source_parks_desc">Granice parków i ich otulin pobieramy z WFS GDOŚ (warstwy <code>ParkiNarodowe</code> + <code>ParkiKrajobrazowe</code>). Mamy 259 obiektów: 46 parków narodowych z otulinami i 213 krajobrazowych. Każdy sklep sprawdzamy punkt-w-poligon – jeśli trafił do parku lub otuliny, dostaje flagę.</p>
 
-<h3>Wysokość terenu – GUGiK NMT</h3>
-<p>Wysokość n.p.m. z Numerycznego Modelu Terenu GUGiK (<code>GetHByXY</code>, współrzędne PL-1992). To jest opt-in (flaga <code>--elevation</code>), bo ponad 13 tysięcy zapytań HTTP. Wyniki trafiają do lokalnego cache (<code>elevation_cache.json</code>) – ponowne odpalenie ETL nie odpytuje punktów, które już mamy. Uwaga: serwis GUGiK przyjmuje tylko współrzędne PL-1992, nie WGS84, więc w ETL jest konwersja własnym kodem (bez pyproj).</p>
+<h3 data-t="meth_source_elev_title">Wysokość terenu – GUGiK NMT</h3>
+<p data-t="meth_source_elev_desc">Wysokość n.p.m. z Numerycznego Modelu Terenu GUGiK (<code>GetHByXY</code>, współrzędne PL-1992). To jest opt-in (flaga <code>--elevation</code>), bo ponad 13 tysięcy zapytań HTTP. Wyniki trafiają do lokalnego cache (<code>elevation_cache.json</code>) – ponowne odpalenie ETL nie odpytuje punktów, które już mamy. Uwaga: serwis GUGiK przyjmuje tylko współrzędne PL-1992, nie WGS84, więc w ETL jest konwersja własnym kodem (bez pyproj).</p>
 
-<h3>Paczkomaty InPost</h3>
-<p>Punkty paczkowe z publicznego API InPost ShipX (typ <code>parcel_locker</code>). Każdy paczkomat przypisujemy do podziału administracyjnego za pomocą tego samego geokodera GUGiK i relacyjnego dopasowania co sklepy. To jest jednorazowe pobranie – sieć paczkomatów rośnie wolno, mamy około 31 800 punktów. Porównanie Żabek vs paczkomaty – z podziałem na województwa, powiaty i gminy – jest na dashboardzie.</p>
+<h3 data-t="meth_source_inpost_title">Paczkomaty InPost</h3>
+<p data-t="meth_source_inpost_desc">Punkty paczkowe z publicznego API InPost ShipX (typ <code>parcel_locker</code>). Każdy paczkomat przypisujemy do podziału administracyjnego za pomocą tego samego geokodera GUGiK i relacyjnego dopasowania co sklepy. To jest jednorazowe pobranie – sieć paczkomatów rośnie wolno, mamy około 31 800 punktów. Porównanie Żabek vs paczkomaty – z podziałem na województwa, powiaty i gminy – jest na dashboardzie.</p>
 
-<h3>Płazy – GBIF</h3>
-<p>Obserwacje płazów z Global Biodiversity Information Facility (klasa Amphibia, <code>taxonKey=131</code>) w Polsce. Mamy około 46 000 rekordów ze współrzędnymi. BallTree (haversine) zlicza obserwacje w promieniu 5 km od każdego sklepu. Najbardziej żabia Żabka ma 2 028 obserwacji – i to jest w Ursynowie, nie w żadnym parku narodowym.</p>
+<h3 data-t="meth_source_frogs_title">Płazy – GBIF</h3>
+<p data-t="meth_source_frogs_desc">Obserwacje płazów z Global Biodiversity Information Facility (klasa Amphibia, <code>taxonKey=131</code>) w Polsce. Mamy około 46 000 rekordów ze współrzędnymi. BallTree (haversine) zlicza obserwacje w promieniu 5 km od każdego sklepu. Najbardziej żabia Żabka ma 2 028 obserwacji – i to jest w Ursynowie, nie w żadnym parku narodowym.</p>
 
-<h3>Sąsiedztwo – obliczenia lokalne</h3>
-<p>Odległość do najbliższej innej Żabki obliczamy lokalnie przez BallTree (haversine, k=2). Najbardziej odosobniony sklep ma 27 km do najbliższego sąsiada (Michałowo, podlaskie). Punkt najdalszy od jakiejkolwiek Żabki – pusta przestrzeń w Bieszczadach – to około 46,5 km. Zero zapytań sieciowych, czysta geometria na danych już wczytanych.</p>
+<h3 data-t="meth_source_neighbor_title">Sąsiedztwo – obliczenia lokalne</h3>
+<p data-t="meth_source_neighbor_desc">Odległość do najbliższej innej Żabki obliczamy lokalnie przez BallTree (haversine, k=2). Najbardziej odosobniony sklep ma 27 km do najbliższego sąsiada (Michałowo, podlaskie). Punkt najdalszy od jakiejkolwiek Żabki – pusta przestrzeń w Bieszczadach – to około 46,5 km. Zero zapytań sieciowych, czysta geometria na danych już wczytanych.</p>
 
-<h3>Pogoda i niebo – Open-Meteo, OpenLightMap</h3>
-<p>Aktualne dane pogodowe z darmowego API Open-Meteo (temperatura, zachmurzenie) dla najzimniejszej i najcieplejszej lokalizacji Żabki. Podobnie najciemniejsze i najjaśniejsze niebo z OpenLightMap. Dane live, pobierane przy otwarciu strony. Nie wypiekamy ich do bazy – pogoda z wczoraj nikomu nie potrzebna.</p>
+<h3 data-t="meth_source_weather_title">Pogoda i niebo – Open-Meteo, OpenLightMap</h3>
+<p data-t="meth_source_weather_desc">Aktualne dane pogodowe z darmowego API Open-Meteo (temperatura, zachmurzenie) dla najzimniejszej i najcieplejszej lokalizacji Żabki. Podobnie najciemniejsze i najjaśniejsze niebo z OpenLightMap. Dane live, pobierane przy otwarciu strony. Nie wypiekamy ich do bazy – pogoda z wczoraj nikomu nie potrzebna.</p>
 
-<h2>Potok ETL</h2>
-
-<p>Mamy codzienny potok, który pobiera dane, czyści, wzbogaca i zapisuje do bazy. Wygląda tak:</p>
+<h2 data-t="meth_sec_pipeline">Potok ETL</h2>
+<p data-t="meth_pipeline_desc">Mamy codzienny potok, który pobiera dane, czyści, wzbogaca i zapisuje do bazy. Wygląda tak:</p>
 
 <ol>
-  <li><strong>Pobranie.</strong> Pobieramy publiczny plik JSON z lokalizacjami sklepów. Jak API niedostępne, bierzemy z lokalnego pliku fallback z <code>data/input/</code>.</li>
-  <li><strong>Oczyszczenie.</strong> Deduplikacja po <code>storeId</code> (około 32 duplikaty w źródłach), normalizacja nazw miast (<code>LEGNICA</code> staje się <code>Legnica</code>), usuwanie <code>&lt;br&gt;</code> i kodów pocztowych z ulic, wyrzucenie danych osobowych i stałych pól.</li>
-  <li><strong>Wzbogacenie.</strong> Każde źródło niezależnie: regiony, sąsiedztwo, płazy, parki, elewacja, GUS, paczkomaty. Błąd jednego źródła nie przerywa potoku – kolumna zostaje NULL i ETL idzie dalej. Każde zapytanie sieciowe ma retry: 3 próby z odstępem 60 sekund.</li>
-  <li><strong>Diff.</strong> Porównujemy z poprzednim snapshotem: nowe <code>store_id</code> to sklep otwarty, zniknięte – zamknięty. Wynik zapisujemy jako historia zmian.</li>
-  <li><strong>Zapis do bazy.</strong> Zapis do DuckDB. Nowe kolumny dodajemy przez <code>ALTER TABLE ADD COLUMN IF NOT EXISTS</code> (bez DEFAULT, bo DuckDB nie obsługuje DEFAULT w ALTER). Baza przechowuje ostatnie 6 miesięcy snapshotów – starsze usuwamy.</li>
-  <li><strong>Czyszczenie cache.</strong> Po udanym ETL czyścimy cache Redis. Backend odbudowuje odpowiedzi na następnym zapytaniu. Redis jest opcjonalny – jak niedostępny, backend działa bez niego.</li>
+  <li data-t="meth_etl_step1"><strong>Pobranie.</strong> Pobieramy publiczny plik JSON z lokalizacjami sklepów. Jak API niedostępne, bierzemy z lokalnego pliku fallback z <code>data/input/</code>.</li>
+  <li data-t="meth_etl_step2"><strong>Oczyszczenie.</strong> Deduplikacja po <code>storeId</code> (około 32 duplikaty w źródłach), normalizacja nazw miast (<code>LEGNICA</code> staje się <code>Legnica</code>), usuwanie <code>&lt;br&gt;</code> i kodów pocztowych z ulic, wyrzucenie danych osobowych i stałych pól.</li>
+  <li data-t="meth_etl_step3"><strong>Wzbogacenie.</strong> Każde źródło niezależnie: regiony, sąsiedztwo, płazy, parki, elewacja, GUS, paczkomaty. Błąd jednego źródła nie przerywa potoku – kolumna zostaje NULL i ETL idzie dalej. Każde zapytanie sieciowe ma retry: 3 próby z odstępem 60 sekund.</li>
+  <li data-t="meth_etl_step4"><strong>Diff.</strong> Porównujemy z poprzednim snapshotem: nowe <code>store_id</code> to sklep otwarty, zniknięte – zamknięty. Wynik zapisujemy jako historia zmian.</li>
+  <li data-t="meth_etl_step5"><strong>Zapis do bazy.</strong> Zapis do DuckDB. Nowe kolumny dodajemy przez <code>ALTER TABLE ADD COLUMN IF NOT EXISTS</code> (bez DEFAULT, bo DuckDB nie obsługuje DEFAULT w ALTER). Baza przechowuje ostatnie 6 miesięcy snapshotów – starsze usuwamy.</li>
+  <li data-t="meth_etl_step6"><strong>Czyszczenie cache.</strong> Po udanym ETL czyścimy cache Redis. Backend odbudowuje odpowiedzi na następnym zapytaniu. Redis jest opcjonalny – jak niedostępny, backend działa bez niego.</li>
 </ol>
 
-<h2>Czego nie gwarantujemy</h2>
+<h2 data-t="meth_sec_warn">Czego nie gwarantujemy</h2>
 
 <div class="warn-box">
-  <h3>Ograniczenia danych</h3>
+  <h3 data-t="meth_warn_title">Ograniczenia danych</h3>
   <ul>
-    <li>Około 218 sklepów nie ma daty otwarcia w źródłach – nie pojawiają się na wykresie historii wzrostu.</li>
-    <li>Populacje powiatów to dane roczne z GUS, nie bieżące szacunki.</li>
-    <li>Sklepy na granicach uproszczonych poligonów mogą trafić do sąsiedniego województwa (dotyczy około 3 punktów).</li>
-    <li>Godziny otwarcia pochodzą ze źródła Żabki, nie z weryfikacji terenowej.</li>
-    <li>Dane pogodowe są live – mogą różnić się od off-line bazy.</li>
-    <li>Obserwacje GBIF zależą od aktywności obserwatorów – mniej zamieszkałe regiony mają mniej rekordów nie dlatego, że jest mniej płazów, tylko dlatego, że mniej osób tam patrzy.</li>
-    <li>Brakujące źródło wzbogacenia zostawia kolumnę NULL – tabela jest spójna, ale niekompletna.</li>
-    <li>Soft delete: sklepy, które zniknęły ze źródła, dostają <code>deleted_at</code> w bazie. Zapytania domyślnie filtrują <code>deleted_at IS NULL</code>, więc zamknięte sklepy nie psują statystyk.</li>
+    <li data-t="meth_warn_item1">Około 218 sklepów nie ma daty otwarcia w źródłach – nie pojawiają się na wykresie historii wzrostu.</li>
+    <li data-t="meth_warn_item2">Populacje powiatów to dane roczne z GUS, nie bieżące szacunki.</li>
+    <li data-t="meth_warn_item3">Sklepy na granicach uproszczonych poligonów mogą trafić do sąsiedniego województwa (dotyczy około 3 punktów).</li>
+    <li data-t="meth_warn_item4">Godziny otwarcia pochodzą ze źródła Żabki, nie z weryfikacji terenowej.</li>
+    <li data-t="meth_warn_item5">Dane pogodowe są live – mogą różnić się od off-line bazy.</li>
+    <li data-t="meth_warn_item6">Obserwacje GBIF zależą od aktywności obserwatorów – mniej zamieszkałe regiony mają mniej rekordów nie dlatego, że jest mniej płazów, tylko dlatego, że mniej osób tam patrzy.</li>
+    <li data-t="meth_warn_item7">Brakujące źródło wzbogacenia zostawia kolumnę NULL – tabela jest spójna, ale niekompletna.</li>
+    <li data-t="meth_warn_item8">Soft delete: sklepy, które zniknęły ze źródła, dostają <code>deleted_at</code> w bazie. Zapytania domyślnie filtrują <code>deleted_at IS NULL</code>, więc zamknięte sklepy nie psują statystyk.</li>
   </ul>
 </div>
 
@@ -210,10 +220,46 @@
 
 <footer>
   <div class="foot-inner">
-    <span class="foot-text">Zbudowane z danych publicznych. <a href="/" class="foot-link">Powrót na dashboard</a></span>
+    <span class="foot-text" data-t="meth_foot_back">Zbudowane z danych publicznych. <a href="/" class="foot-link">Powrót na dashboard</a></span>
     <a href="https://github.com/barankiewicz" target="_blank" rel="noopener" class="foot-link">GitHub</a>
   </div>
 </footer>
 
+<script type="module">
+  import { translateDOM, setLang, getLang } from '/src/i18n.js';
+
+  // Get lang from URL parameter or localStorage
+  const p = new URLSearchParams(window.location.search).get('lang');
+  const storedLang = localStorage.getItem('lang');
+  const lang = p || storedLang || 'pl';
+
+  setLang(lang);
+  translateDOM();
+
+  // Wire up language switcher
+  const langToggle = document.getElementById('lang-toggle');
+  if (langToggle) {
+    langToggle.querySelectorAll('.lang-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
+    });
+
+    langToggle.addEventListener('click', e => {
+      const btn = e.target.closest('.lang-btn');
+      if (btn) {
+        const newLang = btn.getAttribute('data-lang');
+        setLang(newLang);
+        localStorage.setItem('lang', newLang);
+
+        // Update URL param without reload
+        const url = new URL(window.location.href);
+        if (newLang === 'pl') url.searchParams.delete('lang');
+        else url.searchParams.set('lang', newLang);
+        window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+
+        translateDOM();
+      }
+    });
+  }
+</script>
 </body>
 </html>

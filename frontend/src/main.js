@@ -3,7 +3,6 @@ import './style.css';
 import { annotPlugin, barValueLabels, C, STATE } from './config.js';
 import { M, MAPS, RENDERED } from './state.js';
 import { getFont, destroyChart, heroCount, fmtLastUpdated } from './utils.js';
-import { setFilter, clearFilter, registerFilterCallbacks } from './filter.js';
 import { loadCore, loadTabData } from './data.js';
 import { translateDOM, setLang, t } from './i18n.js';
 import { getMapLibreCanvas, composePanelCanvas, canvasToPngBlob, downloadBlob, copyBlobToClipboard } from './export-image.js';
@@ -45,7 +44,7 @@ chartDefaults();
 // renderGranular (siec) and renderDumbbellByLevel (spoleczenstwo) register
 // themselves when their tab module loads via renderTab(). The global header KPI
 // strip was removed, so the first cross-filter slot stays null.
-registerFilterCallbacks(null, null, null);
+
 
 function revealAll(){document.querySelectorAll('.reveal').forEach((el,i)=>setTimeout(()=>el.classList.add('shown'),80+i*50))}
 setTimeout(revealAll,100);
@@ -101,16 +100,17 @@ async function renderTab(tab){
   const tabEl=document.getElementById('tab-'+tab);
   try {
     const mod = await tabModule(tab); // download + parse this tab's chunk
-    if(tab==='siec'){
-      // Do NOT await the heavy SIEC bucket here: renderSiec paints the
-      // above-the-fold hero from the already-loaded core bucket immediately, and
-      // kicks/gates the heavy below-fold data (loadSiec) itself. Awaiting it here
-      // would push the LCP hero behind ~187 KB of API on slow mobile.
-      registerFilterCallbacks(null, mod.renderGranular, null);
-      mod.renderSiec();
+    if (tab === 'siec') {
+      const p = mod.renderSiec();
+      if (p && typeof p.catch === 'function') {
+        p.catch(err => {
+          console.error(`Async renderSiec failed:`, err);
+          RENDERED.delete('siec');
+          if (tabEl) showTabError(tabEl, () => renderTab('siec'));
+        });
+      }
     } else if(tab==='spoleczenstwo'){
       await loadTabData(tab);          // fetch this tab's endpoints (cached after first open)
-      registerFilterCallbacks(null, null, mod.renderDumbbellByLevel);
       mod.renderSpoleczenstwo();
       mod.wireInpostLevel();
     }
@@ -171,7 +171,7 @@ _tabBtns.forEach((btn,i)=>{
 });
 
 document.addEventListener('DOMContentLoaded',()=>{
-  const btn=document.getElementById('filter-clear');if(btn)btn.addEventListener('click',clearFilter);
+
 
   // Wire up language switcher
   const langToggle = document.getElementById('lang-toggle');
@@ -181,6 +181,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       if (btn) {
         const lang = btn.getAttribute('data-lang');
         setLang(lang);
+        localStorage.setItem('lang', lang);
         writeLangToURL(lang);
         translateDOM();
         // Panel-toolbar buttons are icon-only with no data-t of their own
@@ -191,7 +192,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         document.querySelectorAll('[data-role="export-copy"]').forEach(b => b.setAttribute('aria-label', t('export_copy_aria')));
         document.querySelectorAll('[data-role="export-download"]').forEach(b => b.setAttribute('aria-label', t('export_download_aria')));
         // Clear rendered tab state and re-render
-        RENDERED.delete(STATE.tab);
+        RENDERED.clear();
         renderTab(STATE.tab);
       }
     });
@@ -213,7 +214,12 @@ function writeLangToURL(lang) {
   history.replaceState(null, '', url.pathname + url.search + url.hash);
 }
 const _urlLang = langFromURL();
-if (_urlLang) setLang(_urlLang);
+const _storedLang = localStorage.getItem('lang');
+const resolvedLang = _urlLang || _storedLang || 'pl';
+setLang(resolvedLang);
+if (resolvedLang !== 'pl' && !_urlLang) {
+  writeLangToURL(resolvedLang);
+}
 
 // Translate DOM immediately to the resolved language (URL override, else Polish default)
 translateDOM();
@@ -273,6 +279,7 @@ const SECTIONS = {
     atlas:       { title: '[data-debug-id="ATLAS"]', anchor: '.kr .btnrow', scrollTarget: '#kr-root' },
     powiaty:     { title: '[data-debug-id="POWIATY"]' },
     bubble:      { title: '[data-debug-id="BUBBLE"]' },
+    citygap:     { title: '[data-debug-id="CITY-GAP"]' },
   },
   spoleczenstwo: {
     inpost:        { title: '[data-debug-id="2.3"]' },

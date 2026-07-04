@@ -60,6 +60,7 @@ def get_locations(
                has_merrychef, open_sunday, h24
         FROM locations
         WHERE {where}
+        ORDER BY store_id
         LIMIT ? OFFSET ?
     """, query_params).fetchall()
 

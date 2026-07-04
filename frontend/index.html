@@ -105,9 +105,7 @@
   </div>
 </nav>
 
-<div class="filter-bar" id="filter-bar">
-  <span class="filter-chip"><span id="filter-chip-text" data-t="filter_prefix">Filtruj:</span><button id="filter-clear" aria-label="Wyczyść filtr" data-t-aria="filter_clear">×</button></span>
-</div>
+
 
 <!-- ============ SIEC ============ -->
 <main id="main-content">
@@ -119,7 +117,6 @@
   <header class="historia-hero reveal">
     <canvas id="hero-particles" class="hero-particles" aria-hidden="true"></canvas>
     <div class="hero-inner">
-      <div class="hero-eyebrow" id="hero-eyebrow-siec" data-t="hero_eyebrow_siec">Atlas Żabki · migawka</div>
       <div class="hero-number" id="hero-number">12 323</div>
       <div class="hero-number-label" data-t="hero_number_label_siec">aktywnych sklepów w Polsce</div>
       <h2 class="hero-h1" data-t="hero_h1_siec">Żabka jest wszędzie. Mamy na to twarde dane.</h2>
@@ -398,6 +395,15 @@
         <div class="card-sub" data-t="bubble_sub">Wielkość bąbla to liczba sklepów. Przeciągnij; Ctrl + scroll przybliża. Małe jednostki trafiają do „Pozostałych".</div>
       </div>
       <div id="bubble-stage"><div class="bubble-zoom-hint"><span class="hint-mouse" data-t="map_zoom_hint_mouse">ctrl + scroll przybliża</span><span class="hint-touch" data-t="map_zoom_hint_touch">uszczypnij, by przybliżyć</span></div></div>
+    </div>
+  </div>
+
+  <!-- miasta bez zabki -->
+  <div class="row si-reveal" style="margin-bottom:16px">
+    <div class="card">
+      <div class="card-title" data-debug-id="CITY-GAP" data-t="citygap_title">Miasta bez Żabki</div>
+      <div class="card-sub" id="citygap-sub" data-t="citygap_sub">miast bez ani jednej Żabki - posortowane wg liczby mieszkańców</div>
+      <div class="citygap-list" id="citygap-list"></div>
     </div>
   </div>
 

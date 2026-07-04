@@ -3,8 +3,9 @@
 // (np. h24, parki, sciana zachodnia, sklepy tuz obok). Trzymane w M, cap 360
 // na wpis zeby nie przeciazac CPU.
 import { M, MAPS } from '../state.js';
-import { fmt, capName, whenVisibleIdle, debounce } from '../utils.js';
+import { fmt, capName, whenVisibleIdle, debounce, escapeHtml } from '../utils.js';
 import { loadMaplibre } from '../maplibre-lazy.js';
+import { t } from '../i18n.js';
 
 // MapLibre (~280 KB gz) is loaded lazily, only when the Atlas map nears view.
 let maplibregl, createMap, fitPoland, pointsToFC, geoCircle, boundsOf, showMapUnavailable, WebGLUnavailableError;
@@ -50,9 +51,9 @@ function _updateKrDataCounts() {
   }
   const no = M.network_origin;
   if (no && no.snapshot_date) {
-    _setText('hero-eyebrow-siec', `Atlas Żabki · migawka ${no.snapshot_date}`);
+    _setText('hero-eyebrow-siec', t('hero_eyebrow_siec_snapshot').replace('{date}', no.snapshot_date));
   } else if (M.network_growth && M.network_growth.length) {
-    _setText('hero-eyebrow-siec', `Atlas Żabki · dane ${M.network_growth[M.network_growth.length - 1].year}`);
+    _setText('hero-eyebrow-siec', t('hero_eyebrow_siec_data').replace('{year}', M.network_growth[M.network_growth.length - 1].year));
   }
 }
 
@@ -67,51 +68,52 @@ function buildFacts() {
   const h24Count = M.summary && M.summary.h24_count || (s3.h24_points || []).length || 0;
   const parks = s3.parks || {};
   const voidVal = s3.void && s3.void.value != null ? s3.void.value : null;
+  const no = M.network_origin;
   const out = [];
 
   // Kompas: 4 wpisy
-  out.push({ id: 'north', g: 'compass', grp: 'Kompas – cztery kierunki', lab: 'Najdalej na północ',
+  out.push({ id: 'north', g: 'compass', grp: t('fact_grp_compass'), lab: t('fact_lab_north'),
     val: '54,83°N', city: 'Jastrzębia Góra', voiv: 'pomorskie', street: 'ul. Słowackiego 1A',
     lat: 54.833467, lon: 18.300591, zoom: 11, type: 'point',
-    desc: 'Najbardziej wysunięta na północ Żabka w kraju – tuż przy nadbałtyckim klifie.' });
-  out.push({ id: 'south', g: 'compass', grp: 'Kompas – cztery kierunki', lab: 'Najdalej na południe',
+    desc: t('fact_desc_north') });
+  out.push({ id: 'south', g: 'compass', grp: t('fact_grp_compass'), lab: t('fact_lab_south'),
     val: '49,21°N', city: 'Cisna', voiv: 'podkarpackie', street: 'ul. Cisna 95',
     lat: 49.213484, lon: 22.328102, zoom: 11, type: 'point',
-    desc: 'Kraniec południa: Cisna w Bieszczadach, brama w góry.' });
-  out.push({ id: 'east', g: 'compass', grp: 'Kompas – cztery kierunki', lab: 'Najdalej na wschód',
+    desc: t('fact_desc_south') });
+  out.push({ id: 'east', g: 'compass', grp: t('fact_grp_compass'), lab: t('fact_lab_east'),
     val: '23,90°E', city: 'Hrubieszów', voiv: 'lubelskie', street: 'ul. Kolejowa 6B',
     lat: 50.799815, lon: 23.904273, zoom: 11, type: 'point',
-    desc: 'Najbardziej na wschód – Hrubieszów, niemal przy granicy z Ukrainą.' });
-  out.push({ id: 'west', g: 'compass', grp: 'Kompas – cztery kierunki', lab: 'Najdalej na zachód',
+    desc: t('fact_desc_east') });
+  out.push({ id: 'west', g: 'compass', grp: t('fact_grp_compass'), lab: t('fact_lab_west'),
     val: '14,20°E', city: 'Cedynia', voiv: 'zachodniopomorskie', street: 'ul. Mieszka I 6',
     lat: 52.879565, lon: 14.204963, zoom: 11, type: 'point',
-    desc: 'Skrajny zachód: Cedynia nad Odrą, kilka kilometrów od Niemiec.' });
+    desc: t('fact_desc_west') });
 
   // Wysokosc
   const elev = M.elevation || {};
   const top = (elev.extremes || []).find(e => e.which === 'top');
   const bot = (elev.extremes || []).find(e => e.which === 'bottom');
-  out.push({ id: 'highest', g: 'elevation', grp: 'Wysokość – góra i dół', lab: 'Najwyżej n.p.m.',
+  out.push({ id: 'highest', g: 'elevation', grp: t('fact_grp_elevation'), lab: t('fact_lab_highest'),
     val: top ? String(top.elevation_meters).replace('.', ',') + ' m' : '962,6 m',
     city: top ? top.city : 'Kościelisko', voiv: top ? top.voivodeship : 'małopolskie',
     street: top ? top.street : 'Nędzy Kubińca 101',
     lat: (top && top.latitude != null) ? top.latitude : 49.3,
     lon: (top && top.longitude != null) ? top.longitude : 19.9,
     zoom: 12, type: 'point',
-    desc: 'Najwyżej położona Żabka w sieci.' });
-  out.push({ id: 'lowest', g: 'elevation', grp: 'Wysokość – góra i dół', lab: 'Poniżej morza',
+    desc: t('fact_desc_highest') });
+  out.push({ id: 'lowest', g: 'elevation', grp: t('fact_grp_elevation'), lab: t('fact_lab_lowest'),
     val: bot ? String(bot.elevation_meters).replace('.', ',') + ' m' : '−1,5 m',
     city: bot ? bot.city : 'Gdańsk (port)', voiv: bot ? bot.voivodeship : 'pomorskie',
     street: bot ? bot.street : 'Przełom 12',
     lat: (bot && bot.latitude != null) ? bot.latitude : 54.4,
     lon: (bot && bot.longitude != null) ? bot.longitude : 18.66,
     zoom: 12, type: 'point',
-    desc: 'Jedyna Żabka poniżej poziomu morza.' });
+    desc: t('fact_desc_lowest') });
 
   // Izolacja
   const ns = M.neighbor_stats || {};
   const loner = ns.loner || {};
-  out.push({ id: 'isolated', g: 'isolation', grp: 'Izolacja – samotnik', lab: 'Najdalej od sąsiadki',
+  out.push({ id: 'isolated', g: 'isolation', grp: t('fact_grp_isolation'), lab: t('fact_lab_isolated'),
     val: loner.nearest_neighbor_distance_meters
       ? (loner.nearest_neighbor_distance_meters / 1000).toFixed(1).replace('.', ',') + ' km'
       : '27,8 km',
@@ -120,101 +122,106 @@ function buildFacts() {
     lat: (loner && loner.latitude != null) ? loner.latitude : 53.033086,
     lon: (loner && loner.longitude != null) ? loner.longitude : 23.606322,
     zoom: 10, type: 'point',
-    desc: 'Najbardziej samotna Żabka w sieci.' });
+    desc: t('fact_desc_isolated') });
 
   // Najstarsza aktywna Zabka (historia sieci)
-  const no = M.network_origin || {};
-  const oldestStore = no.oldest || {};
+  const oldestStore = (no || {}).oldest || {};
   if (oldestStore.lat != null && oldestStore.lon != null) {
     const yr = oldestStore.first_opening_date ? oldestStore.first_opening_date.slice(0, 4) : '1998';
     const age = new Date().getFullYear() - parseInt(yr, 10);
-    out.push({ id: 'oldest', g: 'history', grp: 'Historia sieci', lab: 'Najstarsza wciaz czynna',
+    out.push({ id: 'oldest', g: 'history', grp: t('fact_grp_history'), lab: t('fact_lab_oldest'),
       val: yr,
-      city: oldestStore.city || 'Swarzedz', voiv: oldestStore.voivodeship || 'wielkopolskie',
+      city: oldestStore.city || 'Swarzędz', voiv: oldestStore.voivodeship || 'wielkopolskie',
       street: oldestStore.street || 'Rynek 4/5',
       lat: oldestStore.lat, lon: oldestStore.lon,
       zoom: 14, type: 'point',
-      desc: 'Najstarsza wciaz dzialajaca Zabka w sieci. Otwarta w ' + yr + ', w sieci od ' + age + ' lat.' });
+      desc: t('fact_desc_oldest').replace('{year}', yr).replace('{age}', age) });
   }
 
   // Pustka - tylko gdy API faktycznie zwrociło wartość (bez zgadywania liczby)
   if (voidVal != null) {
-    out.push({ id: 'void', g: 'void', grp: 'Pustka – biała plama', lab: 'Największa pustka',
+    out.push({ id: 'void', g: 'void', grp: t('fact_grp_void'), lab: t('fact_lab_void'),
       val: String(voidVal).replace('.', ',') + ' km',
       city: 'Bieszczady', voiv: 'podkarpackie', street: '49,01°N / 22,89°E',
       lat: (s3.void && s3.void.lat != null) ? s3.void.lat : 49.01,
       lon: (s3.void && s3.void.lon != null) ? s3.void.lon : 22.89,
       zoom: 9, type: 'circle',
-      desc: 'Punkt w Bieszczadach oddalony o ' + String(voidVal).replace('.', ',') + ' km od jakiejkolwiek Żabki – największa biała plama na mapie.' });
+      desc: t('fact_desc_void').replace('{distance}', String(voidVal).replace('.', ',')) });
   }
 
   // Plazy
   const mf = ae.most_froggy || {};
-  out.push({ id: 'frog', g: 'frog', grp: 'Żabka a żabki', lab: 'Korona kolekcji',
+  out.push({ id: 'frog', g: 'frog', grp: t('fact_grp_frog'), lab: t('fact_lab_crown'),
     val: 'Żabia Wola', city: 'Żabia Wola', voiv: 'mazowieckie',
     street: 'ul. Zielonej Żabki 7', lat: 52.031662, lon: 20.689194, zoom: 13, type: 'point',
-    desc: 'Żabka przy ulicy Zielonej Żabki.' });
+    desc: t('fact_desc_crown') });
   if (mf && mf.latitude) {
-    out.push({ id: 'frogrecord', g: 'frogrecord', grp: 'Żabka a żabki', lab: 'Rekord płazów',
+    out.push({ id: 'frogrecord', g: 'frogrecord', grp: t('fact_grp_frog'), lab: t('fact_lab_frogrecord'),
       val: fmt(mf.amphibian_occurrences_5km || 0) + ' obs.',
       city: mf.city || '', voiv: mf.voivodeship || '',
       street: mf.street || '',
       lat: mf.latitude, lon: mf.longitude, zoom: 11, type: 'point',
-      desc: 'Najwięcej obserwacji płazów w promieniu 5 km ze wszystkich sklepów sieci.' });
+      desc: t('fact_desc_frogrecord') });
   }
   const ff = ae.farthest_from_frog || {};
   if (ff && ff.latitude) {
-    out.push({ id: 'farfrog', g: 'farfrog', grp: 'Żabka a żabki', lab: 'Najdalej od żaby',
+    out.push({ id: 'farfrog', g: 'farfrog', grp: t('fact_grp_frog'), lab: t('fact_lab_farfrog'),
       val: ff.nearest_amphibian_km != null
         ? ff.nearest_amphibian_km.toFixed(2).replace('.', ',') + ' km' : '–',
       city: ff.city || '', voiv: ff.voivodeship || '', street: '',
       lat: ff.latitude, lon: ff.longitude, zoom: 10, type: 'point',
-      desc: 'Żabka najbardziej oddalona od najbliższej obserwacji płaza.' });
+      desc: t('fact_desc_farfrog') });
   }
   // 668 Żabek bez żadnej żaby w promieniu 5 km - pokazane jako skupisko punktow
   if (ae.zero_frog_count != null) {
     const zeroFrogDots = (ae.stores || [])
       .filter(s => s[2] === 0)
       .map(s => [s[0], s[1]]);
-    out.push({ id: 'zerofrog', g: 'farfrog', grp: 'Żabka a żabki', lab: 'Bez żadnej żaby w pobliżu',
-      val: fmt(ae.zero_frog_count) + ' sklepów',
+    
+    let descStr = '';
+    if (ff && ff.nearest_amphibian_km != null && ff.city) {
+      descStr = t('fact_desc_zerofrog')
+        .replace('{isolated_store}', ff.city)
+        .replace('{distance}', ff.nearest_amphibian_km.toFixed(2).replace('.', ','));
+    } else {
+      descStr = t('fact_desc_zerofrog_simple');
+    }
+
+    out.push({ id: 'zerofrog', g: 'farfrog', grp: t('fact_grp_frog'), lab: t('fact_lab_zerofrog'),
+      val: t('fact_val_zerofrog').replace('{count}', fmt(ae.zero_frog_count)),
       city: '', voiv: '', street: '',
       lat: 52.05, lon: 19.3, zoom: 6, type: 'cluster',
-      short: 'sklepy bez obserwacji płaza w 5 km',
-      desc: 'Tyle sklepów nie ma ani jednej obserwacji płaza w promieniu 5 km (GBIF, Amphibia). ' +
-            (ff && ff.nearest_amphibian_km != null
-              ? 'Najbardziej odizolowana Żabka: ' + ff.city + ' – ' +
-                ff.nearest_amphibian_km.toFixed(2).replace('.', ',') + ' km od najbliższej żaby.'
-              : ''),
+      short: t('fact_short_zerofrog'),
+      desc: descStr,
       dots: zeroFrogDots });
   }
 
   // 24/7
   const h24pts = s3.h24_points || [];
-  out.push({ id: 'h24', g: 'h24', grp: '24/7', lab: 'Sklepy całodobowe',
-    val: fmt(h24Count) + (h24Count === 1 ? ' sklep' : ' sklepów'),
+  out.push({ id: 'h24', g: 'h24', grp: t('fact_grp_h24'), lab: t('fact_lab_h24'),
+    val: fmt(h24Count) + ' ' + (h24Count === 1 ? t('unit_store_singular') : t('unit_store_plural')),
     city: '', voiv: '', street: '',
     lat: 52.05, lon: 19.3, zoom: 6, type: 'cluster',
-    short: 'Żabki, które nigdy nie śpią',
-    desc: 'Żabki, które nigdy nie zamykają. Bardzo rzadkie w sieci – ' + fmt(h24Count) + ' na ' + fmt(total) + '.',
+    short: t('fact_short_h24'),
+    desc: t('fact_desc_h24').replace('{count}', fmt(h24Count)).replace('{total}', fmt(total)),
     dots: h24pts });
 
   // Parki
-  out.push({ id: 'parks', g: 'parks', grp: 'Na łonie natury', lab: 'W parkach i rezerwatach',
+  out.push({ id: 'parks', g: 'parks', grp: t('fact_grp_nature'), lab: t('fact_lab_parks'),
     val: fmt(parks.count || 0) + ' / ' + fmt(total),
     city: '', voiv: '', street: '',
     lat: 52.05, lon: 19.3, zoom: 6, type: 'cluster',
-    short: 'Żabka w parku lub otulinie',
-    desc: 'Sklepy w parkach krajobrazowych i otulinach.',
+    short: t('fact_short_parks'),
+    desc: t('fact_desc_parks'),
     dots: M.parks_stores || [] });
 
   // Sklepy tuz obok siebie
-  out.push({ id: 'twins', g: 'twins', grp: 'Tuż obok siebie', lab: 'Sklepy tuż obok siebie',
-    val: fmt(tw.within_50m != null ? tw.within_50m : 0) + ' w 50 m',
+  out.push({ id: 'twins', g: 'twins', grp: t('fact_grp_twins'), lab: t('fact_lab_twins'),
+    val: t('fact_val_twins').replace('{count}', fmt(tw.within_50m != null ? tw.within_50m : 0)),
     city: '', voiv: '', street: '',
     lat: 52.05, lon: 19.3, zoom: 6, type: 'cluster',
-    short: 'sieć dusi się od zagęszczenia',
-    desc: 'Przeciwieństwo samotnika: ' + fmt(tw.within_50m || 0) + ' sklepów ma inną Żabkę w promieniu 50 m.',
+    short: t('fact_short_twins'),
+    desc: t('fact_desc_twins').replace('{count}', fmt(tw.within_50m || 0)),
     dots: (tw.points_50 || []).map(p => [p.lat, p.lon]),
     dotsMeta: tw.points_50 || [] });
 
@@ -223,9 +230,24 @@ function buildFacts() {
 
 export function renderKraniec() {
   const root = document.getElementById('kr-root'); if (!root) return;
-  if (_krDone) { if (_krMap) setTimeout(() => _krMap.resize && _krMap.resize(), 120); return; }
-  _krDone = true;
   _updateKrDataCounts();
+  if (_krDone) {
+    buildList();
+    if (_krMap) {
+      setTimeout(() => _krMap.resize && _krMap.resize(), 120);
+    }
+    const activeItem = root.querySelector('#kr-rail .item.active');
+    if (activeItem) {
+      const activeId = activeItem.dataset.id;
+      const f = buildFacts().find(x => x.id === activeId);
+      if (f) {
+        const cap = document.getElementById('kr-caption');
+        if (cap) cap.innerHTML = `<b>${escapeHtml(f.city || f.lab)}</b> · ${escapeHtml(f.val)} – ${escapeHtml(f.desc)}`;
+      }
+    }
+    return;
+  }
+  _krDone = true;
   whenVisibleIdle(document.getElementById('kr-map'), buildMap, '80px');   // defer MapLibre until the Atlas is on-screen + past load
   buildList();
   wirePanels();
@@ -372,7 +394,7 @@ async function buildMap() {
     setActiveMarker(f.id);
     document.querySelectorAll('#kr-rail .item').forEach(it => it.classList.toggle('active', it.dataset.id === f.id));
     if (f.type !== 'cluster') showDots(null);
-    if (cap) cap.innerHTML = `<b>${f.city || f.lab}</b> · ${f.val} – ${f.desc}`;
+    if (cap) cap.innerHTML = `<b>${escapeHtml(f.city || f.lab)}</b> · ${escapeHtml(f.val)} – ${escapeHtml(f.desc)}`;
     if (withPopup && (f.type === 'point' || f.type === 'circle') && markers[f.id]) {
       setTimeout(() => markers[f.id].popup.setLngLat([f.lon, f.lat]).addTo(_krMap), RM ? 0 : 650);
     }
@@ -401,7 +423,7 @@ async function buildMap() {
     document.querySelectorAll('#kr-rail .item').forEach(it => it.classList.remove('active'));
     document.querySelectorAll('.kr-fact-tile').forEach(it => it.classList.remove('active'));
     fitPoland(_krMap, 4, { duration: RM ? 0 : 1400 });   // same full-Poland view as initial load
-    if (cap) cap.textContent = 'Kliknij zjawisko – mapa doleci i podświetli kropki.';
+    if (cap) cap.textContent = t('kr_cap_default');
   };
 
   _krMap.on('load', () => {
@@ -494,12 +516,18 @@ function _twinsColorForDot(i, meta) {
 
 function _popupHtml(f) {
   const c = COL[f.g];
+  const escapedCity = escapeHtml(f.city);
+  const escapedVoiv = capName(escapeHtml(f.voiv));
+  const escapedStreet = escapeHtml(f.street);
+  const escapedDesc = escapeHtml(f.desc);
+  const escapedLab = escapeHtml(f.lab);
+  const escapedVal = escapeHtml(f.val);
   return `<div class="pop" style="--c:${c}">
-    <div class="pk">${f.lab}</div>
-    <div class="pv">${f.val}</div>
-    ${f.city ? `<div class="pc">${f.city}</div>` : ''}
-    ${f.voiv ? `<div class="ps">${capName(f.voiv)}${f.street ? ' · ' + f.street : ''}</div>` : ''}
-    <div class="pd">${f.desc}</div>
+    <div class="pk">${escapedLab}</div>
+    <div class="pv">${escapedVal}</div>
+    ${f.city ? `<div class="pc">${escapedCity}</div>` : ''}
+    ${f.voiv ? `<div class="ps">${escapedVoiv}${f.street ? ' · ' + escapedStreet : ''}</div>` : ''}
+    <div class="pd">${escapedDesc}</div>
   </div>`;
 }
 

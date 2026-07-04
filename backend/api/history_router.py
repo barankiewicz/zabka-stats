@@ -179,6 +179,8 @@ def get_deletion_timeline(
     limit_months: FromQuery[int] = 12,
 ) -> dict:
     """Get timeline of deletions over the last N months."""
+    if limit_months < 0:
+        limit_months = 0
     results = client.execute("""
         SELECT
             CAST(deleted_at AS DATE) as source_date,

@@ -20,7 +20,12 @@ from backend.etl.io import (
 
 INPOST_POINTS_URL = "https://api-shipx-pl.easypack24.net/v1/points"
 INPOST_TYPE = os.getenv("INPOST_TYPE", "parcel_locker")   # parcel_locker | pop
-PACZKOMAT_CACHE = os.getenv("PACZKOMAT_CACHE", "data/geo/paczkomaty_pl.json")
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+PACZKOMAT_CACHE = os.getenv("PACZKOMAT_CACHE")
+if PACZKOMAT_CACHE:
+    PACZKOMAT_CACHE = os.path.abspath(PACZKOMAT_CACHE)
+else:
+    PACZKOMAT_CACHE = os.path.join(_PROJECT_ROOT, "data", "geo", "paczkomaty_pl.json")
 INPOST_PER_PAGE = 500
 INPOST_WORKERS = int(os.getenv("INPOST_WORKERS", "8"))
 

@@ -11,7 +11,15 @@ export const C = {
   North:'#4dd0b1',West:'#a6e84a',Center:'#84c341',South:'#f2a359'
 };
 
-export const STATE = { tab:'siec', filter:null };
+export const STATE = { tab:'siec' };
+
+export function interpolateColorRamp(stops, t) {
+  t=Math.max(0,Math.min(1,t));
+  const seg=t*(stops.length-1),i=Math.min(stops.length-2,Math.floor(seg)),u=seg-i;
+  const h=k=>[parseInt(k.slice(1,3),16),parseInt(k.slice(3,5),16),parseInt(k.slice(5,7),16)];
+  const a=h(stops[i]),b=h(stops[i+1]);
+  return`rgb(${Math.round(a[0]+(b[0]-a[0])*u)},${Math.round(a[1]+(b[1]-a[1])*u)},${Math.round(a[2]+(b[2]-a[2])*u)})`;
+}
 
 // Green "fingerprint" color ramp, single source of truth. Lives here (a
 // dependency-light module) rather than in maplibre-map.js so the bubble chart
@@ -19,11 +27,7 @@ export const STATE = { tab:'siec', filter:null };
 // chunk. Consumers: bubble.js, siec.js, and the maplibre choropleths.
 export const FP_STOPS = ['#103d1d','#1d5a28','#2f7d2e','#5aa82e','#84c341','#a6e84a','#c8f06a'];
 export function fpRamp(t){
-  t=Math.max(0,Math.min(1,t));
-  const seg=t*(FP_STOPS.length-1),i=Math.min(FP_STOPS.length-2,Math.floor(seg)),u=seg-i;
-  const h=k=>[parseInt(k.slice(1,3),16),parseInt(k.slice(3,5),16),parseInt(k.slice(5,7),16)];
-  const a=h(FP_STOPS[i]),b=h(FP_STOPS[i+1]);
-  return`rgb(${Math.round(a[0]+(b[0]-a[0])*u)},${Math.round(a[1]+(b[1]-a[1])*u)},${Math.round(a[2]+(b[2]-a[2])*u)})`;
+  return interpolateColorRamp(FP_STOPS, t);
 }
 
 // GRAN ramp: dark forest green (least) up to the Zabka brand green #84c341
@@ -34,11 +38,7 @@ export function fpRamp(t){
 // the same thing across both. t=1 is always the highest value in view.
 export const GRAN_RAMP_STOPS=['#233d1a','#3b5f24','#54802e','#6ca237','#84c341'];
 export function granRamp(t){
-  t=Math.max(0,Math.min(1,t));
-  const seg=t*(GRAN_RAMP_STOPS.length-1),i=Math.min(GRAN_RAMP_STOPS.length-2,Math.floor(seg)),u=seg-i;
-  const h=k=>[parseInt(k.slice(1,3),16),parseInt(k.slice(3,5),16),parseInt(k.slice(5,7),16)];
-  const a=h(GRAN_RAMP_STOPS[i]),b=h(GRAN_RAMP_STOPS[i+1]);
-  return`rgb(${Math.round(a[0]+(b[0]-a[0])*u)},${Math.round(a[1]+(b[1]-a[1])*u)},${Math.round(a[2]+(b[2]-a[2])*u)})`;
+  return interpolateColorRamp(GRAN_RAMP_STOPS, t);
 }
 // Same stops as a MapLibre 'interpolate' expression, for fill-color/fill-extrusion-color paint properties.
 export const GRAN_FILL_STOPS=[

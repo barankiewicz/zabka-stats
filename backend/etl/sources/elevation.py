@@ -13,7 +13,12 @@ from backend.etl.io import USER_AGENT
 
 # --- numeryczny model terenu (GUGiK NMT, per punkt, cache) ---
 GUGIK_NMT_URL = os.getenv("GUGIK_NMT_URL", "https://services.gugik.gov.pl/nmt/")
-ELEVATION_CACHE = os.getenv("ELEVATION_CACHE", "data/geo/elevation_cache.json")
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+ELEVATION_CACHE = os.getenv("ELEVATION_CACHE")
+if ELEVATION_CACHE:
+    ELEVATION_CACHE = os.path.abspath(ELEVATION_CACHE)
+else:
+    ELEVATION_CACHE = os.path.join(_PROJECT_ROOT, "data", "geo", "elevation_cache.json")
 ELEVATION_WORKERS = int(os.getenv("ELEVATION_WORKERS", "8"))
 
 

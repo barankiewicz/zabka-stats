@@ -8,13 +8,15 @@ Cached endpoints:
 - /api/history/* - Change history
 """
 
+import hmac
 import json
 import os
 import pathlib
+import re
 import subprocess
 from datetime import datetime
 
-from litestar import Litestar, Router, get, post
+from litestar import Litestar, Response, Router, get, post
 from litestar.background_tasks import BackgroundTask
 from litestar.config.cors import CORSConfig
 from litestar.connection import Request
@@ -23,7 +25,7 @@ from litestar.response import File
 from litestar.static_files import create_static_files_router
 
 from backend.api.admin_router import router as admin_router
-from backend.api.dashboard_router import router as dashboard_router
+
 from backend.api.ecology_router import router as ecology_router
 from backend.api.fact_pages import router as fact_pages_router
 from backend.api.fact_pages import startup_facts
@@ -37,13 +39,13 @@ from backend.database import DB_PATH, client, init_db
 # API_TOKEN is set via environment variable. The fallback below is a documented
 # local-dev convenience (see CLAUDE.md quick start) - warn loudly so it never
 # goes unnoticed in a deployed environment.
-API_TOKEN = os.getenv("API_TOKEN", "your-secret-token-change-me")
-if API_TOKEN == "your-secret-token-change-me":
+API_TOKEN = os.getenv("API_TOKEN")
+if not API_TOKEN or API_TOKEN == "your-secret-token-change-me":
     print(
-        "WARNING: API_TOKEN is not set - /api/snapshot accepts the well-known "
-        "default token. Fine for local dev, unsafe in production. Set API_TOKEN "
-        "in the environment before deploying."
+        "WARNING: API_TOKEN is not set or is set to the default value. "
+        "Snapshot uploads are disabled for security."
     )
+    API_TOKEN = None
 
 # Initialize database
 try:
@@ -55,7 +57,7 @@ except Exception as e:
 
 # Health check
 @get("/health", sync_to_thread=True)
-def health_check() -> dict:
+def health_check() -> Response:
     try:
         location_count, city_count, locker_count = client.execute("""
             SELECT
@@ -65,20 +67,26 @@ def health_check() -> dict:
         """).fetchone()
         db_size_mb = round(DB_PATH.stat().st_size / (1024 * 1024), 2) if DB_PATH.exists() else 0
 
-        return {
-            "status": "healthy",
-            "database": "DuckDB",
-            "database_size_mb": db_size_mb,
-            "locations": location_count,
-            "cities": city_count,
-            "parcel_lockers": locker_count,
-            "timestamp": datetime.now().isoformat()
-        }
+        return Response(
+            status_code=200,
+            content={
+                "status": "healthy",
+                "database": "DuckDB",
+                "database_size_mb": db_size_mb,
+                "locations": location_count,
+                "cities": city_count,
+                "parcel_lockers": locker_count,
+                "timestamp": datetime.now().isoformat()
+            }
+        )
     except Exception as e:
-        return {
-            "status": "unhealthy",
-            "error": str(e)
-        }
+        return Response(
+            status_code=500,
+            content={
+                "status": "unhealthy",
+                "error": str(e)
+            }
+        )
 
 
 # Public download endpoints (paths relative to /api/download/...)
@@ -145,7 +153,7 @@ def download_parquet() -> File:
                     elevation_meters, is_in_nature_park,
                     nearest_neighbor_distance_meters,
                     amphibian_occurrences_5km, nearest_amphibian_km,
-                    h3_index_9, created_at
+                    created_at
                 FROM locations
                 WHERE deleted_at IS NULL
                 ORDER BY voivodeship_id, powiat_id
@@ -161,9 +169,17 @@ def download_parquet() -> File:
     )
 
 
+def _read_and_parse_json(file_upload):
+    contents = file_upload.file.read()
+    return json.loads(contents)
+
+def _save_json_to_file(data, temp_path):
+    with open(temp_path, 'w', encoding='utf-8') as f:
+        json.dump(data, f)
+
 # Protected endpoint: Upload snapshot (path relative to /api/snapshot)
 @post("/snapshot")
-async def upload_snapshot(request: Request) -> dict:
+async def upload_snapshot(request: Request) -> Response:
     """
     Upload a new snapshot JSON file (DuckDB).
     """
@@ -173,7 +189,13 @@ async def upload_snapshot(request: Request) -> dict:
     source_date = form_data.get("source_date")
 
     # Verify token
-    if token != API_TOKEN:
+    if not API_TOKEN:
+        raise HTTPException(
+            status_code=401,
+            detail="API token not configured"
+        )
+
+    if not token or not hmac.compare_digest(token, API_TOKEN):
         raise HTTPException(
             status_code=401,
             detail="Invalid API token"
@@ -186,15 +208,17 @@ async def upload_snapshot(request: Request) -> dict:
         )
 
     try:
-        # Read uploaded file contents
-        contents = file_upload.file.read()
-        data = json.loads(contents)
+        # Offload blocking file read and JSON parse to thread
+        import anyio
+        data = await anyio.to_thread.run_sync(_read_and_parse_json, file_upload)
 
         # Use provided date or extract from metadata
         if not source_date:
             source_date = data.get('meta', {}).get('source_date')
-            if not source_date:
-                raise ValueError("source_date not provided and not in JSON metadata")
+
+        # Validate source_date format ^\d{4}-\d{2}-\d{2}$
+        if not source_date or not isinstance(source_date, str) or not re.match(r'^\d{4}-\d{2}-\d{2}$', source_date):
+            raise ValueError("source_date must be provided in YYYY-MM-DD format")
 
         # Save file temporarily
         project_root = pathlib.Path(__file__).parent.parent
@@ -202,15 +226,28 @@ async def upload_snapshot(request: Request) -> dict:
         data_input_dir.mkdir(parents=True, exist_ok=True)
 
         temp_path = data_input_dir / f"snapshot_{source_date}.json"
-        with open(temp_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f)
+        
+        # Offload blocking file write to thread
+        await anyio.to_thread.run_sync(_save_json_to_file, data, temp_path)
 
-        return {
-            "status": "success",
-            "file_saved": str(temp_path),
-            "source_date": source_date,
-            "message": "Snapshot received, processing queued"
-        }
+        # Import run here to avoid circular imports
+        from backend.daily_etl import run as run_etl
+
+        # Trigger ETL in the background
+        task = BackgroundTask(
+            run_etl,
+            fallback=str(temp_path)
+        )
+
+        return Response(
+            content={
+                "status": "success",
+                "file_saved": str(temp_path),
+                "source_date": source_date,
+                "message": "Snapshot received, processing queued"
+            },
+            background=task
+        )
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -227,7 +264,6 @@ router_modules = [
     locations_router,
     history_router,
     admin_router,
-    dashboard_router,
 ]
 
 # Create parent API router prefixed with /api
@@ -237,7 +273,6 @@ api_router = Router(
         locations_router,
         history_router,
         admin_router,
-        dashboard_router,
         geo_router,
         ecology_router,
         spatial_router,

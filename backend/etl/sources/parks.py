@@ -11,7 +11,12 @@ from backend.etl.geo import ring_contains
 from backend.etl.io import load_static_geojson
 
 # --- parki narodowe i krajobrazowe + otuliny (GDOŚ) ---
-PARKS_FILE = os.getenv("PARKS_GEOJSON_FILE", "data/input/parki_gdos.geojson")
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+PARKS_FILE = os.getenv("PARKS_GEOJSON_FILE")
+if PARKS_FILE:
+    PARKS_FILE = os.path.abspath(PARKS_FILE)
+else:
+    PARKS_FILE = os.path.join(_PROJECT_ROOT, "data", "input", "parki_gdos.geojson")
 PARKS_URL = os.getenv("PARKS_GEOJSON_URL", "")
 _NAME_KEYS = ("nazwa", "name", "NAZWA", "Name", "nazwa_pl", "nazwaParku", "NAZWAPARKU")
 _TYPE_KEYS = ("typ", "type", "TYP", "rodzaj")

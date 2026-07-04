@@ -5,6 +5,7 @@ Hierarchical aggregations for Polish administrative divisions.
 
 
 from litestar import Router, get
+from litestar.exceptions import HTTPException
 from litestar.params import FromPath, FromQuery
 
 from backend.cache import cached
@@ -145,10 +146,21 @@ def get_voivodeships() -> dict:
     }
 
 @get("/context/{lat:float}/{lon:float}", sync_to_thread=True)
-@cached(ttl=86400)
 def get_location_context(lat: FromPath[float], lon: FromPath[float]) -> dict:
     """Get administrative context for coordinates using nearest location."""
+    # Clamp coordinates to Poland bounding box: Latitude [49.0, 55.0], Longitude [14.0, 24.1]
+    if not (49.0 <= lat <= 55.0) or not (14.0 <= lon <= 24.1):
+        raise HTTPException(
+            status_code=400,
+            detail="Coordinates outside Poland bounding box"
+        )
+    # Round to 3 decimal places (~110m resolution) to limit Redis key space and prevent memory exhaustion
+    r_lat = round(lat, 3)
+    r_lon = round(lon, 3)
+    return _get_cached_location_context(r_lat, r_lon)
 
+@cached(ttl=86400)
+def _get_cached_location_context(lat: float, lon: float) -> dict:
     # 1) nearest store to the point (no window functions, just the distance sort)
     nearest = client.execute("""
         SELECT l.street, l.city, l.powiat, l.voivodeship,
@@ -164,32 +176,43 @@ def get_location_context(lat: FromPath[float], lon: FromPath[float]) -> dict:
     if not nearest:
         return {"error": "No locations found"}
 
-    street, city, powiat, voiv, vid, pid, gid, gmina_name = nearest
+    # 2) voivodeship, powiat, city details
+    v_id, p_id, g_id = nearest[4], nearest[5], nearest[6]
 
-    # 2) the four "stores in this unit" counts in a single pass. IS NOT DISTINCT
-    # FROM reproduces the old COUNT(*) OVER (PARTITION BY ...) semantics exactly,
-    # including the NULL-partition case, but without four window aggregations.
-    counts = client.execute("""
-        SELECT
-            SUM(CASE WHEN voivodeship_id IS NOT DISTINCT FROM ? THEN 1 ELSE 0 END),
-            SUM(CASE WHEN powiat_id      IS NOT DISTINCT FROM ? THEN 1 ELSE 0 END),
-            SUM(CASE WHEN city           IS NOT DISTINCT FROM ? THEN 1 ELSE 0 END),
-            SUM(CASE WHEN gmina_id       IS NOT DISTINCT FROM ? THEN 1 ELSE 0 END)
-        FROM locations WHERE deleted_at IS NULL
-    """, [vid, pid, city, gid]).fetchone()
+    # count active locations in this voivodeship
+    v_count = client.execute("""
+        SELECT COUNT(*) FROM locations WHERE voivodeship_id = ? AND deleted_at IS NULL
+    """, [v_id]).fetchone()[0]
+
+    # count active locations in this powiat
+    p_count = client.execute("""
+        SELECT COUNT(*) FROM locations WHERE powiat_id = ? AND deleted_at IS NULL
+    """, [p_id]).fetchone()[0]
+
+    # count active locations in this gmina
+    g_count = 0
+    if g_id:
+        g_count = client.execute("""
+            SELECT COUNT(*) FROM locations WHERE gmina_id = ? AND deleted_at IS NULL
+        """, [g_id]).fetchone()[0]
+
+    # active locations in the city
+    city_count = client.execute("""
+        SELECT COUNT(*) FROM locations WHERE city = ? AND deleted_at IS NULL
+    """, [nearest[1]]).fetchone()[0]
 
     return {
         "nearest_location": "Żabka",
-        "street": street,
-        "city": city,
-        "city_count": int(counts[2]),
-        "powiat": powiat,
-        "powiat_count": int(counts[1]),
-        "gmina": gmina_name,
-        "gmina_id": int(gid) if gid is not None else None,
-        "gmina_count": int(counts[3]) if counts[3] is not None else 0,
-        "voivodeship": voiv,
-        "voivodeship_count": int(counts[0]),
+        "street": nearest[0] or "",
+        "city": nearest[1] or "",
+        "city_count": int(city_count),
+        "powiat": nearest[2] or "",
+        "powiat_count": int(p_count),
+        "gmina": nearest[7] or "",
+        "gmina_id": int(g_id) if g_id is not None else None,
+        "gmina_count": int(g_count),
+        "voivodeship": nearest[3] or "",
+        "voivodeship_count": int(v_count),
         "country": "Polska",
         "coordinates": {"lat": lat, "lon": lon},
     }
@@ -232,6 +255,8 @@ def get_extremes() -> dict:
     """).fetchone()
 
     def format_location(row):
+        if not row:
+            return None
         return {
             "id": row[0],
             "name": row[1],

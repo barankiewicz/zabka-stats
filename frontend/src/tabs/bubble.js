@@ -10,7 +10,8 @@ import { forceSimulation, forceX, forceY, forceCollide } from 'd3-force';
 // which _svg.transition() relies on below. No named binding needed.
 import 'd3-transition';
 import { C, fpRamp } from '../config.js';
-import { debounce } from '../utils.js';
+import { debounce, showChartStatus } from '../utils.js';
+import { fetchJSON } from '../data.js';
 
 // Force-directed "volumetric" bubble chart of the network (one bubble per
 // powiat/miasto, size = store count, plus a "Pozostałe" bubble for the tail).
@@ -28,12 +29,16 @@ let _svg = null, _group = null, _sim = null, _zoom = null, _transform = zoomIden
 let _wired = false;
 const _cache = new Map();
 
-function fetchBubble(dim) {
+async function fetchBubble(dim) {
   if (_cache.has(dim)) return _cache.get(dim);
-  const p = fetch(`/api/stats/by-dimension?dim=${dim}&metric=count&sort=desc&limit=${MAX_BUBBLES}`)
-    .then(r => r.json()).catch(() => ({ rows: [], total: 0, sum: 0 }));
-  _cache.set(dim, p);
-  return p;
+  try {
+    const d = await fetchJSON(`/api/stats/by-dimension?dim=${dim}&metric=count&sort=desc&limit=${MAX_BUBBLES}`);
+    _cache.set(dim, d);
+    return d;
+  } catch(e) {
+    console.error('fetchBubble error', e);
+    return { rows: [], total: 0, sum: 0 };
+  }
 }
 
 function cleanName(n) {
@@ -65,6 +70,22 @@ function process(res) {
 export async function renderBubble() {
   const stage = document.getElementById('bubble-stage');
   if (!stage) return;
+  const res = await fetchBubble(_dim);
+  if (res && res._error) {
+    showChartStatus(stage, 'error', async () => {
+      _cache.delete(_dim);
+      showChartStatus(stage, null);
+      await renderBubble();
+    });
+    return;
+  }
+  const rows = res.rows || [];
+  if (!rows.length) {
+    showChartStatus(stage, 'empty');
+    return;
+  }
+  showChartStatus(stage, null);
+
   if (!_svg) {
     _svg = select(stage).append('svg');
     _group = _svg.append('g');
@@ -75,7 +96,7 @@ export async function renderBubble() {
     _svg.call(_zoom);
     if (!_wired) { _wired = true; window.addEventListener('resize', debounce(() => { if (_sim) _sim.alpha(0.2).restart(); })); }
   }
-  draw(await fetchBubble(_dim), stage);
+  draw(res, stage);
 }
 
 function draw(res, stage) {

@@ -56,7 +56,6 @@ def _run_all_ddl(con):
                 nearest_amphibian_km DOUBLE,
                 gmina_id INTEGER,
                 miasto_id INTEGER,
-                h3_index_9 VARCHAR,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 deleted_at TIMESTAMP
             )
@@ -105,7 +104,6 @@ def _run_all_ddl(con):
             "CREATE INDEX idx_locations_created_at ON locations(created_at)",
             "CREATE INDEX idx_locations_voivodeship_id ON locations(voivodeship_id)",
             "CREATE INDEX idx_locations_powiat_id ON locations(powiat_id)",
-            "CREATE INDEX idx_locations_h3_index_9 ON locations(h3_index_9)",
         ):
             con.execute(stmt)
 
@@ -118,13 +116,13 @@ def _run_all_ddl(con):
 
 
 def _migrate_locations_pk_if_needed(con):
-    """Drop and immediately recreate the locations table if it has the old integer id PK.
-    Data will be re-populated on the next ETL run."""
+    """Migrate the locations table if it has the old integer id PK.
+    Preserves all data and history during the migration."""
     cols = {r[1] for r in con.execute("PRAGMA table_info('locations')").fetchall()}
     if 'id' not in cols:
         return
-    print("[migrate] locations has old integer id PK — dropping and rebuilding schema")
-    con.execute("DROP TABLE locations")
+    print("[migrate] locations has old integer id PK — migrating schema and preserving data")
+    con.execute("ALTER TABLE locations RENAME TO locations_old")
     con.execute("""
         CREATE TABLE locations (
             store_id VARCHAR PRIMARY KEY,
@@ -138,7 +136,7 @@ def _migrate_locations_pk_if_needed(con):
             is_in_nature_park BOOLEAN DEFAULT FALSE, nature_park_id INTEGER,
             nearest_neighbor_distance_meters INTEGER,
             amphibian_occurrences_5km INTEGER, nearest_amphibian_km DOUBLE,
-            gmina_id INTEGER, miasto_id INTEGER, h3_index_9 VARCHAR,
+            gmina_id INTEGER, miasto_id INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, deleted_at TIMESTAMP
         )
     """)
@@ -153,7 +151,21 @@ def _migrate_locations_pk_if_needed(con):
             con.execute(stmt)
         except Exception:
             pass
-    print("[migrate] done — locations rebuilt with store_id as primary key")
+
+    try:
+        common_cols = cols - {'id'}
+        cols_str = ", ".join(common_cols)
+        con.execute(f"INSERT INTO locations ({cols_str}) SELECT {cols_str} FROM locations_old")
+        con.execute("DROP TABLE locations_old")
+        print("[migrate] done — locations rebuilt with store_id as primary key, data preserved")
+    except Exception as e:
+        print(f"[migrate] error copying data: {e}")
+        try:
+            con.execute("DROP TABLE locations")
+            con.execute("ALTER TABLE locations_old RENAME TO locations")
+        except Exception:
+            pass
+        raise e
 
 
 def _ensure_schema():
@@ -177,30 +189,40 @@ class _ConnectionProxy:
         self._connections = []
         self._local = threading.local()
         self._enabled = True
+        self._generation = 0
 
     def _get_conn(self):
         with self._lock:
             if not self._enabled:
                 raise RuntimeError("Database client is closed/disabled.")
             
-            if hasattr(self._local, "conn") and self._local.conn is not None:
-                return self._local.conn
+            if hasattr(self._local, "conn_info"):
+                conn, gen = self._local.conn_info
+                if gen == self._generation:
+                    return conn
+                else:
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
+                    self._local.conn_info = None
 
             conn = duckdb.connect(str(self._db_path), read_only=True)
-            self._local.conn = conn
+            self._local.conn_info = (conn, self._generation)
             self._connections.append(conn)
             return conn
 
     def close(self):
         with self._lock:
+            self._generation += 1
             for conn in self._connections:
                 try:
                     conn.close()
                 except Exception:
                     pass
             self._connections.clear()
-            if hasattr(self._local, "conn"):
-                self._local.conn = None
+            if hasattr(self._local, "conn_info"):
+                self._local.conn_info = None
 
     def _replace(self, db_path):
         self.close()
@@ -258,7 +280,9 @@ def _seed_administrative_division(con) -> None:
         "(id, level, name, population, area_km2, avg_salary, unemployment_rate, voivodeship_id, powiat_id, gus_id) "
         "VALUES (?,?,?,?,?,?,?,?,?,?)",
         [
-            (r["id"], r["level"], r["name"], r.get("population"), r.get("area_km2"),
+            (r["id"], r["level"],
+             r["name"].lower() if r["level"] == 1 else r["name"],
+             r.get("population"), r.get("area_km2"),
              r.get("avg_salary"), r.get("unemployment_rate"), r.get("voivodeship_id"),
              r.get("powiat_id"), r.get("gus_id"))
             for r in rows
@@ -520,7 +544,6 @@ ENRICHMENT_COLUMNS = [
     ("nearest_neighbor_distance_meters", "INTEGER"),
     ("amphibian_occurrences_5km", "INTEGER"),
     ("nearest_amphibian_km", "DOUBLE"),
-    ("h3_index_9", "VARCHAR"),
 ]
 
 
@@ -533,7 +556,7 @@ def ensure_enrichment_columns(con):
 
     # Remove old fake-data columns (light pollution was derived from neighbor distance,
     # never real measured data). voivodeship/powiat/street are kept — API depends on them.
-    for col in ("light_pollution_brightness", "bortle_scale"):
+    for col in ("light_pollution_brightness", "bortle_scale", "h3_index_9"):
         try:
             con.execute(f"ALTER TABLE locations DROP COLUMN IF EXISTS {col}")
         except Exception:

@@ -2,8 +2,12 @@ import re
 from collections import Counter, defaultdict
 
 from litestar import Response, Router, get, post
+from litestar.connection import Request
+from litestar.exceptions import HTTPException
 from litestar.params import FromQuery
 from litestar.serialization import encode_json
+import hmac
+import os
 
 from backend.api.demographics import get_voiv_population
 from backend.cache import cached, clear_cache, get_cached_blob, set_cached_blob
@@ -54,17 +58,7 @@ def _norm_street(s: str) -> str:
     s = _STREET_NUM_RE.sub("", s)
     return s.strip()
 
-def _city_geo():
-    cg_rows = client.execute("""
-        SELECT c.name, v.name, c.population
-        FROM dim_city c
-        JOIN dim_voivodeship v ON v.id = c.voivodeship_id
-    """).fetchall()
-    by = {}
-    for cname, vname, pop in cg_rows:
-        if cname and vname:
-            by[(vname, cname.strip().lower())] = {"population": pop}
-    return {"by": by}
+
 
 # --- Endpoints ---
 
@@ -396,8 +390,7 @@ def sunday_by_voivodeship() -> list[SundayByVoivodeshipResponseItem]:
         name = r[0]
         if not name:
             continue
-        db_pct = float(r[1] or 0)
-        pct = db_pct if db_pct > 0 else SUNDAY_CLOSED_PCT.get(name.lower(), 2.5)
+        pct = float(r[1]) if r[1] is not None else 0.0
         result.append(
             SundayByVoivodeshipResponseItem(
                 voivodeship=name,
@@ -576,7 +569,7 @@ def inpost_vs_zabka_by_level(
             SELECT g.name, v.name, COUNT(pl.external_id)
             FROM dim_gmina g
             JOIN dim_voivodeship v ON v.id = g.voivodeship_id
-            JOIN parcel_lockers pl ON pl.powiat_id = g.powiat_id AND pl.deleted_at IS NULL
+            JOIN parcel_lockers pl ON pl.gmina_id = g.id AND pl.deleted_at IS NULL
             GROUP BY g.id, g.name, v.name
         """).fetchall()
         locker_map = {(r[0].strip().lower(), r[1].strip().lower()): int(r[2]) for r in locker_rows}
@@ -600,7 +593,7 @@ def inpost_vs_zabka_by_level(
         return InPostVsZabkaByLevelResponse(rows=[], total=0, level=level)
 
     rows.sort(key=lambda x: (x["name"] or "", x["voivodeship"] or ""))   # stable tiebreak
-    rows.sort(key=lambda x: x["ratio"] if sort != "asc" else -x["ratio"])
+    rows.sort(key=lambda x: x["ratio"], reverse=(sort != "asc"))
     total = len(rows)
     return InPostVsZabkaByLevelResponse(
         rows=[InPostVsZabkaByLevelResponseItem(**r) for r in rows[off:off + lim]],
@@ -715,7 +708,29 @@ def get_growth_trend() -> GrowthTrendResponse:
     )
 
 @post("/cache/clear", sync_to_thread=True)
-def clear_all_cache() -> dict:
+def clear_all_cache(request: Request) -> dict:
+    api_token = os.getenv("API_TOKEN")
+    if not api_token or api_token == "your-secret-token-change-me":
+        raise HTTPException(
+            status_code=401,
+            detail="API token not configured"
+        )
+    
+    # Try to get token from header, query parameter, or JSON/form
+    token = request.headers.get("X-API-Token")
+    if not token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+    if not token:
+        token = request.query_params.get("token")
+        
+    if not token or not hmac.compare_digest(token, api_token):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid API token"
+        )
+        
     clear_cache("*")
     return {"status": "cache cleared"}
 

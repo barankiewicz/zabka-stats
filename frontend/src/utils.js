@@ -1,6 +1,15 @@
 import { C, MACRO } from './config.js';
 import { CHARTS } from './state.js';
 
+export function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 export function era(yr){if(yr<=2009)return'#2b531a';if(yr<=2019)return'#4a8a22';if(yr<=2022)return'#74bd2a';return'#a6e84a'}
 export function fmt(n){return(+n).toLocaleString('pl-PL')}
 // Backend sends "YYYY-MM-DD HH:MM:SS.ffffff" (str() of a Python datetime) - keep only
@@ -45,9 +54,33 @@ export function destroyChart(id){
 // immediately where IntersectionObserver is unavailable.
 export function whenVisible(el, fn, rootMargin='400px'){
   if(!el)return;
-  if(typeof IntersectionObserver==='undefined'){fn();return;}
+  if (el._visible) {
+    fn();
+    return;
+  }
+  if (el._pending_fns) {
+    el._pending_fns.push(fn);
+    return;
+  }
+  el._pending_fns = [fn];
+  if(typeof IntersectionObserver==='undefined'){
+    el._visible = true;
+    el._pending_fns.forEach(f => f());
+    el._pending_fns = null;
+    return;
+  }
   const io=new IntersectionObserver((entries,obs)=>{
-    for(const e of entries){if(e.isIntersecting){obs.disconnect();fn();break;}}
+    for(const e of entries){
+      if(e.isIntersecting){
+        el._visible = true;
+        obs.disconnect();
+        if (el._pending_fns) {
+          el._pending_fns.forEach(f => f());
+          el._pending_fns = null;
+        }
+        break;
+      }
+    }
   },{rootMargin});
   io.observe(el);
 }
@@ -164,4 +197,40 @@ export function startTabParticles(canvasId,[r,g,b]=[132,195,65],count=55){
     window.addEventListener('resize',debounce(size));
   }
   return()=>cancelAnimationFrame(raf);
+}
+
+export function showChartStatus(canvasElOrId, type, retryFn) {
+  const canvas = typeof canvasElOrId === 'string' ? document.getElementById(canvasElOrId) : canvasElOrId;
+  if (!canvas) return;
+  const wrap = canvas.parentElement;
+  if (!wrap) return;
+  
+  const old = wrap.querySelector('.chart-status-overlay');
+  if (old) old.remove();
+
+  if (!type) {
+    canvas.style.display = '';
+    return;
+  }
+
+  canvas.style.display = 'none';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'chart-status-overlay';
+  overlay.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--c-muted);font-size:13px;padding:20px;text-align:center';
+
+  if (type === 'error') {
+    overlay.innerHTML = `<p style="margin-bottom:12px">Nie udało się załadować danych.</p>` +
+                        `<button type="button" class="gran-btn" style="background:var(--c-green);color:var(--c-bg);border:none;padding:6px 12px;border-radius:4px;cursor:pointer">Spróbuj ponownie</button>`;
+    if (retryFn) {
+      overlay.querySelector('button').addEventListener('click', async () => {
+        overlay.innerHTML = '<span class="spinner" style="display:inline-block;width:16px;height:16px;border:2px solid var(--c-green);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite"></span>';
+        await retryFn();
+      });
+    }
+  } else if (type === 'empty') {
+    overlay.innerHTML = `<p>Brak danych dla wybranych filtrów.</p>`;
+  }
+
+  wrap.appendChild(overlay);
 }

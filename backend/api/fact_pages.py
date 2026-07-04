@@ -14,6 +14,7 @@ on_startup hook hasn't run yet, so a slow or skipped startup hook degrades to
 one slightly slower request instead of a permanent 404.
 """
 
+import html
 import pathlib
 import re
 
@@ -153,7 +154,10 @@ def _ensure_facts() -> dict[str, dict]:
 
 
 def startup_facts() -> None:
-    _ensure_facts()
+    try:
+        _ensure_facts()
+    except Exception as e:
+        print(f"[startup_facts] facts build deferred to lazy loading: {e}")
 
 
 def _load_index_html() -> str:
@@ -167,36 +171,36 @@ def _tag_sub(html: str, pattern: str, replacement: str) -> str:
     return re.sub(pattern, lambda _m: replacement, html, count=1)
 
 
-def _inject_meta(html: str, slug: str, fact: dict) -> str:
-    title = f"{fact['title']} – Żabkozbiór"
-    description = fact["description"]
-    url = f"{BASE_URL}/fakt/{slug}"
-    image_url = f"{BASE_URL}/fakt/{slug}/og.png"
+def _inject_meta(html_str: str, slug: str, fact: dict) -> str:
+    title = html.escape(f"{fact['title']} – Żabkozbiór", quote=True)
+    description = html.escape(fact["description"], quote=True)
+    url = html.escape(f"{BASE_URL}/fakt/{slug}", quote=True)
+    image_url = html.escape(f"{BASE_URL}/fakt/{slug}/og.png", quote=True)
 
-    html = _tag_sub(html, r"<title>.*?</title>", f"<title>{title}</title>")
-    html = _tag_sub(html, r'<meta name="description" content="[^"]*">',
+    html_str = _tag_sub(html_str, r"<title>.*?</title>", f"<title>{title}</title>")
+    html_str = _tag_sub(html_str, r'<meta name="description" content="[^"]*">',
                      f'<meta name="description" content="{description}">')
-    html = _tag_sub(html, r'<link rel="canonical" href="[^"]*">',
+    html_str = _tag_sub(html_str, r'<link rel="canonical" href="[^"]*">',
                      f'<link rel="canonical" href="{url}">')
-    html = _tag_sub(html, r'<meta property="og:url" content="[^"]*">',
+    html_str = _tag_sub(html_str, r'<meta property="og:url" content="[^"]*">',
                      f'<meta property="og:url" content="{url}">')
-    html = _tag_sub(html, r'<meta property="og:title" content="[^"]*">',
+    html_str = _tag_sub(html_str, r'<meta property="og:title" content="[^"]*">',
                      f'<meta property="og:title" content="{title}">')
-    html = _tag_sub(html, r'<meta property="og:description" content="[^"]*">',
+    html_str = _tag_sub(html_str, r'<meta property="og:description" content="[^"]*">',
                      f'<meta property="og:description" content="{description}">')
-    html = _tag_sub(html, r'<meta property="og:image" content="[^"]*">',
+    html_str = _tag_sub(html_str, r'<meta property="og:image" content="[^"]*">',
                      f'<meta property="og:image" content="{image_url}">')
-    html = _tag_sub(html, r'<meta property="og:image:alt" content="[^"]*">',
+    html_str = _tag_sub(html_str, r'<meta property="og:image:alt" content="[^"]*">',
                      f'<meta property="og:image:alt" content="{title}">')
-    html = _tag_sub(html, r'<meta name="twitter:title" content="[^"]*">',
+    html_str = _tag_sub(html_str, r'<meta name="twitter:title" content="[^"]*">',
                      f'<meta name="twitter:title" content="{title}">')
-    html = _tag_sub(html, r'<meta name="twitter:description" content="[^"]*">',
+    html_str = _tag_sub(html_str, r'<meta name="twitter:description" content="[^"]*">',
                      f'<meta name="twitter:description" content="{description}">')
-    html = _tag_sub(html, r'<meta name="twitter:image" content="[^"]*">',
+    html_str = _tag_sub(html_str, r'<meta name="twitter:image" content="[^"]*">',
                      f'<meta name="twitter:image" content="{image_url}">')
-    html = _tag_sub(html, r'<meta name="twitter:image:alt" content="[^"]*">',
+    html_str = _tag_sub(html_str, r'<meta name="twitter:image:alt" content="[^"]*">',
                      f'<meta name="twitter:image:alt" content="{title}">')
-    return html
+    return html_str
 
 
 @get("/fakt/{slug:str}", sync_to_thread=True)

@@ -1,7 +1,7 @@
 import Chart from '../chartjs-setup.js';
 import { C, STATE, fpRamp, granRamp, GRAN_FILL_STOPS } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
-import { era, fmt, getFont, destroyChart, capName as capCase, whenVisible, whenVisibleIdle, debounce, wireCountUp, heroCount } from '../utils.js';
+import { era, fmt, getFont, destroyChart, capName as capCase, whenVisible, whenVisibleIdle, debounce, wireCountUp, heroCount, escapeHtml, showChartStatus } from '../utils.js';
 import { loadMaplibre } from '../maplibre-lazy.js';
 
 // MapLibre is ~280 KB gz; load it lazily (only when a map nears the viewport)
@@ -28,6 +28,9 @@ import { t, getLang } from '../i18n.js';
 const prefersReduced = () =>
   window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+let heroObserver = null;
+let siecRevealObserver = null;
+
 export function renderSiec(){
   // Above the fold, from the already-loaded core bucket - paints immediately so
   // the hero (LCP element) is not blocked on the heavy SIEC data.
@@ -39,7 +42,18 @@ export function renderSiec(){
   wireGranular();
   renderGranular();
   // Bubble pulls its own by-dimension data, so it only needs visibility.
-  whenVisible(document.getElementById('bubble-stage'), renderBubble);
+  const bubbleEl = document.getElementById('bubble-stage');
+  const pBubble = bubbleEl ? new Promise((resolve, reject) => {
+    whenVisible(bubbleEl, () => {
+      try {
+        renderBubble();
+        resolve();
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }) : Promise.resolve();
+
   // Everything below feeds off the heavy SIEC bucket (stores-timeline,
   // amphibians, woj_geo, Atlas data). Kick it once and gate each scene on it, so
   // the fetch runs in the background after the hero paints instead of blocking
@@ -47,10 +61,28 @@ export function renderSiec(){
   // tight 80px rootMargin so the 229 KB MapLibre chunk is not pre-fetched on
   // mobile where these sit just below the fold.
   const ready = loadSiec();
-  whenVisibleIdle(document.getElementById('map-growth'), ()=>ready.then(renderGrowthMap), '80px');
-  whenVisible(document.getElementById('canvas-fingerprint-flat'), ()=>ready.then(drawFingerprintFlat));
-  whenVisible(document.getElementById('powiat-donut'), ()=>ready.then(renderPowiatCoverage));
-  ready.then(()=>{
+  const mapEl = document.getElementById('map-growth');
+  const p1 = mapEl ? new Promise((resolve, reject) => {
+    whenVisibleIdle(mapEl, () => {
+      ready.then(renderGrowthMap).then(resolve).catch(reject);
+    }, '80px');
+  }) : Promise.resolve();
+
+  const printEl = document.getElementById('canvas-fingerprint-flat');
+  const p2 = printEl ? new Promise((resolve, reject) => {
+    whenVisible(printEl, () => {
+      ready.then(drawFingerprintFlat).then(resolve).catch(reject);
+    });
+  }) : Promise.resolve();
+
+  const donutEl = document.getElementById('powiat-donut');
+  const p3 = donutEl ? new Promise((resolve, reject) => {
+    whenVisible(donutEl, () => {
+      ready.then(renderPowiatCoverage).then(resolve).catch(reject);
+    });
+  }) : Promise.resolve();
+
+  const p4 = ready.then(() => {
     renderEdgeKPIs(); renderKraniec();
     // The edge-KPI tiles start at data-count="0" placeholders and only get
     // their real value here, once the SIEC bucket resolves. wireCountUp(root)
@@ -60,19 +92,36 @@ export function renderSiec(){
     // stuck on "0" forever even though dataset.count is correct.
     wireCountUp(document.querySelector('.atlas-kpis'));
   });
+
+  const citygapEl = document.getElementById('citygap-list');
+  const p5 = citygapEl ? new Promise((resolve, reject) => {
+    whenVisible(citygapEl, () => {
+      ready.then(renderCityGap).then(resolve).catch(reject);
+    });
+  }) : Promise.resolve();
+
+  if (siecRevealObserver) {
+    siecRevealObserver.disconnect();
+    siecRevealObserver = null;
+  }
   const root=document.getElementById('tab-siec');
   if(root){
-    const obs=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');obs.unobserve(e.target);}}),{threshold:.12});
-    root.querySelectorAll('.si-reveal').forEach(r=>obs.observe(r));
+    siecRevealObserver = new IntersectionObserver((es, o)=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');o.unobserve(e.target);}}),{threshold:.12});
+    root.querySelectorAll('.si-reveal').forEach(r=>siecRevealObserver.observe(r));
     wireCountUp(root);
   }
+
+  return Promise.all([pBubble, p1, p2, p3, p4, p5]);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.tab-bridge-btn[data-goto]').forEach(btn=>{
     if(btn._wired)return;btn._wired=true;
     btn.addEventListener('click',()=>{
       document.querySelector(`.tab-btn[data-tab="${btn.dataset.goto}"]`)?.click();
     });
   });
-}
+});
 
 /* ---------------- HERO: glowing count-up + particle field ---------------- */
 
@@ -124,8 +173,13 @@ function startHeroParticles(){
   const start=()=>{if(!running){running=true;last=0;heroRaf=requestAnimationFrame(frame);}};
   const stop=()=>{running=false;if(heroRaf){cancelAnimationFrame(heroRaf);heroRaf=null;}};
   // Only animate while the hero is on-screen; stop entirely once scrolled past.
+  if (heroObserver) {
+    heroObserver.disconnect();
+    heroObserver = null;
+  }
   if(typeof IntersectionObserver!=='undefined'){
-    new IntersectionObserver(es=>es.forEach(e=>e.isIntersecting?start():stop())).observe(cv);
+    heroObserver = new IntersectionObserver(es=>es.forEach(e=>e.isIntersecting?start():stop()));
+    heroObserver.observe(cv);
   } else { start(); }
   if(!startHeroParticles._wired){
     startHeroParticles._wired=true;
@@ -242,7 +296,7 @@ let growthMap=null,growthRaf=null,growthLoopTimer=null;
 let growthLoop=true; // auto-repeat until the user grabs the timeline
 let calData=null;    // {byYM: Map(year*100+month -> cnt), max}
 const GROWTH_MIN=1998,GROWTH_MAX=2026;
-const MONTH_INI= getLang() === 'en'
+const getMonthIni= () => getLang() === 'en'
   ? ['J','F','M','A','M','J','J','A','S','O','N','D']
   : ['S','L','M','K','M','C','L','S','W','P','L','G'];
 
@@ -291,7 +345,8 @@ function drawCalendar(uptoYear){
   // Month-initial header
   ctx.textAlign='center';ctx.textBaseline='alphabetic';
   ctx.fillStyle='#5d6c52';ctx.font=`9px '${getFont('mono')}',monospace`;
-  for(let m=0;m<12;m++)ctx.fillText(MONTH_INI[m],padL+cw*(m+0.5),padT-3);
+  const monthIni = getMonthIni();
+  for(let m=0;m<12;m++)ctx.fillText(monthIni[m],padL+cw*(m+0.5),padT-3);
 
   const now=performance.now();
   let hasActive=false;
@@ -329,10 +384,16 @@ function drawCalendar(uptoYear){
           ctx.fillStyle='rgba(255,255,255,.02)';
           ctx.fillRect(x0,y0,w0,h0);
         }else if(elapsed<CELL_DUR){
-          // No animation — just draw at full size immediately
+          // Pop animation: scale from 0 to 1 centered on the cell
           hasActive=true;
+          const t = Math.max(0, Math.min(1, elapsed / CELL_DUR));
+          const ease = t * (2 - t); // easeOutQuad
+          const cx = x0 + w0 / 2;
+          const cy = y0 + h0 / 2;
+          const w = w0 * ease;
+          const h = h0 * ease;
           ctx.fillStyle=color;
-          ctx.fillRect(x0,y0,w0,h0);
+          ctx.fillRect(cx - w / 2, cy - h / 2, w, h);
         }else{
           ctx.fillStyle=color;ctx.fillRect(x0,y0,w0,h0);
         }
@@ -828,6 +889,33 @@ export function renderGrowthChart(){
 }
 
 
+/* ---------------- city gap: cities with zero Zabki, sorted by population ---- */
+
+export function renderCityGap(){
+  const list=document.getElementById('citygap-list');if(!list)return;
+  const cg=M.cities_without_zabka||{total_cities:0,without_zabka:0,pct:0,cities:[]};
+  const sub=document.getElementById('citygap-sub');
+  if(sub){
+    sub.textContent=cg.without_zabka
+      ? t('citygap_sub').replace('{count}',fmt(cg.without_zabka)).replace('{total}',fmt(cg.total_cities)).replace('{pct}',String(cg.pct).replace('.',','))
+      : t('citygap_empty');
+  }
+  list.innerHTML='';
+  (cg.cities||[]).forEach(c=>{
+    const row=document.createElement('div');
+    row.className='citygap-item';
+    row.innerHTML=`<span class="citygap-name">${escapeHtml(c.name)}</span>
+      <span class="citygap-meta">${c.population!=null?`<span class="citygap-pop">${fmt(c.population)}</span>`:''} · ${escapeHtml(capCase(c.voivodeship))}</span>`;
+    list.appendChild(row);
+  });
+  if(!cg.cities || !cg.cities.length){
+    const empty=document.createElement('div');
+    empty.className='citygap-empty';
+    empty.textContent=t('citygap_empty');
+    list.appendChild(empty);
+  }
+}
+
 /* ---------------- powiat coverage tile: 380/380 + dot map ----- */
 
 let _pcLevel='powiaty';
@@ -990,6 +1078,8 @@ let _gAvg=null,_gMedian=null,_gSum=0;
 // see the comment above drawGranularChart's color mapping for why.
 let _gVmin=0,_gVmax=1;
 const _FULL_RANGE_LIMIT={voivodeship:16};
+let _gSeq = 0;
+let _fillWojSeq = 0;
 
 // Strip GUS naming artefacts (M.st., " od YYYY", "powiat ") then display-case.
 function capName(n){
@@ -999,13 +1089,17 @@ function capName(n){
 }
 
 const _dimCache=new Map();
-function fetchDim(dim,metric,sort,limit,offset){
+async function fetchDim(dim,metric,sort,limit,offset){
   const key=`${dim}|${metric}|${sort}|${limit}|${offset}`;
   if(_dimCache.has(key))return _dimCache.get(key);
-  const p=fetch(`/api/stats/by-dimension?dim=${dim}&metric=${metric}&sort=${sort}&limit=${limit}&offset=${offset}`)
-    .then(r=>r.json()).catch(()=>({rows:[],total:0}));
-  _dimCache.set(key,p);
-  return p;
+  try {
+    const d = await fetchJSON(`/api/stats/by-dimension?dim=${dim}&metric=${metric}&sort=${sort}&limit=${limit}&offset=${offset}`);
+    _dimCache.set(key, d);
+    return d;
+  } catch(e) {
+    console.error('fetchDim error', e);
+    return {rows:[],total:0,_error:true};
+  }
 }
 const _vKey=()=>_gMetric==='per1k'?'per_1k':_gMetric==='per_km2'?'per_km2':'cnt';
 const _isCount=()=>_gMetric==='count';
@@ -1016,9 +1110,26 @@ const _isCount=()=>_gMetric==='count';
 export async function renderGranular(arg,{skipMap=false}={}){
   if(typeof arg==='string'&&GRAN_WORD[arg])_gDim=arg;
   _gOffset=0;
+  const seq = ++_gSeq;
   const pageLimit=_gDim==='voivodeship'?16:PAGE;
+  const canvas = document.getElementById('chart-granular');
   const res=await fetchDim(_gDim,_gMetric,_gSort,pageLimit,0);
+  if (seq !== _gSeq) return;
+  if (res && res._error) {
+    showChartStatus(canvas, 'error', async () => {
+      const key=`${_gDim}|${_gMetric}|${_gSort}|${pageLimit}|0`;
+      _dimCache.delete(key);
+      showChartStatus(canvas, null);
+      await renderGranular(arg, {skipMap});
+    });
+    return;
+  }
   _gRows=res.rows||[];_gTotal=res.total||0;
+  if (!_gRows.length) {
+    showChartStatus(canvas, 'empty');
+    return;
+  }
+  showChartStatus(canvas, null);
   _gAvg=res.avg;_gMedian=res.median;_gSum=res.sum||0;
   // Bar color must reflect each row's actual value against the WHOLE
   // dataset, not just the current page/sort - a paginated top-20-largest and
@@ -1028,6 +1139,7 @@ export async function renderGranular(arg,{skipMap=false}={}){
   // dim/metric change; this is the same request _fillWoj already makes for
   // voivodeship/powiat, so it's usually a cache hit, not an extra round trip.
   const fullRes=await fetchDim(_gDim,_gMetric,'desc',_FULL_RANGE_LIMIT[_gDim]||500,0);
+  if (seq !== _gSeq) return;
   const vk=_vKey();
   const fullVals=(fullRes.rows||[]).map(r=>r[vk]).filter(v=>v!=null);
   _gVmin=fullVals.length?Math.min(...fullVals):0;
@@ -1054,9 +1166,7 @@ function updateMoreBtn(){
 
 function drawGranularChart(){
   const vk=_vKey();
-  const f=STATE.filter?STATE.filter.toLowerCase():null;
   let rows=_gRows;
-  if(f&&_gDim!=='voivodeship')rows=rows.filter(d=>d.voivodeship&&d.voivodeship.toLowerCase()===f);
   const n=rows.length;
   // Color by each bar's actual value against the full-dataset range
   // (_gVmin/_gVmax), not by its position in the current page/sort - so a
@@ -1064,7 +1174,6 @@ function drawGranularChart(){
   // lighter (up to the Zabka green cap) always means more Zabek, matching
   // the map's granRamp.
   const colors=rows.map(d=>{
-    if(f&&_gDim==='voivodeship'&&d.name&&d.name.toLowerCase()!==f)return'rgba(132,195,65,.22)';
     const v=d[vk];
     if(v==null)return granRamp(0);
     const norm=(_gVmax>_gVmin)?(v-_gVmin)/(_gVmax-_gVmin):0.5;
@@ -1082,7 +1191,7 @@ function drawGranularChart(){
     tEl.textContent = titlePattern.replace('{word}', word);
   }
   const sEl=document.getElementById('gran-sub');
-  if(sEl)sEl.textContent=mlabel+(f&&_gDim!=='voivodeship'?` – ${STATE.filter}`:'');
+  if(sEl)sEl.textContent=mlabel;
   // grow the chart with the row count so load-more rows are not squished
   const wrap=document.getElementById('gran-chart-wrap');
   if(wrap)wrap.style.height=Math.max(320,n*22+44)+'px';
@@ -1373,8 +1482,8 @@ async function _buildWojMap(el){
         const p=fs.properties||{};
         if(p._name){
           ensureTip();
-          _wojTip.innerHTML=`<div style="font-family:var(--font-display);font-weight:700;font-size:13px;margin-bottom:3px">${capName(p._name)}</div>`+
-            `<div style="font-size:12px;color:#93a487">${p._val||''}</div>`;
+          _wojTip.innerHTML=`<div style="font-family:var(--font-display);font-weight:700;font-size:13px;margin-bottom:3px">${capCase(escapeHtml(p._name))}</div>`+
+            `<div style="font-size:12px;color:#93a487">${escapeHtml(p._val||'')}</div>`;
           _wojTip.style.left=(e.originalEvent.clientX+14)+'px';
           _wojTip.style.top=(e.originalEvent.clientY+14)+'px';
           _wojTip.style.display='block';
@@ -1418,12 +1527,17 @@ async function _buildWojMap(el){
 }
 
 async function ensurePowGeo() {
-  if (_powGeo) return _powGeo;
-  _powGeo = await fetchJSON('/api/geo/powiats');
+  if (M.powGeo) {
+    _powGeo = M.powGeo;
+    return _powGeo;
+  }
+  M.powGeo = await fetchJSON('/api/geo/powiats');
+  _powGeo = M.powGeo;
   return _powGeo;
 }
 
 async function _fillWoj(){
+  const seq = ++_fillWojSeq;
   // There is no per-city boundary GeoJSON (only /api/geo/voivodeships and
   // /api/geo/powiats), so "Miasta" can't get its own choropleth - it falls
   // back to the voivodeship view rather than aliasing to powiat (which used
@@ -1433,9 +1547,11 @@ async function _fillWoj(){
   const limit = level === 'voivodeship' ? 16 : 400;
 
   const res = await fetchDim(level, _gMetric, 'desc', limit, 0);
+  if (seq !== _fillWojSeq) return;
   const rows = res.rows || [];
 
   const geojson = level === 'voivodeship' ? M.woj_geo : await ensurePowGeo();
+  if (seq !== _fillWojSeq) return;
 
   const push=()=>{ if(_wojMap&&_wojMap.getSource('gran-woj')) _setWojData(rows,geojson,_gMetric); };
   if(_wojSrcReady)push(); else if(_wojMap)_wojMap.once('load',push);
