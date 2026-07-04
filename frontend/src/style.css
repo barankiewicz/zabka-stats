@@ -527,6 +527,7 @@ canvas{display:block}
 .kr .mapcard{background:var(--surface);border:1px solid var(--axis);border-radius:16px;padding:14px;box-shadow:0 0 60px rgba(132,195,65,.16);position:relative}
 .kr #kr-map{width:100%;height:560px;border-radius:11px;background:#0a120a;z-index:0;position:relative;overflow:hidden}
 @media(max-width:880px){.kr #kr-map{height:420px}}
+@media(max-width:880px){.kr .rail{max-height:calc(420px + 60px)}}
 .kr .maptop{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:2px 4px 10px}
 .kr .maptop .t{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2)}
 .kr .btnrow{display:flex;gap:8px}
@@ -537,7 +538,7 @@ canvas{display:block}
 .kr .mapcap{font-family:var(--font-mono);font-size:11.5px;color:var(--muted);margin:10px 4px 2px;min-height:18px;line-height:1.5}
 .kr .mapcap b{color:var(--ink)}
 
-.kr .rail{background:var(--surface);border:1px solid var(--axis);border-radius:16px;padding:14px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.kr .rail{background:var(--surface);border:1px solid var(--axis);border-radius:16px;padding:14px;display:flex;flex-direction:column;align-self:start;max-height:calc(560px + 60px);overflow:hidden}
 .kr .rail-scroll{flex:1;min-height:0;overflow:auto;padding-right:4px;display:flex;flex-direction:column;gap:14px}
 .kr .rail-scroll::-webkit-scrollbar{width:6px}.kr .rail-scroll::-webkit-scrollbar-thumb{background:rgba(140,200,80,.25);border-radius:99px}
 .kr .grp-h{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted2);display:flex;align-items:center;gap:8px;margin:2px}
@@ -698,6 +699,7 @@ canvas{display:block}
   #bubble-stage{height:300px}
   .powiat-map{min-height:200px}
   .kr #kr-map{height:280px}
+  .kr .rail{max-height:calc(280px + 60px)}
   .ip-col{height:300px}
   #map-granular-woj{min-height:280px}
 
