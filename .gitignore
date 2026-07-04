@@ -51,6 +51,9 @@ data/input/
 data/*.json
 data/*.duckdb
 data/*.db
+data/geo/
+data/*.wal
+*.parquet
 
 # Logs
 logs/
@@ -69,4 +72,31 @@ backend.zip
 
 # Virtual environment
 .venv/
+
+# Test/coverage run artifacts
+.coverage
+dummy_cache.json
+frontend/coverage/
+frontend/test/perf-debug.json
+test-results/
+
+# Claude Code local traces and internal analysis (private, never shipped)
+.claude/
+.claude-code/
+claude_*.md
+transcripts/
+context_history/
+*.jsonl
+scratch/
+DEEP_ANALYSIS.md
+DESIGNER_BRIEF.md
+EDA_REPORT.md
+FINDINGS_SUMMARY.md
+QUALITY_SCORECARD.md
+ANALYSIS_PLAN.md
+research_prompt_*.txt
+dashboard_data.json
+zabka-dashboard.html
+*.tmp
+*.bak
 

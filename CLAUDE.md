@@ -214,29 +214,31 @@ only ships the app; nginx config changes must be copied to the VPS by hand and
 reloaded (`nginx -t` then `systemctl reload nginx`).
 
 **SSH hardening.** Key-only auth (`PasswordAuthentication no`), root login
-disabled (`PermitRootLogin no`), and sshd moved off the default port to **420**
-(set in `/etc/ssh/sshd_config.d/port.conf`; ufw allows 420, fail2ban's `sshd` jail
-is pinned to it). Log in with `ssh -p 420 <user>@<vps-ip>`.
+disabled (`PermitRootLogin no`), and sshd moved off the default port to a
+non-standard one (set in `/etc/ssh/sshd_config.d/port.conf`; ufw and fail2ban's
+`sshd` jail are pinned to the same port). The actual port number is kept out of
+this file since it's tracked in the repo - see the private ops notes for the
+live value.
 
-**Daily ETL via cron.** `crontab` runs `/home/zabka/cron_etl.sh` at 03:00
+**Daily ETL via cron.** `crontab` runs a cron script on the VPS at 03:00
 Europe/Warsaw. The script: `git pull --ff-only` (code arrives via a read-only
 deploy key, not a push-deploy), `pip install -r requirements.txt`, **stops the
 backend** (DuckDB is single-writer, so the service must release the lock before
 the ETL opens it read-write), runs `python -m backend.daily_etl`, **restarts the
 backend**, then emails a run status (success/failure + log tail) directly through
-the Resend API. Secrets (`RESEND_API_KEY`, `MAIL_TO`) live in `/home/zabka/.cron_env`
-(chmod 600), outside the repo.
+the Resend API. Secrets (`RESEND_API_KEY`, `MAIL_TO`) live in a chmod-600 env
+file outside the repo, on the VPS only.
 
 The status email is the only run-status channel - there is no GitHub Actions step
 in the daily loop. Code reaches the VPS by `git pull`, not by CI deploy.
 
 **Analytics: GoatCounter.** A systemd unit `goatcounter.service` runs
-`/usr/local/bin/goatcounter serve` (SQLite at `/home/zabka/goatcounter/goatcounter.sqlite3`,
-listening on `127.0.0.1:8081`). nginx proxies `/gc/` to it; GoatCounter is told about
-the path prefix via `-base-path /gc`. No cookies, no GDPR banner required. Dashboard:
-`https://zabkozbior.barankiewicz.dev/gc/` (login: `alicja.barankiewicz@formula5.com`,
-password in `/home/zabka/goatcounter/.gc_env`). The tracking script is inlined in
-`<head>` of both HTML pages and fires on every page load automatically.
+`/usr/local/bin/goatcounter serve` (SQLite database, listening on `127.0.0.1:8081`).
+nginx proxies `/gc/` to it; GoatCounter is told about the path prefix via
+`-base-path /gc`. No cookies, no GDPR banner required. Dashboard is reachable at
+`https://zabkozbior.barankiewicz.dev/gc/` - login credentials are stored outside
+the repo, not documented here. The tracking script is inlined in `<head>` of both
+HTML pages and fires on every page load automatically.
 
 ## Data format (JSON)
 
@@ -354,7 +356,13 @@ CLAUDE.md                - instructions for Claude Code + documentation (this fi
 
 ## License
 
-Internal use only.
+The codebase is MIT licensed - see the `LICENSE` file. That covers the code
+only: the ETL pipeline, backend, frontend, and tooling in this repo. It does
+not cover the underlying third-party data (Żabka store locator, GUS BDL,
+GUGiK, GDOŚ, InPost, GBIF), which stays subject to its original sources' own
+terms - see the FAQ in `README.md` for how that data is sourced and why
+serving it back out (dataset downloads, the dashboard itself) is considered
+fair use of public registers and a public locator feed.
 
 
 ---
