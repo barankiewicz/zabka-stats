@@ -234,6 +234,50 @@ To inspect the tables, views, and schemas using a graphical client:
 
 ---
 
-## License
+## 9. FAQ
+
+Answers to the questions that always show up once this gets shared somewhere.
+
+**Where does the data come from? Is scraping it legal?**
+Store locations come from Żabka's own public store locator JSON, the same file that
+powers the "find a store near you" map on zabka.pl. There's no login wall to get
+around and no rate limits being dodged, it's just a JSON file that anyone's browser
+can request. The ETL also drops any personal fields it finds in the raw source
+(sales zone director names, for example) before anything reaches the database. The
+economic and geographic enrichment comes from official Polish open registers, GUS
+BDL and GUGiK.
+
+**Why do the early years look so small on the growth chart?**
+Because the dataset is a snapshot of stores that are active right now, not a full
+historical register of every store that ever opened. Every date on the chart is a
+store's opening date, but a store that opened in 2005 and closed in 2019 is gone
+from this snapshot, and its opening date goes with it. The older a cohort, the more
+of it has closed over the years, so early years end up underrepresented. This is
+survivorship bias, and the chart carries the same note directly on it.
+
+**How is per-capita computed for cities with powiat rights (Warszawa etc.)?**
+GUS's population numbers for a powiat are land-only. They don't include the
+population of a city with powiat rights that sits inside its borders, so Warszawa's
+1.87M residents aren't counted into any powiat's population figure. Stores located
+in Warszawa, though, do get attributed to a host powiat for geographic joins, and
+dividing store count by that powiat's land-only population would inflate density by
+roughly 10x near any big city. The fix lives in two database views that add the
+missing city population back onto the host powiat and voivodeship before computing
+density, applied only where per-capita numbers are calculated. The base tables stay
+untouched and GUS-accurate.
+
+**What's the stack?**
+Litestar and DuckDB on the backend, Redis for caching, Vite with Chart.js and
+MapLibre GL on the frontend. Full breakdown in the sections above, or see the
+[methodology page](https://zabkozbior.barankiewicz.dev/methodology.html) for how
+the numbers themselves are calculated.
+
+**Do you work for Żabka?**
+No. This is an independent project, unaffiliated with and not endorsed by Żabka
+Polska. It's built entirely from public data.
+
+---
+
+## 10. License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
