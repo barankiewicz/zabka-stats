@@ -95,6 +95,7 @@ let _powGeo=null;
 let _ipTip=null;
 let _ipLabelMarkers=[];
 let _ipLevelLive='voivodeship';  // level actually drawn on the map (see _fillInpost)
+let _ipScale=null;              // ScaleControl instance, only when level === 'powiat'
 
 // Same ramp as GRAN (siec.js) - config.js's GRAN_FILL_STOPS - so a color
 // means the same thing on both maps. t=1 = highest ratio in view = lightest.
@@ -220,6 +221,23 @@ function _updateIpMapMode(){
   }
 }
 
+// Scale bar (km) on the InPost map, but only at the powiat level. Same
+// reasoning as the GRAN map: at the voivodeship level the polygons are too
+// coarse for a "200 km" ruler to add information; at powiat it actually
+// anchors the visual size of each blob.
+function _updateIpScale(){
+  if(!_ipMap)return;
+  const want = _ipLevelLive === 'powiat';
+  const has = !!_ipScale;
+  if(want && !has){
+    _ipScale = new maplibregl.ScaleControl({ maxWidth: 100, unit: 'metric' });
+    _ipMap.addControl(_ipScale, 'bottom-left');
+  } else if(!want && has){
+    _ipMap.removeControl(_ipScale);
+    _ipScale = null;
+  }
+}
+
 async function _buildInpostMap(el){
   try {
     _ipMap=createMap('map-inpost',{
@@ -299,6 +317,7 @@ async function _buildInpostMap(el){
       });
       
       fitPoland(_ipMap,4);
+      _updateIpScale();
       _ipSrcReady=true;
     });
   } catch (e) {
@@ -335,6 +354,7 @@ async function _fillInpost(){
   // since almost no city name matches a powiat name).
   const level = (_dbLevel === 'powiat') ? 'powiat' : 'voivodeship';
   _ipLevelLive = level;
+  if (_ipSrcReady) _updateIpScale();
   let data;
   if (level === 'voivodeship') {
     data = M.inpost_vs_zabka || [];
