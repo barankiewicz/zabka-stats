@@ -23,7 +23,7 @@ WorkingDirectory=/home/zabka/zabka-stats
 EnvironmentFile=-/home/zabka/.env
 
 # Core settings
-Environment=ZABKA_DB=/home/zabka/zabka-dashboard/data/zabka.duckdb
+Environment=ZABKA_DB=/home/zabka/zabka-stats/data/zabka.duckdb
 Environment=REDIS_SOCKET=/run/redis/redis-server.sock
 
 # Run uvicorn directly so --workers is honoured.
