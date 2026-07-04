@@ -882,9 +882,12 @@ Card (`summary_large_image`), and JSON-LD structured data. `index.html` carries 
 carries its own `FAQPage` schema mirroring its visible Q&A. `index.html` also links out to
 `faq.html` via a small nav link next to the language switcher (`.nav-faq-link`), and
 `methodology.html`/`faq.html` cross-link each other. The OG image (`/og.png`, 1200x630, dark
-theme) lives in `frontend/public/` and is copied to `dist/` by Vite. `robots.txt` and
-`sitemap.xml` also live in `frontend/public/` (Vite copies both to dist root); `faq.html` is
-listed in the sitemap.
+theme: a glowing dot map of every active store plus the headline store count) lives in
+`frontend/public/` and is copied to `dist/` by Vite. It's a static file, not rendered per
+request - regenerate it by hand with `python data/tools/generate_og_image.py` whenever the
+brand visuals change (it does not need to track the daily ETL; the store count only needs to
+be roughly right). `robots.txt` and `sitemap.xml` also live in `frontend/public/` (Vite
+copies both to dist root); `faq.html` is listed in the sitemap.
 
 **FAQ page (`faq.html`).** PL-only static content (same convention as `methodology.html` -
 no JS, no language toggle). Three sections: basic network facts (count, most/farthest,
