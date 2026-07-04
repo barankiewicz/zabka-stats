@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "python scripts/bake_summary.py && vite build",
+    "bake": "python scripts/bake_summary.py",
     "preview": "vite preview",
     "test": "vitest run"
   },

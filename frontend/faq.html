@@ -267,6 +267,14 @@
   import { translateDOM, setLang, getLang } from '/src/i18n.js';
   import { M } from '/src/state.js';
 
+  // Apply the build-time baked summary (if any) before the first translateDOM()
+  // pass, so {{STAT_*}} placeholders resolve on first paint with no {{TOKEN}}
+  // flash on fast refresh. The runtime fetch below will overwrite M.summary
+  // with the freshest API values once they land. No-op in dev (no bake).
+  if (window.__BAKED_SUMMARY) {
+    M.summary = window.__BAKED_SUMMARY;
+  }
+
   // Strip any literal {{...}} tokens still in the DOM. Called after every
   // translateDOM() pass that might have run before M.summary was populated,
   // so the user never sees raw placeholder syntax. Cheap and safe to call

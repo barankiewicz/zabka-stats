@@ -226,6 +226,15 @@ if (resolvedLang !== 'pl' && !_urlLang) {
   writeLangToURL(resolvedLang);
 }
 
+// Apply the build-time baked summary (if any) before the first translateDOM()
+// pass, so {{STAT_*}} placeholders resolve on first paint with no {{TOKEN}}
+// flash on fast refresh. The runtime loadCore() below will overwrite M.summary
+// with the freshest API values once they land. A no-op in dev (no bake) and
+// on a build that skipped the bake script.
+if (window.__BAKED_SUMMARY) {
+  M.summary = window.__BAKED_SUMMARY;
+}
+
 // Translate DOM immediately to the resolved language (URL override, else Polish default)
 translateDOM();
 
