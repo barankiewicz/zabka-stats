@@ -3,6 +3,8 @@
 # GET /fakt/{slug}/og.png (per-fact OG preview image). Zero coverage existed
 # for this feature before this file.
 
+import html
+
 import pytest
 from litestar.testing import TestClient
 
@@ -42,6 +44,13 @@ def test_fact_page_returns_html_with_injected_title(client, slug):
     assert f"<title>{fact['title']}" in response.text
     # Confirm it's not just the generic homepage title still sitting there.
     assert "<title>Żabkozbiór – interaktywny atlas sieci w Polsce</title>" not in response.text
+    # og:description/twitter:description carry a trailing data-t-content
+    # attribute in the built HTML (for the client-side i18n system) - a past
+    # regression here silently left the generic homepage description in
+    # place because the injection regex didn't tolerate that extra
+    # attribute. Assert the fact's own description actually landed.
+    assert f'content="{html.escape(fact["description"], quote=True)}"' in response.text
+    assert 'og:description content="Gdzie, kiedy i jak rosła sieć' not in response.text
 
 
 def test_fact_page_unknown_slug_returns_404(client):

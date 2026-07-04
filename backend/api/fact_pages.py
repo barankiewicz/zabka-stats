@@ -273,29 +273,37 @@ def _inject_meta(html_str: str, slug: str, fact: dict, lang: str) -> str:
     url = html.escape(f"{BASE_URL}/fakt/{slug}{lang_suffix}", quote=True)
     image_url = html.escape(f"{BASE_URL}/fakt/{slug}/og.png{lang_suffix}", quote=True)
 
+    # [^>]* after the closing quote (rather than requiring content="..." to be
+    # immediately followed by ">") tolerates trailing attributes like
+    # data-t-content="..." that the client-side i18n system adds to several of
+    # these same tags - without it, re.sub finds zero matches and silently
+    # leaves the generic homepage copy in place (count=1 makes a non-match a
+    # no-op, not an error), which is exactly what happened before this fix:
+    # og:title/og:description/twitter:*/og:image:alt kept the homepage's text
+    # instead of the fact's own, defeating the point of a per-fact preview.
     html_str = _tag_sub(html_str, r'<html lang="[^"]*">', f'<html lang="{lang}">')
     html_str = _tag_sub(html_str, r"<title>.*?</title>", f"<title>{title}</title>")
-    html_str = _tag_sub(html_str, r'<meta name="description" content="[^"]*">',
+    html_str = _tag_sub(html_str, r'<meta name="description" content="[^"]*"[^>]*>',
                      f'<meta name="description" content="{description}">')
-    html_str = _tag_sub(html_str, r'<link rel="canonical" href="[^"]*">',
+    html_str = _tag_sub(html_str, r'<link rel="canonical" href="[^"]*"[^>]*>',
                      f'<link rel="canonical" href="{url}">')
-    html_str = _tag_sub(html_str, r'<meta property="og:url" content="[^"]*">',
+    html_str = _tag_sub(html_str, r'<meta property="og:url" content="[^"]*"[^>]*>',
                      f'<meta property="og:url" content="{url}">')
-    html_str = _tag_sub(html_str, r'<meta property="og:title" content="[^"]*">',
+    html_str = _tag_sub(html_str, r'<meta property="og:title" content="[^"]*"[^>]*>',
                      f'<meta property="og:title" content="{title}">')
-    html_str = _tag_sub(html_str, r'<meta property="og:description" content="[^"]*">',
+    html_str = _tag_sub(html_str, r'<meta property="og:description" content="[^"]*"[^>]*>',
                      f'<meta property="og:description" content="{description}">')
-    html_str = _tag_sub(html_str, r'<meta property="og:image" content="[^"]*">',
+    html_str = _tag_sub(html_str, r'<meta property="og:image" content="[^"]*"[^>]*>',
                      f'<meta property="og:image" content="{image_url}">')
-    html_str = _tag_sub(html_str, r'<meta property="og:image:alt" content="[^"]*">',
+    html_str = _tag_sub(html_str, r'<meta property="og:image:alt" content="[^"]*"[^>]*>',
                      f'<meta property="og:image:alt" content="{title}">')
-    html_str = _tag_sub(html_str, r'<meta name="twitter:title" content="[^"]*">',
+    html_str = _tag_sub(html_str, r'<meta name="twitter:title" content="[^"]*"[^>]*>',
                      f'<meta name="twitter:title" content="{title}">')
-    html_str = _tag_sub(html_str, r'<meta name="twitter:description" content="[^"]*">',
+    html_str = _tag_sub(html_str, r'<meta name="twitter:description" content="[^"]*"[^>]*>',
                      f'<meta name="twitter:description" content="{description}">')
-    html_str = _tag_sub(html_str, r'<meta name="twitter:image" content="[^"]*">',
+    html_str = _tag_sub(html_str, r'<meta name="twitter:image" content="[^"]*"[^>]*>',
                      f'<meta name="twitter:image" content="{image_url}">')
-    html_str = _tag_sub(html_str, r'<meta name="twitter:image:alt" content="[^"]*">',
+    html_str = _tag_sub(html_str, r'<meta name="twitter:image:alt" content="[^"]*"[^>]*>',
                      f'<meta name="twitter:image:alt" content="{title}">')
     return html_str
 
