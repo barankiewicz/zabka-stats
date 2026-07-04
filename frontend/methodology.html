@@ -80,7 +80,8 @@
     .brand{display:flex;align-items:center;gap:8px;font-family:var(--font-display);font-weight:700;font-size:15px;letter-spacing:-.02em;white-space:nowrap;cursor:pointer;text-decoration:none;color:var(--ink)}
     .brand:hover .brand-dot{box-shadow:0 0 18px var(--green)}
     .brand-dot{width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);flex-shrink:0;transition:box-shadow .3s}
-    .nav-link{color:var(--muted);text-decoration:none;font-size:13px;margin-left:auto;border-bottom:1px solid rgba(147,164,135,.3);transition:color .2s,border-color .2s}
+    .nav-link{color:var(--muted);text-decoration:none;font-size:13px;border-bottom:1px solid rgba(147,164,135,.3);transition:color .2s,border-color .2s}
+    .nav-links{margin-left:auto;display:flex;gap:20px}
     .nav-link:hover{color:var(--green);border-bottom-color:var(--green)}
 
     .page{max-width:720px;margin:0 auto;padding:56px 24px 80px;position:relative;z-index:1}
@@ -132,7 +133,10 @@
       <span class="brand-dot"></span>
       Żabka w liczbach
     </a>
-    <a href="/" class="nav-link">Powrót na dashboard</a>
+    <div class="nav-links">
+      <a href="/faq.html" class="nav-link">FAQ</a>
+      <a href="/" class="nav-link">Powrót na dashboard</a>
+    </div>
   </div>
 </nav>
 

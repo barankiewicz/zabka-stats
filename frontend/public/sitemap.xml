@@ -13,6 +13,12 @@
     <priority>0.5</priority>
   </url>
   <url>
+    <loc>https://zabkozbior.barankiewicz.dev/faq.html</loc>
+    <lastmod>2026-07-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://zabkozbior.barankiewicz.dev/fakt/pustka-bieszczadzka</loc>
     <lastmod>2026-07-03</lastmod>
     <changefreq>weekly</changefreq>

@@ -304,8 +304,13 @@ backend/                 - code + API (chapter 2)
 frontend/                - Vite SPA, modular ES + Chart.js + MapLibre GL + D3 (chapter 4)
   index.html             - DOM scaffold + <head> (SEO, fonts); loads /src/main.js
   methodology.html       - methodology page
+  faq.html                - FAQ page: basic facts + a dedicated "common misconceptions"
+                           section (correlation vs causation, survivorship bias, observer
+                           bias, raw-count vs per-capita) - PL-only static content, same
+                           convention as methodology.html; FAQPage JSON-LD lives here
   src/                   - main.js (tab router, lazy chunks), data.js (fetch buckets),
-                           config.js (colors/plugins), filter.js, state.js, utils.js, style.css
+                           config.js (colors/plugins), filter.js, state.js, utils.js, style.css,
+                           export-image.js (PNG export: canvas compositing + clipboard/download)
   src/tabs/              - one module per tab: siec.js + spoleczenstwo.js (lazy-loaded),
                            plus econ.js, edge.js, kraniec.js, bubble.js (bundled into their parent)
   public/                - og.png, robots.txt, sitemap.xml (copied to dist/ by Vite)
@@ -869,13 +874,31 @@ twins and amphibian facts now live inside SIEĆ; the econ residual maps live ins
 POLSKA. There is no longer a global header KPI strip — the hero count-up carries the
 headline total (`renderKPI` is a guarded no-op kept for the cross-filter callback).
 
-**SEO.** Both HTML pages (`index.html`, `methodology.html`) carry a full `<head>` stack:
-unique `<title>` and `<meta name="description">`, `<link rel="canonical">`, Open Graph
-(`og:title`, `og:description`, `og:image`, `og:type`), Twitter Card (`summary_large_image`),
-and JSON-LD structured data (`WebSite` + `Dataset` schema — original data is a real
-candidate for Google rich results). The OG image (`/og.png`, 1200x630, dark theme) lives
-in `frontend/public/` and is copied to `dist/` by Vite. `robots.txt` and `sitemap.xml`
-also live in `frontend/public/` (Vite copies both to dist root).
+**SEO.** All three static HTML pages (`index.html`, `methodology.html`, `faq.html`) carry a
+full `<head>` stack: unique `<title>` and `<meta name="description">`, `<link
+rel="canonical">`, Open Graph (`og:title`, `og:description`, `og:image`, `og:type`), Twitter
+Card (`summary_large_image`), and JSON-LD structured data. `index.html` carries `WebSite` +
+`Dataset` schema (original data is a real candidate for Google rich results); `faq.html`
+carries its own `FAQPage` schema mirroring its visible Q&A. `index.html` also links out to
+`faq.html` via a small nav link next to the language switcher (`.nav-faq-link`), and
+`methodology.html`/`faq.html` cross-link each other. The OG image (`/og.png`, 1200x630, dark
+theme) lives in `frontend/public/` and is copied to `dist/` by Vite. `robots.txt` and
+`sitemap.xml` also live in `frontend/public/` (Vite copies both to dist root); `faq.html` is
+listed in the sitemap.
+
+**FAQ page (`faq.html`).** PL-only static content (same convention as `methodology.html` -
+no JS, no language toggle). Three sections: basic network facts (count, most/farthest,
+yearly growth - all also on the dashboard, just phrased as search-friendly questions),
+where the data comes from (cross-links `methodology.html` for the full pipeline), and a
+"Częste błędne wnioski" (common misconceptions) section that exists specifically to head off
+misreadings of the dashboard's own charts - correlation vs causation on the ECON residual
+maps, GBIF observer bias behind the amphibian "hotspot", survivorship bias in the 1.1 growth
+chart, and the raw-count-vs-per-capita trap that GRAN's metric switcher already exists to
+solve. Previously this was a short 4-question section embedded in `index.html` with numbers
+injected by `main.js` at render time; moved to its own page and expanded because a live
+dashboard section isn't the right shape for "long and explanatory," and static content on a
+dedicated URL is also just better for the actual SEO goal (a page that can rank for these
+queries on its own).
 
 **Shareable fact pages.** Five standout facts (the Bieszczady void, the loner store,
 oldest active Żabka, the frog-street coincidence, the neighbor-distance median) each get

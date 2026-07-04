@@ -2,10 +2,10 @@ import Chart from './chartjs-setup.js';
 import './style.css';
 import { annotPlugin, barValueLabels, C, STATE } from './config.js';
 import { M, MAPS, RENDERED } from './state.js';
-import { getFont, destroyChart, heroCount, fmtLastUpdated, fmt } from './utils.js';
+import { getFont, destroyChart, heroCount, fmtLastUpdated } from './utils.js';
 import { setFilter, clearFilter, registerFilterCallbacks } from './filter.js';
-import { loadCore, loadTabData, loadSiec } from './data.js';
-import { translateDOM, setLang, t, getLang } from './i18n.js';
+import { loadCore, loadTabData } from './data.js';
+import { translateDOM, setLang, t } from './i18n.js';
 import { getMapLibreCanvas, composeExportCanvas, canvasToPngBlob, downloadBlob, copyBlobToClipboard } from './export-image.js';
 
 
@@ -186,11 +186,6 @@ document.addEventListener('DOMContentLoaded',()=>{
         document.querySelectorAll('.export-toolbar .export-btn').forEach((b,i) => {
           b.setAttribute('aria-label', t(i%2===0 ? 'export_copy_aria' : 'export_download_aria'));
         });
-        // FAQ answers are templates filled with t() at render time (see
-        // renderFAQCore/renderFAQCities below) - re-run so they pick up the
-        // new language, same reasoning as the copy-link aria-label above.
-        renderFAQCore();
-        renderFAQCities();
         // Clear rendered tab state and re-render
         RENDERED.delete(STATE.tab);
         renderTab(STATE.tab);
@@ -501,40 +496,6 @@ function initExportToolbars(){
 }
 initExportToolbars();
 
-// S9: SEO FAQ answers. The 3 core-bucket answers (total, farthest, yearly)
-// come from loadCore(); "most stores" needs top_cities, which lives in the
-// SIEC-specific bucket - siec is the default tab so loadSiec() resolves on
-// every normal pageview anyway, just slightly later than core. Each setter
-// only touches its own paragraph, so a slow/failed bucket leaves the other
-// answers' baked-in HTML fallback in place rather than blanking everything.
-function setFAQAnswer(id, text){
-  const el = document.getElementById(id);
-  if(el && text) el.textContent = text;
-}
-function renderFAQCore(){
-  const s = M.summary || {};
-  const s3 = M.section3_rare || {};
-  const ng = M.network_growth || [];
-  if(s.total_active){
-    const date = (fmtLastUpdated(s.last_updated) || '').split(' ')[0];
-    setFAQAnswer('faq-a-total', t('faq_a_total')
-      .replace('{total}', fmt(s.total_active)).replace('{cities}', fmt(s.cities_count||0)).replace('{date}', date || '-'));
-  }
-  const voidFact = s3.void;
-  if(voidFact && voidFact.value){
-    const km = getLang() === 'en' ? String(voidFact.value) : String(voidFact.value).replace('.', ',');
-    setFAQAnswer('faq-a-farthest', t('faq_a_farthest').replace('{km}', km));
-  }
-  if(ng.length){
-    const peak = ng.reduce((a,b)=> (b.new_stores>a.new_stores?b:a), ng[0]);
-    setFAQAnswer('faq-a-yearly', t('faq_a_yearly').replace('{year}', peak.year).replace('{count}', fmt(peak.new_stores)));
-  }
-}
-function renderFAQCities(){
-  const top = (M.top_cities||[])[0];
-  if(top) setFAQAnswer('faq-a-most', t('faq_a_most').replace('{city}', top.city).replace('{count}', fmt(top.cnt)));
-}
-
 // SIEC is the default tab. loadCore() fetches only what SIEC needs for first
 // paint; per-tab heavy payloads (spoleczenstwo economics etc.) load on first
 // click. renderTab() itself adds 'siec' to RENDERED once it actually succeeds
@@ -557,11 +518,5 @@ loadCore()
       const siecEl=document.getElementById('tab-siec');
       if(siecEl)resetTabReveals(siecEl);
     },120);
-    renderFAQCore();
   })
   .catch(err=>console.error('loadCore failed:',err));
-
-// "Most stores" FAQ answer needs top_cities (SIEC-bucket only). loadSiec()
-// caches its promise, so this is a no-op await on the fetch renderSiec()
-// already triggers for the default tab, not a second request.
-loadSiec().then(renderFAQCities).catch(()=>{});

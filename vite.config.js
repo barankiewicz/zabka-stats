@@ -23,7 +23,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'frontend/index.html'),
         methodology: resolve(__dirname, 'frontend/methodology.html'),
-
+        faq: resolve(__dirname, 'frontend/faq.html'),
       },
     },
   },
