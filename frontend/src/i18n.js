@@ -981,11 +981,11 @@ export function t(key) {
   if (M && M.summary) {
     txt = txt.replace(/\{\{([^}]+)\}\}/g, (match, token) => {
       const field = token.toLowerCase().replace(/^stat_/, '');
+      if (field === 'total_stores_words') {
+        return currentLang === 'en' ? 'thirteen thousand' : 'trzynaście tysięcy';
+      }
       const val = M.summary[field];
       if (val !== undefined && val !== null) {
-        if (field === 'total_stores_words') {
-          return currentLang === 'en' ? 'thirteen thousand' : 'trzynaście tysięcy';
-        }
         if (field === 'date_modified') {
           return val.slice(0, 10);
         }
