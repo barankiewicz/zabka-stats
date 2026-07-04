@@ -99,4 +99,8 @@ dashboard_data.json
 zabka-dashboard.html
 *.tmp
 *.bak
+CLAUDE.md
 
+.pytest_cache/
+.ruff_cache/
+.htmlcov/
