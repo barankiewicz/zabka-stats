@@ -104,7 +104,7 @@ export function renderSiec(){
     wireCountUp(root);
   }
 
-  return Promise.all([pBubble, p1, p2, p3, p4, p5]);
+  return Promise.all([pBubble, p1, p2, p3, p4]);
 }
 
 // This module is always dynamic-import()ed well after the page's own
