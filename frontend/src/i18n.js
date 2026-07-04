@@ -48,9 +48,10 @@ export const translations = {
 
     // Growth Chart
     chart_growth_title: "When stores that are still active opened",
-    chart_growth_sub: "Bars: new stores in a year (left axis). Line: year-over-year change % (hover for value).",
+    chart_growth_sub: "Bars: new stores in a year (left axis). Line: year-over-year change % (right axis).",
     chart_growth_legend_new: "New stores",
     chart_growth_legend_yoy: "YoY change",
+    chart_growth_yoy_axis: "YoY change (%)",
     chart_growth_survival_note: "Survival bias: active stores only - closed stores are excluded from the dataset. Early years (1998-2010) are underrepresented. 218 stores without opening dates are omitted.",
 
     // Origins Card
@@ -453,9 +454,10 @@ export const translations = {
 
     // Growth Chart
     chart_growth_title: "Kiedy otwierano sklepy",
-    chart_growth_sub: "Słupki: nowe sklepy w roku (oś po lewej). Linia: zmiana rok do roku [%]",
+    chart_growth_sub: "Słupki: nowe sklepy w roku (oś po lewej). Linia: zmiana rok do roku, % (oś po prawej)",
     chart_growth_legend_new: "Nowe sklepy",
     chart_growth_legend_yoy: "Zmiana r/r",
+    chart_growth_yoy_axis: "Zmiana r/r (%)",
     chart_growth_survival_note: "Bias przeżywalności: tylko aktywne sklepy - zamknięte wypadły z datasetu. Wczesne lata (1998-2010) niedoszacowane. 218 sklepów bez daty pominięto.",
 
     // Origins Card
