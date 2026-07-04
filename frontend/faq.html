@@ -265,6 +265,19 @@
 
 <script type="module">
   import { translateDOM, setLang, getLang } from '/src/i18n.js';
+  import { M } from '/src/state.js';
+
+  // Strip any literal {{...}} tokens still in the DOM. Called after every
+  // translateDOM() pass that might have run before M.summary was populated,
+  // so the user never sees raw placeholder syntax. Cheap and safe to call
+  // repeatedly - it's a no-op when there are no unresolved tokens.
+  function stripUnresolvedPlaceholders() {
+    document.querySelectorAll('[data-t]').forEach(el => {
+      if (el.innerHTML && el.innerHTML.includes('{{')) {
+        el.innerHTML = el.innerHTML.replace(/\{\{[^}]+\}\}/g, '—');
+      }
+    });
+  }
 
   // Get lang from URL parameter or localStorage
   const p = new URLSearchParams(window.location.search).get('lang');
@@ -272,32 +285,51 @@
   const lang = p || storedLang || 'pl';
 
   setLang(lang);
-  translateDOM();
 
-  // Wire up language switcher
-  const langToggle = document.getElementById('lang-toggle');
-  if (langToggle) {
-    langToggle.querySelectorAll('.lang-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
-    });
-
-    langToggle.addEventListener('click', e => {
-      const btn = e.target.closest('.lang-btn');
-      if (btn) {
-        const newLang = btn.getAttribute('data-lang');
-        setLang(newLang);
-        localStorage.setItem('lang', newLang);
-
-        // Update URL param without reload
-        const url = new URL(window.location.href);
-        if (newLang === 'pl') url.searchParams.delete('lang');
-        else url.searchParams.set('lang', newLang);
-        window.history.replaceState(null, '', url.pathname + url.search + url.hash);
-
-        translateDOM();
+  // Fetch the live summary so {{STAT_*}} placeholders in FAQ copy can resolve.
+  // Without this they'd be left literal (t() only interpolates when M.summary
+  // is populated). The summary is tiny (~2 KB) and the FAQ copy reads like
+  // ghostwriting if the numbers stay as placeholders, so just await it.
+  (async () => {
+    let summaryOk = false;
+    try {
+      const r = await fetch('/api/stats/summary');
+      if (r.ok) {
+        M.summary = await r.json();
+        summaryOk = true;
       }
-    });
-  }
+    } catch (_) { /* offline / 5xx - placeholders will be stripped */ }
+
+    translateDOM();
+    if (!summaryOk) stripUnresolvedPlaceholders();
+
+    // Wire up language switcher
+    const langToggle = document.getElementById('lang-toggle');
+    if (langToggle) {
+      langToggle.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
+      });
+
+      langToggle.addEventListener('click', e => {
+        const btn = e.target.closest('.lang-btn');
+        if (btn) {
+          const newLang = btn.getAttribute('data-lang');
+          setLang(newLang);
+          localStorage.setItem('lang', newLang);
+
+          // Update URL param without reload
+          const url = new URL(window.location.href);
+          if (newLang === 'pl') url.searchParams.delete('lang');
+          else url.searchParams.set('lang', newLang);
+          window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+
+          translateDOM();
+          // If the summary never loaded, re-strip after the language swap.
+          if (!summaryOk) stripUnresolvedPlaceholders();
+        }
+      });
+    }
+  })();
 </script>
 </body>
 </html>

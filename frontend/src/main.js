@@ -633,6 +633,11 @@ if(document.fonts && document.fonts.ready) document.fonts.ready.then(recheckTool
 // via the tab button.
 loadCore()
   .then(()=>{
+    // Re-translate the static [data-t] elements now that M.summary is populated.
+    // The first translateDOM() at the top of this file ran before loadCore, so
+    // any {{STAT_*}} placeholder was left literal (no M.summary to interpolate
+    // from). Walking the DOM again is cheap and idempotent.
+    translateDOM();
     // Count up the hero number straight away, from the tiny core bucket - the
     // hero is the LCP element, so painting it here (not after the lazy siec chunk
     // loads and runs a 2s animation) is what pulls mobile LCP down.

@@ -989,6 +989,13 @@ export function t(key) {
         }
         return val;
       }
+      // Unresolved placeholder - either a typo in the {{...}} token, a missing
+      // key in stats_compiler.compile_live_stats(), or a page that forgot to
+      // load M.summary before translating. Warn so it surfaces in the console
+      // instead of silently rendering as literal {{TOKEN}}.
+      if (typeof console !== 'undefined') {
+        console.warn(`i18n: unresolved placeholder {{${token}}} for key "${key}" (M.summary.${field} is ${val === undefined ? 'undefined' : 'null'})`);
+      }
       return match;
     });
   }
