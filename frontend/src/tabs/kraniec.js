@@ -422,6 +422,13 @@ async function buildMap() {
     showDots(null);
     document.querySelectorAll('#kr-rail .item').forEach(it => it.classList.remove('active'));
     document.querySelectorAll('.kr-fact-tile').forEach(it => it.classList.remove('active'));
+    // On mobile a reset tap right after a pinch can land while the pinch's own
+    // kinetic-zoom easing is still running, and land mid-flight against a
+    // container size MapLibre cached before the page finished settling - stop
+    // any in-progress camera animation and re-measure the container before
+    // starting the new one, or the fitBounds zoom can lose to the leftover one.
+    _krMap.stop();
+    _krMap.resize();
     fitPoland(_krMap, 4, { duration: RM ? 0 : 1400 });   // same full-Poland view as initial load
     if (cap) cap.textContent = t('kr_cap_default');
   };
