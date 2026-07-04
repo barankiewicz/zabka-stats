@@ -451,6 +451,7 @@ def load_to_duckdb(con, rows: list, meta: dict):
             opening_hours_monsat, opening_hours_sun, first_opening_date,
             is_visible, is_new_month, is_new_two_weeks,
             elevation_meters, is_in_nature_park, nature_park_id,
+            nearest_neighbor_distance_meters,
             amphibian_occurrences_5km, nearest_amphibian_km,
             gmina_id, miasto_id,
             created_at, deleted_at

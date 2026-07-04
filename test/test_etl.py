@@ -1,3 +1,4 @@
+import os
 import pytest
 import duckdb
 from unittest.mock import patch, mock_open, MagicMock
@@ -310,6 +311,66 @@ def test_load_to_duckdb_integration():
     assert deleted[1] is not None  # Has deleted_at timestamp
 
 
+def test_load_to_duckdb_truncation_guard():
+    # A snapshot that comes back with far fewer stores than what's already
+    # active should be rejected rather than soft-deleting most of the table -
+    # guards against a partial/broken upstream response wiping history.
+    con = duckdb.connect(":memory:")
+    _run_all_ddl(con)
+
+    rows_full = [{"store_id": str(i), "latitude": 50.0, "longitude": 20.0} for i in range(10)]
+    io.load_to_duckdb(con, rows_full, {"source_date": "2026-06-15"})
+    active_before = con.execute("SELECT COUNT(*) FROM locations WHERE deleted_at IS NULL").fetchone()[0]
+    assert active_before == 10
+
+    rows_truncated = [{"store_id": str(i), "latitude": 50.0, "longitude": 20.0} for i in range(5)]  # 50% < 70% threshold
+    with pytest.raises(ValueError, match="safety guard"):
+        io.load_to_duckdb(con, rows_truncated, {"source_date": "2026-06-16"})
+
+    # Nothing should have been soft-deleted by the rejected load.
+    active_after = con.execute("SELECT COUNT(*) FROM locations WHERE deleted_at IS NULL").fetchone()[0]
+    assert active_after == 10
+
+
+def test_per_capita_effective_population_views():
+    # v_powiat_pop_eff / v_voiv_pop_eff add a city-with-powiat-rights' own
+    # population back onto its host land powiat/voivodeship before any
+    # per-capita query divides by it - otherwise stores physically in a big
+    # city (attributed to a host powiat for geographic joins) get divided by
+    # that powiat's land-only population and density inflates ~10x. See
+    # CLAUDE.md section 3, "Per-capita denominator for cities with powiat
+    # rights". Uses IDs well above the ~3100 seeded rows to avoid collisions.
+    con = duckdb.connect(":memory:")
+    _run_all_ddl(con)
+
+    con.execute("""
+        INSERT INTO administrative_division (id, level, name, population, gus_id, voivodeship_id, powiat_id)
+        VALUES
+            (900001, 1, 'testowe', 100000, NULL, NULL, NULL),
+            (900002, 2, 'testowy', 5000, NULL, 900001, NULL),
+            (900003, 2, 'bez_miasta', 3000, NULL, 900001, NULL),
+            (900004, 4, 'Testograd', 200000, '000000061000', 900001, 900002)
+    """)
+
+    # Powiat hosting a city with powiat rights: land population + city population.
+    hosting = con.execute(
+        "SELECT population FROM v_powiat_pop_eff WHERE powiat_id = 900002"
+    ).fetchone()
+    assert hosting[0] == 5000 + 200000
+
+    # Powiat with no city attached: population unchanged.
+    plain = con.execute(
+        "SELECT population FROM v_powiat_pop_eff WHERE powiat_id = 900003"
+    ).fetchone()
+    assert plain[0] == 3000
+
+    # Voivodeship: land population + every hosted city's population.
+    voiv = con.execute(
+        "SELECT population FROM v_voiv_pop_eff WHERE voivodeship_id = 900001"
+    ).fetchone()
+    assert voiv[0] == 100000 + 200000
+
+
 def test_with_retries():
     # Succeeds on first attempt
     fn = MagicMock(return_value="success")
@@ -376,7 +437,7 @@ def test_load_geojson(mock_makedirs, mock_exists, mock_get):
     with patch("builtins.open", m_open):
         res = io.load_geojson("http://dummy-url", "local.geojson")
         assert res == {"type": "FeatureCollection", "features": []}
-        m_open.assert_called_with("data/geo/local.geojson", "w", encoding="utf-8")
+        m_open.assert_called_with(os.path.join(io.GEO_DIR, "local.geojson"), "w", encoding="utf-8")
 
 
 def test_find_farthest_point():
