@@ -968,7 +968,9 @@ export function setLang(lang) {
 }
 
 export function t(key) {
-  let txt = translations[currentLang]?.[key] || translations['en']?.[key] || translations['pl']?.[key] || key;
+  const v = translations[currentLang]?.[key] ?? translations['en']?.[key] ?? translations['pl']?.[key] ?? key;
+  if (typeof v !== 'string') return v;
+  let txt = v;
   if (M && M.summary) {
     txt = txt.replace(/\{\{([^}]+)\}\}/g, (match, token) => {
       const field = token.toLowerCase().replace(/^stat_/, '');
