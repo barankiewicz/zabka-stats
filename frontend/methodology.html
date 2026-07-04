@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title data-t="meth_title">Metodyka i źródła danych – Żabka w liczbach</title>
+  <title data-t="meth_title">Metodyka i źródła danych - Żabkozbiór</title>
   <meta name="description" content="Skąd pochodzą dane o sieci Żabka: lokalizator sklepów, GUS BDL, GBIF, InPost i GUGiK. Pełna metodyka, definicje i znane ograniczenia." data-t-content="meth_meta_desc">
   <meta name="robots" content="index,follow">
   <link rel="canonical" href="https://zabkozbior.barankiewicz.dev/methodology.html">
@@ -20,8 +20,8 @@
   <meta property="og:site_name" content="Żabkozbiór" data-t-content="brand_title">
   <meta property="og:locale" content="pl_PL">
   <meta property="og:url" content="https://zabkozbior.barankiewicz.dev/methodology.html">
-  <meta property="og:title" content="Metodyka i źródła danych – Żabka w liczbach" data-t-content="meth_title">
-  <meta property="og:description" content="Skąd pochodzą dane o sieci Żabka i jak je liczymy. Źródła, definicje i znane ograniczenia." data-t-content="meth_meta_desc">
+  <meta property="og:title" content="Metodyka i źródła danych - Żabkozbiór" data-t-content="meth_title">
+  <meta property="og:description" content="Skąd pochodzą dane o sieci Żabka: lokalizator sklepów, GUS BDL, GBIF, InPost i GUGiK. Pełna metodyka, definicje i znane ograniczenia." data-t-content="meth_meta_desc">
   <meta property="og:image" content="https://zabkozbior.barankiewicz.dev/og.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -29,8 +29,8 @@
 
   <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Metodyka i źródła danych – Żabka w liczbach" data-t-content="meth_title">
-  <meta name="twitter:description" content="Skąd pochodzą dane o sieci Żabka i jak je liczymy. Źródła, definicje i znane ograniczenia." data-t-content="meth_meta_desc">
+  <meta name="twitter:title" content="Metodyka i źródła danych - Żabkozbiór" data-t-content="meth_title">
+  <meta name="twitter:description" content="Skąd pochodzą dane o sieci Żabka: lokalizator sklepów, GUS BDL, GBIF, InPost i GUGiK. Pełna metodyka, definicje i znane ograniczenia." data-t-content="meth_meta_desc">
   <meta name="twitter:image" content="https://zabkozbior.barankiewicz.dev/og.png">
   <meta name="twitter:image:alt" content="Metodyka danych Żabka w liczbach – źródła, definicje i ograniczenia" data-t-content="meth_og_image_alt">
 
@@ -40,7 +40,7 @@
   {
     "@context": "https://schema.org",
     "@type": "Article",
-    "headline": "Metodyka i źródła danych – Żabka w liczbach",
+    "headline": "Metodyka i źródła danych - Żabkozbiór",
     "description": "Skąd pochodzą dane o sieci Żabka: lokalizator sklepów, GUS BDL, GBIF, InPost i GUGiK. Pełna metodyka, definicje i znane ograniczenia.",
     "url": "https://zabkozbior.barankiewicz.dev/methodology.html",
     "inLanguage": "pl-PL",
@@ -142,7 +142,7 @@
   <div class="nav-inner">
     <a href="/" class="brand" data-t="brand_title">
       <span class="brand-dot"></span>
-      Żabka w liczbach
+      Żabkozbiór
     </a>
     <div class="nav-links">
       <a href="/faq.html" class="nav-link" data-t="nav_faq_link">FAQ</a>
@@ -160,12 +160,12 @@
 
 <h1 data-t="meth_h1">Metodyka</h1>
 <p data-t="meth_sub">Skąd bierzemy dane, co z nimi robimy i czego nie wiemy. Źródła, ograniczenia i cały pipeline krok po kroku.</p>
-<p data-t="meth_disclaimer"><em>Żabkozbiór to niezależny projekt fanowski/analityczny oparty na danych publicznych. Nie jest powiązany z Żabka Polska sp. z o.o. ani Żabka Group. Nazwa "Żabka" i powiązane znaki towarowe należą do ich właścicieli.</em></p>
+<p data-t="meth_disclaimer">Żabkozbiór to niezależny projekt fanowski/analityczny oparty na danych publicznych. Nie jest powiązany z Żabka Polska sp. z o.o. ani Żabka Group. Nazwa "Żabka" i powiązane znaki towarowe należą do ich właścicieli.</p>
 
 <h2 data-t="meth_sec_sources">Źródła danych</h2>
 
 <h3 data-t="meth_source_main_title">Żabka – główne źródło</h3>
-<p data-t="meth_source_main_desc">Lokalizacje sklepów pochodzą z publicznego pliku JSON na <code>zabka.pl</code> – to ten sam plik, z którego korzysta sklepowa wyszukiwarka na ich stronie. Plik ma około {{STAT_TOTAL_STORES_ROUNDED}} sklepów, każdy ze współrzędnymi GPS, adresem, godzinami otwarcia i flagami (piec Merrychef, otwarte w niedzielę, 24/7). Z pliku wyrzucamy dane osobowe dyrektorów, stałe pola (kraj, aktywność) i marketingowe URLe. Zostają same dane analityczne.</p>
+<p data-t="meth_source_main_desc">Lokalizacje sklepów pochodzą z publicznego pliku JSON na <code>Żabka.pl</code> - to ten sam plik, z którego korzysta sklepowa wyszukiwarka na ich stronie. Plik ma około {{STAT_TOTAL_STORES_ROUNDED}} sklepów, każdy ze współrzędnymi GPS, adresem, godzinami otwarcia i flagami (piec Merrychef, otwarte w niedzielę, 24/7). Z pliku wyrzucamy dane osobowe dyrektorów, stałe pola (kraj, aktywność) i marketingowe URLe. Zostają same dane analityczne.</p>
 
 <h3 data-t="meth_source_map_title">Podział administracyjny i mapowanie</h3>
 <p data-t="meth_source_map_desc">Strukturę podziału terytorialnego Polski (trzy poziomy: województwa, powiaty i gminy) budujemy bezpośrednio z oficjalnych rejestrów GUS BDL oraz TERYT jako pierwszy krok procesu ETL. Sklepy oraz paczkomaty przypisujemy do tej hierarchii relacyjnie na podstawie ich nazw miejscowości, z wykorzystaniem oficjalnej Uniwersalnej Usługi Geokodowania GUGiK do jednoznacznego rozstrzygania przynależności mniejszych miejscowości i wsi, wraz z zapasowym dopasowaniem przestrzennym. Eliminuje to potrzebę stosowania uproszczonych plików GeoJSON i powolnych testów punkt-w-poligon.</p>
@@ -174,29 +174,29 @@
 <p data-t="meth_source_econ_desc">Zarobki, bezrobocie i populacja na poziomie powiatów pochodzą z Banku Danych Lokalnych (zmienne 64428, 60270, 72305). Pobieramy je raz w roku. Nazwy powiatów trzeba normalizować – GUS lubi dodawać prefiksy (<code>Powiat m.</code>), przyrostki czasowe (<code>od 2023</code>) i zmieniać nazwy (<code>jeleniogórski</code> staje się <code>karkonoski</code> w 2021). Wszystko to czyścimy przed zmatchowaniem. Dokładność: dane pochodzą z roku, w którym GUS je opublikował, nie z bieżącego miesiąca.</p>
 
 <h3 data-t="meth_source_parks_title">Parki narodowe i krajobrazowe – GDOŚ</h3>
-<p data-t="meth_source_parks_desc">Granice parków i ich otulin pobieramy z WFS GDOŚ (warstwy <code>ParkiNarodowe</code> + <code>ParkiKrajobrazowe</code>). Mamy {{STAT_PARKS_TOTAL}} obiektów: {{STAT_PARKS_NATIONAL}} parków narodowych z otulinami i {{STAT_PARKS_LANDSCAPE}} krajobrazowych. Każdy sklep sprawdzamy punkt-w-poligon – jeśli trafił do parku lub otuliny, dostaje flagę.</p>
+<p data-t="meth_source_parks_desc">Granice parków i ich otulin pobieramy z WFS GDOŚ (warstwy <code>ParkiNarodowe</code> + <code>ParkiKrajobrazowe</code>). Mamy {{STAT_PARKS_TOTAL}} obiektów: {{STAT_PARKS_NATIONAL}} parków narodowych z otulinami i {{STAT_PARKS_LANDSCAPE}} krajobrazowych. Każdy sklep sprawdzamy point-in-poligon. Jeśli trafił do parku lub otuliny, dostaje flagę.</p>
 
 <h3 data-t="meth_source_elev_title">Wysokość terenu – GUGiK NMT</h3>
-<p data-t="meth_source_elev_desc">Wysokość n.p.m. z Numerycznego Modelu Terenu GUGiK (<code>GetHByXY</code>, współrzędne PL-1992). To jest opt-in (flaga <code>--elevation</code>), bo ponad {{STAT_TOTAL_STORES_ROUNDED}} zapytań HTTP. Wyniki trafiają do lokalnego cache (<code>elevation_cache.json</code>) – ponowne odpalenie ETL nie odpytuje punktów, które już mamy. Uwaga: serwis GUGiK przyjmuje tylko współrzędne PL-1992, nie WGS84, więc w ETL jest konwersja własnym kodem (bez pyproj).</p>
+<p data-t="meth_source_elev_desc">Wysokość n.p.m. z Numerycznego Modelu Terenu GUGiK (<code>GetHByXY</code>, współrzędne PL-1992). Wyniki trafiają do lokalnego cache (<code>elevation_cache.json</code>) - ponowne odpalenie ETL nie odpytuje punktów, które już mamy. Uwaga: serwis GUGiK przyjmuje tylko współrzędne PL-1992, nie WGS84, więc w ETL jest konwersja własnym kodem (bez pyproj).</p>
 
 <h3 data-t="meth_source_inpost_title">Paczkomaty InPost</h3>
-<p data-t="meth_source_inpost_desc">Punkty paczkowe z publicznego API InPost ShipX (typ <code>parcel_locker</code>). Każdy paczkomat przypisujemy do podziału administracyjnego za pomocą tego samego geokodera GUGiK i relacyjnego dopasowania co sklepy. To jest jednorazowe pobranie – sieć paczkomatów rośnie wolno, mamy około {{STAT_INPOST_TOTAL}} punktów. Porównanie Żabek vs paczkomaty – z podziałem na województwa, powiaty i gminy – jest na dashboardzie.</p>
+<p data-t="meth_source_inpost_desc">Punkty paczkowe z publicznego API InPost ShipX (typ <code>parcel_locker</code>). Każdy paczkomat przypisujemy do podziału administracyjnego za pomocą tego samego geokodera GUGiK i relacyjnego dopasowania, co sklepy. To jest jednorazowe pobranie - sieć paczkomatów rośnie wolno, mamy około {{STAT_INPOST_TOTAL}} punktów. Porównanie Żabek vs paczkomaty - z podziałem na województwa, powiaty i gminy - jest na dashboardzie.</p>
 
 <h3 data-t="meth_source_frogs_title">Płazy – GBIF</h3>
-<p data-t="meth_source_frogs_desc">Obserwacje płazów z Global Biodiversity Information Facility (klasa Amphibia, <code>taxonKey=131</code>) w Polsce. Mamy około {{STAT_GBIF_TOTAL}} rekordów ze współrzędnymi. BallTree (haversine) zlicza obserwacje w promieniu 5 km od każdego sklepu. Najbardziej żabia Żabka ma {{STAT_AMPHIBIAN_RECORD_COUNT}} obserwacji – i to jest w Ursynowie, nie w żadnym parku narodowym.</p>
+<p data-t="meth_source_frogs_desc">Obserwacje płazów z Global Biodiversity Information Facility (klasa Amphibia, <code>taxonKey=131</code>) w Polsce. Mamy około {{STAT_GBIF_TOTAL}} rekordów ze współrzędnymi. Za pomocą BallTree (haversine) zliczamy obserwacje w promieniu 5 km od każdego sklepu. Najbardziej żabia Żabka ma {{STAT_AMPHIBIAN_RECORD_COUNT}} obserwacji - i to w Ursynowie, nie w żadnym parku narodowym.</p>
 
 <h3 data-t="meth_source_neighbor_title">Sąsiedztwo – obliczenia lokalne</h3>
-<p data-t="meth_source_neighbor_desc">Odległość do najbliższej innej Żabki obliczamy lokalnie przez BallTree (haversine, k=2). Najbardziej odosobniony sklep ma {{STAT_ISOLATED_MAX_KM}} km do najbliższego sąsiada (Michałowo, podlaskie). Punkt najdalszy od jakiejkolwiek Żabki – pusta przestrzeń w Bieszczachach – to około {{STAT_VOID_DISTANCE_KM}} km. Zero zapytań sieciowych, czysta geometria na danych już wczytanych.</p>
-<h2 data-t="meth_sec_pipeline">Potok ETL</h2>
-<p data-t="meth_pipeline_desc">Mamy codzienny potok, który pobiera dane, czyści, wzbogaca i zapisuje do bazy. Wygląda tak:</p>
+<p data-t="meth_source_neighbor_desc">Odległość do najbliższej innej Żabki obliczamy lokalnie przez BallTree (haversine, k=2). Najbardziej odosobniony sklep ma {{STAT_ISOLATED_MAX_KM}} km do najbliższego sąsiada (Michałowo, podlaskie). Punkt najdalszy od jakiejkolwiek Żabki - pusta przestrzeń w Bieszczady - to około {{STAT_VOID_DISTANCE_KM}} km. Czysta geometria na wczytanych już danych.</p>
+<h2 data-t="meth_sec_pipeline">Pipeline ETL</h2>
+<p data-t="meth_pipeline_desc">Mamy codzienny proces ETL, który pobiera dane, czyści, wzbogaca i zapisuje do bazy. Wygląda tak:</p>
 
 <ol>
-  <li data-t="meth_etl_step1"><strong>Pobranie.</strong> Pobieramy publiczny plik JSON z lokalizacjami sklepów. Jak API niedostępne, bierzemy z lokalnego pliku fallback z <code>data/input/</code>.</li>
-  <li data-t="meth_etl_step2"><strong>Oczyszczenie.</strong> Deduplikacja po <code>storeId</code> (około 32 duplikaty w źródłach), normalizacja nazw miast (<code>LEGNICA</code> staje się <code>Legnica</code>), usuwanie <code>&lt;br&gt;</code> i kodów pocztowych z ulic, wyrzucenie danych osobowych i stałych pól.</li>
-  <li data-t="meth_etl_step3"><strong>Wzbogacenie.</strong> Każde źródło niezależnie: regiony, sąsiedztwo, płazy, parki, elewacja, GUS, paczkomaty. Błąd jednego źródła nie przerywa potoku – kolumna zostaje NULL i ETL idzie dalej. Każde zapytanie sieciowe ma retry: 3 próby z odstępem 60 sekund.</li>
-  <li data-t="meth_etl_step4"><strong>Diff.</strong> Porównujemy z poprzednim snapshotem: nowe <code>store_id</code> to sklep otwarty, zniknięte – zamknięty. Wynik zapisujemy jako historia zmian.</li>
-  <li data-t="meth_etl_step5"><strong>Zapis do bazy.</strong> Zapis do DuckDB. Nowe kolumny dodajemy przez <code>ALTER TABLE ADD COLUMN IF NOT EXISTS</code> (bez DEFAULT, bo DuckDB nie obsługuje DEFAULT w ALTER). Baza przechowuje ostatnie 6 miesięcy snapshotów – starsze usuwamy.</li>
-  <li data-t="meth_etl_step6"><strong>Czyszczenie cache.</strong> Po udanym ETL czyścimy cache Redis. Backend odbudowuje odpowiedzi na następnym zapytaniu. Redis jest opcjonalny – jak niedostępny, backend działa bez niego.</li>
+  <li data-t="meth_etl_step1"><strong>Pobranie.</strong> Pobieramy publiczny plik JSON z lokalizacjami sklepów. Jeśli API niedostępne, bierzemy z lokalnego pliku fallback z <code>data/input/</code>.</li>
+  <li data-t="meth_etl_step2"><strong>Oczyszczenie.</strong> Deduplikacja po <code>storeId</code>, normalizacja nazw miast, usuwanie <code>&lt;br&gt;</code> i kodów pocztowych z ulic, wyrzucenie danych osobowych i stałych pól.</li>
+  <li data-t="meth_etl_step3"><strong>Wzbogacenie.</strong> Każde źródło niezależnie: regiony, sąsiedztwo, płazy, parki, elewacja, GUS, paczkomaty. Błąd jednego źródła nie przerywa potoku - kolumna dostaje NULL i ETL idzie dalej. Każde zapytanie sieciowe ma retry 3 próby z odstępem 60s.</li>
+  <li data-t="meth_etl_step4"><strong>Diff.</strong> Porównujemy z poprzednim snapshotem: nowe <code>store_id</code> to sklep otwarty, zniknięte - zamknięty. Wynik zapisujemy jako historia zmian bezpośrednio w tabeli lokalizacji za pomocą pola deleted_at.</li>
+  <li data-t="meth_etl_step5"><strong>Zapis do bazy.</strong> Zapis do DuckDB. Nowe kolumny dodajemy przez <code>ALTER TABLE ADD COLUMN IF NOT EXISTS</code>.</li>
+  <li data-t="meth_etl_step6"><strong>Czyszczenie cache.</strong> Po sukcesie ETL czyścimy cache Redis. Backend odbudowuje odpowiedzi na nowym stanie. Redis jest opcjonalny - jak niedostępny (np na srodowisku lokalnym), backend działa bez niego.</li>
 </ol>
 
 <h2 data-t="meth_sec_warn">Czego nie gwarantujemy</h2>
@@ -208,7 +208,7 @@
     <li data-t="meth_warn_item2">Populacje powiatów to dane roczne z GUS, nie bieżące szacunki.</li>
     <li data-t="meth_warn_item3">Sklepy na granicach uproszczonych poligonów mogą trafić do sąsiedniego województwa (dotyczy około 3 punktów).</li>
     <li data-t="meth_warn_item4">Godziny otwarcia pochodzą ze źródła Żabki, nie z weryfikacji terenowej.</li>
-    <li data-t="meth_warn_item5">Dane pogodowe są live – mogą różnić się od off-line bazy.</li>
+    <li data-t="meth_warn_item5">Dane dot. lokalizacji Żabek obejmują <strong>jedynie aktualnie aktywne sklepy</strong>. Nie mamy więc danych historycznych - najstarsza Żabka niekoniecznie musi być najstarsza w ogóle, bo jest najstarsza <strong>z aktywnych</strong>.</li>
     <li data-t="meth_warn_item6">Obserwacje GBIF zależą od aktywności obserwatorów – mniej zamieszkałe regiony mają mniej rekordów nie dlatego, że jest mniej płazów, tylko dlatego, że mniej osób tam patrzy.</li>
     <li data-t="meth_warn_item7">Brakujące źródło wzbogacenia zostawia kolumnę NULL – tabela jest spójna, ale niekompletna.</li>
     <li data-t="meth_warn_item8">Soft delete: sklepy, które zniknęły ze źródła, dostają <code>deleted_at</code> w bazie. Zapytania domyślnie filtrują <code>deleted_at IS NULL</code>, więc zamknięte sklepy nie psują statystyk.</li>
