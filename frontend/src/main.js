@@ -6,6 +6,7 @@ import { getFont, destroyChart, heroCount, fmtLastUpdated, fmt } from './utils.j
 import { setFilter, clearFilter, registerFilterCallbacks } from './filter.js';
 import { loadCore, loadTabData, loadSiec } from './data.js';
 import { translateDOM, setLang, t, getLang } from './i18n.js';
+import { getMapLibreCanvas, composeExportCanvas, canvasToPngBlob, downloadBlob, copyBlobToClipboard } from './export-image.js';
 
 
 // Tabs are loaded on demand. Each dynamic import() becomes its own Rollup chunk,
@@ -182,6 +183,9 @@ document.addEventListener('DOMContentLoaded',()=>{
         // aria-label is plain text set at creation), so translateDOM() alone
         // wouldn't catch them - refresh explicitly.
         document.querySelectorAll('.copy-link-btn').forEach(b => b.setAttribute('aria-label', t('copy_link_aria')));
+        document.querySelectorAll('.export-toolbar .export-btn').forEach((b,i) => {
+          b.setAttribute('aria-label', t(i%2===0 ? 'export_copy_aria' : 'export_download_aria'));
+        });
         // FAQ answers are templates filled with t() at render time (see
         // renderFAQCore/renderFAQCities below) - re-run so they pick up the
         // new language, same reasoning as the copy-link aria-label above.
@@ -387,6 +391,115 @@ function scrollToSection(entry){
 initCopyLinkButtons();
 window.addEventListener('hashchange', goToHashSection);
 goToHashSection();
+
+// S3: per-visual "copy image" / "download PNG" toolbar, on hover/focus, for
+// almost every chart and map - everything EXCEPT the Atlas krancow (its own
+// interactive multi-layer scene, not a single exportable bitmap) and the
+// BUBBLE force chart (D3-driven SVG, not a canvas - rasterizing it cleanly
+// is a different problem than the other two kinds here).
+// kind:'canvas' -> the element itself is the source canvas (Chart.js reuses
+// the same <canvas> it was constructed on; plain Canvas 2D scenes are just
+// that canvas). kind:'maplibre' -> the element is MapLibre's container div;
+// the actual canvas lives in MAPS[id] (registered by each tab module) and
+// needs the triggerRepaint()+once('render') dance from export-image.js.
+const EXPORTABLES = [
+  { id:'chart-growth', kind:'canvas', filename:'zabka-wzrost-sieci' },
+  { id:'canvas-fingerprint-flat', kind:'canvas', filename:'zabka-odcisk' },
+  { id:'chart-granular', kind:'canvas', filename:'zabka-ranking' },
+  { id:'map-granular-woj', kind:'maplibre', filename:'zabka-mapa-ranking' },
+  { id:'powiat-donut', kind:'canvas', filename:'zabka-pokrycie-donut' },
+  { id:'canvas-powiat-map', kind:'canvas', filename:'zabka-pokrycie-mapa' },
+  { id:'map-growth', kind:'maplibre', filename:'zabka-mapa-wzrostu' },
+  { id:'canvas-calendar', kind:'canvas', filename:'zabka-kalendarz' },
+  { id:'map-inpost', kind:'maplibre', filename:'zabka-inpost-mapa' },
+  { id:'chart-nbl', kind:'canvas', filename:'zabka-sasiedztwo' },
+  { id:'spol-knnChart', kind:'canvas', filename:'zabka-knn' },
+  { id:'chart-streets', kind:'canvas', filename:'zabka-ulice' },
+  { id:'chart-gmina-lead', kind:'canvas', filename:'zabka-gminy' },
+  { id:'map-econ-unemp', kind:'maplibre', filename:'zabka-econ-bezrobocie' },
+  { id:'map-econ-salary', kind:'maplibre', filename:'zabka-econ-placa' },
+];
+
+// Whatever wrapper the toolbar gets appended to needs position:relative to
+// anchor the absolutely-positioned buttons - force it on rather than
+// requiring every one of these 15 different card layouts to already have it.
+function ensureRelative(el){
+  if(el && getComputedStyle(el).position === 'static') el.style.position = 'relative';
+}
+// Title comes from whichever .card-title is closest, matching the S1 section
+// registry's own de-facto rule: every one of these visuals lives inside a
+// .card whose title already describes it (nested econ-map-card titles for
+// the two ECON maps, the shared GRAN/MAPA/POWIATY title for their paired
+// visuals). Read at click time, not registration time, so it always
+// reflects whatever language is currently active.
+function exportTitleFor(anchorEl){
+  const card = anchorEl.closest('.card');
+  const titleEl = card && card.querySelector('.card-title');
+  return titleEl ? titleEl.textContent.trim() : '';
+}
+
+async function getSourceCanvas(entry){
+  if(entry.kind === 'maplibre'){
+    const map = MAPS[entry.id];
+    if(!map) throw new Error('map not ready');
+    return await getMapLibreCanvas(map);
+  }
+  const canvas = document.getElementById(entry.id);
+  if(!canvas || !canvas.width) throw new Error('canvas not ready');
+  return canvas;
+}
+
+async function runExport(entry, anchorEl, action){
+  try {
+    const source = await getSourceCanvas(entry);
+    const title = exportTitleFor(anchorEl);
+    const composed = composeExportCanvas(source, { title });
+    const blob = await canvasToPngBlob(composed);
+    if(action === 'download'){
+      downloadBlob(blob, `${entry.filename}.png`);
+    } else {
+      await copyBlobToClipboard(blob);
+      showLinkToast(t('export_copied'));
+    }
+  } catch(err){
+    showLinkToast(err && err.message === 'Clipboard image API unavailable'
+      ? t('export_copy_failed') : t('export_not_ready'));
+  }
+}
+
+function makeExportToolbar(entry){
+  const wrap = document.createElement('div');
+  wrap.className = 'export-toolbar';
+  const copyBtn = document.createElement('button');
+  copyBtn.type = 'button';
+  copyBtn.className = 'export-btn';
+  copyBtn.setAttribute('aria-label', t('export_copy_aria'));
+  copyBtn.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M5 1a1 1 0 0 0-1 1v1H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H5Zm6 12H3V4h1v8a1 1 0 0 0 1 1h6v0Zm2-2H6V3h7v8Z"/></svg>';
+  const dlBtn = document.createElement('button');
+  dlBtn.type = 'button';
+  dlBtn.className = 'export-btn';
+  dlBtn.setAttribute('aria-label', t('export_download_aria'));
+  dlBtn.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M8 1a1 1 0 0 1 1 1v6.59l1.79-1.8a1 1 0 1 1 1.42 1.42l-3.5 3.5a1 1 0 0 1-1.42 0l-3.5-3.5a1 1 0 1 1 1.42-1.42L7 8.59V2a1 1 0 0 1 1-1ZM3 13a1 1 0 1 0 0 2h10a1 1 0 1 0 0-2H3Z"/></svg>';
+  wrap.appendChild(copyBtn);
+  wrap.appendChild(dlBtn);
+  return { wrap, copyBtn, dlBtn };
+}
+
+function initExportToolbars(){
+  EXPORTABLES.forEach(entry=>{
+    const el = document.getElementById(entry.id);
+    if(!el) return;
+    const anchor = entry.kind === 'maplibre' ? el : el.parentElement;
+    if(!anchor || anchor.querySelector(':scope > .export-toolbar')) return;
+    ensureRelative(anchor);
+    anchor.classList.add('has-export-toolbar');
+    const { wrap, copyBtn, dlBtn } = makeExportToolbar(entry);
+    copyBtn.addEventListener('click', e => { e.stopPropagation(); runExport(entry, anchor, 'copy'); });
+    dlBtn.addEventListener('click', e => { e.stopPropagation(); runExport(entry, anchor, 'download'); });
+    anchor.appendChild(wrap);
+  });
+}
+initExportToolbars();
 
 // S9: SEO FAQ answers. The 3 core-bucket answers (total, farthest, yearly)
 // come from loadCore(); "most stores" needs top_cities, which lives in the

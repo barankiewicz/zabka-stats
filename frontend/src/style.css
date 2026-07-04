@@ -89,6 +89,20 @@ nav{position:sticky;top:0;z-index:100;background:rgba(13,13,20,.9);backdrop-filt
 .kr .btnrow .copy-link-btn{position:static;opacity:.7}
 .kr .btnrow .copy-link-btn:hover,.kr .btnrow .copy-link-btn:focus-visible{opacity:1}
 
+/* S3: per-visual copy-image/download-PNG toolbar. Hidden until hover/focus
+   (unlike the always-faint copy-link button above) - .has-export-toolbar is
+   added by main.js to whatever anchor the toolbar was appended to, since
+   that anchor varies per visual (.chart-wrap, .map-container, MapLibre's own
+   container div, or a plain parentElement) and there's no single existing
+   class to hang a :hover selector off otherwise. Bottom-right rather than
+   top-right (matching S1's copy-link button) - the GRAN and InPost maps
+   already have a 2D/3D .map-mode-toggle sitting top-right at z-index:10,
+   which silently ate every click meant for a top-right export toolbar. */
+.has-export-toolbar:hover .export-toolbar,.has-export-toolbar:focus-within .export-toolbar{opacity:1;pointer-events:auto}
+.export-toolbar{position:absolute;bottom:10px;right:10px;z-index:6;display:flex;gap:4px;opacity:0;pointer-events:none;transition:opacity .15s}
+.export-btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid var(--axis);border-radius:7px;background:rgba(10,18,10,.72);color:var(--muted);cursor:pointer;transition:color .15s,border-color .15s,background .15s}
+.export-btn:hover,.export-btn:focus-visible{color:var(--green-bright);border-color:var(--green);background:rgba(0,192,96,.15)}
+
 /* S1: brief glow when landing on a deep-linked section, same motif as the
    existing .stat-tile.fact-highlight (kraniec fact deep links) */
 .section-highlight{animation:factHighlight 2.4s ease}

@@ -253,6 +253,13 @@ export const translations = {
     faq_q_yearly: "How many new Żabka stores open each year?",
     faq_a_yearly: "The network grows by well over a thousand new stores a year – the record so far is {year}, with {count} new openings.",
 
+    // PNG export toolbar (S3)
+    export_copy_aria: "Copy image to clipboard",
+    export_download_aria: "Download as PNG",
+    export_copied: "Image copied",
+    export_copy_failed: "Couldn't copy the image",
+    export_not_ready: "Not loaded yet - try again in a moment",
+
     stat_unit_meters_km: " km"
   },
   pl: {
@@ -503,6 +510,13 @@ export const translations = {
     faq_a_farthest: "Najdalszy punkt od jakiejkolwiek Żabki w Polsce leży w Bieszczadach, około {km} km w linii prostej od najbliższego sklepu.",
     faq_q_yearly: "Ile Żabek przybywa rocznie?",
     faq_a_yearly: "Sieć rośnie o ponad tysiąc nowych sklepów rocznie – rekordowy był {year} rok z {count} nowymi otwarciami.",
+
+    // PNG export toolbar (S3)
+    export_copy_aria: "Kopiuj obraz do schowka",
+    export_download_aria: "Pobierz jako PNG",
+    export_copied: "Skopiowano obraz",
+    export_copy_failed: "Nie udało się skopiować obrazu",
+    export_not_ready: "Jeszcze się nie załadowało - spróbuj za chwilę",
 
     stat_unit_meters_km: " km"
   }

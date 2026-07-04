@@ -8,7 +8,7 @@
 // pale = right on the trend line. Residuals + ramp bounds are precomputed by
 // the /api/stats/powiat-economics-geo endpoint so we only fetch one joined
 // FeatureCollection and render each map from a different property.
-import { M } from '../state.js';
+import { M, MAPS } from '../state.js';
 import { fetchJSON } from '../data.js';
 import { debounce } from '../utils.js';
 import { loadMaplibre } from '../maplibre-lazy.js';
@@ -93,6 +93,7 @@ async function buildMap(containerId, fc, meta, propKey, econKey) {
     throw e;
   }
   _maps[containerId] = map;
+  MAPS[containerId] = map;   // exposed for the S3 PNG-export toolbar (main.js)
 
   map.on('load', () => {
     map.addSource('pe', { type: 'geojson', data: fc, promoteId: '_fid' });
