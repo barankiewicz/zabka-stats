@@ -6,32 +6,32 @@ import { M } from './state.js';
 export const translations = {
   en: {
     // Navigation / Tabs
-    brand_title: "Żabka Collector",
-    tab_siec: "Network",
+    brand_title: "ŻabkaBoard",
+    tab_siec: "The Come-up",
     tab_spoleczenstwo: "Żabka & Poland",
     skip_link: "Skip to content",
     nav_aria: "Main navigation",
     tablist_aria: "Dashboard sections",
-    sr_h1: "Żabka Collector - Interactive Atlas of the Store Network in Poland",
+    sr_h1: "ŻabkaBoard - Interactive dashboard of Żabka stores in Poland",
     play_animation: "Play animation",
 
 
 
     // Siec Tab - Hero
-    hero_eyebrow_siec_snapshot: "Żabka Atlas - Snapshot {date}",
-    hero_eyebrow_siec_data: "Żabka Atlas - Data {year}",
+    hero_eyebrow_siec_snapshot: "ŻabkaBoard - Snapshot {date}",
+    hero_eyebrow_siec_data: "ŻabkaBoard - Data {year}",
     hero_number_label_siec: "active stores in Poland",
-    hero_h1_siec: "Żabka is everywhere. We have the hard data.",
+    hero_h1_siec: "Żabka is everywhere. We've got the data.",
     hero_lede_siec: "{{STAT_PCT_SINCE_2023}}% of today's network was established since 2023. Here is how {{STAT_TOTAL_STORES_WORDS}} stores spread across Poland, year by year.",
     data_disclaimer_header: "A quick note",
-    data_disclaimer: "This dashboard only covers stores <b>open today</b>. We started tracking openings and closures on <b>June 17, 2026</b> - older data on closed stores simply doesn't exist, so trends before that date only reflect stores that survived to now.",
+    data_disclaimer: "This dashboard only covers stores <b>open today</b>. We started tracking openings and closures on <b>June 17, 2026</b> - older data on closed stores simply doesn't exist, so trends before that date only reflect stores that survived and are still active today.",
 
     // Siec Tab - Stat Strip
     stat_kicker_startup: "Startup",
-    stat_sub_startup: "took to open the first <b>1,000</b> stores",
+    stat_sub_startup: "to open the first <b>1,000</b> stores",
     stat_unit_years: "years",
     stat_kicker_accel: "Acceleration",
-    stat_sub_accel: "took for the last <b>5,000</b> - the pace skyrocketed",
+    stat_sub_accel: "for the last <b>5,000</b> - the pace skyrocketed!",
     stat_kicker_hoursstd: "Standard hours",
     stat_sub_hoursstd: "of stores run the standard 06:00-23:00 Mon-Sat hours",
     stat_kicker_neighbor: "Nearest Neighbor",
@@ -40,7 +40,7 @@ export const translations = {
     stat_kicker_cities: "Cities with Żabka",
     stat_sub_cities: "of Polish cities have a Żabka",
     stat_kicker_new_month: "New this month",
-    stat_sub_new_month: "stores opened in the last month",
+    stat_sub_new_month: "stores opened last month",
 
     // Expansion Map & Calendar
     map_growth_title: "How the network grew: 1998-{{STAT_DATA_YEAR_MAX}}",
@@ -708,7 +708,7 @@ export const translations = {
     // Resort Communes
     resort_title: "Najwięcej Żabek na mieszkańca? Kurorty.",
     resort_sub: "gminy wg sklepów na 1000 zameldowanych - morze i góry biją resztę kraju",
-    resort_caveat: "Liczba mieszkańców to zameldowani, a latem w kurortach jest ich wielokrotnie więcej. I o to właśnie chodzi: sieć idzie za turystą, nie za meldunkiem.",
+    resort_caveat: "Liczba mieszkańców w tych danych to zameldowani, ale latem w kurortach bywa tam wielokrotnie więcej ludzi. I o to właśnie chodzi: sieć idzie za turystami, nie za meldunkiem.",
 
     // Econ maps
     econ_intro_title: "Gdzie Żabek jest więcej, niż wynikałoby z ekonomii",
@@ -988,6 +988,13 @@ export function t(key) {
       if (val !== undefined && val !== null) {
         if (field === 'date_modified') {
           return val.slice(0, 10);
+        }
+        // Years are plain integers, never grouped - toLocaleString('en-US')
+        // would otherwise render 2026 as "2,026". Mirrors the same exception
+        // in render_html_with_stats() (backend/main.py), the server-side
+        // renderer for these same {{STAT_*}} tokens.
+        if (['data_year_max', 'oldest_store_year', 'newest_store_year', 'record_year'].includes(field)) {
+          return String(val);
         }
         if (typeof val === 'number') {
           const loc = currentLang === 'en' ? 'en-US' : 'pl-PL';

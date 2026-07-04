@@ -246,7 +246,7 @@ export function renderStatStrip(){
   if(citiesFunnel){
     const ce=document.getElementById('stat-cities');
     const sub=document.getElementById('stat-cities-sub');
-    if(ce&&citiesFunnel.pct!=null)ce.dataset.count=citiesFunnel.pct;
+    if(ce&&citiesFunnel.covered!=null)ce.dataset.count=citiesFunnel.covered;
     if(sub) {
       const formattedTotal = (citiesFunnel.total||0).toLocaleString(getLang() === 'en' ? 'en-US' : 'pl-PL');
       sub.textContent = t('cities_funnel_text').replace('{total}', formattedTotal);
