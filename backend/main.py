@@ -370,6 +370,7 @@ async def _serve_precompressed_asset(request: Request):
     path = request.url.path
     if path in ("/", "/index.html", "/methodology.html", "/faq.html"):
         import anyio
+        file_name = "index.html" if path in ("/", "/index.html") else path.lstrip("/")
         lang = request.query_params.get("lang", "pl")
         return await anyio.to_thread.run_sync(render_html_with_stats, file_name, lang)
 
