@@ -29,7 +29,8 @@ INK = "#e8f0e0"
 
 DB_PATH = os.environ.get("ZABKA_DB", "data/zabka.duckdb")
 FONTS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "backend", "assets", "fonts")
-OUT_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public", "og.png")
+OUT_PATH_PL = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public", "og.png")
+OUT_PATH_EN = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public", "og-en.png")
 
 
 def _font(name: str, size: int, variation: str) -> ImageFont.FreeTypeFont:
@@ -125,7 +126,7 @@ def horizontal_scrim(fade_start: int, fade_end: int) -> Image.Image:
     return scrim
 
 
-def build(total_count: int, points: list) -> Image.Image:
+def build(total_count: int, points: list, lang: str = "pl") -> Image.Image:
     img = Image.new("RGBA", (WIDTH * SS, HEIGHT * SS), BG)
 
     dot_map = render_dot_map(points, box=(560, 20, 1160, 610))
@@ -143,11 +144,26 @@ def build(total_count: int, points: list) -> Image.Image:
     tagline_font = _font("IBMPlexSans.ttf", 22 * SS, "Regular")
     footer_font = _font("JetBrainsMono.ttf", 24 * SS, "Medium")
 
+    if lang == "en":
+        brand_text = "ZABKOZBIOR"
+        kicker_text = "ZABKA IN NUMBERS"
+        subtitle_text = "active stores in Poland"
+        headline_1 = "Żabka is everywhere."
+        headline_2 = "We've got the data."
+        tagline_text = "Maps, rankings, trivia — public data."
+    else:
+        brand_text = "ŻABKOZBIÓR"
+        kicker_text = "ŻABKA W LICZBACH"
+        subtitle_text = "aktywnych sklepów w Polsce"
+        headline_1 = "Żabka jest wszędzie."
+        headline_2 = "Mamy na to twarde dane."
+        tagline_text = "Mapy, rankingi, ciekawostki — dane publiczne."
+
     draw.ellipse((m, 96 * SS, m + 16 * SS, 112 * SS), fill=GREEN)
-    draw.text((m + 30 * SS, 84 * SS), "ŻABKOZBIÓR", font=brand_font, fill=GREEN)
+    draw.text((m + 30 * SS, 84 * SS), brand_text, font=brand_font, fill=GREEN)
 
     kicker_y = 168 * SS
-    draw.text((m, kicker_y), "ŻABKA W LICZBACH", font=kicker_font, fill=MUTED)
+    draw.text((m, kicker_y), kicker_text, font=kicker_font, fill=MUTED)
 
     value = f"{total_count // 1000} 000+"
     value_y = kicker_y + 42 * SS
@@ -155,17 +171,17 @@ def build(total_count: int, points: list) -> Image.Image:
     value_bbox = draw.textbbox((m, value_y), value, font=value_font)
 
     subtitle_y = value_bbox[3] + 12 * SS
-    draw.text((m, subtitle_y), "aktywnych sklepów w Polsce", font=subtitle_font, fill=INK)
+    draw.text((m, subtitle_y), subtitle_text, font=subtitle_font, fill=INK)
 
     line_y = subtitle_y + 54 * SS
     draw.line((m, line_y, m + 400 * SS, line_y), fill=(*_hex_to_rgb(GREEN), 90), width=int(2 * SS))
 
     headline_y = line_y + 34 * SS
-    draw.text((m, headline_y), "Żabka jest wszędzie.", font=headline_font, fill=INK)
-    draw.text((m, headline_y + 40 * SS), "Mamy na to twarde dane.", font=headline_font, fill=INK)
+    draw.text((m, headline_y), headline_1, font=headline_font, fill=INK)
+    draw.text((m, headline_y + 40 * SS), headline_2, font=headline_font, fill=INK)
 
     tagline_y = headline_y + 40 * SS + 46 * SS
-    draw.text((m, tagline_y), "Mapy, rankingi, ciekawostki — dane publiczne.", font=tagline_font, fill=MUTED)
+    draw.text((m, tagline_y), tagline_text, font=tagline_font, fill=MUTED)
 
     footer_y = HEIGHT * SS - 56 * SS
     draw.text((m, footer_y), "zabkozbior.barankiewicz.dev", font=footer_font, fill=MUTED)
@@ -175,9 +191,13 @@ def build(total_count: int, points: list) -> Image.Image:
 
 def main():
     total_count, points = fetch_points()
-    img = build(total_count, points)
-    img.save(OUT_PATH, format="PNG")
-    print(f"Wrote {OUT_PATH} ({total_count} active stores plotted, headline value {total_count // 1000} 000+)")
+    img_pl = build(total_count, points, lang="pl")
+    img_pl.save(OUT_PATH_PL, format="PNG")
+    print(f"Wrote {OUT_PATH_PL} ({total_count} active stores plotted, headline value {total_count // 1000} 000+)")
+    
+    img_en = build(total_count, points, lang="en")
+    img_en.save(OUT_PATH_EN, format="PNG")
+    print(f"Wrote {OUT_PATH_EN} ({total_count} active stores plotted, headline value {total_count // 1000} 000+)")
 
 
 if __name__ == "__main__":

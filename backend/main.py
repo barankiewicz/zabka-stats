@@ -323,7 +323,7 @@ _ASSETS_DIR = frontend_dir / "assets"
 _ASSET_MEDIA_TYPES = {".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml"}
 
 
-def render_html_with_stats(file_name: str) -> Response:
+def render_html_with_stats(file_name: str, lang: str = "pl") -> Response:
     from backend.stats_compiler import get_cached_stats
     file_path = frontend_dir / file_name
     if not file_path.exists():
@@ -331,6 +331,9 @@ def render_html_with_stats(file_name: str) -> Response:
         
     with open(file_path, "r", encoding="utf-8") as f:
         html = f.read()
+        
+    if lang == "en":
+        html = html.replace("/og.png", "/og-en.png")
         
     stats = get_cached_stats()
     
@@ -367,8 +370,8 @@ async def _serve_precompressed_asset(request: Request):
     path = request.url.path
     if path in ("/", "/index.html", "/methodology.html", "/faq.html"):
         import anyio
-        file_name = "index.html" if path in ("/", "/index.html") else path.lstrip("/")
-        return await anyio.to_thread.run_sync(render_html_with_stats, file_name)
+        lang = request.query_params.get("lang", "pl")
+        return await anyio.to_thread.run_sync(render_html_with_stats, file_name, lang)
 
     if not path.startswith("/assets/"):
         return None
