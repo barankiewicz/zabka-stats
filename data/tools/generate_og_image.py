@@ -1,21 +1,25 @@
 """
 Generates frontend/public/og.png and og-en.png - the homepage social-preview images.
-Uses the original layout with a single prominent store count (e.g. 13 000+),
-but renders the new Powiaty choropleth map in the background.
+Layout: a big active-store count headline (e.g. 13 000+) plus a secondary KPI for
+the national per-capita density (Żabki / 1000 mieszk., the same figure GRAN's
+national reference line draws on), over the Powiaty choropleth map coloured by
+per_1k.
 
 Usage: python data/tools/generate_og_image.py
 """
 
+import json
 import math
 import os
 import sys
-import json
 
 # Ensure backend package can be imported
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 import duckdb
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageFont
+
+from backend.api.demographics import get_voiv_population
 from backend.api.geo_router import _build_pow_econ_geo
 
 WIDTH, HEIGHT = 1200, 630
@@ -64,6 +68,25 @@ def fetch_points() -> tuple:
     total = con.execute("SELECT count(*) FROM locations WHERE deleted_at IS NULL").fetchone()[0]
     con.close()
     return total
+
+
+def fetch_per_1k(total: int) -> float:
+    """National per-capita density - Żabki per 1000 residents.
+
+    Same correction as the /stats/gmina-leaders endpoint: sum the
+    v_voiv_pop_eff populations (which fold cities with powiat rights back
+    into their host land powiat) instead of the raw dim_voivodeship column,
+    so the denominator isn't ~10% short.
+    """
+    names = [
+        "mazowieckie", "śląskie", "dolnośląskie", "wielkopolskie",
+        "małopolskie", "pomorskie", "łódzkie", "zachodniopomorskie",
+        "kujawsko-pomorskie", "lubelskie", "podkarpackie",
+        "warmińsko-mazurskie", "lubuskie", "świętokrzyskie",
+        "opolskie", "podlaskie",
+    ]
+    nat_pop = sum(get_voiv_population(n) for n in names)
+    return round(total * 1000.0 / nat_pop, 3) if nat_pop else 0.0
 
 
 def render_powiaty_map(geojson_data: dict, box: tuple) -> Image.Image:
@@ -191,7 +214,7 @@ def horizontal_scrim(fade_start: int, fade_end: int) -> Image.Image:
     return scrim
 
 
-def build(total_count: int, geojson_data: dict, lang: str = "pl") -> Image.Image:
+def build(total_count: int, per_1k: float, geojson_data: dict, lang: str = "pl") -> Image.Image:
     img = Image.new("RGBA", (WIDTH * SS, HEIGHT * SS), BG)
 
     powiaty_map = render_powiaty_map(geojson_data, box=(560, 20, 1160, 610))
@@ -203,9 +226,11 @@ def build(total_count: int, geojson_data: dict, lang: str = "pl") -> Image.Image
 
     brand_font = _font("IBMPlexSans.ttf", 30 * SS, "SemiBold")
     kicker_font = _font("IBMPlexSans.ttf", 28 * SS, "SemiBold")
-    value_font = _font("IBMPlexSans.ttf", 104 * SS, "Bold")
+    value_font = _font("IBMPlexSans.ttf", 100 * SS, "Bold")
     subtitle_font = _font("IBMPlexSans.ttf", 32 * SS, "Regular")
-    headline_font = _font("IBMPlexSans.ttf", 30 * SS, "SemiBold")
+    kpi_value_font = _font("IBMPlexSans.ttf", 64 * SS, "Bold")
+    kpi_label_font = _font("IBMPlexSans.ttf", 24 * SS, "SemiBold")
+    kpi_sub_font = _font("IBMPlexSans.ttf", 20 * SS, "Regular")
     tagline_font = _font("IBMPlexSans.ttf", 22 * SS, "Regular")
     footer_font = _font("JetBrainsMono.ttf", 24 * SS, "Medium")
 
@@ -213,46 +238,54 @@ def build(total_count: int, geojson_data: dict, lang: str = "pl") -> Image.Image
         brand_text = "ZABKOZBIOR"
         kicker_text = "ZABKA IN NUMBERS"
         subtitle_text = "active stores in Poland"
-        headline_1 = "Żabka is everywhere."
-        headline_2 = "We've got the data."
-        tagline_text = "Maps, rankings, trivia — public data."
+        kpi_value = f"{per_1k:.2f}"
+        kpi_label = "stores per 1000 residents"
+        kpi_sub = "national network density (GUS)"
+        tagline_text = "Maps, rankings, trivia - public data."
     else:
         brand_text = "ŻABKOZBIÓR"
         kicker_text = "ŻABKA W LICZBACH"
         subtitle_text = "aktywnych sklepów w Polsce"
-        headline_1 = "Żabka jest wszędzie."
-        headline_2 = "Mamy na to twarde dane."
-        tagline_text = "Mapy, rankingi, ciekawostki — dane publiczne."
+        kpi_value = f"{per_1k:.2f}".replace(".", ",")
+        kpi_label = "Żabki na 1000 mieszkańców"
+        kpi_sub = "gęstość sieci w Polsce (GUS)"
+        tagline_text = "Mapy, rankingi, ciekawostki - dane publiczne."
 
     # Draw Brand header
     draw.ellipse((m, 96 * SS, m + 16 * SS, 112 * SS), fill=GREEN)
     draw.text((m + 30 * SS, 84 * SS), brand_text, font=brand_font, fill=GREEN)
 
     # Draw Kicker
-    kicker_y = 168 * SS
+    kicker_y = 160 * SS
     draw.text((m, kicker_y), kicker_text, font=kicker_font, fill=MUTED)
 
     # Draw Value (Count)
     value = f"{total_count // 1000} 000+"
-    value_y = kicker_y + 42 * SS
+    value_y = kicker_y + 38 * SS
     draw.text((m, value_y), value, font=value_font, fill=GREEN_BRIGHT)
     value_bbox = draw.textbbox((m, value_y), value, font=value_font)
 
     # Draw Subtitle
-    subtitle_y = value_bbox[3] + 12 * SS
+    subtitle_y = value_bbox[3] + 10 * SS
     draw.text((m, subtitle_y), subtitle_text, font=subtitle_font, fill=INK)
 
     # Draw horizontal separator line
-    line_y = subtitle_y + 54 * SS
+    line_y = subtitle_y + 50 * SS
     draw.line((m, line_y, m + 400 * SS, line_y), fill=(*_hex_to_rgb(GREEN), 90), width=int(2 * SS))
 
-    # Draw Headline lines
-    headline_y = line_y + 34 * SS
-    draw.text((m, headline_y), headline_1, font=headline_font, fill=INK)
-    draw.text((m, headline_y + 40 * SS), headline_2, font=headline_font, fill=INK)
+    # Secondary KPI: per-capita density (the GRAN national reference figure)
+    kpi_y = line_y + 26 * SS
+    # vertical accent bar to mark the secondary stat
+    draw.rectangle((m, kpi_y + 4 * SS, m + 6 * SS, kpi_y + 64 * SS), fill=GREEN_BRIGHT)
+    kpi_text_x = m + 26 * SS
+    draw.text((kpi_text_x, kpi_y - 4 * SS), kpi_value, font=kpi_value_font, fill=GREEN_BRIGHT)
+    kpi_bbox = draw.textbbox((kpi_text_x, kpi_y - 4 * SS), kpi_value, font=kpi_value_font)
+    label_x = kpi_bbox[2] + 20 * SS
+    draw.text((label_x, kpi_y + 6 * SS), kpi_label, font=kpi_label_font, fill=INK)
+    draw.text((label_x, kpi_y + 36 * SS), kpi_sub, font=kpi_sub_font, fill=MUTED)
 
     # Draw Tagline
-    tagline_y = headline_y + 40 * SS + 46 * SS
+    tagline_y = kpi_y + 86 * SS
     draw.text((m, tagline_y), tagline_text, font=tagline_font, fill=MUTED)
 
     # Draw Footer
@@ -264,18 +297,19 @@ def build(total_count: int, geojson_data: dict, lang: str = "pl") -> Image.Image
 
 def main():
     total_count = fetch_points()
+    per_1k = fetch_per_1k(total_count)
 
     # Load GeoJSON data
     geojson_bytes = _build_pow_econ_geo()
     geojson_data = json.loads(geojson_bytes.decode("utf-8"))
 
-    img_pl = build(total_count, geojson_data, lang="pl")
+    img_pl = build(total_count, per_1k, geojson_data, lang="pl")
     img_pl.save(OUT_PATH_PL, format="PNG")
-    print(f"Wrote {OUT_PATH_PL} ({total_count} active stores plotted, headline value {total_count // 1000} 000+)")
+    print(f"Wrote {OUT_PATH_PL} ({total_count} stores, per_1k={per_1k})")
 
-    img_en = build(total_count, geojson_data, lang="en")
+    img_en = build(total_count, per_1k, geojson_data, lang="en")
     img_en.save(OUT_PATH_EN, format="PNG")
-    print(f"Wrote {OUT_PATH_EN} ({total_count} active stores plotted, headline value {total_count // 1000} 000+)")
+    print(f"Wrote {OUT_PATH_EN} ({total_count} stores, per_1k={per_1k})")
 
 
 if __name__ == "__main__":
