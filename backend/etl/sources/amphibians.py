@@ -71,9 +71,9 @@ def _load_amphibian_points() -> list:
         try:
             with open(AMPHIBIAN_CACHE, encoding="utf-8") as f:
                 cached = json.load(f)
-            # stary format [lat, lon] bez roku — wymusz ponowne pobranie
+            # stary format [lat, lon] bez roku - wymusz ponowne pobranie
             if cached and len(cached[0]) == 2:
-                print("[amphibians] stary cache bez roku — odswiezam")
+                print("[amphibians] stary cache bez roku - odswiezam")
             else:
                 return cached
         except Exception:
@@ -130,7 +130,7 @@ class AmphibiansEnricher(Enricher):
         counts = tree.query_ball_point(q, r=km_to_chord(AMPHIBIAN_RADIUS_KM), return_length=True)
         dist, _idx = tree.query(q, k=1)   # cKDTree k=1 zwraca tablice 1-D
         best_i, best_c = -1, -1
-        for i, (r, c, d) in enumerate(zip(rows, counts, dist)):
+        for i, (r, c, d) in enumerate(zip(rows, counts, dist, strict=True)):
             r["amphibian_occurrences_5km"] = int(c)
             r["nearest_amphibian_km"] = round(float(chord_to_km(d)), 2)
             if c > best_c:

@@ -26,7 +26,7 @@ class NeighborEnricher(Enricher):
                                 [r["longitude"] for r in rows])
         dist, _idx = tree.query(xyz, k=2)          # k=2: kolumna 0 to sam punkt
         nn_km = chord_to_km(dist[:, 1])
-        for r, d in zip(rows, nn_km):
+        for r, d in zip(rows, nn_km, strict=True):
             r["nearest_neighbor_distance_meters"] = int(round(float(d) * 1000))
         k = int(np.argmax(nn_km))
         self._loner = {"lat": rows[k]["latitude"], "lon": rows[k]["longitude"],

@@ -9,11 +9,11 @@ tutaj; wzbogacenia (etl/sources) operuja juz tylko na liscie wierszy.
 
 import json
 import os
-from pathlib import Path
 import re
 import time
 from collections import defaultdict
 from datetime import date, datetime
+from pathlib import Path
 
 import numpy as np
 import polars as pl
@@ -341,7 +341,7 @@ def farthest_point_from_any_zabka(lats, lons, woj_geo: dict,
         LON = LON.ravel()
         # tylko punkty wewnatrz Polski
         mask = np.array([point_in_prepared(lo, la)
-                         for la, lo in zip(LAT, LON)])
+                         for la, lo in zip(LAT, LON, strict=True)])
         if not mask.any():
             return None
         LAT, LON = LAT[mask], LON[mask]
@@ -374,7 +374,7 @@ def ensure_enrichment_columns(con):
 
 def load_to_duckdb(con, rows: list, meta: dict):
     """Zapisz snapshot w tabeli locations.
-    store_id jest kluczem glownym — jeden wiersz na sklep:
+    store_id jest kluczem glownym - jeden wiersz na sklep:
     - nowe sklepy: INSERT z created_at = source_date
     - istniejace: UPDATE wszystkich pol oprocz created_at (ON CONFLICT)
     - brakujace: soft-delete (deleted_at = source_date)

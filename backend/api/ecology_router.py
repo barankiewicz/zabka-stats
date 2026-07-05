@@ -6,7 +6,7 @@ from litestar.serialization import encode_json
 
 from backend.cache import cached, get_cached_blob, set_cached_blob
 from backend.database import client
-from backend.schemas.api_models import AmphibianExtremesResponse, Section3RareResponse
+from backend.schemas.api_models import Section3RareResponse
 
 _GEO_DIR = Path(__file__).parent.parent.parent / "data" / "geo"
 _gbif_total_cache: int | None = None
@@ -40,12 +40,6 @@ def amphibians() -> Response:
     if cached_blob is not None:
         return Response(cached_blob, media_type="application/json")
 
-    # Summary stats
-    total = client.execute("""
-        SELECT COUNT(*), SUM(CASE WHEN h24 THEN 1 ELSE 0 END)
-        FROM locations WHERE deleted_at IS NULL 
-    """).fetchone()
-    
     # Most froggy (if enriched)
     most_froggy_db = client.execute("""
         SELECT city, voivodeship, street,

@@ -10,6 +10,7 @@ Cached endpoints:
 
 import hmac
 import json
+import logging
 import os
 import pathlib
 import re
@@ -25,7 +26,6 @@ from litestar.response import File
 from litestar.static_files import create_static_files_router
 
 from backend.api.admin_router import router as admin_router
-
 from backend.api.ecology_router import router as ecology_router
 from backend.api.fact_pages import router as fact_pages_router
 from backend.api.fact_pages import startup_facts
@@ -36,12 +36,10 @@ from backend.api.spatial_router import router as spatial_router
 from backend.api.stats_router import router as stats_router
 from backend.database import DB_PATH, client, init_db
 
-import logging
-
 logger = logging.getLogger("backend")
 
 # API_TOKEN is set via environment variable. The fallback below is a documented
-# local-dev convenience (see CLAUDE.md quick start) - warn loudly so it never
+# local-dev convenience (see DOCS.md quick start) - warn loudly so it never
 # goes unnoticed in a deployed environment.
 API_TOKEN = os.getenv("API_TOKEN")
 if not API_TOKEN or API_TOKEN == "your-secret-token-change-me":
@@ -182,7 +180,7 @@ def _read_and_parse_json(file_upload) -> dict:
     try:
         data = json.loads(contents)
     except Exception as e:
-        raise ValueError(f"Invalid JSON data: {e}")
+        raise ValueError(f"Invalid JSON data: {e}") from e
     if not isinstance(data, dict):
         raise ValueError("Invalid JSON format (root must be a dictionary)")
     if "stores" not in data and "locations" not in data:
@@ -266,13 +264,13 @@ async def upload_snapshot(request: Request) -> Response:
         )
 
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         logger.error(f"Error processing snapshot: {e}")
         raise HTTPException(
             status_code=500,
             detail="Error processing snapshot. Check server logs for details."
-        )
+        ) from e
 
 
 # Router modules to import startup lifecycle hooks from
@@ -320,7 +318,7 @@ _frontend_root = _project_root / "frontend"
 _dist_dir = _frontend_root / "dist"
 
 if not _dist_dir.exists():
-    logger.info("Frontend dist missing — building now (npm run build)...")
+    logger.info("Frontend dist missing - building now (npm run build)...")
     try:
         result = subprocess.run(
             ["npm", "run", "build"],
@@ -350,7 +348,7 @@ def render_html_with_stats(file_name: str, lang: str = "pl") -> Response:
     if not file_path.exists():
         return Response(status_code=404, content=f"File {file_name} not found")
         
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         html = f.read()
         
     if lang == "en":
@@ -453,7 +451,7 @@ app = Litestar(
 if __name__ == "__main__":
     import uvicorn
 
-    # Single worker by design (see CLAUDE.md): startup handlers warm in-memory
+    # Single worker by design (see DOCS.md): startup handlers warm in-memory
     # geo/ecology caches, and DuckDB is single-writer, so extra workers just
     # duplicate that warm-up cost without adding throughput on this VPS.
     workers = int(os.getenv("UVICORN_WORKERS", 1))

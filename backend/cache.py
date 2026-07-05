@@ -3,10 +3,13 @@ Redis caching wrapper.
 Uses UNIX socket for speed & security.
 """
 
+import asyncio
 import inspect
 import json
 import logging
 import os
+import re
+import threading
 from functools import wraps
 from typing import Any
 
@@ -108,10 +111,6 @@ def clear_cache(pattern: str = "*") -> None:
     except Exception as e:
         logger.warning("Redis clear_cache error (pattern=%r): %s", pattern, e)
 
-
-import threading
-import asyncio
-import re
 
 _locks = {}
 _locks_lock = threading.Lock()

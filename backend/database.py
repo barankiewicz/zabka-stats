@@ -4,12 +4,11 @@ DuckDB database connection and initialization.
 
 import json
 import logging
+import os
 import threading
 from pathlib import Path
 
 import duckdb
-
-import os
 
 logger = logging.getLogger("database")
 
@@ -86,7 +85,7 @@ def _ensure_dim_date(con: duckdb.DuckDBPyConnection) -> None:
 def _run_all_ddl(con: duckdb.DuckDBPyConnection) -> None:
     """All DDL: schema creation + migrations. Requires a read-write connection.
 
-    Idempotent — safe to call on every startup. ETL also calls this directly
+    Idempotent - safe to call on every startup. ETL also calls this directly
     before loading data, so the backend never needs to create tables itself
     in production. The function is here as a fallback for local dev.
     """
@@ -148,7 +147,7 @@ def _run_all_ddl(con: duckdb.DuckDBPyConnection) -> None:
 
         logger.info("DuckDB schema created.")
 
-    # Idempotentne migracje — bezpieczne przy kazdym wywolaniu.
+    # Idempotentne migracje - bezpieczne przy kazdym wywolaniu.
     ensure_extra_tables(con)
     ensure_enrichment_columns(con)
     _migrate_locations_pk_if_needed(con)
@@ -160,7 +159,7 @@ def _migrate_locations_pk_if_needed(con: duckdb.DuckDBPyConnection) -> None:
     cols = {r[1] for r in con.execute("PRAGMA table_info('locations')").fetchall()}
     if 'id' not in cols:
         return
-    logger.info("[migrate] locations has old integer id PK — migrating schema and preserving data")
+    logger.info("[migrate] locations has old integer id PK - migrating schema and preserving data")
     con.execute("ALTER TABLE locations RENAME TO locations_old")
     con.execute("""
         CREATE TABLE locations (
@@ -196,7 +195,7 @@ def _migrate_locations_pk_if_needed(con: duckdb.DuckDBPyConnection) -> None:
         cols_str = ", ".join(common_cols)
         con.execute(f"INSERT INTO locations ({cols_str}) SELECT {cols_str} FROM locations_old")
         con.execute("DROP TABLE locations_old")
-        logger.info("[migrate] done — locations rebuilt with store_id as primary key, data preserved")
+        logger.info("[migrate] done - locations rebuilt with store_id as primary key, data preserved")
     except Exception as e:
         logger.error(f"[migrate] error copying data: {e}")
         try:
@@ -286,7 +285,7 @@ def init_db(keep_open: bool = True) -> _ConnectionProxy | None:
     the shared client is ready for query handlers immediately.
 
     The ETL calls init_db(keep_open=False) so the file is released for the
-    read-write connection it opens right after — DuckDB does not allow
+    read-write connection it opens right after - DuckDB does not allow
     concurrent read-only and read-write connections to the same file.
     """
     client.close()
@@ -294,7 +293,7 @@ def init_db(keep_open: bool = True) -> _ConnectionProxy | None:
         _ensure_schema()
     except Exception as e:
         # In a multi-worker setup, concurrent workers race to open a read-write
-        # connection for schema init. The losers get a lock error — that's fine,
+        # connection for schema init. The losers get a lock error - that's fine,
         # the winner already created the tables. We still need to reopen
         # client below, so just swallow the error here.
         logger.warning(f"Schema init skipped (concurrent worker): {e}")
@@ -594,7 +593,7 @@ def ensure_enrichment_columns(con: duckdb.DuckDBPyConnection) -> None:
     con.execute("ALTER TABLE administrative_division ADD COLUMN IF NOT EXISTS gus_id VARCHAR")
 
     # Remove old fake-data columns (light pollution was derived from neighbor distance,
-    # never real measured data). voivodeship/powiat/street are kept — API depends on them.
+    # never real measured data). voivodeship/powiat/street are kept - API depends on them.
     for col in ("light_pollution_brightness", "bortle_scale"):
         try:
             con.execute(f"ALTER TABLE locations DROP COLUMN IF EXISTS {col}")

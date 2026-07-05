@@ -1,10 +1,12 @@
 # Unit tests for backend.etl.geo.py.
 # Emojis are strictly forbidden in this project.
 
-import pytest
 import math
+
 import numpy as np
+
 import backend.etl.geo as geo
+
 
 def test_unit_vectors():
     lats = [0.0, 90.0]

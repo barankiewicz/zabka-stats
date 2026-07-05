@@ -1,13 +1,16 @@
 import os
-import pytest
+from unittest.mock import MagicMock, mock_open, patch
+
 import duckdb
-from unittest.mock import patch, mock_open, MagicMock
+import pytest
+
 import backend.etl.io as io
 from backend.database import _run_all_ddl
-from backend.etl.sources.neighbor import NeighborEnricher
-from backend.etl.sources.parks import ParksEnricher
 from backend.etl.sources.amphibians import AmphibiansEnricher
 from backend.etl.sources.elevation import ElevationEnricher
+from backend.etl.sources.neighbor import NeighborEnricher
+from backend.etl.sources.parks import ParksEnricher
+
 
 def test_etl_helpers():
     # Test _derive_h24
@@ -338,7 +341,7 @@ def test_per_capita_effective_population_views():
     # per-capita query divides by it - otherwise stores physically in a big
     # city (attributed to a host powiat for geographic joins) get divided by
     # that powiat's land-only population and density inflates ~10x. See
-    # CLAUDE.md section 3, "Per-capita denominator for cities with powiat
+    # DOCS.md section 3, "Per-capita denominator for cities with powiat
     # rights". Uses IDs well above the ~3100 seeded rows to avoid collisions.
     con = duckdb.connect(":memory:")
     _run_all_ddl(con)

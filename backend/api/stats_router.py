@@ -1,3 +1,5 @@
+import hmac
+import os
 import re
 from collections import Counter, defaultdict
 
@@ -6,8 +8,6 @@ from litestar.connection import Request
 from litestar.exceptions import HTTPException
 from litestar.params import FromQuery
 from litestar.serialization import encode_json
-import hmac
-import os
 
 from backend.api.demographics import get_voiv_population
 from backend.cache import cached, clear_cache, get_cached_blob, set_cached_blob
@@ -29,9 +29,6 @@ from backend.schemas.api_models import (
     OpeningsMonthlyItem,
     PerCapitaResponseItem,
     PowiatEconomicsItem,
-    StoreTimelineMilestones,
-    StoreTimelineRange,
-    StoreTimelineResponse,
     SummaryResponse,
     SundayByVoivodeshipResponseItem,
     SundayClosedStoreItem,
@@ -40,6 +37,7 @@ from backend.schemas.api_models import (
     TopStreetsResponse,
     VoivodeshipStatsResponseItem,
 )
+from backend.stats_compiler import compile_live_stats
 
 SUNDAY_CLOSED_PCT = {
     "dolnośląskie": 10.6, "zachodniopomorskie": 9.3, "lubuskie": 9.1,
@@ -62,7 +60,6 @@ def _norm_street(s: str) -> str:
 
 # --- Endpoints ---
 
-from backend.stats_compiler import compile_live_stats
 
 @get("/stats/summary", sync_to_thread=True)
 @cached(ttl=3600)

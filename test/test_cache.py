@@ -1,7 +1,10 @@
-import pytest
-from unittest.mock import MagicMock, patch
 import json
+from unittest.mock import patch
+
+import pytest
+
 import backend.cache as bc
+
 
 @pytest.fixture(autouse=True)
 def mock_redis():

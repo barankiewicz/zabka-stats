@@ -1,8 +1,8 @@
-import os
 import json
+import os
 import time
+
 import requests
-import sys
 
 GUS_BDL_BASE = "https://bdl.stat.gov.pl/api/v1/data/by-variable"
 HTTP_TIMEOUT = 45
@@ -20,7 +20,7 @@ class RateLimitError(Exception):
 def load_cache() -> dict:
     if os.path.exists(CACHE_FILE):
         try:
-            with open(CACHE_FILE, "r", encoding="utf-8") as f:
+            with open(CACHE_FILE, encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
             print(f"[gus-fetch] Cache read error: {e}. Starting fresh.")
@@ -123,9 +123,7 @@ def main():
     print("Processing level 2 (voivodeships) data...")
     pop_l2 = fetch_bdl_variable(VAR_POPULATION, 2, cache)
     area_l2 = fetch_bdl_variable(VAR_AREA, 2, cache)
-    unemp_l2 = fetch_bdl_variable(VAR_UNEMPLOYMENT, 2, cache)
-    salary_l2 = fetch_bdl_variable(VAR_SALARY, 2, cache)
-    
+
     # 2. Fetch level 5 (counties) data
     print("Processing level 5 (counties) data...")
     pop_l5 = fetch_bdl_variable(VAR_POPULATION, 5, cache)

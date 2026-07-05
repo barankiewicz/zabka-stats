@@ -203,7 +203,7 @@ def _linreg(xs, ys):
     mx = sum(xs) / n
     my = sum(ys) / n
     num = den = 0.0
-    for x, y in zip(xs, ys):
+    for x, y in zip(xs, ys, strict=True):
         dx = x - mx
         num += dx * (y - my)
         den += dx * dx
@@ -218,7 +218,7 @@ def _pearson(xs, ys):
     mx = sum(xs) / n
     my = sum(ys) / n
     sxy = sx = sy = 0.0
-    for x, y in zip(xs, ys):
+    for x, y in zip(xs, ys, strict=True):
         dx, dy = x - mx, y - my
         sxy += dx * dy
         sx += dx * dx

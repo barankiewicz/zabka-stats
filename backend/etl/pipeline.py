@@ -75,7 +75,7 @@ def _build_geo_dims(rows: list[dict], lockers: list[dict], skip_gus: bool) -> tu
 
     def _name_only(d):
         out = {}
-        for (v, n), val in d.items():
+        for (_, n), val in d.items():
             out.setdefault(n, val)
         return out
     sal_fb, une_fb, pop_fb = _name_only(salary), _name_only(unempl), _name_only(popul)

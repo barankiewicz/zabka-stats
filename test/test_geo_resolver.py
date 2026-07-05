@@ -1,11 +1,13 @@
 # Unit tests for backend.etl.geo_resolver.py.
 # Emojis are strictly forbidden in this project.
 
-import pytest
+from unittest.mock import MagicMock, patch
+
 import duckdb
-import json
-from unittest.mock import patch, MagicMock
+import pytest
+
 from backend.etl.geo_resolver import GugikGeoResolver
+
 
 @pytest.fixture
 def db_conn():
