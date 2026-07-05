@@ -194,7 +194,7 @@ export function destination(lat, lon, bearingDeg, distM) {
   return [ln2 * 180 / Math.PI, l2 * 180 / Math.PI];
 }
 
-// Geodesic circle as a closed Polygon FeatureCollection — the MapLibre
+// Geodesic circle as a closed Polygon FeatureCollection - the MapLibre
 // equivalent of Leaflet's L.circle(latlng, {radius}). Used for the Bieszczady
 // "void" highlight.
 export function geoCircle(lat, lon, radiusM, n = 64) {

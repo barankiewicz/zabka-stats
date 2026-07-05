@@ -1,7 +1,7 @@
-import os
 from datetime import datetime
-from pathlib import Path
-from backend.database import client, DB_PATH
+
+from backend.database import DB_PATH, client
+
 
 def cap_name(n: str) -> str:
     if not n:
@@ -342,6 +342,7 @@ def compile_live_stats() -> dict:
 
 def get_cached_stats() -> dict:
     import json
+
     from backend.cache import cache
     if cache:
         try:

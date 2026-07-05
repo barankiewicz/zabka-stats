@@ -148,7 +148,7 @@ canvas{display:block}
    intermittently painted while the clipped fill is not, so on ~every other load
    only the glow showed and the number went invisible. drop-shadow derives from
    the rendered (clipped) pixels, so glow and number always paint together. */
-/* solid fill + glow — the background-clip:text gradient kept rendering as glow
+/* solid fill + glow - the background-clip:text gradient kept rendering as glow
    only (clipped fill dropped on repaint during the count-up), so use a plain
    colour that always paints */
 .hero-number{font-family:var(--font-display);font-weight:800;font-size:clamp(57px,10vw,117px);line-height:.82;letter-spacing:-.04em;color:var(--green-bright);text-shadow:0 0 26px rgba(132,195,65,.5),0 0 60px rgba(132,195,65,.25)}
@@ -187,7 +187,7 @@ canvas{display:block}
 .origin-illus svg{width:100%;height:100%;max-height:180px;display:block}
 .origin-illus img{width:100%;max-height:180px;display:block;object-fit:contain}
 .origin-illus-new{width:200px;filter:drop-shadow(0 0 22px rgba(132,195,65,.35))}
-/* 2020 wordmark is a single dark green (#006420) — lift it off the dark card */
+/* 2020 wordmark is a single dark green (#006420) - lift it off the dark card */
 .origin-illus-new img{filter:brightness(1.85) saturate(1.05)}
 .origin-illus-old{opacity:.92}
 .origin-old{border-style:dashed}
@@ -254,7 +254,7 @@ canvas{display:block}
 .growth-year{font-family:var(--font-display);font-weight:800;font-size:35px;color:var(--green-bright);text-shadow:var(--glow)}
 .growth-map-overlay .st-btn{pointer-events:auto}
 
-/* FINGERPRINT — centered square on a black card */
+/* FINGERPRINT - centered square on a black card */
 .fp-card{background:#000}
 .fingerprint-wrap{position:relative;display:flex;justify-content:center;width:100%}
 
@@ -268,14 +268,14 @@ canvas{display:block}
 .growth-slider::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--green-bright);box-shadow:0 0 10px rgba(166,232,74,.7);cursor:grab;border:none}
 .growth-slider-label{font-family:var(--font-mono);font-size:12px;color:var(--muted);white-space:nowrap;min-width:36px;text-align:right}
 /* play/pause button to the right of the timeline. Triangle when paused/stopped,
-   two bars while the sweep is running (.is-playing). Icons are pure CSS — no glyphs. */
+   two bars while the sweep is running (.is-playing). Icons are pure CSS - no glyphs. */
 .growth-play{flex-shrink:0;width:30px;height:30px;border-radius:50%;border:1px solid var(--axis);background:var(--s2);color:var(--green-bright);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:3px;transition:border-color .15s,background .15s}
 .growth-play:hover{border-color:var(--green);background:rgba(0,192,96,.12)}
 .growth-play::before{content:'';display:block;width:0;height:0;border-style:solid;border-width:6px 0 6px 10px;border-color:transparent transparent transparent currentColor;margin-left:2px}
 .growth-play.is-playing::before{width:3px;height:11px;border:0;background:currentColor;margin:0}
 .growth-play.is-playing::after{content:'';display:block;width:3px;height:11px;background:currentColor}
 
-/* GRANULARITY: split layout — left chart, right voivodeship choropleth */
+/* GRANULARITY: split layout - left chart, right voivodeship choropleth */
 .gran-split{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:stretch}
 @media(max-width:900px){.gran-split{grid-template-columns:1fr}}
 .ip-col{height:440px}
@@ -317,7 +317,7 @@ canvas{display:block}
 .gran-ref-legend .lg-item{display:inline-flex;align-items:center;gap:6px}
 .gran-ref-legend .lg-line{display:inline-block;width:14px;height:0;border-top:2px dashed currentColor}
 
-/* BUBBLE CHART (D3 force) — clean: label halos via paint-order, no drop shadows */
+/* BUBBLE CHART (D3 force) - clean: label halos via paint-order, no drop shadows */
 #bubble-stage{position:relative;width:100%;height:520px;background:#0a120a;border:1px solid var(--axis);border-radius:12px;overflow:hidden;cursor:grab}
 #bubble-stage:active{cursor:grabbing}
 #bubble-stage svg{display:block}
@@ -331,7 +331,7 @@ canvas{display:block}
 #bubble-stage .b-sub2{font-family:var(--font-mono);fill:var(--green-bright)}
 .bubble-zoom-hint{position:absolute;right:10px;bottom:10px;z-index:2;pointer-events:none;font-family:var(--font-mono);font-size:11.5px;letter-spacing:.04em;color:var(--muted);background:rgba(8,17,10,.72);border:1px solid var(--axis);border-radius:6px;padding:4px 8px}
 
-/* POWIAT COVERAGE TILE — donut + dot map, sized to match the bubble tile */
+/* POWIAT COVERAGE TILE - donut + dot map, sized to match the bubble tile */
 .powiat-card{display:flex;flex-direction:column}
 .powiat-card .powiat-cover{flex:1}
 .powiat-cover{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
@@ -431,7 +431,7 @@ canvas{display:block}
 .drawer-city{color:var(--ink);font-weight:500;min-width:90px;flex-shrink:0}
 .drawer-street{color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .drawer-mc{font-size:10.5px;color:var(--green);background:rgba(0,192,96,.1);border:1px solid rgba(0,192,96,.2);padding:1px 6px;border-radius:99px;flex-shrink:0}
-/* CLOCK DONUT — niedziela handlowa */
+/* CLOCK DONUT - niedziela handlowa */
 .clock-donut-wrap{display:flex;flex-direction:column;align-items:center;gap:14px;padding:10px 0 4px}
 .clock-donut-wrap canvas{cursor:pointer}
 .clock-donut-legend{display:flex;gap:22px}
@@ -698,7 +698,7 @@ canvas{display:block}
 }
 
 /* MOBILE HEIGHTS: the big desktop-sized map/canvas panels are fixed-px tall
-   and don't shrink on their own — on a phone they eat most of the screen for
+   and don't shrink on their own - on a phone they eat most of the screen for
    what's often a wide, short visual. These come last so they win over the
    880px .kr #kr-map rule above at narrower widths too. */
 @media(max-width:600px){

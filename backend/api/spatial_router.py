@@ -229,7 +229,7 @@ def kraniec_facts() -> KraniecFactsResponse:
             "value": f"{round(float(isolation_ff[2]), 1)} km do sasiada",
             "city": iso_loc[0] if iso_loc else "Michalowo",
             "voivodeship": iso_loc[1] if iso_loc else "podlaskie",
-            "street": iso_loc[2] if iso_loc else "—",
+            "street": iso_loc[2] if iso_loc else "-",
             "lat": float(isolation_ff[0]), "lon": float(isolation_ff[1]),
             "zoom": 10, "type": "point",
         })

@@ -83,10 +83,11 @@ frontend/coverage/
 frontend/test/perf-debug.json
 test-results/
 
-# Claude Code local traces and internal analysis (private, never shipped)
+# Local working notes and internal analysis (private, never shipped)
 .claude/
 .claude-code/
 claude_*.md
+skills-lock.json
 transcripts/
 context_history/
 *.jsonl
@@ -102,7 +103,6 @@ dashboard_data.json
 zabka-dashboard.html
 *.tmp
 *.bak
-CLAUDE.md
 
 .pytest_cache/
 .ruff_cache/

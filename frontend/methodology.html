@@ -244,7 +244,7 @@
   function stripUnresolvedPlaceholders() {
     document.querySelectorAll('[data-t]').forEach(el => {
       if (el.innerHTML && el.innerHTML.includes('{{')) {
-        el.innerHTML = el.innerHTML.replace(/\{\{[^}]+\}\}/g, '—');
+        el.innerHTML = el.innerHTML.replace(/\{\{[^}]+\}\}/g, '-');
       }
     });
   }

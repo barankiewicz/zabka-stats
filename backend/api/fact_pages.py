@@ -4,7 +4,7 @@ Standalone single-fact share pages and their per-fact OG preview images.
 Each fact gets its own URL (/fakt/<slug>) so a Reddit/Twitter link points at
 one striking stat instead of the whole dashboard, and its own OG image
 (/fakt/<slug>/og.png) so the link preview shows that stat instead of the
-generic homepage card. See CLAUDE.md for the site's data model - each query
+generic homepage card. See DOCS.md for the site's data model - each query
 below mirrors an existing endpoint's logic (kraniec-facts, neighbor-stats,
 network-origin) rather than introducing new SQL.
 

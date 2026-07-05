@@ -1,4 +1,4 @@
-# CLAUDE.md - Żabka Dashboard (single source of truth)
+# DOCS.md - Żabka Dashboard (single source of truth)
 
 The single source of truth for this project. All documentation lives in this one
 file, split into chapters (it used to be scattered across README / ARCHITECTURE /
@@ -7,7 +7,7 @@ work on.
 
 ## Table of contents
 
-- 0. Instructions for Claude Code (directives, commit style, notes)
+- 0. Conventions and notes (style, commit style, gotchas)
 - 1. Overview and quick start
 - 2. Backend (tech stack, Redis, database choice, API)
 - 3. Data (ETL process, data core, enrichment, schema with types)
@@ -15,7 +15,7 @@ work on.
 
 ---
 
-# 0. Instructions for Claude Code
+# 0. Conventions and notes
 
 ## CRITICAL DIRECTIVE: ZERO EMOJIS
 
@@ -33,9 +33,8 @@ use humanizing language instead. No emoji whatsoever. This is non-negotiable.
 ## Language and writing
 
 - Documentation is written in English. Keep it correct and casual-but-formal.
-  Run client-facing text through a humanizer pass (strip the usual AI-writing
-  tells: inflated phrasing, rule-of-three padding, em-dash overuse, "not just X
-  but Y") before shipping.
+  Watch for inflated phrasing, rule-of-three padding, em-dash overuse, and
+  "not just X but Y" constructions - keep client-facing copy tight and direct.
 - Keep identifiers in their original form: column names, table names, variable
   names, env-var names, CLI flags, function names, and code comments. Do not
   translate them. Same for data values (voivodeship names and similar) and URLs.
@@ -132,7 +131,7 @@ the Żabka network across Poland.
 
 ## Documentation
 
-All documentation lives in this file (CLAUDE.md), in the chapters below: backend
+All documentation lives in this file (DOCS.md), in the chapters below: backend
 (chapter 2), data/ETL/enrichment/schema (chapter 3), frontend (chapter 4).
 
 ## Quick start
@@ -353,8 +352,7 @@ data/                    - data + data documentation (chapter 3)
   zabka.duckdb           - DuckDB (created on first run)
 
 __main__.py              - alternative backend launcher (root)
-CLAUDE.md                - instructions for Claude Code + documentation (this file)
-.claude/analysis/        - internal analytics artifacts (outside the repo)
+DOCS.md                  - project documentation (this file)
 ```
 
 ## Troubleshooting

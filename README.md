@@ -296,12 +296,11 @@ actually use. Things I wanted to get better at, in no particular order:
 *   **GIS:** working with and visualizing geographic data - GeoJSON, point-in-polygon
     algorithms, and coordinate encodings.
 *   **Frontend:** building a modern frontend with Vite, making a site properly
-    multilingual, optimizing it for performance on both ends, and experimenting with
-    data visualization techniques to try to land on something a bit more creative than
+    multilingual, optimizing it for performance on both ends, and experimenting
+    with data visualization techniques to try to land on something a bit more creative than
     the usual dashboard template.
-*   **Working with Claude:** learning how to offload tedious work (writing tests,
-    audits, repetitive fixes) so I could spend more time on the parts I actually wanted
-    to think about.
+*   **Tooling and automation:** scripting the tedious parts (test scaffolding,
+    audits, repetitive fixes) so the interesting work gets the attention it needs.
 *   **Understanding BI dashboards:** seeing how one works end-to-end, under the hood,
     instead of just consuming one someone else built.
 *   And, hopefully, **building a dataset someone else can actually use** - not just a

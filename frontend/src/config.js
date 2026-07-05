@@ -61,7 +61,7 @@ export const barValueLabels = {
   afterDatasetsDraw(chart){
     const opt=chart.options.plugins&&chart.options.plugins.barLabels;
     // Chart.js auto-creates an empty {} for every registered plugin, and {} is
-    // truthy — so only draw when a chart actually opted in with a config key.
+    // truthy - so only draw when a chart actually opted in with a config key.
     if(!opt||Object.keys(opt).length===0)return;
     const{ctx}=chart;
     const horizontal=chart.options.indexAxis==='y';

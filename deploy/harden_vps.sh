@@ -39,7 +39,7 @@ if ! grep -q "pam_limits.so" "$PAM_SESSION" 2>/dev/null; then
     echo "session required pam_limits.so" >> "$PAM_SESSION"
 fi
 
-# systemd services need their own limit — pam_limits.conf does not apply to them
+# systemd services need their own limit - pam_limits.conf does not apply to them
 SYSTEMD_OVERRIDE_DIR=/etc/systemd/system/zabka-backend.service.d
 mkdir -p "$SYSTEMD_OVERRIDE_DIR"
 cat > "$SYSTEMD_OVERRIDE_DIR/limits.conf" << 'EOF'
@@ -110,7 +110,7 @@ systemctl restart zabka-backend
 echo "Backend restarted."
 
 # --- Nginx ----------------------------------------------------------------
-# Nginx config is in deploy/nginx_zabka.conf — copy it manually:
+# Nginx config is in deploy/nginx_zabka.conf - copy it manually:
 #
 #   sudo cp deploy/nginx_zabka.conf /etc/nginx/sites-available/zabka
 #   sudo nginx -t && sudo systemctl reload nginx

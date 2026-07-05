@@ -2,7 +2,7 @@
 Per-fact Open Graph preview images for /fakt/<slug> (see backend/api/fact_pages.py).
 
 Rendered once per process (facts only change as often as the daily ETL, which
-restarts the backend anyway - see CLAUDE.md). Fonts are vendored locally under
+restarts the backend anyway - see DOCS.md). Fonts are vendored locally under
 assets/fonts/ since Pillow needs a file on disk (the site itself only loads
 fonts from the Google Fonts CDN). Both are variable fonts, so a named weight
 instance is pinned via set_variation_by_name() instead of shipping one file

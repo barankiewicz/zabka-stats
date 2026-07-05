@@ -383,7 +383,7 @@ function drawCalendar(uptoYear){
         const elapsed=anim?now-anim.born:Infinity;
 
         if(elapsed<0){
-          // Still in stagger queue — dark placeholder, keep loop alive
+          // Still in stagger queue - dark placeholder, keep loop alive
           hasActive=true;
           ctx.fillStyle='rgba(255,255,255,.02)';
           ctx.fillRect(x0,y0,w0,h0);
@@ -437,7 +437,7 @@ export async function renderGrowthMap(){
 
   // First-time init: dark vector base + a single WebGL circle layer for all
   // 13k+ stores. The old Canvas-2D overlay and its pan/zoom transform sync
-  // (applyTransform / _drawnCenter / _drawnZoom) are gone — MapLibre tracks
+  // (applyTransform / _drawnCenter / _drawnZoom) are gone - MapLibre tracks
   // the dots natively at 60 fps.
   if(!growthMap){
     try {
@@ -486,7 +486,7 @@ export async function renderGrowthMap(){
         // era colour steps mirror the old era() helper; circle-blur produces the
         // density halo that used to be hand-painted onto Canvas 2D per cluster.
         // circle-pitch-alignment:map lays the dots on the tilted surface (3D).
-        // glow halo layer — same dots, larger + blurry, drawn first so the sharp dot sits on top
+        // glow halo layer - same dots, larger + blurry, drawn first so the sharp dot sits on top
         growthMap.addLayer({
           id:'stores-glow',type:'circle',source:'stores',
           paint:{
@@ -924,7 +924,7 @@ export function renderPowiatCoverage(){
   const cv=document.getElementById('canvas-powiat-map');if(!cv)return;
   const donut=document.getElementById('powiat-donut');
   const W=cv.offsetWidth||420,H=cv.offsetHeight||Math.round(W*0.62);
-  // resize only when the size actually changed — avoids a clear/flash on switch
+  // resize only when the size actually changed - avoids a clear/flash on switch
   if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H}
   const ctx=cv.getContext('2d');
   const dctx=donut?donut.getContext('2d'):null;
@@ -938,7 +938,7 @@ export function renderPowiatCoverage(){
   const dots=(pc.dots||[]).map(([lat,lon])=>P(lat,lon));
 
   // green = covered share of the level (golden-ratio scatter), red = the rest;
-  // fixed dot count — only the green/red split changes
+  // fixed dot count - only the green/red split changes
   const frac=pct/100;
   const target=dots.map((_,i)=>((i*0.6180339887)%1)<frac);
 
@@ -1093,7 +1093,7 @@ const _vKey=()=>_gMetric==='per1k'?'per_1k':_gMetric==='per_km2'?'per_km2':'cnt'
 const _isCount=()=>_gMetric==='count';
 
 // cross-filter passes a truthy non-string (legacy); ignore and re-render current view.
-// skipMap: pass true when only the dimension changed — the right choropleth is
+// skipMap: pass true when only the dimension changed - the right choropleth is
 // voivodeship-only and doesn't care which dim the left chart shows.
 export async function renderGranular(arg,{skipMap=false}={}){
   if(typeof arg==='string'&&GRAN_WORD[arg])_gDim=arg;

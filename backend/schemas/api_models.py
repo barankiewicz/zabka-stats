@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -204,10 +204,10 @@ class ElevationResponse(BaseModel):
 class LonerStore(BaseModel):
     # Optional: the handler returns all-None when locations is empty (fresh
     # or not-yet-loaded database) rather than fabricating a fallback record.
-    city: Optional[str] = None
-    voivodeship: Optional[str] = None
-    street: Optional[str] = None
-    nearest_neighbor_distance_meters: Optional[int] = None
+    city: str | None = None
+    voivodeship: str | None = None
+    street: str | None = None
+    nearest_neighbor_distance_meters: int | None = None
 
 class NeighborBucket(BaseModel):
     bucket: str
@@ -215,9 +215,9 @@ class NeighborBucket(BaseModel):
 
 class NeighborDistribution(BaseModel):
     # Optional for the same reason as LonerStore - NULL aggregates over zero rows.
-    median_m: Optional[float] = None
-    avg_m: Optional[float] = None
-    max_m: Optional[float] = None
+    median_m: float | None = None
+    avg_m: float | None = None
+    max_m: float | None = None
     buckets: list[NeighborBucket]
 
 class NeighborStatsResponse(BaseModel):

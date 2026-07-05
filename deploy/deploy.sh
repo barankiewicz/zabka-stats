@@ -58,7 +58,7 @@ npm run build
 
 # --- 3. push to origin ------------------------------------------------------
 if [ "$ALLOW_DIRTY" = "1" ]; then
-  say "ALLOW_DIRTY=1 — skipping git push, shipping working-tree build only"
+  say "ALLOW_DIRTY=1 - skipping git push, shipping working-tree build only"
 else
   say "Pushing $BRANCH to origin"
   git push origin "$BRANCH"
@@ -79,7 +79,7 @@ echo "requirements.txt changed: $REQ_CHANGED"
 
 # --- 5. refresh python deps only if needed ----------------------------------
 if [ "$REQ_CHANGED" = "yes" ]; then
-  say "requirements.txt changed — refreshing venv on $SSH_HOST"
+  say "requirements.txt changed - refreshing venv on $SSH_HOST"
   ssh "$SSH_HOST" "cd '$REMOTE_DIR' && venv/bin/pip install -q -r requirements.txt"
 fi
 
@@ -137,7 +137,7 @@ LOCAL_BUNDLE=$(grep -o 'assets/[A-Za-z0-9_-]*\.js' frontend/dist/index.html | he
 echo "local bundle:  $LOCAL_BUNDLE"
 
 if [ "$ACTIVE" = "active" ] && [ "$PUBLIC_BUNDLE" = "$LOCAL_BUNDLE" ] && [ -n "$PUBLIC_BUNDLE" ]; then
-  say "Deploy OK — $PUBLIC_URL is serving $PUBLIC_BUNDLE"
+  say "Deploy OK - $PUBLIC_URL is serving $PUBLIC_BUNDLE"
 else
   echo "" >&2
   echo "WARNING: deploy finished but verification did not fully match." >&2

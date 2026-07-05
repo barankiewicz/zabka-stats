@@ -9,7 +9,7 @@ from litestar.exceptions import HTTPException
 from litestar.params import FromPath, FromQuery
 
 from backend.cache import cached
-from backend.database import client, build_where_clause
+from backend.database import build_where_clause, client
 
 
 @get("/stats/by-powiat", sync_to_thread=True)

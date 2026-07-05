@@ -488,7 +488,7 @@ async function buildMap() {
       _krMap.addLayer({ id: 'void-line', type: 'line', source: 'void',
         paint: { 'line-color': '#e8693d', 'line-width': 1.5, 'line-dasharray': [2, 2], 'line-opacity': 0.8 } });
     }
-    // cluster dot layers — one per cluster fact, all start hidden
+    // cluster dot layers - one per cluster fact, all start hidden
     CLUSTER_FACTS.forEach(f => {
       const fc = pointsToFC(f.dots, (lat, lon, p, i) => ({
         _c: (f.id === 'twins') ? _twinsColorForDot(i, f.dotsMeta && f.dotsMeta[i]) : COL[f.g],

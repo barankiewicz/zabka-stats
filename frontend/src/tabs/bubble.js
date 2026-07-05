@@ -17,8 +17,8 @@ import { t, getLang } from '../i18n.js';
 // Force-directed "volumetric" bubble chart of the network (one bubble per
 // powiat/miasto, size = store count, plus a "Pozostałe" bubble for the tail).
 // Ported from test/READY_CHART_1.html: same behaviour (drag, ctrl+scroll zoom,
-// remainder node) but cleaned visuals — label halos via paint-order stroke
-// instead of blurry text-shadows, and no drop-shadow glow on the remainder —
+// remainder node) but cleaned visuals - label halos via paint-order stroke
+// instead of blurry text-shadows, and no drop-shadow glow on the remainder -
 // and wired to real /api/stats/by-dimension data instead of the mock.
 
 const MAX_BUBBLES = 60;

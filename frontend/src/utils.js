@@ -36,7 +36,7 @@ export function capName(n){
   return n[0].toUpperCase()+n.slice(1);
 }
 export function macroCol(v){return C[MACRO[v]]||C.green}
-// single production font set (the live switcher was removed; see CLAUDE.md ch.4)
+// single production font set (the live switcher was removed; see DOCS.md ch.4)
 export function getFont(r){
   return{display:'Bricolage Grotesque',body:'IBM Plex Sans',mono:'JetBrains Mono'}[r];
 }
