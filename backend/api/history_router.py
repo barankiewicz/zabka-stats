@@ -6,7 +6,7 @@ from litestar.exceptions import HTTPException
 from litestar.params import FromPath, FromQuery
 
 from backend.cache import cached
-from backend.database import client
+from backend.database import client, build_where_clause
 
 
 @get("/history/location/{location_id:str}", sync_to_thread=True)
@@ -68,9 +68,7 @@ def get_monthly_changes(
         where_clauses.append("voivodeship = ?")
         params.append(voivodeship)
 
-    where = ""
-    if where_clauses:
-        where = "WHERE " + " AND ".join(where_clauses)
+    where = build_where_clause(where_clauses, prefix="WHERE")
 
     results = client.execute(f"""
         WITH monthly_events AS (

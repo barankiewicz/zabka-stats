@@ -36,13 +36,17 @@ from backend.api.spatial_router import router as spatial_router
 from backend.api.stats_router import router as stats_router
 from backend.database import DB_PATH, client, init_db
 
+import logging
+
+logger = logging.getLogger("backend")
+
 # API_TOKEN is set via environment variable. The fallback below is a documented
 # local-dev convenience (see CLAUDE.md quick start) - warn loudly so it never
 # goes unnoticed in a deployed environment.
 API_TOKEN = os.getenv("API_TOKEN")
 if not API_TOKEN or API_TOKEN == "your-secret-token-change-me":
-    print(
-        "WARNING: API_TOKEN is not set or is set to the default value. "
+    logger.warning(
+        "API_TOKEN is not set or is set to the default value. "
         "Snapshot uploads are disabled for security."
     )
     API_TOKEN = None
@@ -50,9 +54,9 @@ if not API_TOKEN or API_TOKEN == "your-secret-token-change-me":
 # Initialize database
 try:
     init_db()
-    print(" Database initialized")
+    logger.info("Database initialized")
 except Exception as e:
-    print(f"  Database initialization: {e}")
+    logger.error(f"Database initialization: {e}")
 
 
 # Health check
@@ -80,7 +84,7 @@ def health_check() -> Response:
             }
         )
     except Exception as e:
-        print(f"Health check failed: {e}")
+        logger.error(f"Health check failed: {e}")
         return Response(
             status_code=500,
             content={
@@ -170,9 +174,20 @@ def download_parquet() -> File:
     )
 
 
-def _read_and_parse_json(file_upload):
-    contents = file_upload.file.read()
-    return json.loads(contents)
+def _read_and_parse_json(file_upload) -> dict:
+    max_size = 50 * 1024 * 1024  # 50 MB
+    contents = file_upload.file.read(max_size + 1)
+    if len(contents) > max_size:
+        raise ValueError("File exceeds maximum allowed size of 50MB")
+    try:
+        data = json.loads(contents)
+    except Exception as e:
+        raise ValueError(f"Invalid JSON data: {e}")
+    if not isinstance(data, dict):
+        raise ValueError("Invalid JSON format (root must be a dictionary)")
+    if "stores" not in data and "locations" not in data:
+        raise ValueError("Invalid JSON format (missing stores or locations list)")
+    return data
 
 def _save_json_to_file(data, temp_path):
     with open(temp_path, 'w', encoding='utf-8') as f:
@@ -253,7 +268,7 @@ async def upload_snapshot(request: Request) -> Response:
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        print(f"Error processing snapshot: {e}")
+        logger.error(f"Error processing snapshot: {e}")
         raise HTTPException(
             status_code=500,
             detail="Error processing snapshot. Check server logs for details."
@@ -305,17 +320,23 @@ _frontend_root = _project_root / "frontend"
 _dist_dir = _frontend_root / "dist"
 
 if not _dist_dir.exists():
-    print("Frontend dist missing — building now (npm run build)...")
-    result = subprocess.run(
-        ["npm", "run", "build"],
-        cwd=str(_project_root),
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode == 0:
-        print("Frontend built successfully.")
-    else:
-        print(f"Frontend build failed:\n{result.stderr}")
+    logger.info("Frontend dist missing — building now (npm run build)...")
+    try:
+        result = subprocess.run(
+            ["npm", "run", "build"],
+            cwd=str(_project_root),
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if result.returncode == 0:
+            logger.info("Frontend built successfully.")
+        else:
+            logger.error(f"Frontend build failed:\n{result.stderr}")
+    except subprocess.TimeoutExpired:
+        logger.error("Frontend build timed out after 120s.")
+    except Exception as e:
+        logger.error(f"Frontend build error: {e}")
 
 frontend_dir = _dist_dir if _dist_dir.exists() else _frontend_root
 
@@ -341,7 +362,7 @@ def render_html_with_stats(file_name: str, lang: str = "pl") -> Response:
         token = match.group(1).strip()
         field = token.lower().replace("stat_", "")
         if field == "total_stores_words":
-            return "trzynaście tysięcy"
+            return stats.get("total_stores_words_en" if lang == "en" else "total_stores_words", "trzynaście tysięcy")
         if field in ("data_year_max", "oldest_store_year", "newest_store_year", "record_year"):
             val = stats.get(field)
             return str(val) if val is not None else match.group(0)
@@ -401,14 +422,20 @@ try:
     )
     route_handlers.append(static_router)
 except Exception as e:
-    print(f"Note: Static files router could not be configured: {e}")
+    logger.warning(f"Note: Static files router could not be configured: {e}")
 
-cors_config = CORSConfig(
-    allow_origins=[
+allowed_origins_env = os.getenv("CORS_ALLOW_ORIGINS")
+if allowed_origins_env:
+    allow_origins = [orig.strip() for orig in allowed_origins_env.split(",") if orig.strip()]
+else:
+    allow_origins = [
         "https://zabkozbior.barankiewicz.dev",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-    ],
+    ]
+
+cors_config = CORSConfig(
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

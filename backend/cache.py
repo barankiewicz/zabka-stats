@@ -27,9 +27,9 @@ try:
         socket_connect_timeout=5,
     )
     cache.ping()
-    print(" Redis connected via socket")
+    logger.info("Redis connected via socket")
 except Exception as e:
-    print(f"  Redis not available: {e}")
+    logger.warning(f"Redis not available: {e}")
     cache = None
 
 
@@ -109,21 +109,45 @@ def clear_cache(pattern: str = "*") -> None:
         logger.warning("Redis clear_cache error (pattern=%r): %s", pattern, e)
 
 
+import threading
+import asyncio
+import re
+
+_locks = {}
+_locks_lock = threading.Lock()
+
+def _get_lock(key: str) -> threading.Lock:
+    with _locks_lock:
+        if key not in _locks:
+            _locks[key] = threading.Lock()
+        return _locks[key]
+
+_async_locks = {}
+_async_locks_lock = threading.Lock()
+
+def _get_async_lock(key: str) -> asyncio.Lock:
+    with _async_locks_lock:
+        if key not in _async_locks:
+            _async_locks[key] = asyncio.Lock()
+        return _async_locks[key]
+
+
+def _safe_serialize(val: Any) -> Any:
+    """Recursively serializes arguments, stripping memory addresses from representations to avoid cache misses."""
+    if isinstance(val, (int, float, str, bool, type(None))):
+        return val
+    if isinstance(val, (list, tuple, set)):
+        return [_safe_serialize(x) for x in val]
+    if isinstance(val, dict):
+        return {str(k): _safe_serialize(v) for k, v in sorted(val.items())}
+    # Strip memory addresses from representation to ensure consistent cache keys
+    return f"repr:{re.sub(r' at 0x[0-9a-fA-F]+', '', repr(val))}"
+
+
 def _cache_key(func, args, kwargs) -> str:
     # Safely serialize positional and keyword arguments to avoid collision and TypeError
-    args_serializable = []
-    for arg in args:
-        if isinstance(arg, (int, float, str, bool, type(None))):
-            args_serializable.append(arg)
-        else:
-            args_serializable.append(f"__repr__:{repr(arg)}")
-
-    kwargs_serializable = {}
-    for k, v in sorted(kwargs.items()):
-        if isinstance(v, (int, float, str, bool, type(None))):
-            kwargs_serializable[k] = v
-        else:
-            kwargs_serializable[k] = f"__repr__:{repr(v)}"
+    args_serializable = [_safe_serialize(arg) for arg in args]
+    kwargs_serializable = {k: _safe_serialize(v) for k, v in sorted(kwargs.items())}
 
     key_data = {
         "args": args_serializable,
@@ -135,12 +159,8 @@ def _cache_key(func, args, kwargs) -> str:
 def cached(ttl: int = 3600):
     """Decorator to cache function results.
 
-    Preserves whether the wrapped function is sync or async: most route
-    handlers here are plain sync functions (blocking DuckDB calls) that
-    Litestar runs in its own thread pool, and forcing them into an async
-    wrapper here would silently undo that - `await func(...)` on a sync
-    function raises TypeError, since calling it already returns the result
-    rather than a coroutine to await.
+    Preserves whether the wrapped function is sync or async.
+    Implements per-key locking to prevent cache stampedes / race conditions.
     """
     def decorator(func):
         from litestar import Response as LitestarResponse
@@ -152,9 +172,15 @@ def cached(ttl: int = 3600):
                 cached_json = get_cached_blob(key)
                 if cached_json is not None:
                     return LitestarResponse(content=cached_json, media_type="application/json")
-                result = await func(*args, **kwargs)
-                set_cache(key, result, ttl)
-                return result
+                
+                async with _get_async_lock(key):
+                    # Double-check under lock
+                    cached_json = get_cached_blob(key)
+                    if cached_json is not None:
+                        return LitestarResponse(content=cached_json, media_type="application/json")
+                    result = await func(*args, **kwargs)
+                    set_cache(key, result, ttl)
+                    return result
             return async_wrapper
 
         @wraps(func)
@@ -163,8 +189,14 @@ def cached(ttl: int = 3600):
             cached_json = get_cached_blob(key)
             if cached_json is not None:
                 return LitestarResponse(content=cached_json, media_type="application/json")
-            result = func(*args, **kwargs)
-            set_cache(key, result, ttl)
-            return result
+            
+            with _get_lock(key):
+                # Double-check under lock
+                cached_json = get_cached_blob(key)
+                if cached_json is not None:
+                    return LitestarResponse(content=cached_json, media_type="application/json")
+                result = func(*args, **kwargs)
+                set_cache(key, result, ttl)
+                return result
         return sync_wrapper
     return decorator

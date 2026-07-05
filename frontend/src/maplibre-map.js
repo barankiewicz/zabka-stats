@@ -118,7 +118,11 @@ export function showMapUnavailable(container, opts = {}) {
 }
 
 export function fitPoland(map, padding = 6, opts = {}) {
-  try { map.fitBounds(PL_BOUNDS, { padding, ...opts }); } catch (e) { /* map not ready */ }
+  try {
+    map.fitBounds(PL_BOUNDS, { padding, ...opts });
+  } catch (e) {
+    console.debug('fitPoland skipped (map not fully loaded):', e.message);
+  }
 }
 
 // ---- Voivodeship base layers ----

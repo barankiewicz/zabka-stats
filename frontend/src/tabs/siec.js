@@ -14,7 +14,7 @@ function ensureMaplibre(){
     return m;
   });
 }
-import { fetchJSON, loadSiec } from '../data.js';
+import { fetchJSON, loadSiec, ensurePowGeo } from '../data.js';
 import { renderBubble } from './bubble.js';
 import { renderKraniec, selectFact } from './kraniec.js';
 import { renderEdgeKPIs } from './edge.js';
@@ -1350,7 +1350,13 @@ function _setWojData(rows,geojson,metric){
 // avoids pulling a glyph atlas into our tile-free style (keeps it offline).
 function _refreshWojLabels(features){
   // clear previous markers
-  _wojLabelMarkers.forEach(m=>{try{m.remove()}catch(e){}});
+  _wojLabelMarkers.forEach(m => {
+    try {
+      m.remove();
+    } catch (e) {
+      console.warn("Failed to remove map label marker:", e);
+    }
+  });
   _wojLabelMarkers=[];
   if(!_wojMap||_wojLevelLive!=='voivodeship')return;
   const { Marker } = maplibregl;
@@ -1570,15 +1576,7 @@ async function _buildWojMap(el){
   _fillWoj();
 }
 
-async function ensurePowGeo() {
-  if (M.powGeo) {
-    _powGeo = M.powGeo;
-    return _powGeo;
-  }
-  M.powGeo = await fetchJSON('/api/geo/powiats');
-  _powGeo = M.powGeo;
-  return _powGeo;
-}
+
 
 async function _fillWoj(){
   const seq = ++_fillWojSeq;

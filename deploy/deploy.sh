@@ -118,6 +118,10 @@ fi
 
 # --- 7. restart the backend -------------------------------------------------
 say "Restarting $SERVICE"
+# SECURITY TIP: To minimize privilege escalation risks if SSH keys are compromised,
+# do NOT grant the deployment user passwordless sudo for all commands.
+# Instead, add a rule to /etc/sudoers.d/zabka-deploy on the VPS allowing only:
+#   YOUR_SSH_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart zabka-backend
 ssh "$SSH_HOST" "sudo -n systemctl restart '$SERVICE'"
 sleep 4
 

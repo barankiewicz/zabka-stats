@@ -45,9 +45,7 @@ function bakeSummaryPlugin() {
       const baked = html.replace(/\{\{([^}]+)\}\}/g, (match, token) => {
         const field = token.toLowerCase().replace(/^stat_/, '');
         if (field === 'total_stores_words') {
-          // Runtime always returns "trzynaście tysięcy" for PL. EN overrides
-          // on language switch. Same as the hardcoded value in i18n.js.
-          return 'trzynaście tysięcy';
+          return summary['total_stores_words'] || 'trzynaście tysięcy';
         }
         const val = summary[field];
         if (val === undefined || val === null) return match;

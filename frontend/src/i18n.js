@@ -984,7 +984,8 @@ export function t(key) {
     txt = txt.replace(/\{\{([^}]+)\}\}/g, (match, token) => {
       const field = token.toLowerCase().replace(/^stat_/, '');
       if (field === 'total_stores_words') {
-        return currentLang === 'en' ? 'thirteen thousand' : 'trzynaście tysięcy';
+        const key = currentLang === 'en' ? 'total_stores_words_en' : 'total_stores_words';
+        return M.summary[key] || (currentLang === 'en' ? 'thirteen thousand' : 'trzynaście tysięcy');
       }
       const val = M.summary[field];
       if (val !== undefined && val !== null) {

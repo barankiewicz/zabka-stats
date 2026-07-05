@@ -12,7 +12,7 @@ import { C, STATE, GRAN_FILL_STOPS, interpolateColorRamp } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
 import { fmt, getFont, destroyChart, startTabParticles, capName, whenVisible, wireCountUp, escapeHtml, showChartStatus } from '../utils.js';
 import { t, getLang } from '../i18n.js';
-import { fetchJSON } from '../data.js';
+import { fetchJSON, ensurePowGeo } from '../data.js';
 
 // econ.js pulls in ECharts (~180 KB gz); its two scatter chapters sit at the
 // very bottom of this tab, well below the fold, so load it only once that
@@ -91,7 +91,6 @@ function _ipRamp(t){
 
 let _ipMap=null,_ipSrcReady=false,_ipPending=false;
 let _ipMapMode='2d';
-let _powGeo=null;
 let _ipTip=null;
 let _ipLabelMarkers=[];
 let _ipLevelLive='voivodeship';  // level actually drawn on the map (see _fillInpost)
@@ -334,15 +333,7 @@ async function _buildInpostMap(el){
   _fillInpost();
 }
 
-async function ensurePowGeo() {
-  if (M.powGeo) {
-    _powGeo = M.powGeo;
-    return _powGeo;
-  }
-  M.powGeo = await fetchJSON('/api/geo/powiats');
-  _powGeo = M.powGeo;
-  return _powGeo;
-}
+
 
 let _fillInpostSeq = 0;
 let _nblSeq = 0;

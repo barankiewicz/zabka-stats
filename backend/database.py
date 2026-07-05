@@ -3,12 +3,15 @@ DuckDB database connection and initialization.
 """
 
 import json
+import logging
 import threading
 from pathlib import Path
 
 import duckdb
 
 import os
+
+logger = logging.getLogger("database")
 
 # Database path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -23,7 +26,64 @@ else:
     DB_PATH = (PROJECT_ROOT / "data" / "zabka.duckdb").resolve()
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-def _run_all_ddl(con):
+
+def _ensure_dim_date(con: duckdb.DuckDBPyConnection) -> None:
+    """Ensure dim_date table exists and is seeded from 1998 to 2030."""
+    tables = [t[0] for t in con.execute("SELECT table_name FROM information_schema.tables").fetchall()]
+    if 'dim_date' not in tables:
+        con.execute("""
+            CREATE TABLE dim_date (
+                date_actual DATE PRIMARY KEY,
+                day_name VARCHAR NOT NULL,
+                day_of_week INTEGER NOT NULL,
+                day_of_month INTEGER NOT NULL,
+                day_of_year INTEGER NOT NULL,
+                month_number INTEGER NOT NULL,
+                month_name VARCHAR NOT NULL,
+                year_actual INTEGER NOT NULL,
+                is_weekend BOOLEAN NOT NULL,
+                quarter INTEGER NOT NULL
+            )
+        """)
+    
+    # Check if we need to seed or expand
+    res = con.execute("SELECT MIN(date_actual) FROM dim_date").fetchone()
+    import datetime
+    seed_needed = True
+    if res and res[0]:
+        val = res[0]
+        if isinstance(val, str):
+            try:
+                val = datetime.date.fromisoformat(val[:10])
+            except Exception:
+                val = None
+        if val and val <= datetime.date(1998, 1, 1):
+            seed_needed = False
+
+    if seed_needed:
+        logger.info("Seeding dim_date table back to 1998...")
+        con.execute("TRUNCATE TABLE dim_date")
+        con.execute("""
+            INSERT INTO dim_date (
+                date_actual, day_name, day_of_week, day_of_month, day_of_year,
+                month_number, month_name, year_actual, is_weekend, quarter
+            )
+            SELECT
+                d AS date_actual,
+                dayname(d) AS day_name,
+                dayofweek(d) AS day_of_week,
+                dayofmonth(d) AS day_of_month,
+                dayofyear(d) AS day_of_year,
+                month(d) AS month_number,
+                monthname(d) AS month_name,
+                year(d) AS year_actual,
+                CASE WHEN dayofweek(d) IN (0, 6) THEN TRUE ELSE FALSE END AS is_weekend,
+                quarter(d) AS quarter
+            FROM generate_series(DATE '1998-01-01', DATE '2030-12-31', INTERVAL '1 day') AS t(d)
+        """)
+
+
+def _run_all_ddl(con: duckdb.DuckDBPyConnection) -> None:
     """All DDL: schema creation + migrations. Requires a read-write connection.
 
     Idempotent — safe to call on every startup. ETL also calls this directly
@@ -34,7 +94,7 @@ def _run_all_ddl(con):
     table_names = [t[0] for t in tables]
 
     if 'locations' not in table_names:
-        print("Creating DuckDB schema...")
+        logger.info("Creating DuckDB schema...")
 
         # store_id is the natural PK (one row per physical store, no surrogate int id).
         # created_at = first-seen timestamp (never overwritten on upsert).
@@ -72,40 +132,8 @@ def _run_all_ddl(con):
             )
         """)
 
-        # dim_date table
-        con.execute("""
-            CREATE TABLE dim_date (
-                date_actual DATE PRIMARY KEY,
-                day_name VARCHAR NOT NULL,
-                day_of_week INTEGER NOT NULL,
-                day_of_month INTEGER NOT NULL,
-                day_of_year INTEGER NOT NULL,
-                month_number INTEGER NOT NULL,
-                month_name VARCHAR NOT NULL,
-                year_actual INTEGER NOT NULL,
-                is_weekend BOOLEAN NOT NULL,
-                quarter INTEGER NOT NULL
-            )
-        """)
-
-        con.execute("""
-            INSERT INTO dim_date (
-                date_actual, day_name, day_of_week, day_of_month, day_of_year,
-                month_number, month_name, year_actual, is_weekend, quarter
-            )
-            SELECT
-                d AS date_actual,
-                dayname(d) AS day_name,
-                dayofweek(d) AS day_of_week,
-                dayofmonth(d) AS day_of_month,
-                dayofyear(d) AS day_of_year,
-                month(d) AS month_number,
-                monthname(d) AS month_name,
-                year(d) AS year_actual,
-                CASE WHEN dayofweek(d) IN (0, 6) THEN TRUE ELSE FALSE END AS is_weekend,
-                quarter(d) AS quarter
-            FROM generate_series(DATE '2024-01-01', DATE '2030-12-31', INTERVAL '1 day') AS t(d)
-        """)
+        # dim_date table and seeding
+        _ensure_dim_date(con)
 
         for stmt in (
             "CREATE INDEX idx_locations_city ON locations(city)",
@@ -118,7 +146,7 @@ def _run_all_ddl(con):
         ):
             con.execute(stmt)
 
-        print("DuckDB schema created.")
+        logger.info("DuckDB schema created.")
 
     # Idempotentne migracje — bezpieczne przy kazdym wywolaniu.
     ensure_extra_tables(con)
@@ -126,13 +154,13 @@ def _run_all_ddl(con):
     _migrate_locations_pk_if_needed(con)
 
 
-def _migrate_locations_pk_if_needed(con):
+def _migrate_locations_pk_if_needed(con: duckdb.DuckDBPyConnection) -> None:
     """Migrate the locations table if it has the old integer id PK.
     Preserves all data and history during the migration."""
     cols = {r[1] for r in con.execute("PRAGMA table_info('locations')").fetchall()}
     if 'id' not in cols:
         return
-    print("[migrate] locations has old integer id PK — migrating schema and preserving data")
+    logger.info("[migrate] locations has old integer id PK — migrating schema and preserving data")
     con.execute("ALTER TABLE locations RENAME TO locations_old")
     con.execute("""
         CREATE TABLE locations (
@@ -160,26 +188,26 @@ def _migrate_locations_pk_if_needed(con):
     ):
         try:
             con.execute(stmt)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Failed to create index {stmt}: {e}")
 
     try:
         common_cols = cols - {'id'}
         cols_str = ", ".join(common_cols)
         con.execute(f"INSERT INTO locations ({cols_str}) SELECT {cols_str} FROM locations_old")
         con.execute("DROP TABLE locations_old")
-        print("[migrate] done — locations rebuilt with store_id as primary key, data preserved")
+        logger.info("[migrate] done — locations rebuilt with store_id as primary key, data preserved")
     except Exception as e:
-        print(f"[migrate] error copying data: {e}")
+        logger.error(f"[migrate] error copying data: {e}")
         try:
             con.execute("DROP TABLE locations")
             con.execute("ALTER TABLE locations_old RENAME TO locations")
-        except Exception:
-            pass
+        except Exception as e2:
+            logger.debug(f"Failed to rollback migration: {e2}")
         raise e
 
 
-def _ensure_schema():
+def _ensure_schema() -> None:
     """Run all DDL via a temporary read-write connection, then close it."""
     rw = duckdb.connect(str(DB_PATH))
     try:
@@ -194,7 +222,7 @@ class _ConnectionProxy:
     thread-safe read-only connections and registers all open connections so
     they can be closed collectively to release the database file."""
 
-    def __init__(self, db_path):
+    def __init__(self, db_path: Path | str) -> None:
         self._db_path = db_path
         self._lock = threading.Lock()
         self._connections = []
@@ -202,7 +230,7 @@ class _ConnectionProxy:
         self._enabled = True
         self._generation = 0
 
-    def _get_conn(self):
+    def _get_conn(self) -> duckdb.DuckDBPyConnection:
         with self._lock:
             if not self._enabled:
                 raise RuntimeError("Database client is closed/disabled.")
@@ -223,7 +251,7 @@ class _ConnectionProxy:
             self._connections.append(conn)
             return conn
 
-    def close(self):
+    def close(self) -> None:
         with self._lock:
             self._generation += 1
             for conn in self._connections:
@@ -235,13 +263,13 @@ class _ConnectionProxy:
             if hasattr(self._local, "conn_info"):
                 self._local.conn_info = None
 
-    def _replace(self, db_path):
+    def _replace(self, db_path: Path | str | None) -> None:
         self.close()
         with self._lock:
             self._db_path = db_path
             self._enabled = (db_path is not None)
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> any:
         conn = self._get_conn()
         return getattr(conn, name)
 
@@ -251,7 +279,7 @@ if not DB_PATH.exists():
 client = _ConnectionProxy(DB_PATH)
 
 
-def init_db(keep_open: bool = True):
+def init_db(keep_open: bool = True) -> _ConnectionProxy | None:
     """Initialize schema and optionally reopen the read-only client.
 
     The backend calls init_db() on startup with keep_open=True (default) so
@@ -269,7 +297,7 @@ def init_db(keep_open: bool = True):
         # connection for schema init. The losers get a lock error — that's fine,
         # the winner already created the tables. We still need to reopen
         # client below, so just swallow the error here.
-        print(f"  Schema init skipped (concurrent worker): {e}")
+        logger.warning(f"Schema init skipped (concurrent worker): {e}")
     if keep_open:
         client._replace(DB_PATH)
     else:
@@ -277,16 +305,15 @@ def init_db(keep_open: bool = True):
     return client if keep_open else None
 
 
-def _seed_administrative_division(con) -> None:
+def _seed_administrative_division(con: duckdb.DuckDBPyConnection) -> None:
     """Load the GUS hierarchy JSON into administrative_division on a fresh/migrated DB."""
     seed_path = Path(__file__).parent.parent / "data" / "geo" / "administrative_division_gus.json"
     if not seed_path.exists():
-        print(f"[schema] seed file not found: {seed_path}")
+        logger.warning(f"[schema] seed file not found: {seed_path}")
         return
     rows = json.loads(seed_path.read_text(encoding="utf-8"))
     if not rows:
-        return
-    con.executemany(
+       con.executemany(
         "INSERT INTO administrative_division "
         "(id, level, name, population, area_km2, avg_salary, unemployment_rate, voivodeship_id, powiat_id, gus_id) "
         "VALUES (?,?,?,?,?,?,?,?,?,?)",
@@ -299,10 +326,10 @@ def _seed_administrative_division(con) -> None:
             for r in rows
         ]
     )
-    print(f"[schema] seeded administrative_division with {len(rows)} rows")
+    logger.info(f"[schema] seeded administrative_division with {len(rows)} rows")
 
 
-def _migrate_parcel_lockers_pk(con):
+def _migrate_parcel_lockers_pk(con: duckdb.DuckDBPyConnection) -> None:
     """One-time migration: rebuild parcel_lockers keyed on external_id.
 
     The old schema had a surrogate `id INTEGER PRIMARY KEY` and the load path
@@ -323,7 +350,7 @@ def _migrate_parcel_lockers_pk(con):
     if "id" not in cols:
         return  # already migrated
 
-    print("[migrate] rebuilding parcel_lockers with external_id as primary key (dedup)")
+    logger.info("[migrate] rebuilding parcel_lockers with external_id as primary key (dedup)")
     con.execute("DROP TABLE IF EXISTS parcel_lockers_new")
     con.execute("""
         CREATE TABLE parcel_lockers_new (
@@ -360,73 +387,11 @@ def _migrate_parcel_lockers_pk(con):
     kept = con.execute("SELECT count(*) FROM parcel_lockers_new").fetchone()[0]
     con.execute("DROP TABLE parcel_lockers")
     con.execute("ALTER TABLE parcel_lockers_new RENAME TO parcel_lockers")
-    print(f"[migrate] parcel_lockers rebuilt: {kept:,} unique lockers")
+    logger.info(f"[migrate] parcel_lockers rebuilt: {kept:,} unique lockers")
 
 
-def ensure_extra_tables(con):
-    """Tabela faktow paczkomatow (osobna encja, jak locations) + krotkie wymiary
-    geograficzne (dim_powiat, dim_voivodeship). Z poziomu wymiarow pisze sie
-    zapytania zestawiajace Żabki i paczkomaty (JOIN po powiat/voivodeship).
-    Bezpieczne do wielokrotnego wywolania."""
-    # Ensure dim_date is created and seeded back to 1998
-    tables = [t[0] for t in con.execute("SELECT table_name FROM information_schema.tables").fetchall()]
-    has_dim_date = 'dim_date' in tables
-    if not has_dim_date:
-        con.execute("""
-            CREATE TABLE dim_date (
-                date_actual DATE PRIMARY KEY,
-                day_name VARCHAR NOT NULL,
-                day_of_week INTEGER NOT NULL,
-                day_of_month INTEGER NOT NULL,
-                day_of_year INTEGER NOT NULL,
-                month_number INTEGER NOT NULL,
-                month_name VARCHAR NOT NULL,
-                year_actual INTEGER NOT NULL,
-                is_weekend BOOLEAN NOT NULL,
-                quarter INTEGER NOT NULL
-            )
-        """)
-        
-    seed_needed = True
-    if has_dim_date:
-        res = con.execute("SELECT MIN(date_actual) FROM dim_date").fetchone()
-        if res and res[0]:
-            import datetime
-            val = res[0]
-            if isinstance(val, str):
-                try:
-                    val = datetime.date.fromisoformat(val[:10])
-                except Exception:
-                    val = None
-            if val and val <= datetime.date(1998, 1, 1):
-                seed_needed = False
-                
-    if seed_needed:
-        print("Seeding dim_date table back to 1998...")
-        con.execute("TRUNCATE TABLE dim_date")
-        con.execute("""
-            INSERT INTO dim_date (
-                date_actual, day_name, day_of_week, day_of_month, day_of_year,
-                month_number, month_name, year_actual, is_weekend, quarter
-            )
-            SELECT
-                d AS date_actual,
-                dayname(d) AS day_name,
-                dayofweek(d) AS day_of_week,
-                dayofmonth(d) AS day_of_month,
-                dayofyear(d) AS day_of_year,
-                month(d) AS month_number,
-                monthname(d) AS month_name,
-                year(d) AS year_actual,
-                CASE WHEN dayofweek(d) IN (0, 6) THEN TRUE ELSE FALSE END AS is_weekend,
-                quarter(d) AS quarter
-            FROM generate_series(DATE '1998-01-01', DATE '2030-12-31', INTERVAL '1 day') AS t(d)
-        """)
-
-    # parcel_lockers mirrors locations: external_id is the natural PK (one row per
-    # physical locker, no surrogate int id). created_at = first-seen, never
-    # overwritten on upsert; deleted_at = when the locker left the source.
-    _migrate_parcel_lockers_pk(con)
+def _ensure_teryt_tables(con: duckdb.DuckDBPyConnection) -> None:
+    """Ensure extra tables exist for the parcel lockers entity and GUS hierarchies."""
     con.execute("""
         CREATE TABLE IF NOT EXISTS parcel_lockers (
             external_id VARCHAR PRIMARY KEY,
@@ -459,8 +424,7 @@ def ensure_extra_tables(con):
             centroid_lat DOUBLE
         )
     """)
-    # Migracja kolumn na istniejacej bazie - musi wykonac sie przed utworzeniem
-    # widoku dim_powiat ponizej, ktory je selectuje.
+    # Migracja kolumn na istniejacej bazie
     con.execute("ALTER TABLE administrative_division ADD COLUMN IF NOT EXISTS centroid_lon DOUBLE")
     con.execute("ALTER TABLE administrative_division ADD COLUMN IF NOT EXISTS centroid_lat DOUBLE")
 
@@ -485,8 +449,6 @@ def ensure_extra_tables(con):
     """)
 
     # Znacznik ostatniego udanego przebiegu ETL (jeden wiersz, key='last_run').
-    # Osobno od `locations.created_at`, ktore trzyma date snapshotu zrodla
-    # (godzina 00:00), a nie faktyczny czas wykonania joba.
     con.execute("""
         CREATE TABLE IF NOT EXISTS etl_meta (
             key VARCHAR PRIMARY KEY,
@@ -498,12 +460,15 @@ def ensure_extra_tables(con):
     if con.execute("SELECT COUNT(*) FROM administrative_division").fetchone()[0] == 0:
         _seed_administrative_division(con)
 
+
+def _ensure_teryt_views(con: duckdb.DuckDBPyConnection) -> None:
+    """Recreate teryt and effective population views."""
     # Drop any old physical dim tables before recreating them as views.
     for tbl in ("dim_voivodeship", "dim_powiat", "dim_gmina", "dim_miasto", "dim_city"):
         try:
             con.execute(f"DROP TABLE IF EXISTS {tbl} CASCADE")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Failed to drop old table/view {tbl}: {e}")
 
     # Views backed by administrative_division.
     con.execute("DROP VIEW IF EXISTS dim_voivodeship")
@@ -539,14 +504,7 @@ def ensure_extra_tables(con):
         WHERE level = 3
     """)
 
-    # Effective-population views for per-capita density. dim_powiat / dim_voivodeship
-    # populations are land-only GUS figures and exclude the 66 cities with powiat
-    # rights (TERYT kind >= 61), yet those cities' stores DO count against their host
-    # land powiat - so raw stores/population inflates density ~10x (Warszawa's stores
-    # land on powiat warszawski zachodni, pop 137k, not its own 1.87M). These views
-    # add each host's cities-with-powiat-rights population back, in ONE place, so every
-    # per-capita query joins the view instead of repeating the correction. The base
-    # dimension columns stay land-only (clean, sourced, and safe for the downloadable DB).
+    # Effective-population views for per-capita density.
     con.execute("DROP VIEW IF EXISTS v_powiat_pop_eff")
     con.execute("""
         CREATE VIEW v_powiat_pop_eff AS
@@ -577,6 +535,9 @@ def ensure_extra_tables(con):
         ) cr ON cr.vid = dv.id
     """)
 
+
+def _ensure_teryt_indexes(con: duckdb.DuckDBPyConnection) -> None:
+    """Ensure DDL indexes exist on location and locker tables."""
     for stmt in (
         "CREATE INDEX IF NOT EXISTS idx_lockers_voiv_id ON parcel_lockers(voivodeship_id)",
         "CREATE INDEX IF NOT EXISTS idx_lockers_powiat_id ON parcel_lockers(powiat_id)",
@@ -592,8 +553,20 @@ def ensure_extra_tables(con):
     ):
         try:
             con.execute(stmt)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Index creation skipped/failed: {stmt} ({e})")
+
+
+def ensure_extra_tables(con: duckdb.DuckDBPyConnection) -> None:
+    """Tabela faktow paczkomatow (osobna encja, jak locations) + krotkie wymiary
+    geograficzne (dim_powiat, dim_voivodeship). Z poziomu wymiarow pisze sie
+    zapytania zestawiajace Żabki i paczkomaty (JOIN po powiat/voivodeship).
+    Bezpieczne do wielokrotnego wywolania."""
+    _ensure_dim_date(con)
+    _migrate_parcel_lockers_pk(con)
+    _ensure_teryt_tables(con)
+    _ensure_teryt_views(con)
+    _ensure_teryt_indexes(con)
 
 
 # Kolumny dodane przez pipeline wzbogacenia (zabytki, wysokosc, parki, ekonomia, sasiedztwo).
@@ -613,7 +586,7 @@ ENRICHMENT_COLUMNS = [
 ]
 
 
-def ensure_enrichment_columns(con):
+def ensure_enrichment_columns(con: duckdb.DuckDBPyConnection) -> None:
     """Zapewnia obecnosc kolumn wzbogacenia. Bezpieczne do wielokrotnego wywolania."""
     for name, decl in ENRICHMENT_COLUMNS:
         con.execute(f"ALTER TABLE locations ADD COLUMN IF NOT EXISTS {name} {decl}")
@@ -625,8 +598,8 @@ def ensure_enrichment_columns(con):
     for col in ("light_pollution_brightness", "bortle_scale"):
         try:
             con.execute(f"ALTER TABLE locations DROP COLUMN IF EXISTS {col}")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Failed to drop old column {col}: {e}")
 
     for name, decl in [
         ("voivodeship_id", "INTEGER"),
@@ -638,9 +611,18 @@ def ensure_enrichment_columns(con):
     ]:
         try:
             con.execute(f"ALTER TABLE parcel_lockers ADD COLUMN IF NOT EXISTS {name} {decl}")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Failed to add column {name} to parcel_lockers: {e}")
 
-def get_client():
+
+def get_client() -> _ConnectionProxy:
     """Get DuckDB connection."""
     return client
+
+
+def build_where_clause(clauses: list[str], prefix: str = "") -> str:
+    """Helper to join where clauses with AND and optionally prefix it."""
+    if not clauses:
+        return ""
+    joined = " AND ".join(clauses)
+    return f"{prefix} {joined}".strip() if prefix else joined

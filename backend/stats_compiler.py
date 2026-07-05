@@ -10,11 +10,66 @@ def cap_name(n: str) -> str:
     n = n.replace("województwo ", "").replace("powiat ", "")
     return n.capitalize()
 
+def num_to_words_pl(n: int) -> str:
+    # We round to thousands, so n is e.g. 13000, 14000, etc.
+    thousands = n // 1000
+    words = {
+        1: "tysiąc",
+        2: "dwa tysiące",
+        3: "trzy tysiące",
+        4: "cztery tysiące",
+        5: "pięć tysięcy",
+        6: "sześć tysięcy",
+        7: "siedem tysięcy",
+        8: "osiem tysięcy",
+        9: "dziewięć tysięcy",
+        10: "dziesięć tysięcy",
+        11: "jedenaście tysięcy",
+        12: "dwanaście tysięcy",
+        13: "trzynaście tysięcy",
+        14: "czternaście tysięcy",
+        15: "piętnaście tysięcy",
+        16: "szesnaście tysięcy",
+        17: "siedemnaście tysięcy",
+        18: "osiemnaście tysięcy",
+        19: "dziewiętnaście tysięcy",
+        20: "dwadzieścia tysięcy"
+    }
+    return words.get(thousands, f"{thousands} tysięcy")
+
+def num_to_words_en(n: int) -> str:
+    thousands = n // 1000
+    words = {
+        1: "one thousand",
+        2: "two thousand",
+        3: "three thousand",
+        4: "four thousand",
+        5: "five thousand",
+        6: "six thousand",
+        7: "seven thousand",
+        8: "eight thousand",
+        9: "nine thousand",
+        10: "ten thousand",
+        11: "eleven thousand",
+        12: "twelve thousand",
+        13: "thirteen thousand",
+        14: "fourteen thousand",
+        15: "fifteen thousand",
+        16: "sixteen thousand",
+        17: "seventeen thousand",
+        18: "eighteen thousand",
+        19: "nineteen thousand",
+        20: "twenty thousand"
+    }
+    return words.get(thousands, f"{thousands} thousand")
+
 def compile_live_stats() -> dict:
     # 1. Total active stores
     total_active = client.execute("SELECT COUNT(*) FROM locations WHERE deleted_at IS NULL").fetchone()[0] or 0
     # Rounded to nearest 100
     total_stores_rounded = int(round(total_active, -2))
+    total_stores_words = num_to_words_pl(total_stores_rounded)
+    total_stores_words_en = num_to_words_en(total_stores_rounded)
 
     # 2. Cities count
     cities_count = client.execute("SELECT COUNT(DISTINCT city) FROM locations WHERE deleted_at IS NULL").fetchone()[0] or 0
@@ -281,6 +336,8 @@ def compile_live_stats() -> dict:
         "gminy_coverage_pct": gminy_coverage_pct,
         "db_size_mb": db_size_mb,
         "r_salary": r_salary,
+        "total_stores_words": total_stores_words,
+        "total_stores_words_en": total_stores_words_en,
     }
 
 def get_cached_stats() -> dict:

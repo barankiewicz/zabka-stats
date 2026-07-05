@@ -7,7 +7,7 @@ from litestar.params import FromPath, FromQuery
 from litestar.serialization import encode_json
 
 from backend.cache import cached, get_cached_blob, set_cached_blob
-from backend.database import client
+from backend.database import client, build_where_clause
 
 
 @get("/locations", sync_to_thread=True)
@@ -48,7 +48,7 @@ def get_locations(
         where_clauses.append("city = ?")
         params.append(city)
 
-    where = " AND ".join(where_clauses)
+    where = build_where_clause(where_clauses)
 
     total = client.execute(f"SELECT COUNT(*) FROM locations WHERE {where}", params).fetchone()[0]
 

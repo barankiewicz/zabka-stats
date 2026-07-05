@@ -263,3 +263,69 @@ def test_powiat_economics_geo_without_assets(client, monkeypatch, tmp_path):
     assert body["type"] == "FeatureCollection"
     assert body["features"] == []
     assert body.get("_meta", {}).get("reason") == "no_geojson_assets"
+
+
+def test_upload_snapshot_auth(client, monkeypatch):
+    # Test unauthorized
+    monkeypatch.setattr("backend.main.API_TOKEN", "test-token")
+    resp = client.post("/api/snapshot", data={"token": "wrong-token"})
+    assert resp.status_code == 401
+
+    resp = client.post("/api/snapshot", data={"token": ""})
+    assert resp.status_code == 401
+
+    resp = client.post("/api/snapshot", data={})
+    assert resp.status_code == 401
+
+
+def test_upload_snapshot_no_file(client, monkeypatch):
+    monkeypatch.setattr("backend.main.API_TOKEN", "test-token")
+    resp = client.post("/api/snapshot", data={"token": "test-token"})
+    assert resp.status_code == 400
+    assert "No file uploaded" in resp.json()["detail"]
+
+
+def test_upload_snapshot_invalid_json(client, monkeypatch):
+    monkeypatch.setattr("backend.main.API_TOKEN", "test-token")
+    files = {"file": ("snapshot.json", b"not a json", "application/json")}
+    resp = client.post("/api/snapshot", data={"token": "test-token"}, files=files)
+    assert resp.status_code == 400
+    assert "Invalid JSON" in resp.json()["detail"]
+
+
+def test_upload_snapshot_invalid_structure(client, monkeypatch):
+    monkeypatch.setattr("backend.main.API_TOKEN", "test-token")
+    files = {"file": ("snapshot.json", b'{"other_key": 123}', "application/json")}
+    resp = client.post("/api/snapshot", data={"token": "test-token"}, files=files)
+    assert resp.status_code == 400
+    assert "Invalid JSON format" in resp.json()["detail"]
+
+
+def test_upload_snapshot_too_large(client, monkeypatch):
+    monkeypatch.setattr("backend.main.API_TOKEN", "test-token")
+    large_content = b"x" * (50 * 1024 * 1024 + 10)
+    files = {"file": ("snapshot.json", large_content, "application/json")}
+    resp = client.post("/api/snapshot", data={"token": "test-token"}, files=files)
+    assert resp.status_code in (400, 413)
+    if resp.status_code == 400:
+        assert "exceeds" in resp.json()["detail"]
+
+
+def test_upload_snapshot_success(client, monkeypatch, tmp_path):
+    monkeypatch.setattr("backend.main.API_TOKEN", "test-token")
+    
+    # Mock the target input directory to a temp path
+    mock_input_dir = tmp_path / "data" / "input"
+    mock_input_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr("backend.main.pathlib.Path", lambda *args: tmp_path)
+    
+    # Mock daily_etl.run to do nothing
+    import backend.daily_etl
+    monkeypatch.setattr(backend.daily_etl, "run", lambda *args, **kwargs: None)
+
+    valid_json = b'{"meta": {"source_date": "2026-07-05"}, "stores": []}'
+    files = {"file": ("snapshot.json", valid_json, "application/json")}
+    resp = client.post("/api/snapshot", data={"token": "test-token", "source_date": "2026-07-05"}, files=files)
+    assert resp.status_code in (200, 201)
+    assert resp.json()["status"] == "success"
+    assert resp.json()["source_date"] == "2026-07-05"

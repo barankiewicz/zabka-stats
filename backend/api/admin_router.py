@@ -9,7 +9,7 @@ from litestar.exceptions import HTTPException
 from litestar.params import FromPath, FromQuery
 
 from backend.cache import cached
-from backend.database import client
+from backend.database import client, build_where_clause
 
 
 @get("/stats/by-powiat", sync_to_thread=True)
@@ -22,7 +22,7 @@ def get_by_powiat(voivodeship: FromQuery[str | None] = None) -> dict:
     if voivodeship:
         where_clauses.append("voivodeship = ?")
         params.append(voivodeship)
-    where = " AND ".join(where_clauses)
+    where = build_where_clause(where_clauses)
 
     results = client.execute(f"""
         SELECT
@@ -70,7 +70,7 @@ def get_by_city(powiat: FromQuery[str | None] = None, voivodeship: FromQuery[str
     if powiat:
         where_clauses.append("powiat = ?")
         params.append(powiat)
-    where = " AND ".join(where_clauses)
+    where = build_where_clause(where_clauses)
 
     results = client.execute(f"""
         SELECT

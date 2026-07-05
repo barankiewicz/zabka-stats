@@ -179,3 +179,11 @@ async function loadSpoleczenstwo() {
   });
   clearSkel(skelSels);
 }
+
+export async function ensurePowGeo() {
+  if (M.powGeo) {
+    return M.powGeo;
+  }
+  M.powGeo = await fetchJSON('/api/geo/powiats');
+  return M.powGeo;
+}
