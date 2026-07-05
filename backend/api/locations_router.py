@@ -56,7 +56,7 @@ def get_locations(
     query_params.extend([limit, offset])
 
     results = client.execute(f"""
-        SELECT store_id, store_id, city, voivodeship, street, latitude, longitude,
+        SELECT store_id, city, voivodeship, street, latitude, longitude,
                has_merrychef, open_sunday, h24
         FROM locations
         WHERE {where}
@@ -72,15 +72,15 @@ def get_locations(
             {
                 "id": r[0],
                 "name": "Żabka",
-                "store_id": r[1],
-                "city": r[2],
-                "voivodeship": r[3],
-                "street": r[4],
-                "latitude": r[5],
-                "longitude": r[6],
-                "has_merrychef": bool(r[7]),
-                "open_sunday": bool(r[8]),
-                "h24": bool(r[9]),
+                "store_id": r[0],
+                "city": r[1],
+                "voivodeship": r[2],
+                "street": r[3],
+                "latitude": r[4],
+                "longitude": r[5],
+                "has_merrychef": bool(r[6]),
+                "open_sunday": bool(r[7]),
+                "h24": bool(r[8]),
             }
             for r in results
         ]

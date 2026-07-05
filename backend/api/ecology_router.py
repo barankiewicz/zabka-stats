@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 
 from litestar import Response, Router, get
@@ -7,6 +8,8 @@ from litestar.serialization import encode_json
 from backend.cache import cached, get_cached_blob, set_cached_blob
 from backend.database import client
 from backend.schemas.api_models import Section3RareResponse
+
+logger = logging.getLogger("ecology")
 
 _GEO_DIR = Path(__file__).parent.parent.parent / "data" / "geo"
 _gbif_total_cache: int | None = None
@@ -19,7 +22,8 @@ def _gbif_total() -> int | None:
     try:
         data = json.loads(p.read_text())
         _gbif_total_cache = len(data) if isinstance(data, list) else None
-    except Exception:
+    except Exception as e:
+        logger.warning("amphibians_pl.json nieczytelny (%s), liczba wystapien niedostepna", e)
         _gbif_total_cache = None
     return _gbif_total_cache
 

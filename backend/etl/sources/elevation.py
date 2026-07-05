@@ -65,7 +65,8 @@ class ElevationEnricher(Enricher):
             try:
                 with open(ELEVATION_CACHE, encoding="utf-8") as f:
                     cache = json.load(f)
-            except Exception:
+            except Exception as e:
+                print(f"[elevation] cache {ELEVATION_CACHE} nieczytelny ({e}), zaczynam od zera")
                 cache = {}
 
         from concurrent.futures import ThreadPoolExecutor

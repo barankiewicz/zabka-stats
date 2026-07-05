@@ -58,8 +58,10 @@ def _fetch_page(page: int) -> list:
             items = r.json().get("items", [])
             return [_parse_point(p) for p in items
                     if (p.get("location") or {}).get("latitude") is not None]
-        except Exception:
+        except Exception as e:
+            print(f"[paczkomaty] strona {page} nieudana (proba {attempt + 1}/3): {e}")
             time.sleep(0.5 * (attempt + 1))
+    print(f"[paczkomaty] strona {page} porzucona po 3 probach")
     return []
 
 
@@ -70,8 +72,8 @@ def _load_inpost_points() -> list:
         try:
             with open(PACZKOMAT_CACHE, encoding="utf-8") as f:
                 return json.load(f)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[paczkomaty] cache {PACZKOMAT_CACHE} nieczytelny ({e}), pobieram ponownie")
 
     def _fetch():
         head = requests.get(INPOST_POINTS_URL,
