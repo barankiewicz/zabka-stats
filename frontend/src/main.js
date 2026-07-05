@@ -27,7 +27,7 @@ Chart.register(annotPlugin);
 Chart.register(barValueLabels);
 
 // flip to false to hide all chart/map id labels
-const DEBUG_SHOW_IDS = true;
+const DEBUG_SHOW_IDS = false;
 
 function initIdOverlays(){
   document.body.classList.toggle('debug-ids',DEBUG_SHOW_IDS);
