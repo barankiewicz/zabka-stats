@@ -417,8 +417,8 @@ export const translations = {
     fact_val_twins: "{count} within 50 m",
 
     // i18n coverage audit additions
-    meta_title: "Zabka Collector - Interactive Atlas of the Store Network in Poland",
-    meta_description: "Interactive atlas of the Zabka network: where, when and how the network of over 13,000 stores grew. Maps, rankings, economics and facts based on public data.",
+    meta_title: "ŻabkaBoard - Interactive Atlas of Żabka stores in Poland",
+    meta_description: "Interactive atlas of the Żabka network: where, when and how the network of over 13,000 stores grew. Maps, rankings, economics and facts based on public data.",
     og_description: "Where, when and how the network of over 13,000 Zabka stores grew. Maps, rankings, economics and facts based on public data.",
     og_image_alt: "Interactive atlas of Zabka stores in Poland - a dark map with locations and charts",
     jsonld_website_desc: "Interactive atlas of the Zabka network in Poland, based on public data.",
@@ -725,7 +725,7 @@ export const translations = {
     foot_methodology: "Metodyka",
     foot_portfolio: "Portfolio",
     foot_last_updated: "Aktualizacja danych",
-    foot_disclaimer: "Niezależny projekt fanowski/analityczny na danych publicznych. Niezwiązany z Żabką. Znaki towarowe należą do ich właścicieli.",
+    foot_disclaimer: "Niezależny memiczno-analityczny projekt hobbystyczny oparty na danych publicznych. Niezwiązany z Żabką. Znaki towarowe należą do ich właścicieli.",
 
     // Deep links / copy-link (S1)
     copy_link_aria: "Skopiuj link do tej sekcji",
@@ -752,7 +752,7 @@ export const translations = {
     faq_og_image_alt: "FAQ o Żabkozbiorze - fakty, źródła i błędne wnioski",
     faq_h1: "FAQ",
     faq_sub: "Najczęstsze pytania o sieć Żabka oraz projekt Żabkozbiór.",
-    faq_disclaimer: "Żabkozbiór to niezależny projekt fanowski/analityczny oparty na danych publicznych. Nie jest powiązany z Żabka Polska sp. z o.o. ani Żabka Group. Nazwa \"Żabka\" i powiązane znaki towarowe należą do ich właścicieli.",
+    faq_disclaimer: "Żabkozbiór to niezależny memiczno-analityczny projekt hobbystyczny oparty na danych publicznych. Nie jest powiązany z Żabka Polska sp. z o.o. ani Żabka Group. Nazwa \"Żabka\" i powiązane znaki towarowe należą do ich właścicieli.",
     faq_sec_facts: "Podstawowe fakty o sieci",
     faq_q_count: "Ile jest Żabek w Polsce?",
     faq_a_count: "Ponad {{STAT_TOTAL_STORES_ROUNDED}} aktywnych sklepów, w ponad {{STAT_CITIES_COUNT_ROUNDED}} miastach i miejscowościach. Liczba zmienia się codziennie - sieć otwiera nowe punkty praktycznie bez przerwy, choć część sklepów też zamyka się po drodze (patrz niżej).",
@@ -774,7 +774,7 @@ export const translations = {
     faq_q_download: "Czy mogę pobrać te dane samodzielnie?",
     faq_a_download: "Tak. Cała baza DuckDB (~{{STAT_DB_SIZE_MB}} MB) jest do pobrania z dashboardu, na licencji CC BY 4.0. Granice województw są dostępne jako GeoJSON. Surowe API jest udokumentowane pod <code>/docs</code>.",
     faq_q_official: "Czy to oficjalna strona Żabki?",
-    faq_a_official: "Nie. Żabkozbiór jest niezależnym projektem fanowskim/analitycznym na danych publicznych, niezwiązanym z Żabka. Nazwa \"Żabka\" i powiązane znaki towarowe należą do ich właścicieli.",
+    faq_a_official: "Nie. Żabkozbiór jest niezależnym memiczno-analitycznym projektem hobbystycznym oparty na danych publicznych, niezwiązanym z Żabka. Nazwa \"Żabka\" i powiązane znaki towarowe należą do ich właścicieli.",
     faq_q_why: "Dlaczego to robisz?",
     faq_a_why: "Szczerze - dwa powody. Chciałam zbudować zbiór danych, z którego ktoś realnie może skorzystać, i chciałam się przy tym nauczyć sporo rzeczy w praktyce, nie z artykułów - hostowania własnego serwisu na linuksowym VPS, budowania szybkiego API w Litestar, pracy z DuckDB i Polars, pisania potoku ETL, który dane wzbogaca, a nie tylko przenosi, wizualizacji danych GIS (GeoJSON, point-in-polygon, systemy współrzędnych) i zrobienia strony, która jest naprawdę wielojęzyczna i szybka po obu stronach. Pełna lista jest w <a href=\"https://github.com/barankiewicz/zabka-stats#10-my-goals\" target=\"_blank\" rel=\"noopener\">README na GitHubie</a>.",
     faq_sec_pitfalls: "Częste błędne wnioski",
@@ -802,7 +802,7 @@ export const translations = {
     meth_og_image_alt: "Metodyka danych Żabka w liczbach - źródła, definicje i ograniczenia",
     meth_h1: "Metodyka",
     meth_sub: "Skąd bierzemy dane, co z nimi robimy i czego nie wiemy. Źródła, ograniczenia i cały pipeline krok po kroku.",
-    meth_disclaimer: "Żabkozbiór to niezależny projekt fanowski/analityczny oparty na danych publicznych. Nie jest powiązany z Żabka Polska sp. z o.o. ani Żabka Group. Nazwa \"Żabka\" i powiązane znaki towarowe należą do ich właścicieli.",
+    meth_disclaimer: "Żabkozbiór to niezależny memiczno-analityczny projekt hobbystyczny oparty na danych publicznych. Nie jest powiązany z Żabka Polska sp. z o.o. ani Żabka Group. Nazwa \"Żabka\" i powiązane znaki towarowe należą do ich właścicieli.",
     meth_sec_sources: "Źródła danych",
     meth_source_main_title: "Żabka - główne źródło",
     meth_source_main_desc: "Lokalizacje sklepów pochodzą z publicznego pliku JSON na <code>Żabka.pl</code> - to ten sam plik, z którego korzysta sklepowa wyszukiwarka na ich stronie. Plik ma około {{STAT_TOTAL_STORES_ROUNDED}} sklepów, każdy ze współrzędnymi GPS, adresem, godzinami otwarcia i flagami (piec Merrychef, otwarte w niedzielę, 24/7). Z pliku wyrzucamy dane osobowe dyrektorów, stałe pola (kraj, aktywność) i marketingowe URLe. Zostają same dane analityczne.",
