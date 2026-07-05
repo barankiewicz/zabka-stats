@@ -336,7 +336,7 @@ function drawCalendar(uptoYear){
 
   // Month-initial header
   ctx.textAlign='center';ctx.textBaseline='alphabetic';
-  ctx.fillStyle='#5d6c52';ctx.font=`9px '${getFont('mono')}',monospace`;
+  ctx.fillStyle='#5d6c52';ctx.font=`10px '${getFont('mono')}',monospace`;
   const monthIni = getMonthIni();
   for(let m=0;m<12;m++)ctx.fillText(monthIni[m],padL+cw*(m+0.5),padT-3);
 
@@ -347,7 +347,7 @@ function drawCalendar(uptoYear){
     const y=GROWTH_MIN+i,yy=padT+ch*i;
     // Every row gets its year label
     ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillStyle='#5d6c52';
-    ctx.font=`9px '${getFont('mono')}',monospace`;
+    ctx.font=`10px '${getFont('mono')}',monospace`;
     ctx.fillText(y,padL-4,yy+ch/2);
 
     for(let m=1;m<=12;m++){
@@ -664,10 +664,10 @@ export function drawFingerprintFlat(){
         tt.style.display='block';
         tt.style.left=Math.min(clientX-rect.left+12,fpfData.W-190)+'px';
         tt.style.top=(clientY-rect.top-20)+'px';
-        tt.innerHTML=`<div style="color:${col};font-family:var(--font-display);font-weight:700;font-size:16px">${yr}</div>
-          ${yd?`<div style="margin-top:6px;font-size:12px">${t('fpf_tooltip_new')} <span style="color:var(--ink);font-family:var(--font-mono)">${fmt(yd.new_stores)}</span></div>`:''}
-          <div style="font-size:12px;margin-top:2px">${t('fpf_tooltip_cursor')} <span style="color:${C.teal};font-weight:600">${dirLabel}</span> (${fmt(bins[bin])})</div>
-          <div style="font-size:12px;margin-top:2px">${t('fpf_tooltip_dominant_year')} <span style="color:${C.green};font-weight:600">${domLabel}</span></div>`;
+        tt.innerHTML=`<div style="color:${col};font-family:var(--font-display);font-weight:700;font-size:17px">${yr}</div>
+          ${yd?`<div style="margin-top:6px;font-size:13px">${t('fpf_tooltip_new')} <span style="color:var(--ink);font-family:var(--font-mono)">${fmt(yd.new_stores)}</span></div>`:''}
+          <div style="font-size:13px;margin-top:2px">${t('fpf_tooltip_cursor')} <span style="color:${C.teal};font-weight:600">${dirLabel}</span> (${fmt(bins[bin])})</div>
+          <div style="font-size:13px;margin-top:2px">${t('fpf_tooltip_dominant_year')} <span style="color:${C.green};font-weight:600">${domLabel}</span></div>`;
       }else tt.style.display='none';
     };
     const handleLeave = () => {
@@ -712,7 +712,7 @@ function _drawFpfStatic(){
     const x=padL+(deg/360)*plotW;
     ctx.strokeStyle='rgba(132,195,65,.10)';
     ctx.beginPath();ctx.moveTo(x,plotTop);ctx.lineTo(x,plotBottom);ctx.stroke();
-    ctx.fillStyle='#9ab088';ctx.font=`600 11px '${getFont('body')}',sans-serif`;
+    ctx.fillStyle='#9ab088';ctx.font=`600 12px '${getFont('body')}',sans-serif`;
     ctx.textBaseline='top';ctx.fillText(lab,x,plotBottom+8);
   });
 
@@ -732,7 +732,7 @@ function _drawFpfStatic(){
     }
     ctx.strokeStyle=col;ctx.lineWidth=1.3;ctx.stroke();
     // every curve gets its year on the left, in its own shade
-    ctx.fillStyle=col;ctx.font=`10px '${getFont('mono')}',monospace`;
+    ctx.fillStyle=col;ctx.font=`11px '${getFont('mono')}',monospace`;
     ctx.fillText(yr,padL-8,yBase);
   }
   ctx.textAlign='left';ctx.textBaseline='alphabetic';
@@ -981,7 +981,7 @@ export function renderPowiatCoverage(){
     dctx.strokeStyle=C.greenBright;
     dctx.beginPath();dctx.arc(cx,cy,rr,-Math.PI/2,-Math.PI/2+Math.PI*2*f2);dctx.stroke();
     dctx.fillStyle=C.greenBright;dctx.textAlign='center';dctx.textBaseline='middle';
-    dctx.font=`800 ${Math.round(w*0.21)}px '${getFont('display')}',sans-serif`;
+    dctx.font=`800 ${Math.round(w*0.21) + 1}px '${getFont('display')}',sans-serif`;
     const ptxt=(Math.abs(S.pct-Math.round(S.pct))<0.05?Math.round(S.pct):S.pct.toFixed(1)).toString().replace('.',',');
     dctx.fillText(ptxt+'%',cx,cy);
   }
@@ -1237,7 +1237,7 @@ function drawGranularChart(){
         barLabels:barLabelsOpt,
         annot:{refLines},
       },
-      scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
+      scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:11}}},y:{grid:{display:false},ticks:{color:C.muted,font:{size:11}}}}
     }
   });
 }
@@ -1502,8 +1502,8 @@ async function _buildWojMap(el){
         const p=fs.properties||{};
         if(p._name){
           ensureTip();
-          _wojTip.innerHTML=`<div style="font-family:var(--font-display);font-weight:700;font-size:13px;margin-bottom:3px">${capCase(escapeHtml(p._name))}</div>`+
-            `<div style="font-size:12px;color:#93a487">${escapeHtml(p._val||'')}</div>`;
+          _wojTip.innerHTML=`<div style="font-family:var(--font-display);font-weight:700;font-size:14px;margin-bottom:3px">${capCase(escapeHtml(p._name))}</div>`+
+            `<div style="font-size:13px;color:#93a487">${escapeHtml(p._val||'')}</div>`;
           _wojTip.style.left=(e.originalEvent.clientX+14)+'px';
           _wojTip.style.top=(e.originalEvent.clientY+14)+'px';
           _wojTip.style.display='block';

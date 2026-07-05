@@ -79,7 +79,7 @@ function tipHtml(p, propKey, econKey) {
   const trendText = t('econ_tip_trend_suffix')
     .replace('{word}', word)
     .replace('{resid}', dec3(resid));
-  return `<span style="font-family:JetBrains Mono;font-size:12px;line-height:1.6;color:#eef3e6">
+  return `<span style="font-family:JetBrains Mono;font-size:13px;line-height:1.6;color:#eef3e6">
     <b>${escapeHtml(p.name || p.nazwa)}</b><br/>
     ${t('econ_tip_per1k')} <b>${Number(p.per_1k).toFixed(3).replace('.', decSep)}</b><br/>
     ${econLine}<br/>

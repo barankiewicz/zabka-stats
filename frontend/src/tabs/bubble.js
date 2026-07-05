@@ -135,7 +135,7 @@ function draw(res, stage) {
   all.select('text.b-main')
     .text(d => d.name)
     .attr('dy', d => d.isRemainder ? '-0.6em' : '-0.25em')
-    .style('font-size', d => d.isRemainder ? '13px' : Math.min(14, Math.max(9, r(d.value) / 3.6)) + 'px');
+    .style('font-size', d => d.isRemainder ? '14px' : Math.min(15, Math.max(10, r(d.value) / 3.6)) + 'px');
 
   all.select('text.b-sub')
     .classed('bright', d => d.isRemainder)
@@ -146,7 +146,7 @@ function draw(res, stage) {
         : d.cnt.toLocaleString(loc);
     })
     .attr('dy', d => d.isRemainder ? '0.5em' : '1.15em')
-    .style('font-size', d => d.isRemainder ? '10px' : Math.min(11, Math.max(8, r(d.value) / 4.6)) + 'px');
+    .style('font-size', d => d.isRemainder ? '11px' : Math.min(12, Math.max(9, r(d.value) / 4.6)) + 'px');
 
   all.select('text.b-sub2')
     .text(d => d.isRemainder ? `Σ ${d.remSum.toLocaleString(getLang() === 'en' ? 'en-US' : 'pl-PL')}` : '')

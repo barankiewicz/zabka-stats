@@ -41,7 +41,7 @@ function chartDefaults(){
   Chart.defaults.color=C.muted;
   Chart.defaults.borderColor=C.axis;
   Chart.defaults.font.family=`'${getFont('body')}',sans-serif`;
-  Chart.defaults.font.size=12;
+  Chart.defaults.font.size=13;
 }
 chartDefaults();
 
@@ -571,19 +571,21 @@ function buildShareAnchorMap(){
 // Rather than hardcode a per-card offset, measure what's actually there and
 // nudge the toolbar down just enough to clear it.
 const _toolbarPlacements = [];
-// .card-title is a block element, so its own getBoundingClientRect() always
-// spans the full card width regardless of how much text it holds - useless
-// for overlap detection. A Range over its contents measures the actual
-// rendered text extent instead. The DEBUG_SHOW_IDS `::after` suffix (e.g.
+// .card-title/.card-sub are block elements, so their own getBoundingClientRect()
+// always spans the full card width regardless of how much text they hold -
+// useless for overlap detection. A Range over the contents measures the actual
+// rendered text extent instead (and, for multi-line .card-sub, the union
+// bounding box across every line - exactly the vertical extent the toolbar
+// needs to clear). The DEBUG_SHOW_IDS `::after` suffix on .card-title (e.g.
 // "[POWIATY]") isn't real DOM content so Range can't see it either; since the
 // toolbar is now always visible on mobile (not hover-only), a long title can
 // run under it there - pad the measured width to cover that suffix when the
 // debug overlay is on, rather than exactly right-sizing it.
-function _titleTextRect(titleEl){
+function _textRect(el){
   const range = document.createRange();
-  range.selectNodeContents(titleEl);
+  range.selectNodeContents(el);
   const r = range.getBoundingClientRect();
-  const pad = document.body.classList.contains('debug-ids') ? 90 : 0;
+  const pad = (el.classList.contains('card-title') && document.body.classList.contains('debug-ids')) ? 90 : 0;
   return { left: r.left, right: r.right + pad, top: r.top, bottom: r.bottom };
 }
 function avoidToolbarCollisions(panelEl, wrap){
@@ -603,7 +605,9 @@ function avoidToolbarCollisions(panelEl, wrap){
     consider(el.getBoundingClientRect());
   });
   const titleEl = panelEl.querySelector('.card-title');
-  if(titleEl && !wrap.contains(titleEl)) consider(_titleTextRect(titleEl));
+  if(titleEl && !wrap.contains(titleEl)) consider(_textRect(titleEl));
+  const subEl = panelEl.querySelector('.card-sub');
+  if(subEl && !wrap.contains(subEl)) consider(_textRect(subEl));
   if(clearBottom != null) wrap.style.top = `${Math.ceil(clearBottom) + 8}px`;
 }
 function recheckToolbarCollisions(){

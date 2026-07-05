@@ -139,13 +139,13 @@ export async function composePanelCanvas(panelEl, visuals, {scale=2}={}){
   };
 
   drawText(panelEl.querySelector('.card-title'), {
-    font: `700 ${14*scale}px "Bricolage Grotesque", sans-serif`, size: 14*scale, color: INK, maxLines: 2,
+    font: `700 ${15*scale}px "Bricolage Grotesque", sans-serif`, size: 15*scale, color: INK, maxLines: 2,
   });
   drawText(panelEl.querySelector('.card-sub'), {
-    font: `500 ${12*scale}px "IBM Plex Sans", sans-serif`, size: 12*scale, color: MUTED, maxLines: 2,
+    font: `500 ${13*scale}px "IBM Plex Sans", sans-serif`, size: 13*scale, color: MUTED, maxLines: 2,
   });
   drawText(panelEl.querySelector('.caveat'), {
-    font: `500 ${11*scale}px "IBM Plex Sans", sans-serif`, size: 11*scale, color: MUTED, maxLines: 3,
+    font: `500 ${12*scale}px "IBM Plex Sans", sans-serif`, size: 12*scale, color: MUTED, maxLines: 3,
   });
 
   visuals.forEach(({canvas, el}) => {
@@ -156,7 +156,7 @@ export async function composePanelCanvas(panelEl, visuals, {scale=2}={}){
   });
 
   ctx.fillStyle = MUTED;
-  ctx.font = `500 ${11*scale}px "JetBrains Mono", monospace`;
+  ctx.font = `500 ${12*scale}px "JetBrains Mono", monospace`;
   ctx.textBaseline = 'bottom';
   ctx.textAlign = 'right';
   ctx.fillText(WATERMARK, out.width - padSide, out.height - 12*scale);

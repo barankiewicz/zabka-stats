@@ -76,7 +76,7 @@ export const barValueLabels = {
     };
     ctx.save();
     ctx.fillStyle=opt.color||C.muted;
-    ctx.font=`500 10px 'JetBrains Mono',monospace`;
+    ctx.font=`500 11px 'JetBrains Mono',monospace`;
     chart.data.datasets.forEach((ds,di)=>{
       const meta=chart.getDatasetMeta(di);
       if(meta.hidden||(opt.onlyBars&&meta.type==='line'))return;
@@ -162,7 +162,7 @@ export const annotPlugin = {
         }else{
           ctx.translate(p,ca.top+14);ctx.rotate(-Math.PI/2);
         }
-        ctx.fillStyle=lc;ctx.font='bold 10px JetBrains Mono,monospace';
+        ctx.fillStyle=lc;ctx.font='bold 11px JetBrains Mono,monospace';
         ctx.textAlign='center';ctx.textBaseline='bottom';
         ctx.fillText(label,0,-2);ctx.restore();
       }

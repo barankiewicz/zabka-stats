@@ -162,10 +162,10 @@ function _setIpData(data, geojson) {
       const zabkaLabel = t('brand_zabka');
       const ratioLabel = t('ratio_label');
 
-      nf.properties._tip = `<div style="font-weight:700;font-size:13px;margin-bottom:3px">${escapeHtml(nf.properties._name)}</div>` +
-        `<div style="font-size:12px;color:#93a487">${zabkaLabel}: ${(getLang() === 'en' ? z : z.replace('.', ','))}/100k</div>` +
-        `<div style="font-size:12px;color:#93a487">InPost: ${(getLang() === 'en' ? p : p.replace('.', ','))}/100k</div>` +
-        `<div style="font-size:12px;color:#93a487">${ratioLabel}: ${(getLang() === 'en' ? rr : rr.replace('.', ','))}x</div>`;
+      nf.properties._tip = `<div style="font-weight:700;font-size:14px;margin-bottom:3px">${escapeHtml(nf.properties._name)}</div>` +
+        `<div style="font-size:13px;color:#93a487">${zabkaLabel}: ${(getLang() === 'en' ? z : z.replace('.', ','))}/100k</div>` +
+        `<div style="font-size:13px;color:#93a487">InPost: ${(getLang() === 'en' ? p : p.replace('.', ','))}/100k</div>` +
+        `<div style="font-size:13px;color:#93a487">${ratioLabel}: ${(getLang() === 'en' ? rr : rr.replace('.', ','))}x</div>`;
     } else {
       nf.properties._t = 0;
       nf.properties._label = '';
@@ -469,11 +469,11 @@ export function renderStreets(){
       const drawOne=(y,i)=>{
         const s=streetsData[i];if(!s)return;
         const x=yScale.left-8;
-        ctx.font=`600 13px '${getFont('body')}',sans-serif`;
+        ctx.font=`600 14px '${getFont('body')}',sans-serif`;
         ctx.fillStyle='#c8d4c0';
         const st=s.street.replace(/^ul\.\s*/i,'').trim();
         ctx.fillText(st.length>28?st.slice(0,27)+'…':st, x, y-4);
-        ctx.font=`400 10px '${getFont('body')}',sans-serif`;
+        ctx.font=`400 11px '${getFont('body')}',sans-serif`;
         ctx.fillStyle='#93a487';
         ctx.fillText(s.city, x, y+10);
       };
@@ -495,7 +495,7 @@ export function renderStreets(){
         tooltip:{enabled:false},
         barLabels:{thousands:true,color:C.muted},
         dualLabelSpoleczenstwo:{}},
-      scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},
+      scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:11}}},
         y:{grid:{display:false},ticks:{display:false}}}},
     plugins:[dualLabelPlugin],
   });
@@ -552,8 +552,8 @@ export function renderGminaLeaders(){
         tooltip:{enabled:false},
         barLabels:{decimals:2,color:C.muted},
         annot:{refLines:natRef}},
-      scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}},
-        y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
+      scales:{x:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:11}}},
+        y:{grid:{display:false},ticks:{color:C.muted,font:{size:11}}}}
     }
   });
 }
@@ -640,8 +640,8 @@ function _drawNbl(data){
           `${t('knn_mean').toLowerCase()} ${d.avg_m.toLocaleString(getLang() === 'en' ? 'en-US' : 'pl-PL')} m`,
           `${d.n} ${t('unit_store_plural')}`]}}},
         barLabels:{thousands:true,color:C.muted,suffix:' m'}},
-      scales:{x:{grid:{color:C.axis},title:{display:true,text: t('nbl_axis_meters'),color:C.muted,font:{size:11}},ticks:{color:C.muted,font:{size:10}}},
-        y:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}}}
+      scales:{x:{grid:{color:C.axis},title:{display:true,text: t('nbl_axis_meters'),color:C.muted,font:{size:12}},ticks:{color:C.muted,font:{size:11}}},
+        y:{grid:{display:false},ticks:{color:C.muted,font:{size:11}}}}
     }
   });
 }
@@ -728,9 +728,9 @@ export function renderDumbbell(data){
   const PAD_R=80;
   const W_CHART=420;
   const DOT_R=5;
-  const FONT_LABEL=10;
-  const FONT_RATIO=9;
-  const FONT_GRID=8;
+  const FONT_LABEL=11;
+  const FONT_RATIO=10;
+  const FONT_GRID=9;
   const H=arr.length*ROW+30;
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
   const VBW=PAD_L+W_CHART+PAD_R;
@@ -779,7 +779,7 @@ export function renderDumbbell(data){
   });
   if(!_dbTip){
     _dbTip=document.createElement('div');
-    _dbTip.style.cssText='position:fixed;pointer-events:none;opacity:0;transition:opacity .12s;background:rgba(12,22,11,.95);border:1px solid rgba(140,200,80,.3);border-radius:8px;padding:8px 12px;font-size:12px;color:#eef3e6;white-space:nowrap;z-index:9999;line-height:1.6';
+    _dbTip.style.cssText='position:fixed;pointer-events:none;opacity:0;transition:opacity .12s;background:rgba(12,22,11,.95);border:1px solid rgba(140,200,80,.3);border-radius:8px;padding:8px 12px;font-size:13px;color:#eef3e6;white-space:nowrap;z-index:9999;line-height:1.6';
     document.body.appendChild(_dbTip);
   }
   if(_dbTip)_dbTip.style.opacity='0';
@@ -953,8 +953,8 @@ function renderSpolKnn(){
         barLabels:{thousands:true,color:C.muted},
       },
       scales:{
-        x:{grid:{display:false},ticks:{color:C.muted,font:{size:10}}},
-        y:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}}
+        x:{grid:{display:false},ticks:{color:C.muted,font:{size:11}}},
+        y:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:11}}}
       }
     }
   });
@@ -1035,8 +1035,8 @@ function renderElevationHistogram(){
         barLabels:{thousands:true,color:C.muted},
       },
       scales:{
-        x:{grid:{display:false},ticks:{color:C.muted,font:{size:10},maxRotation:0,autoSkip:true}},
-        y:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:10}}}
+        x:{grid:{display:false},ticks:{color:C.muted,font:{size:11},maxRotation:0,autoSkip:true}},
+        y:{grid:{color:C.axis},ticks:{color:C.muted,font:{size:11}}}
       }
     }
   });
