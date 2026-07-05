@@ -120,6 +120,9 @@ async function renderTab(tab){
     }
     RENDERED.add(tab);
     if(tabEl)hideTabError(tabEl);
+    recheckToolbarCollisions();
+    setTimeout(recheckToolbarCollisions, 300);
+    setTimeout(recheckToolbarCollisions, 800);
   } catch(err){
     console.error(`renderTab(${tab}) failed:`, err);
     RENDERED.delete(tab);   // allow a retry - do NOT leave the tab permanently blank
@@ -593,14 +596,18 @@ function avoidToolbarCollisions(panelEl, wrap){
   const wrapRect = wrap.getBoundingClientRect();
   const panelTop = panelEl.getBoundingClientRect().top;
   let clearBottom = null;
+  const HEADER_ZONE = 320;
   const consider = (r) => {
-    const overlaps = r.left < wrapRect.right && r.right > wrapRect.left
-      && r.top < wrapRect.bottom && r.bottom > wrapRect.top;
-    if(!overlaps) return;
+    if(r.width === 0 || r.height === 0) return;
+    // On mobile/narrow screens, header elements are stacked vertically and take the full width of the card.
+    // We treat horizontal overlap as always true on mobile so the toolbar is forced down below all header controls.
+    const overlapsX = (window.innerWidth <= 600) || (r.left < wrapRect.right && r.right > wrapRect.left);
+    if(!overlapsX) return;
+    if(r.top - panelTop > HEADER_ZONE) return;
     const bottomRel = r.bottom - panelTop;
     if(clearBottom == null || bottomRel > clearBottom) clearBottom = bottomRel;
   };
-  panelEl.querySelectorAll('.map-mode-toggle, .gran-toggle').forEach(el=>{
+  panelEl.querySelectorAll('.map-mode-toggle, .gran-toggle, .gran-toggles').forEach(el=>{
     if(wrap.contains(el)) return;
     consider(el.getBoundingClientRect());
   });
@@ -613,6 +620,7 @@ function avoidToolbarCollisions(panelEl, wrap){
 function recheckToolbarCollisions(){
   _toolbarPlacements.forEach(({ panelEl, wrap }) => avoidToolbarCollisions(panelEl, wrap));
 }
+window.recheckToolbarCollisions = recheckToolbarCollisions;
 let _resizeTimer = null;
 window.addEventListener('resize', () => {
   clearTimeout(_resizeTimer);

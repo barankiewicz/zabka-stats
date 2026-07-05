@@ -282,7 +282,11 @@ async function buildMap() {
   await ensureMaplibre();
   try {
   _krMap = createMap('kr-map', {
-    center: HOME, zoom: HOME_Z, minZoom: 5, maxZoom: 13,
+    // minZoom was 5, one notch above what fitPoland's padded fit sometimes
+    // wants on a narrow/short mobile container - it would get clamped there,
+    // so "zoom out to see the whole country" and "reset" both landed on a
+    // view that was still slightly cropped in, not the actual full-Poland fit.
+    center: HOME, zoom: HOME_Z, minZoom: 4.3, maxZoom: 13,
     dragRotate: false, pitchWithRotate: false,
     scrollZoom: false, doubleClickZoom: true, touchZoom: true,
     cooperativeGestures: true,   // ctrl+scroll to zoom (page scrolls otherwise)
@@ -429,6 +433,10 @@ async function buildMap() {
     if (!f) return;
     activeId = id;
     flyToFact(f, true);
+    const mapEl = document.getElementById('kr-map');
+    if (mapEl) {
+      mapEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   };
   _select = select;
   _highlight = (id) => {

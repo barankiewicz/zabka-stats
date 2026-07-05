@@ -241,7 +241,10 @@ function _updateIpScale(){
 async function _buildInpostMap(el){
   try {
     _ipMap=createMap('map-inpost',{
-      center:[19.3,52.05],zoom:5.6,minZoom:5,maxZoom:9,
+      // minZoom was 5, clamping fitPoland's padded fit tighter than "the
+      // whole country" on a narrow/short mobile container - same fix as the
+      // Atlas map (kraniec.js).
+      center:[19.3,52.05],zoom:5.6,minZoom:4.3,maxZoom:9,
       dragPan:true,scrollZoom:true,dragRotate:false,doubleClickZoom:true,touchZoom:true,keyboard:true,
     });
     MAPS['map-inpost']=_ipMap;
@@ -723,14 +726,15 @@ export function renderDumbbell(data){
   const el=document.getElementById('inpost-dumbbell');if(!el)return;
   const allVals=arr.flatMap(d=>[d.zabki_per_100k||0,d.lockers_per_100k||0]);
   const maxV=Math.max(...allVals,1);
-  const ROW=24;
-  const PAD_L=130;
-  const PAD_R=80;
-  const W_CHART=420;
-  const DOT_R=5;
-  const FONT_LABEL=11;
-  const FONT_RATIO=10;
-  const FONT_GRID=9;
+  const isMobile=window.innerWidth<=600;
+  const ROW=isMobile?32:24;
+  const PAD_L=isMobile?95:130;
+  const PAD_R=isMobile?55:80;
+  const W_CHART=isMobile?250:420;
+  const DOT_R=isMobile?5.5:5;
+  const FONT_LABEL=isMobile?13:11;
+  const FONT_RATIO=isMobile?11:10;
+  const FONT_GRID=isMobile?10:9;
   const H=arr.length*ROW+30;
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
   const VBW=PAD_L+W_CHART+PAD_R;

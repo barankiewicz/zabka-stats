@@ -317,15 +317,27 @@ function drawCalendar(uptoYear){
   const cv=document.getElementById('canvas-calendar');if(!cv||!calData)return;
   _calUptoYear=uptoYear;
 
-  // Derive row height from the map's actual rendered height (not a hardcoded
-  // constant, so this still matches .growth-map on narrower mobile breakpoints);
-  // derive cell width so the 12×29 grid is overall square: 12*cw = 29*ch  →
-  // cw = ch*(years/12).
-  const H_REF=document.getElementById('map-growth')?.offsetHeight||520;
   const years=GROWTH_MAX-GROWTH_MIN+1; // 29
   const padL=34,padT=14,padR=6,padB=10,gap=1.5;
-  const ch=(H_REF-padT-padB)/years;
-  const cw=ch*(years/12);              // square overall grid
+  // Below the ~900px breakpoint growth-split stacks to one column, so width
+  // (not height) is what's actually scarce - a phone is much narrower than
+  // it is tall. Deriving cw from height to keep a "square" 12x29 grid (as
+  // the wider, side-by-side layout does) forces cw up too, since cw scales
+  // with ch - the canvas ends up *wider* than the card and overflows.
+  // Instead, on mobile derive cw from the real available width and give ch
+  // a fixed, legible value instead of chasing squareness; the grid is
+  // allowed to be a tall rectangle there; it was never going to be square
+  // once turned portrait anyway.
+  let ch, cw;
+  if(window.innerWidth<=900){
+    const availW=(document.getElementById('canvas-calendar')?.parentElement?.clientWidth)||300;
+    cw=Math.max(10,(availW-padL-padR)/12);
+    ch=14;
+  } else {
+    const H_REF=document.getElementById('map-growth')?.offsetHeight||520;
+    ch=(H_REF-padT-padB)/years;
+    cw=ch*(years/12);              // square overall grid
+  }
   const W=Math.round(padL+12*cw+padR);
   const H=Math.round(padT+years*ch+padB);
   cv.width=W;cv.height=H;
@@ -437,6 +449,12 @@ export async function renderGrowthMap(){
         cooperativeGestures:true,
       });
       MAPS['map-growth']=growthMap;
+      // zoom:5.0/center above are a fallback for the very first paint (before
+      // the container has a measured size) - the real initial view comes from
+      // fitPoland() below, which fits the actual rendered container instead of
+      // a size tuned for a wide desktop card. On a narrow mobile card the same
+      // fixed zoom shows a much smaller, more zoomed-in slice of the country.
+      fitPoland(growthMap,20);
 
       if(!el.querySelector('.map-zoom-hint')){
         const hint=document.createElement('div');
@@ -449,11 +467,15 @@ export async function renderGrowthMap(){
         rb.className='map-reset-btn';rb.type='button';
         rb.textContent=t('map_reset_view');
         rb.setAttribute('aria-label',t('map_reset_view_aria'));
-        rb.addEventListener('click',()=>{growthMap.easeTo({pitch:0,bearing:0,zoom:5.0,center:[19.3,52.05],duration:600})});
+        rb.addEventListener('click',()=>{growthMap.easeTo({pitch:0,bearing:0,duration:600});fitPoland(growthMap,20,{duration:600});});
         el.appendChild(rb);
       }
 
       growthMap.on('load',()=>{
+        // Re-fit now that the container has definitely settled its final
+        // size (a lazy-rendered tab or an in-flight reveal transition can
+        // leave it 0px or mid-transition at map creation time above).
+        fitPoland(growthMap,20);
         if(M.woj_geo){
           addVoivodeshipLayers(growthMap,M.woj_geo,'woj-base',{
             fillColor:'#11240d',fillOpacity:.55,

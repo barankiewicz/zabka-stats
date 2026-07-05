@@ -106,8 +106,13 @@ export async function renderBubble() {
 function draw(res, stage) {
   const w = stage.clientWidth || 1000, h = stage.clientHeight || 520;
   _svg.attr('width', w).attr('height', h);
-  _svg.transition().duration(350).call(_zoom.transform, zoomIdentity);
-  _transform = zoomIdentity;
+  let initScale = 1.0;
+  if (w < 600) {
+    initScale = 0.58;
+  }
+  const initTransform = zoomIdentity.translate((w / 2) * (1 - initScale), (h / 2) * (1 - initScale)).scale(initScale);
+  _svg.transition().duration(350).call(_zoom.transform, initTransform);
+  _transform = initTransform;
 
   const nodes = process(res);
   const ext = extent(nodes, d => d.value);
@@ -163,8 +168,13 @@ function draw(res, stage) {
   function dstart(e, d) { if (!e.active) _sim.alphaTarget(0.12).restart(); d.fx = d.x; d.fy = d.y; }
   function ddrag(e, d) {
     const rect = stage.getBoundingClientRect();
-    const p = _transform.invert([e.sourceEvent.clientX - rect.left, e.sourceEvent.clientY - rect.top]);
-    d.fx = p[0]; d.fy = p[1];
+    const touch = (e.sourceEvent.touches && e.sourceEvent.touches[0]) || 
+                  (e.sourceEvent.changedTouches && e.sourceEvent.changedTouches[0]) || 
+                  e.sourceEvent;
+    if (touch && touch.clientX != null) {
+      const p = _transform.invert([touch.clientX - rect.left, touch.clientY - rect.top]);
+      d.fx = p[0]; d.fy = p[1];
+    }
   }
   function dend(e, d) { if (!e.active) _sim.alphaTarget(0); d.fx = null; d.fy = null; }
 }
