@@ -703,11 +703,24 @@ canvas{display:block}
   .ip-col{height:300px}
   #map-granular-woj{min-height:280px}
 
+  /* Below ~600px, brand + FAQ + Metodyka + lang toggle are all fixed-width
+     (flex-shrink:0) and easily eat the whole row on a typical phone, leaving
+     .tab-nav (flex:1) with near-zero space - the second tab ("Żabka a
+     Polska") ends up squeezed into a near-invisible horizontally-scrollable
+     sliver instead of being readable. Fix: wrap the nav onto multiple rows
+     and give the tabs a full-width row of their own, so switching tabs never
+     depends on noticing you can scroll a tiny strip. */
   .nav-inner {
-    padding: 0 12px;
-    gap: 12px;
+    padding: 8px 12px;
+    gap: 8px;
+    flex-wrap: wrap;
+    height: auto;
   }
+  .brand { order: 1; }
+  .lang-toggle { order: 2; margin-left: auto; }
   .tab-nav {
+    order: 3;
+    flex: 1 1 100%;
     overflow-x: auto;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
@@ -715,6 +728,9 @@ canvas{display:block}
   }
   .tab-nav::-webkit-scrollbar {
     display: none;
+  }
+  .nav-page-link {
+    order: 4;
   }
   .tab-btn {
     font-size: 12.5px !important;
