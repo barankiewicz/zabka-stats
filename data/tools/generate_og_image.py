@@ -1,22 +1,22 @@
 """
-Generates frontend/public/og.png - the homepage social-preview image (S6 of the
-shareability roadmap: "your strongest single visual, the glowing dot map, plus
-ONE number, dark theme so it pops in feeds").
-
-A one-off build tool, not part of the ETL or request path: og.png is a static
-file Vite copies into dist/ as-is (unlike the per-fact /fakt/<slug>/og.png
-cards, which backend/og_image.py renders live per request). Re-run by hand
-whenever the store count or the brand visuals change meaningfully - it does
-not need to track the daily ETL.
+Generates frontend/public/og.png and og-en.png - the homepage social-preview images.
+Uses the original layout with a single prominent store count (e.g. 13 000+),
+but renders the new Powiaty choropleth map in the background.
 
 Usage: python data/tools/generate_og_image.py
 """
 
 import math
 import os
+import sys
+import json
+
+# Ensure backend package can be imported
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 import duckdb
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from backend.api.geo_router import _build_pow_econ_geo
 
 WIDTH, HEIGHT = 1200, 630
 SS = 2  # supersample factor: draw at 2x, downsample at the end for antialiasing
@@ -32,6 +32,8 @@ FONTS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "backend", "asse
 OUT_PATH_PL = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public", "og.png")
 OUT_PATH_EN = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public", "og-en.png")
 
+GRAN_RAMP_STOPS = ['#233d1a', '#3b5f24', '#54802e', '#6ca237', '#84c341']
+
 
 def _font(name: str, size: int, variation: str) -> ImageFont.FreeTypeFont:
     f = ImageFont.truetype(os.path.join(FONTS_DIR, name), size)
@@ -44,27 +46,59 @@ def _hex_to_rgb(h: str) -> tuple:
     return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
 
 
+def interpolate_color(t: float) -> tuple:
+    t = max(0.0, min(1.0, t))
+    seg = t * (len(GRAN_RAMP_STOPS) - 1)
+    i = min(len(GRAN_RAMP_STOPS) - 2, int(seg))
+    u = seg - i
+    a = _hex_to_rgb(GRAN_RAMP_STOPS[i])
+    b = _hex_to_rgb(GRAN_RAMP_STOPS[i + 1])
+    r = int(round(a[0] + (b[0] - a[0]) * u))
+    g = int(round(a[1] + (b[1] - a[1]) * u))
+    b_val = int(round(a[2] + (b[2] - a[2]) * u))
+    return (r, g, b_val)
+
+
 def fetch_points() -> tuple:
     con = duckdb.connect(DB_PATH, read_only=True)
     total = con.execute("SELECT count(*) FROM locations WHERE deleted_at IS NULL").fetchone()[0]
-    rows = con.execute(
-        "SELECT latitude, longitude FROM locations WHERE deleted_at IS NULL"
-    ).fetchall()
     con.close()
-    return total, rows
+    return total
 
 
-def render_dot_map(points: list, box: tuple) -> Image.Image:
-    """Render a glowing green dot map of the given (lat, lon) points, fit inside
-    `box` = (x0, y0, x1, y1) in 1x canvas coordinates, preserving Poland's real
-    aspect ratio (longitude degrees are compressed by cos(latitude))."""
+def render_powiaty_map(geojson_data: dict, box: tuple) -> Image.Image:
+    """Render a powiaty choropleth map of Poland, colored by per_1k,
+    fit inside `box` = (x0, y0, x1, y1) in 1x canvas coordinates, preserving aspect ratio."""
+    features = geojson_data.get("features", [])
+
+    # 1. Collect all coordinates to compute global bounding box of Poland
+    lons = []
+    lats = []
+    for f in features:
+        geom = f.get("geometry") or {}
+        gtype = geom.get("type")
+        coords = geom.get("coordinates") or []
+        if gtype == "Polygon":
+            for ring in coords:
+                for lon, lat in ring:
+                    lons.append(lon)
+                    lats.append(lat)
+        elif gtype == "MultiPolygon":
+            for poly in coords:
+                for ring in poly:
+                    for lon, lat in ring:
+                        lons.append(lon)
+                        lats.append(lat)
+
+    if not lons or not lats:
+        lon_min, lon_max, lat_min, lat_max = 14.07, 24.15, 49.00, 54.84
+    else:
+        lon_min, lon_max, lat_min, lat_max = min(lons), max(lons), min(lats), max(lats)
+
+    # 2. Compute scale and origin using the projection logic
     x0, y0, x1, y1 = [v * SS for v in box]
     box_w, box_h = x1 - x0, y1 - y0
 
-    lats = [p[0] for p in points]
-    lons = [p[1] for p in points]
-    lat_min, lat_max = min(lats), max(lats)
-    lon_min, lon_max = min(lons), max(lons)
     mean_lat_rad = math.radians((lat_min + lat_max) / 2)
     lon_correction = math.cos(mean_lat_rad)
 
@@ -81,31 +115,62 @@ def render_dot_map(points: list, box: tuple) -> Image.Image:
     origin_x = x0 + (box_w - plot_w) / 2
     origin_y = y0 + (box_h - plot_h) / 2
 
-    dots = Image.new("L", (WIDTH * SS, HEIGHT * SS), 0)
-    draw = ImageDraw.Draw(dots)
-    r = 1.5 * SS
-    for lat, lon in points:
-        px = origin_x + (lon - lon_min) * scale_x
-        py = origin_y + (lat_max - lat) * scale_y
-        draw.ellipse((px - r, py - r, px + r, py + r), fill=255)
+    # 3. Create transparency layer for drawing
+    map_layer = Image.new("RGBA", (WIDTH * SS, HEIGHT * SS), (0, 0, 0, 0))
+    map_draw = ImageDraw.Draw(map_layer)
 
-    glow = dots.filter(ImageFilter.GaussianBlur(radius=2.2 * SS))
-    core = dots.filter(ImageFilter.GaussianBlur(radius=0.4 * SS))
-    from PIL import ImageChops
-    intensity = ImageChops.lighter(
-        Image.eval(glow, lambda v: min(v, 150)),
-        Image.eval(core, lambda v: min(v, 235)),
-    )
+    # 4. Extract values to normalize per_1k
+    vals = []
+    for f in features:
+        v = f.get("properties", {}).get("per_1k")
+        if v is not None:
+            vals.append(v)
+    vmin = min(vals) if vals else 0.0
+    vmax = max(vals) if vals else 1.0
+    if vmax <= vmin:
+        vmax = vmin + 0.001
 
-    color = _hex_to_rgb(GREEN_BRIGHT)
-    layer = Image.new("RGBA", (WIDTH * SS, HEIGHT * SS), color + (0,))
-    layer.putalpha(intensity)
-    return layer
+    # 5. Draw each powiat
+    outline_color = _hex_to_rgb("#08110a") + (255,)
+
+    for f in features:
+        geom = f.get("geometry") or {}
+        gtype = geom.get("type")
+        coords = geom.get("coordinates") or []
+
+        v = f.get("properties", {}).get("per_1k")
+        if v is None:
+            v = 0.0
+
+        t = (v - vmin) / (vmax - vmin)
+        color = interpolate_color(t)
+        fill_color = color + (int(0.86 * 255),)  # 86% opacity
+
+        polygons = []
+        if gtype == "Polygon":
+            polygons = coords
+        elif gtype == "MultiPolygon":
+            for poly in coords:
+                polygons.extend(poly)
+
+        for ring in polygons:
+            xy = []
+            for lon, lat in ring:
+                px = origin_x + (lon - lon_min) * scale_x
+                py = origin_y + (lat_max - lat) * scale_y
+                xy.append((px, py))
+            if len(xy) >= 3:
+                # Fill the polygon
+                map_draw.polygon(xy, fill=fill_color, outline=None)
+                # Draw the outline with thickness 1.5 * SS (3 pixels)
+                map_draw.line(xy + [xy[0]], fill=outline_color, width=int(1.5 * SS))
+
+    return map_layer
 
 
 def horizontal_scrim(fade_start: int, fade_end: int) -> Image.Image:
     """Opaque BG on the left fading to fully transparent by fade_end, so the
-    dot map stays visible on the right while text stays legible on the left."""
+    map stays visible on the right while text stays legible on the left."""
     w, h = WIDTH * SS, HEIGHT * SS
     fade_start *= SS
     fade_end *= SS
@@ -126,11 +191,11 @@ def horizontal_scrim(fade_start: int, fade_end: int) -> Image.Image:
     return scrim
 
 
-def build(total_count: int, points: list, lang: str = "pl") -> Image.Image:
+def build(total_count: int, geojson_data: dict, lang: str = "pl") -> Image.Image:
     img = Image.new("RGBA", (WIDTH * SS, HEIGHT * SS), BG)
 
-    dot_map = render_dot_map(points, box=(560, 20, 1160, 610))
-    img = Image.alpha_composite(img, dot_map)
+    powiaty_map = render_powiaty_map(geojson_data, box=(560, 20, 1160, 610))
+    img = Image.alpha_composite(img, powiaty_map)
     img = Image.alpha_composite(img, horizontal_scrim(fade_start=560, fade_end=920))
 
     draw = ImageDraw.Draw(img)
@@ -159,30 +224,38 @@ def build(total_count: int, points: list, lang: str = "pl") -> Image.Image:
         headline_2 = "Mamy na to twarde dane."
         tagline_text = "Mapy, rankingi, ciekawostki — dane publiczne."
 
+    # Draw Brand header
     draw.ellipse((m, 96 * SS, m + 16 * SS, 112 * SS), fill=GREEN)
     draw.text((m + 30 * SS, 84 * SS), brand_text, font=brand_font, fill=GREEN)
 
+    # Draw Kicker
     kicker_y = 168 * SS
     draw.text((m, kicker_y), kicker_text, font=kicker_font, fill=MUTED)
 
+    # Draw Value (Count)
     value = f"{total_count // 1000} 000+"
     value_y = kicker_y + 42 * SS
     draw.text((m, value_y), value, font=value_font, fill=GREEN_BRIGHT)
     value_bbox = draw.textbbox((m, value_y), value, font=value_font)
 
+    # Draw Subtitle
     subtitle_y = value_bbox[3] + 12 * SS
     draw.text((m, subtitle_y), subtitle_text, font=subtitle_font, fill=INK)
 
+    # Draw horizontal separator line
     line_y = subtitle_y + 54 * SS
     draw.line((m, line_y, m + 400 * SS, line_y), fill=(*_hex_to_rgb(GREEN), 90), width=int(2 * SS))
 
+    # Draw Headline lines
     headline_y = line_y + 34 * SS
     draw.text((m, headline_y), headline_1, font=headline_font, fill=INK)
     draw.text((m, headline_y + 40 * SS), headline_2, font=headline_font, fill=INK)
 
+    # Draw Tagline
     tagline_y = headline_y + 40 * SS + 46 * SS
     draw.text((m, tagline_y), tagline_text, font=tagline_font, fill=MUTED)
 
+    # Draw Footer
     footer_y = HEIGHT * SS - 56 * SS
     draw.text((m, footer_y), "zabkozbior.barankiewicz.dev", font=footer_font, fill=MUTED)
 
@@ -190,12 +263,17 @@ def build(total_count: int, points: list, lang: str = "pl") -> Image.Image:
 
 
 def main():
-    total_count, points = fetch_points()
-    img_pl = build(total_count, points, lang="pl")
+    total_count = fetch_points()
+
+    # Load GeoJSON data
+    geojson_bytes = _build_pow_econ_geo()
+    geojson_data = json.loads(geojson_bytes.decode("utf-8"))
+
+    img_pl = build(total_count, geojson_data, lang="pl")
     img_pl.save(OUT_PATH_PL, format="PNG")
     print(f"Wrote {OUT_PATH_PL} ({total_count} active stores plotted, headline value {total_count // 1000} 000+)")
-    
-    img_en = build(total_count, points, lang="en")
+
+    img_en = build(total_count, geojson_data, lang="en")
     img_en.save(OUT_PATH_EN, format="PNG")
     print(f"Wrote {OUT_PATH_EN} ({total_count} active stores plotted, headline value {total_count // 1000} 000+)")
 

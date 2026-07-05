@@ -212,7 +212,7 @@ export const translations = {
     knn_rarest: "Rarest",
     knn_densest: "Densest",
     knn_caveat: "The median is robust against single isolated stores; the average is skewed upward by extremes (in Podkarpackie the average is ~{{STAT_PODKARPACKIE_AVG_KM}} km, while the median is {{STAT_PODKARPACKIE_MEDIAN_M}} m).",
-    knn_half_title: "Half of the network has a neighbor closer than {{STAT_NEIGHBOR_MEDIAN_M}} m",
+    knn_half_title: "Half of all Żabkas have another Żabka closer than 300m",
     knn_half_sub: "Distribution of distance to the nearest store (k-NN).",
     knn_stat_max: "max.",
 
@@ -691,7 +691,7 @@ export const translations = {
     knn_rarest: "Najrzadsze",
     knn_densest: "Najgęstsze",
     knn_caveat: "Mediana jest odporna na pojedyncze samotne sklepy; średnią zawyżają wartości skrajne (w podkarpackiem średnia to ~{{STAT_PODKARPACKIE_AVG_KM}} km, a mediana {{STAT_PODKARPACKIE_MEDIAN_M}} m).",
-    knn_half_title: "Połowa sieci ma sąsiadkę bliżej niż {{STAT_NEIGHBOR_MEDIAN_M}} m",
+    knn_half_title: "Połowa Żabek ma inną Żabkę bliżej niż 300m",
     knn_half_sub: "Rozkład odległości do najbliższego sklepu (k-NN).",
     knn_stat_max: "maks.",
 
