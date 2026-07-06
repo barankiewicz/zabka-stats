@@ -48,6 +48,10 @@ def test_geo_powiats(client):
     response = client.get("/api/geo/powiats")
     assert response.status_code in (200, 404, 500)
 
+def test_geo_gminas(client):
+    response = client.get("/api/geo/gminas")
+    assert response.status_code in (200, 404, 500)
+
 def test_powiat_economics_geo(client):
     response = client.get("/api/stats/powiat-economics-geo")
     assert response.status_code == 200
@@ -104,6 +108,43 @@ def test_by_dimension_powiat_disambiguates_duplicate_names(client):
         # The bare (unsuffixed) base must NOT appear - otherwise the
         # disambiguation didn't run.
         assert base not in names, f"bare '{base}' should have been suffixed"
+
+def test_by_dimension_powiat_all_is_physical_division(client):
+    # "powiat_all" is the PHYSICAL division (land powiats + cities with
+    # powiat rights) used by the map: at most 380 units. Most rows carry a
+    # geo_id joining them to a powiaty.geojson polygon - allow some misses
+    # since the local dev DB's hierarchy/geojson pairing can be stale (see
+    # project_local_dev_data_stale memory), but a total miss means the join
+    # logic itself is broken.
+    response = client.get("/api/stats/by-dimension?dim=powiat_all&metric=count&sort=desc&limit=500")
+    assert response.status_code == 200
+    rows = response.json()["rows"]
+    assert 0 < len(rows) <= 380
+    assert any(r["geo_id"] for r in rows)
+
+def test_by_dimension_gmina_geo_id_is_teryt(client):
+    # Gmina rows carry the 7-digit TERYT code (matching gminy.geojson's
+    # `kod`) as geo_id, not a surrogate id - lets the frontend map join by
+    # code instead of colliding on duplicate gmina names.
+    response = client.get("/api/stats/by-dimension?dim=gmina&metric=count&sort=desc&limit=50")
+    assert response.status_code == 200
+    rows = response.json()["rows"]
+    assert rows
+    assert all(r["geo_id"] is None or (r["geo_id"].isdigit() and len(r["geo_id"]) == 7) for r in rows)
+
+def test_by_dimension_invalid_dim_rejected(client):
+    response = client.get("/api/stats/by-dimension?dim=bogus")
+    assert response.status_code == 400
+
+def test_inpost_vs_zabka_by_level_powiat_all(client):
+    response = client.get("/api/stats/inpost-vs-zabka-by-level?level=powiat_all&limit=500")
+    assert response.status_code == 200
+    rows = response.json()["rows"]
+    assert 0 <= len(rows) <= 380
+
+def test_inpost_vs_zabka_by_level_gmina(client):
+    response = client.get("/api/stats/inpost-vs-zabka-by-level?level=gmina&limit=3000")
+    assert response.status_code == 200
 
 def test_gmina_leaders(client):
     response = client.get("/api/stats/gmina-leaders")

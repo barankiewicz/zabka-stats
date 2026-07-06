@@ -10,6 +10,7 @@ from litestar.params import FromQuery
 from litestar.serialization import encode_json
 
 from backend.api.demographics import get_voiv_population
+from backend.api.geo_router import _norm_voiv, _pow_geo, _pow_geo_key, _teryt7
 from backend.cache import cached, clear_cache, get_cached_blob, set_cached_blob
 from backend.database import client
 from backend.schemas.api_models import (
@@ -426,8 +427,87 @@ def inpost_vs_zabka_by_level(
     limit: FromQuery[int] = 20,
     offset: FromQuery[int] = 0
 ) -> InPostVsZabkaByLevelResponse:
-    lim = max(1, min(int(limit), 500))
+    # 3000 covers the full gmina division (2479) so the gmina map is complete.
+    lim = max(1, min(int(limit), 3000))
     off = max(0, int(offset))
+
+    def _pow_gid(voiv: str, name: str) -> str | None:
+        """powiaty.geojson feature id for a land powiat OR a city with powiat
+        rights - lets the map join rows to polygons instead of by bare name
+        (which collides for duplicated powiat names)."""
+        g = _pow_geo().get((_norm_voiv(voiv), _pow_geo_key(name).lower()))
+        return str(g["id"]) if g and g.get("id") is not None else None
+
+    def _powiat_rows() -> list:
+        # Land-powiat density only: Żabki and paczkomaty NOT in a city with
+        # powiat rights (those belong to the MIASTA dimension), divided by the
+        # land powiat's own population. See v_city_powiat_miasta in database.py.
+        zabka_rows = client.execute("""
+            SELECT dp.name, v.name, dp.population, COUNT(l.store_id)
+            FROM dim_powiat dp
+            JOIN dim_voivodeship v ON v.id = dp.voivodeship_id
+            JOIN locations l ON l.powiat_id = dp.id
+                AND l.deleted_at IS NULL
+                AND NOT EXISTS (SELECT 1 FROM v_city_powiat_miasta c WHERE c.id = l.miasto_id)
+            GROUP BY dp.id, dp.name, v.name, dp.population
+        """).fetchall()
+        locker_rows = client.execute("""
+            SELECT dp.name, v.name, COUNT(pl.external_id)
+            FROM dim_powiat dp
+            JOIN dim_voivodeship v ON v.id = dp.voivodeship_id
+            JOIN parcel_lockers pl ON pl.powiat_id = dp.id AND pl.deleted_at IS NULL
+                AND NOT EXISTS (SELECT 1 FROM v_city_powiat_miasta c WHERE c.id = pl.miasto_id)
+            GROUP BY dp.id, dp.name, v.name
+        """).fetchall()
+        locker_map = {(r[0].strip().lower(), r[1].strip().lower()): int(r[2]) for r in locker_rows}
+        out = []
+        for name, voiv, pop, z in zabka_rows:
+            z = int(z)
+            key = (name.strip().lower(), voiv.strip().lower())
+            p = locker_map.get(key, 0)
+            pop = int(pop) if pop else 0
+            if not p or not pop:
+                continue
+            out.append({
+                "name": name, "voivodeship": voiv,
+                "zabki": z, "paczkomaty": p, "population": pop,
+                "zabki_per_100k": round(z * 100000 / pop, 1),
+                "lockers_per_100k": round(p * 100000 / pop, 1),
+                "ratio": round(p / z, 2) if z else 0.0,
+                "geo_id": _pow_gid(voiv, name),
+            })
+        return out
+
+    def _city_powiat_rows() -> list:
+        # The 66 cities with powiat rights - the other half of the PHYSICAL
+        # powiat division, with their own stores/lockers/population.
+        raw = client.execute("""
+            SELECT c.name, v.name, c.population,
+                   COALESCE(z.cnt, 0), COALESCE(pl.cnt, 0)
+            FROM dim_city c
+            JOIN dim_voivodeship v ON v.id = c.voivodeship_id
+            LEFT JOIN (SELECT miasto_id, COUNT(*) AS cnt FROM locations
+                       WHERE deleted_at IS NULL AND miasto_id IS NOT NULL
+                       GROUP BY miasto_id) z ON z.miasto_id = c.id
+            LEFT JOIN (SELECT miasto_id, COUNT(*) AS cnt FROM parcel_lockers
+                       WHERE deleted_at IS NULL AND miasto_id IS NOT NULL
+                       GROUP BY miasto_id) pl ON pl.miasto_id = c.id
+            WHERE SUBSTR(c.gus_id, 8, 2) >= '61' AND c.population > 0
+        """).fetchall()
+        out = []
+        for name, voiv, pop, z, p in raw:
+            z, p, pop = int(z), int(p), int(pop)
+            if not z or not p:
+                continue
+            out.append({
+                "name": name, "voivodeship": voiv,
+                "zabki": z, "paczkomaty": p, "population": pop,
+                "zabki_per_100k": round(z * 100000 / pop, 1),
+                "lockers_per_100k": round(p * 100000 / pop, 1),
+                "ratio": round(p / z, 2) if z else 0.0,
+                "geo_id": _pow_gid(voiv, name),
+            })
+        return out
 
     if level == "voivodeship":
         zabka_rows = client.execute("""
@@ -458,43 +538,12 @@ def inpost_vs_zabka_by_level(
                 "ratio": ratio,
             })
     elif level == "powiat":
-        # Land-powiat density only: Żabki and paczkomaty NOT in a city with
-        # powiat rights (those belong to the MIASTA dimension), divided by the
-        # land powiat's own population. See v_city_powiat_miasta in database.py.
-        zabka_rows = client.execute("""
-            SELECT dp.name, v.name, dp.population, COUNT(l.store_id)
-            FROM dim_powiat dp
-            JOIN dim_voivodeship v ON v.id = dp.voivodeship_id
-            JOIN locations l ON l.powiat_id = dp.id
-                AND l.deleted_at IS NULL
-                AND NOT EXISTS (SELECT 1 FROM v_city_powiat_miasta c WHERE c.id = l.miasto_id)
-            GROUP BY dp.id, dp.name, v.name, dp.population
-        """).fetchall()
-        locker_rows = client.execute("""
-            SELECT dp.name, v.name, COUNT(pl.external_id)
-            FROM dim_powiat dp
-            JOIN dim_voivodeship v ON v.id = dp.voivodeship_id
-            JOIN parcel_lockers pl ON pl.powiat_id = dp.id AND pl.deleted_at IS NULL
-                AND NOT EXISTS (SELECT 1 FROM v_city_powiat_miasta c WHERE c.id = pl.miasto_id)
-            GROUP BY dp.id, dp.name, v.name
-        """).fetchall()
-        locker_map = {(r[0].strip().lower(), r[1].strip().lower()): int(r[2]) for r in locker_rows}
-        rows = []
-        for name, voiv, pop, z in zabka_rows:
-            z = int(z)
-            key = (name.strip().lower(), voiv.strip().lower())
-            p = locker_map.get(key, 0)
-            pop = int(pop) if pop else 0
-            if not p or not pop:
-                continue
-            ratio = round(p / z, 2) if z else 0.0
-            rows.append({
-                "name": name, "voivodeship": voiv,
-                "zabki": z, "paczkomaty": p, "population": pop,
-                "zabki_per_100k": round(z * 100000 / pop, 1),
-                "lockers_per_100k": round(p * 100000 / pop, 1),
-                "ratio": ratio,
-            })
+        rows = _powiat_rows()
+    elif level == "powiat_all":
+        # The PHYSICAL powiat division: land powiats + cities with powiat
+        # rights, each with its own numbers - the map dataset for both the
+        # "powiaty ziemskie" and "miasta" granulations.
+        rows = _powiat_rows() + _city_powiat_rows()
     elif level == "city":
         # Join via miasto_id to avoid city-name mismatches (e.g. "M.st.Warszawa od 2002"
         # in dim_city vs "Warszawa" in locations).
@@ -539,12 +588,12 @@ def inpost_vs_zabka_by_level(
             })
     elif level == "gmina":
         zabka_rows = client.execute("""
-            SELECT g.name, v.name, g.population, COUNT(l.store_id)
+            SELECT g.name, v.name, g.population, COUNT(l.store_id), g.gus_id
             FROM dim_gmina g
             JOIN dim_voivodeship v ON v.id = g.voivodeship_id
             JOIN locations l ON l.gmina_id = g.id
-                AND l.deleted_at IS NULL 
-            GROUP BY g.id, g.name, v.name, g.population
+                AND l.deleted_at IS NULL
+            GROUP BY g.id, g.name, v.name, g.population, g.gus_id
         """).fetchall()
         locker_rows = client.execute("""
             SELECT g.name, v.name, COUNT(pl.external_id)
@@ -555,7 +604,7 @@ def inpost_vs_zabka_by_level(
         """).fetchall()
         locker_map = {(r[0].strip().lower(), r[1].strip().lower()): int(r[2]) for r in locker_rows}
         rows = []
-        for name, voiv, pop, z in zabka_rows:
+        for name, voiv, pop, z, gus_id in zabka_rows:
             z = int(z)
             key = (name.strip().lower(), voiv.strip().lower())
             p = locker_map.get(key, 0)
@@ -569,6 +618,7 @@ def inpost_vs_zabka_by_level(
                 "zabki_per_100k": round(z * 100000 / pop, 1) if pop else 0.0,
                 "lockers_per_100k": round(p * 100000 / pop, 1) if pop else 0.0,
                 "ratio": ratio,
+                "geo_id": _teryt7(gus_id),
             })
     else:
         return InPostVsZabkaByLevelResponse(rows=[], total=0, level=level)

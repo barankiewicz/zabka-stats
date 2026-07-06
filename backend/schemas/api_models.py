@@ -166,6 +166,9 @@ class InPostVsZabkaByLevelResponseItem(BaseModel):
     zabki_per_100k: float
     lockers_per_100k: float
     ratio: float
+    # map join key: powiaty.geojson feature id (powiat/powiat_all) or the
+    # 7-digit TERYT code matching gminy.geojson `kod` (gmina); None elsewhere
+    geo_id: str | None = None
 
 class InPostVsZabkaByLevelResponse(BaseModel):
     rows: list[InPostVsZabkaByLevelResponseItem]

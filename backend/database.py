@@ -488,10 +488,14 @@ def _ensure_teryt_views(con: duckdb.DuckDBPyConnection) -> None:
         WHERE level = 2
     """)
 
+    # gus_id lets consumers derive the 7-digit TERYT code (matches the `kod`
+    # property in gminy.geojson); a city with powiat rights also carries its
+    # own avg_salary/unemployment_rate (it's a GUS level-5 unit).
     con.execute("DROP VIEW IF EXISTS dim_city")
     con.execute("""
         CREATE VIEW dim_city AS
-        SELECT id, name, voivodeship_id, powiat_id, population, area_km2
+        SELECT id, name, voivodeship_id, powiat_id, population, area_km2,
+               avg_salary, unemployment_rate, gus_id
         FROM administrative_division
         WHERE level = 4
     """)
@@ -499,7 +503,7 @@ def _ensure_teryt_views(con: duckdb.DuckDBPyConnection) -> None:
     con.execute("DROP VIEW IF EXISTS dim_gmina")
     con.execute("""
         CREATE VIEW dim_gmina AS
-        SELECT id, name, voivodeship_id, powiat_id, population, area_km2
+        SELECT id, name, voivodeship_id, powiat_id, population, area_km2, gus_id
         FROM administrative_division
         WHERE level = 3
     """)

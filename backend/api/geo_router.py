@@ -107,6 +107,23 @@ def _pow_geo_key(name: str) -> str:
     s = _strip_pow(name)
     return _DISAMBIG_SUFFIX_RE.sub("", s)
 
+
+# powiaty.geojson predates the 2021 rename of powiat jeleniogórski to
+# karkonoski - map both spellings onto the same polygon/data.
+_POW_NAME_ALIASES = {"jeleniogórski": "karkonoski", "karkonoski": "jeleniogórski"}
+
+
+def _teryt7(gus_id: str) -> str | None:
+    """12-char BDL unit id -> 7-digit TERYT gmina code (with kind digit),
+    matching the `kod` property in gminy.geojson. A city with powiat rights
+    is stored under its level-5 id (ends '000') and maps to its urban gmina
+    ('...011'), e.g. '071412865000' -> '1465011' (Warszawa)."""
+    if not gus_id or len(gus_id) != 12:
+        return None
+    if gus_id.endswith("000"):
+        return gus_id[2:4] + gus_id[7:9] + "011"
+    return gus_id[2:4] + gus_id[7:9] + gus_id[9:12]
+
 def _voiv_area():
     global _VOIV_AREA
     if _VOIV_AREA is None:
@@ -150,8 +167,11 @@ def _pow_geo():
             voiv = assign_region(cx, cy, woj_idx) or nearest_region(cx, cy, woj_idx)
             voiv_norm = _norm_voiv(voiv)
             sname = _strip_pow(f["properties"].get("nazwa") or "").lower()
-            out[(voiv_norm, sname)] = {"id": f["properties"].get("id"),
-                                  "area": round(sum(_ring_area_km2(r) for r in rings), 1)}
+            rec = {"id": f["properties"].get("id"),
+                   "area": round(sum(_ring_area_km2(r) for r in rings), 1)}
+            out[(voiv_norm, sname)] = rec
+            if sname in _POW_NAME_ALIASES:
+                out.setdefault((voiv_norm, _POW_NAME_ALIASES[sname]), rec)
         _POW_GEO = out
     return _POW_GEO
 
@@ -199,6 +219,13 @@ def geo_powiats() -> Response:
     data = _geo_bytes("powiaty.geojson")
     if data is None:
         raise HTTPException(status_code=404, detail="Powiats boundary file not found")
+    return Response(content=data, media_type="application/json")
+
+@get("/geo/gminas", sync_to_thread=True)
+def geo_gminas() -> Response:
+    data = _geo_bytes("gminy.geojson")
+    if data is None:
+        raise HTTPException(status_code=404, detail="Gminas boundary file not found")
     return Response(content=data, media_type="application/json")
 
 # --- Powiat economics choropleth (residual maps) ---
@@ -309,6 +336,30 @@ def _build_pow_econ_geo():
             "clat": float(clat) if clat is not None else None,
         })
 
+    # Cities with powiat rights are their own GUS level-5 units with their own
+    # salary/unemployment - they enter the choropleth with their OWN numbers.
+    city_rows = client.execute("""
+        SELECT c.name, dv.name AS voiv,
+               COALESCE(c.avg_salary, 0), COALESCE(c.unemployment_rate, 0),
+               c.population, COUNT(l.store_id) AS stores
+        FROM dim_city c
+        JOIN dim_voivodeship dv ON dv.id = c.voivodeship_id
+        LEFT JOIN locations l
+          ON l.miasto_id = c.id AND l.deleted_at IS NULL
+        WHERE SUBSTR(c.gus_id, 8, 2) >= '61'
+        GROUP BY c.name, dv.name, c.avg_salary, c.unemployment_rate, c.population
+    """).fetchall()
+    city_units = []
+    for name, voiv, salary, unemp, pop, stores in city_rows:
+        per_1k = round(stores * 1000.0 / pop, 3) if pop else 0.0
+        city_units.append({
+            "name": name, "voiv": voiv,
+            "salary": float(salary or 0), "unemp": float(unemp or 0),
+            "per_1k": per_1k, "stores": int(stores),
+        })
+
+    # The regression/r/bounds stay fitted on land powiats only (the published
+    # correlation story); city residuals are measured against that same line.
     fit = [d for d in lands if d["salary"] > 0 and d["per_1k"] > 0]
     sal = [d["salary"] for d in fit]
     une = [d["unemp"] for d in fit]
@@ -318,7 +369,7 @@ def _build_pow_econ_geo():
     r_salary = _pearson(sal, dens)
     r_unemp = _pearson(une, dens)
 
-    for d in lands:
+    for d in lands + city_units:
         d["resid_salary"] = round(d["per_1k"] - (s_slope * d["salary"] + s_int), 3)
         d["resid_unemp"] = round(d["per_1k"] - (u_slope * d["unemp"] + u_int), 3)
 
@@ -327,6 +378,7 @@ def _build_pow_econ_geo():
 
     # lookup by (voiv_norm, stripped lowercase name) for the direct match
     by_key = {(_norm_voiv(d["voiv"]), _pow_geo_key(d["name"]).lower()): d for d in lands}
+    city_by_key = {(_norm_voiv(d["voiv"]), d["name"].lower()): d for d in city_units}
 
     woj_idx = build_polygon_index(json.loads(woj_path.read_bytes()))
     gj = json.loads(pow_path.read_bytes())
@@ -341,17 +393,13 @@ def _build_pow_econ_geo():
         voiv_norm = _norm_voiv(voiv)
         sname = _strip_pow(f["properties"].get("nazwa") or "").lower()
         d = by_key.get((voiv_norm, sname))
+        if d is None and sname in _POW_NAME_ALIASES:
+            d = by_key.get((voiv_norm, _POW_NAME_ALIASES[sname]))
         if d is None:
-            # city with powiat rights: inherit the nearest land powiat in the
-            # same voivodeship (they are merged there in our data model).
-            best, best_dist = None, 1e18
-            for cand in lands:
-                if _norm_voiv(cand["voiv"]) != voiv_norm or cand["clon"] is None:
-                    continue
-                dist = (cand["clon"] - cx) ** 2 + (cand["clat"] - cy) ** 2
-                if dist < best_dist:
-                    best, best_dist = cand, dist
-            d = best
+            # City with powiat rights - its polygon shows the CITY's own
+            # numbers, never the neighbouring land powiat's (hovering Warszawa
+            # vs powiat warszawski zachodni must give different data).
+            d = city_by_key.get((voiv_norm, sname))
         props = {"_fid": i, "nazwa": f["properties"].get("nazwa")}
         if d is not None:
             props.update({
@@ -528,7 +576,7 @@ def by_dimension(
     limit: FromQuery[int] = 20,
     offset: FromQuery[int] = 0
 ) -> ByDimensionResponse:
-    if dim not in ("city", "gmina", "powiat", "voivodeship"):
+    if dim not in ("city", "gmina", "powiat", "powiat_all", "voivodeship"):
         raise HTTPException(status_code=400, detail="Invalid dimension")
 
     lim = max(1, min(int(limit), 3000))
@@ -551,24 +599,78 @@ def by_dimension(
                  "lat": r[4], "lon": r[5], "voivodeship": r[6], "geo_id": str(r[7])}
                 for r in raw]
     elif dim == "gmina":
+        # geo_id = 7-digit TERYT, joinable client-side with gminy.geojson `kod`.
         raw = client.execute("""
             SELECT g.name, COUNT(l.store_id), g.population, g.area_km2,
-                   AVG(l.latitude), AVG(l.longitude), MAX(v.name), g.id
+                   AVG(l.latitude), AVG(l.longitude), MAX(v.name), g.gus_id
             FROM dim_gmina g
             JOIN locations l ON l.gmina_id = g.id
-              AND l.deleted_at IS NULL 
+              AND l.deleted_at IS NULL
             LEFT JOIN dim_voivodeship v ON v.id = g.voivodeship_id
-            GROUP BY g.id, g.name, g.population, g.area_km2
+            GROUP BY g.id, g.name, g.population, g.area_km2, g.gus_id
             HAVING COUNT(l.store_id) > 0
         """).fetchall()
+        raw = [r[:7] + (_teryt7(r[7]),) for r in raw]
         if raw:
             rows = [{"name": r[0], "cnt": r[1], "population": r[2], "area_km2": r[3],
                      "per_1k": round(r[1] * 1000.0 / r[2], 2) if r[2] else None,
                      "per_km2": round(r[1] / r[3], 3) if r[3] else None,
-                     "lat": r[4], "lon": r[5], "voivodeship": r[6], "geo_id": str(r[7])}
+                     "lat": r[4], "lon": r[5], "voivodeship": r[6],
+                     "geo_id": r[7]}
                     for r in raw]
         else:
             rows = _gmina_agg()
+    elif dim == "powiat_all":
+        # The PHYSICAL powiat division: 314 land powiats + 66 cities with
+        # powiat rights, each with its own stores/population/area. This is the
+        # map-side dataset - the choropleth over powiaty.geojson (380 polygons)
+        # is the same regardless of whether the bar chart shows land powiats
+        # or cities. geo_id = powiaty.geojson feature id.
+        geo = _pow_geo()
+        rows = []
+        land = client.execute("""
+            SELECT d.name, COUNT(l.store_id), d.population,
+                   AVG(l.latitude), AVG(l.longitude), MAX(l.voivodeship)
+            FROM dim_powiat d
+            LEFT JOIN locations l
+              ON l.powiat_id = d.id AND l.deleted_at IS NULL
+              AND NOT EXISTS (SELECT 1 FROM v_city_powiat_miasta c
+                              WHERE c.id = l.miasto_id)
+            GROUP BY d.id, d.name, d.population
+            HAVING COUNT(l.store_id) > 0
+        """).fetchall()
+        for name, cnt, pop, lat, lon, voiv in land:
+            g = geo.get((_norm_voiv(voiv), _pow_geo_key(name).lower()), {})
+            area, gid = g.get("area"), g.get("id")
+            rows.append({
+                "name": _strip_pow(name), "cnt": cnt, "population": pop,
+                "area_km2": area,
+                "per_1k": round(cnt * 1000.0 / pop, 2) if pop else None,
+                "per_km2": round(cnt / area, 3) if area else None,
+                "lat": lat, "lon": lon, "voivodeship": voiv or "",
+                "geo_id": str(gid) if gid is not None else None,
+            })
+        cities = client.execute("""
+            SELECT c.name, COUNT(l.store_id), c.population, c.area_km2,
+                   AVG(l.latitude), AVG(l.longitude), MAX(v.name)
+            FROM dim_city c
+            JOIN dim_voivodeship v ON v.id = c.voivodeship_id
+            LEFT JOIN locations l
+              ON l.miasto_id = c.id AND l.deleted_at IS NULL
+            WHERE SUBSTR(c.gus_id, 8, 2) >= '61'
+            GROUP BY c.id, c.name, c.population, c.area_km2
+            HAVING COUNT(l.store_id) > 0
+        """).fetchall()
+        for name, cnt, pop, area, lat, lon, voiv in cities:
+            g = geo.get((_norm_voiv(voiv), name.lower()), {})
+            gid = g.get("id")
+            rows.append({
+                "name": name, "cnt": cnt, "population": pop, "area_km2": area,
+                "per_1k": round(cnt * 1000.0 / pop, 2) if pop else None,
+                "per_km2": round(cnt / area, 3) if area else None,
+                "lat": lat, "lon": lon, "voivodeship": voiv or "",
+                "geo_id": str(gid) if gid is not None else None,
+            })
     else:
         # Per-capita density at the powiat level counts only stores that are NOT
         # in a city with powiat rights (those belong to the MIASTA dimension),
@@ -700,6 +802,7 @@ router = Router(
     route_handlers=[
         geo_voivodeships,
         geo_powiats,
+        geo_gminas,
         powiat_economics_geo,
         powiat_coverage,
         city_coverage,
