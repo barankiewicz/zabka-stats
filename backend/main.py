@@ -25,10 +25,19 @@ from litestar.exceptions import HTTPException
 from litestar.response import File
 from litestar.static_files import create_static_files_router
 
+from backend.api import (
+    admin_router as admin_module,
+    ecology_router as ecology_module,
+    fact_pages as fact_pages_module,
+    geo_router as geo_module,
+    history_router as history_module,
+    locations_router as locations_module,
+    spatial_router as spatial_module,
+    stats_router as stats_module,
+)
 from backend.api.admin_router import router as admin_router
 from backend.api.ecology_router import router as ecology_router
 from backend.api.fact_pages import router as fact_pages_router
-from backend.api.fact_pages import startup_facts
 from backend.api.geo_router import router as geo_router
 from backend.api.history_router import router as history_router
 from backend.api.locations_router import router as locations_router
@@ -274,14 +283,19 @@ async def upload_snapshot(request: Request) -> Response:
 
 
 # Router modules to import startup lifecycle hooks from
+# Startup hooks (`startup_handlers`) live on the router MODULES, not on the
+# Router instances - iterating instances here silently registered nothing,
+# which left the demographics cache on its hardcoded fallbacks and the geo
+# caches warming lazily on first request.
 router_modules = [
-    geo_router,
-    ecology_router,
-    spatial_router,
-    stats_router,
-    locations_router,
-    history_router,
-    admin_router,
+    geo_module,
+    ecology_module,
+    spatial_module,
+    stats_module,
+    locations_module,
+    history_module,
+    admin_module,
+    fact_pages_module,
 ]
 
 # Create parent API router prefixed with /api
@@ -308,9 +322,6 @@ for rm in router_modules:
     if hasattr(rm, "startup_handlers"):
         on_startup.extend(rm.startup_handlers)
 
-# fact_pages isn't part of router_modules (its routes live at /fakt/..., not
-# under /api), so its startup hook is registered directly.
-on_startup.append(startup_facts)
 
 # Serve frontend from Vite build output (frontend/dist/).
 _project_root = pathlib.Path(__file__).parent.parent
