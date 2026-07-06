@@ -14,10 +14,23 @@ from backend.etl.sources.parks import ParksEnricher
 
 def test_etl_helpers():
     # Test _derive_h24
-    assert io._derive_h24({"mon-sat": "00:00:00 - 00:00:00"}) is True
     assert io._derive_h24({"mon-sat": "00:00:00 - 24:00:00"}) is True
+    assert io._derive_h24({"mon-sat": "00:00:00 - 00:00:00"}) is True
     assert io._derive_h24({"mon-sat": "06:00:00 - 23:00:00"}) is False
     assert io._derive_h24({}) is False
+
+    # Test _norm_powiat (used to JOIN GUS economics -> dim_powiat). The
+    # disambiguation suffix "(maz.)/(wlkp.)/..." must be stripped so the key
+    # matches what GUS BDL returns (GUS does not carry the suffix).
+    from backend.etl.sources.economy import _norm_powiat
+    assert _norm_powiat("Powiat grodziski (maz.)") == "grodziski"
+    assert _norm_powiat("Powiat grodziski (wlkp.)") == "grodziski"
+    assert _norm_powiat("Powiat bielski (śl.)") == "bielski"
+    assert _norm_powiat("powiat sławieński") == "sławieński"
+    assert _norm_powiat("Powiat m. st. Warszawa") == "warszawa"
+    assert _norm_powiat("Powiat m. Wałbrzych od 2013") == "wałbrzych"
+    # Without the suffix, the result is unchanged
+    assert _norm_powiat("Powiat grodziski") == "grodziski"
 
     # Test _derive_open_sunday
     assert io._derive_open_sunday({"sun": "10:00:00 - 20:00:00"}) is True

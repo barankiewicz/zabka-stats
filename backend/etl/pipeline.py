@@ -73,29 +73,27 @@ def _build_geo_dims(rows: list[dict], lockers: list[dict], skip_gus: bool) -> tu
     if skip_gus:
         print("[gus] pominiete (--skip-gus) - wymiary bez ekonomii")
 
-    def _name_only(d):
-        out = {}
-        for (_, n), val in d.items():
-            out.setdefault(n, val)
-        return out
-    sal_fb, une_fb, pop_fb = _name_only(salary), _name_only(unempl), _name_only(popul)
-
-    def _lookup(d, dfb, voiv, key):
-        if (voiv, key) in d:
-            return d[(voiv, key)]
-        return dfb.get(key)
+    # GUS BDL returns {(voiv, powiat): value} and the voiv key disambiguates the
+    # 10 powiat names that exist in more than one voivodeship. We MUST look up
+    # by the full (voiv, key) tuple only - a name-only fallback would silently
+    # copy the mazowiecki grodziski value onto the wielkopolski grodziski row
+    # (or vice versa) whenever GUS has a gap for one of the pair. Better to
+    # leave the field NULL than to publish the wrong number. See commit
+    # "Fix per-capita and per-100k density" history for the original bug.
+    def _lookup(d, voiv, key):
+        return d.get((voiv, key))
 
     centroids = _load_powiat_centroids()
     dim_powiat, pop_by_voiv = [], {}
     for pid, (powiat, vid) in sorted(powiat_map.items()):
         voiv = voiv_map[vid]
         key = _norm_powiat(powiat)
-        p = _lookup(popul, pop_fb, voiv, key)
+        p = _lookup(popul, voiv, key)
         pop_i = int(p) if p is not None else None
         lon, lat = centroids.get(key, (None, None))
         dim_powiat.append((pid, powiat, vid, pop_i,
-                           _lookup(salary, sal_fb, voiv, key),
-                           _lookup(unempl, une_fb, voiv, key),
+                           _lookup(salary, voiv, key),
+                           _lookup(unempl, voiv, key),
                            lon, lat))
         if pop_i is not None:
             pop_by_voiv[voiv] = pop_by_voiv.get(voiv, 0) + pop_i

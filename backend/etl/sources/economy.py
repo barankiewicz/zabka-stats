@@ -56,8 +56,12 @@ def _voiv_from_unit_id(uid: str):
 
 def _norm_powiat(name: str):
     """Ujednolic nazwe powiatu do JOIN: usun prefiks 'powiat'/'m.'/'st.', sufiks
-    czasowy ('od 2013', 'do 2002'), lowercase, zastosuj alias rename'ow.
-    Dziala dla 'powiat sławieński', 'Powiat m. st. Warszawa', 'Powiat m. Wałbrzych od 2013'."""
+    czasowy ('od 2013', 'do 2002') i opcjonalny sufiks '(maz.)/(wlkp.)/...'
+    (nasza dysambig. powiatow o tej samej nazwie w roznych wojewodztwach -
+    GUS BDL tych sufiksow nie dodaje, wiec bez stripu klucz JOIN by nie trafil),
+    lowercase, zastosuj alias rename'ow.
+    Dziala dla 'powiat sławieński', 'Powiat m. st. Warszawa', 'Powiat m. Wałbrzych od 2013',
+    'Powiat grodziski (maz.)'."""
     if not name:
         return None
     s = name.strip().lower()
@@ -65,6 +69,7 @@ def _norm_powiat(name: str):
     s = re.sub(r"\bm\.\s*st\.\s*", "", s)
     s = re.sub(r"\bm\.\s*", "", s)
     s = re.sub(r"\s+(od|do|w latach)\s+\d{4}.*$", "", s)   # sufiks czasowy GUS
+    s = re.sub(r"\s*\([^)]+\)\s*$", "", s)                 # sufiks dysamb. '(maz.)' itp.
     s = re.sub(r"\s+", " ", s).strip()
     s = s or None
     return _POWIAT_ALIASES.get(s, s)
