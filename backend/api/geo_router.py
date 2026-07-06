@@ -269,15 +269,16 @@ def _build_pow_econ_geo():
     rows = client.execute("""
         SELECT dp.name, dv.name AS voiv,
                COALESCE(dp.avg_salary, 0), COALESCE(dp.unemployment_rate, 0),
-               pe.population AS eff_pop,
+               dp.population AS land_pop,
                COUNT(l.store_id) AS stores,
                dp.centroid_lon, dp.centroid_lat
         FROM dim_powiat dp
         JOIN dim_voivodeship dv ON dp.voivodeship_id = dv.id
-        JOIN v_powiat_pop_eff pe ON pe.powiat_id = dp.id
-        LEFT JOIN locations l ON l.powiat_id = dp.id AND l.deleted_at IS NULL
+        LEFT JOIN locations l
+          ON l.powiat_id = dp.id AND l.deleted_at IS NULL
+          AND NOT EXISTS (SELECT 1 FROM v_city_powiat_miasta c WHERE c.id = l.miasto_id)
         GROUP BY dp.name, dv.name, dp.avg_salary, dp.unemployment_rate,
-                 pe.population, dp.centroid_lon, dp.centroid_lat
+                 dp.population, dp.centroid_lon, dp.centroid_lat
     """).fetchall()
 
     lands = []
@@ -546,29 +547,35 @@ def by_dimension(
         else:
             rows = _gmina_agg()
     else:
-        # Per-capita density joins the effective-population view (land powiat +
-        # hosted cities with powiat rights) so it is not inflated by city stores
-        # landing on a small land-powiat denominator. See v_powiat_pop_eff /
-        # v_voiv_pop_eff in database.py for the single definition.
+        # Per-capita density at the powiat level counts only stores that are NOT
+        # in a city with powiat rights (those belong to the MIASTA dimension),
+        # divided by the land powiat's own population - so a land powiat that
+        # surrounds a big city is not drowned by that city's stores+population.
+        # See v_city_powiat_miasta in database.py.
         if dim == "powiat":
             dimtbl, fk = "dim_powiat", "powiat_id"
             extra = "WHERE NOT regexp_matches(d.name, '^powiat [A-ZĄĆĘŁŃÓŚŹŻ]')"
             geo = _pow_geo()
-            pop_join = "JOIN v_powiat_pop_eff pe ON pe.powiat_id = d.id"
+            pop_field = "d.population"
+            pop_join = ""
+            store_filter = ("AND NOT EXISTS (SELECT 1 FROM v_city_powiat_miasta c "
+                            "WHERE c.id = l.miasto_id)")
         else:
             dimtbl, fk = "dim_voivodeship", "voivodeship_id"
             extra = ""
             pop_join = "JOIN v_voiv_pop_eff pe ON pe.voivodeship_id = d.id"
             varea = _voiv_area()
+            pop_field = "pe.population"
+            store_filter = ""
         raw = client.execute(f"""
-            SELECT d.name, COUNT(l.store_id), pe.population,
+            SELECT d.name, COUNT(l.store_id), {pop_field} AS population,
                    AVG(l.latitude), AVG(l.longitude), MAX(l.voivodeship)
             FROM {dimtbl} d
             {pop_join}
             LEFT JOIN locations l
-              ON l.{fk} = d.id AND l.deleted_at IS NULL
+              ON l.{fk} = d.id AND l.deleted_at IS NULL {store_filter}
             {extra}
-            GROUP BY d.id, d.name, pe.population
+            GROUP BY d.id, d.name, {pop_field}
             HAVING COUNT(l.store_id) > 0
         """).fetchall()
         rows = []

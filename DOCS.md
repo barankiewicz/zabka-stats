@@ -852,23 +852,28 @@ Enrichment runs during the ETL pipeline to pre-calculate spatial features, ensur
   renames may need a fresh alias.
 - **Per-capita denominator for cities with powiat rights.** `dim_powiat.population`
   and `dim_voivodeship.population` are land-only GUS figures - they do NOT include
-  the 66 cities with powiat rights (TERYT kind >= 61), which are merged into a host
-  land powiat via `dim_city.powiat_id`. But a city's stores DO get counted against
-  that host powiat, so a naive `stores / dim_powiat.population` inflates per-capita
-  density ~10x (Warszawa's ~1150 stores land on powiat warszawski zachodni, pop
-  137k, not its own 1.87M). The correction lives in one place - two DuckDB views
-  defined in `database.py` (`ensure_extra_tables`): `v_powiat_pop_eff` and
-  `v_voiv_pop_eff` add each host's cities-with-powiat-rights population (SUM of
-  `dim_city` populations where TERYT kind >= 61) on top of the land-only figure.
-  Every per-capita query JOINs the relevant view instead of `dim_powiat.population`
-  / `dim_voivodeship.population` directly (voivodeship-level flows through
-  `get_voiv_population`, so `per-capita` and the InPost ratios inherit it). The
-  base dimension columns stay land-only - clean, GUS-sourced, and safe for the
-  downloadable `zabka.duckdb`; only the density denominator is corrected, via the
-  views. Consumers: `powiat-economics`, `powiat-economics-geo`, `by-dimension`
-  (powiat + voivodeship), `per-capita`, `inpost-vs-zabka`, `inpost-vs-zabka-by-level`.
-  A new per-capita endpoint just needs to JOIN the view - the rule is not repeated
-  per query.
+  the 66 cities with powiat rights (TERYT kind >= 61), which sit at `level = 4` and
+  are folded under a host land powiat via `dim_city.powiat_id` for geographic joins.
+  The two levels of the density metric are handled differently:
+
+  - **POWIAT level** - a city with powiat rights is a *separate* administrative
+    unit (it appears in the MIASTA dimension), so the land powiat's density must
+    use only its own stores and its own population. Stores whose `miasto_id` is a
+    city with powiat rights are excluded via `v_city_powiat_miasta` (`NOT EXISTS
+    (SELECT 1 FROM v_city_powiat_miasta c WHERE c.id = l.miasto_id)`, which is
+    NULL-safe) and the denominator is `dim_powiat.population` directly. E.g.
+    powiat warszawski zachodni reports ~46 stores / 137k = 0.33 per 1k (not the
+    merged 1187 / 2.0M = 0.59 it showed when Warsaw was folded in).
+  - **WOJEWÓDZTWO level** - a voivodeship genuinely contains its cities, so their
+    populations must be added to the denominator. `v_voiv_pop_eff` adds each
+    host's cities-with-powiat-rights population (SUM of `dim_city` populations
+    where TERYT kind >= 61) on top of the land-only figure.
+
+  The powiat-level exclusion lives inline in each query (the `NOT EXISTS` predicate
+  on the locations/parcel_lockers JOIN), and only the voivodeship-level denominator
+  goes through a view. Consumers: `powiat-economics`, `powiat-economics-geo`,
+  `by-dimension` (powiat + voivodeship), `per-capita`, `inpost-vs-zabka`,
+  `inpost-vs-zabka-by-level`.
 
 ---
 

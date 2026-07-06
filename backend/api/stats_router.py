@@ -309,9 +309,9 @@ def voivodeship_stats() -> list[VoivodeshipStatsResponseItem]:
 @get("/stats/powiat-economics", sync_to_thread=True)
 @cached(ttl=3600)
 def powiat_economics() -> list[PowiatEconomicsItem]:
-    # Density uses the effective-population view (land powiat + hosted cities with
-    # powiat rights); dp.population alone excludes those cities while their stores
-    # count here, which would inflate per_1k. See v_powiat_pop_eff in database.py.
+    # Land-powiat density: count only stores NOT in a city with powiat rights
+    # (those belong to the MIASTA dimension) and divide by the land powiat's
+    # own population. See v_city_powiat_miasta in database.py.
     rows = client.execute("""
         SELECT
             dp.id AS powiat_id,
@@ -319,14 +319,15 @@ def powiat_economics() -> list[PowiatEconomicsItem]:
             dv.name AS voivodeship,
             COALESCE(dp.avg_salary, 0) AS avg_salary,
             COALESCE(dp.unemployment_rate, 0) AS unemployment_rate,
-            pe.population AS population,
+            dp.population AS population,
             COUNT(l.store_id) AS stores,
             dp.centroid_lon, dp.centroid_lat
         FROM dim_powiat dp
         JOIN dim_voivodeship dv ON dp.voivodeship_id = dv.id
-        JOIN v_powiat_pop_eff pe ON pe.powiat_id = dp.id
-        LEFT JOIN locations l ON l.powiat_id = dp.id AND l.deleted_at IS NULL
-        GROUP BY dp.id, dp.name, dv.name, dp.avg_salary, dp.unemployment_rate, pe.population,
+        LEFT JOIN locations l
+          ON l.powiat_id = dp.id AND l.deleted_at IS NULL
+          AND NOT EXISTS (SELECT 1 FROM v_city_powiat_miasta c WHERE c.id = l.miasto_id)
+        GROUP BY dp.id, dp.name, dv.name, dp.avg_salary, dp.unemployment_rate, dp.population,
                  dp.centroid_lon, dp.centroid_lat
         HAVING COUNT(l.store_id) > 0
         ORDER BY dp.name
@@ -457,22 +458,24 @@ def inpost_vs_zabka_by_level(
                 "ratio": ratio,
             })
     elif level == "powiat":
-        # Effective-population view so per-100k is not inflated by city-with-powiat-
-        # rights stores landing on a small land-powiat denominator (v_powiat_pop_eff).
+        # Land-powiat density only: Żabki and paczkomaty NOT in a city with
+        # powiat rights (those belong to the MIASTA dimension), divided by the
+        # land powiat's own population. See v_city_powiat_miasta in database.py.
         zabka_rows = client.execute("""
-            SELECT dp.name, v.name, pe.population, COUNT(l.store_id)
+            SELECT dp.name, v.name, dp.population, COUNT(l.store_id)
             FROM dim_powiat dp
             JOIN dim_voivodeship v ON v.id = dp.voivodeship_id
-            JOIN v_powiat_pop_eff pe ON pe.powiat_id = dp.id
             JOIN locations l ON l.powiat_id = dp.id
                 AND l.deleted_at IS NULL
-            GROUP BY dp.id, dp.name, v.name, pe.population
+                AND NOT EXISTS (SELECT 1 FROM v_city_powiat_miasta c WHERE c.id = l.miasto_id)
+            GROUP BY dp.id, dp.name, v.name, dp.population
         """).fetchall()
         locker_rows = client.execute("""
             SELECT dp.name, v.name, COUNT(pl.external_id)
             FROM dim_powiat dp
             JOIN dim_voivodeship v ON v.id = dp.voivodeship_id
             JOIN parcel_lockers pl ON pl.powiat_id = dp.id AND pl.deleted_at IS NULL
+                AND NOT EXISTS (SELECT 1 FROM v_city_powiat_miasta c WHERE c.id = pl.miasto_id)
             GROUP BY dp.id, dp.name, v.name
         """).fetchall()
         locker_map = {(r[0].strip().lower(), r[1].strip().lower()): int(r[2]) for r in locker_rows}

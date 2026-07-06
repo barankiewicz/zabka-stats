@@ -68,6 +68,21 @@ def test_by_dimension(client):
     response = client.get("/api/stats/by-dimension?dimension=voivodeship&metric=count&sort=desc")
     assert response.status_code == 200
 
+def test_by_dimension_powiat_excludes_city_with_powiat_rights(client):
+    # A land powiat hosting a city with powiat rights (Warszawa sits inside
+    # powiat warszawski zachodni in the data model) must report its LAND-only
+    # stores and population - not the city's. Regression for the bug where the
+    # merged ~2,000,000 denominator crashed per_1k to 0.59 instead of ~0.33.
+    response = client.get("/api/stats/by-dimension?dim=powiat&metric=per1k&sort=desc&limit=400")
+    assert response.status_code == 200
+    rows = response.json()["rows"]
+    wz = next((r for r in rows if "warszawski zachodni" in r["name"].lower()), None)
+    assert wz is not None, "powiat warszawski zachodni missing from powiat dimension"
+    # Land population is ~137k; the folded/merged value was ~2,000,000.
+    assert wz["population"] < 300000, f"population inflated by city: {wz['population']}"
+    # City stores (~1145 in Warszawa) must not be counted under the land powiat.
+    assert wz["cnt"] < 200, f"city stores leaked into land powiat: {wz['cnt']}"
+
 def test_gmina_leaders(client):
     response = client.get("/api/stats/gmina-leaders")
     assert response.status_code == 200

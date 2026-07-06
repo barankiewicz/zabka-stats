@@ -336,13 +336,13 @@ def test_load_to_duckdb_truncation_guard():
 
 
 def test_per_capita_effective_population_views():
-    # v_powiat_pop_eff / v_voiv_pop_eff add a city-with-powiat-rights' own
-    # population back onto its host land powiat/voivodeship before any
-    # per-capita query divides by it - otherwise stores physically in a big
-    # city (attributed to a host powiat for geographic joins) get divided by
-    # that powiat's land-only population and density inflates ~10x. See
-    # DOCS.md section 3, "Per-capita denominator for cities with powiat
-    # rights". Uses IDs well above the ~3100 seeded rows to avoid collisions.
+    # v_voiv_pop_eff folds a city-with-powiat-rights' own population back onto
+    # its voivodeship before any per-capita query divides by it - a voivodeship
+    # genuinely contains its cities, so their populations must be in the
+    # denominator. v_city_powiat_miasta exposes those same cities' level-4 ids
+    # so powiat-level queries can EXCLUDE their stores from the surrounding land
+    # powiat (a city with powiat rights is a separate unit, shown in the MIASTA
+    # dimension). Uses IDs well above the ~3100 seeded rows to avoid collisions.
     con = duckdb.connect(":memory:")
     _run_all_ddl(con)
 
@@ -355,17 +355,9 @@ def test_per_capita_effective_population_views():
             (900004, 4, 'Testograd', 200000, '000000061000', 900001, 900002)
     """)
 
-    # Powiat hosting a city with powiat rights: land population + city population.
-    hosting = con.execute(
-        "SELECT population FROM v_powiat_pop_eff WHERE powiat_id = 900002"
-    ).fetchone()
-    assert hosting[0] == 5000 + 200000
-
-    # Powiat with no city attached: population unchanged.
-    plain = con.execute(
-        "SELECT population FROM v_powiat_pop_eff WHERE powiat_id = 900003"
-    ).fetchone()
-    assert plain[0] == 3000
+    # v_city_powiat_miasta: exactly the level-4 rows with pow_code >= '61'.
+    city_ids = {r[0] for r in con.execute("SELECT id FROM v_city_powiat_miasta").fetchall()}
+    assert city_ids == {900004}
 
     # Voivodeship: land population + every hosted city's population.
     voiv = con.execute(

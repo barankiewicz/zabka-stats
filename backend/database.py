@@ -503,22 +503,24 @@ def _ensure_teryt_views(con: duckdb.DuckDBPyConnection) -> None:
         WHERE level = 3
     """)
 
-    # Effective-population views for per-capita density.
-    con.execute("DROP VIEW IF EXISTS v_powiat_pop_eff")
+    # Level-4 cities with powiat rights (gus_id pow_code >= '61'). A store whose
+    # miasto_id lands here belongs to that CITY (shown in the MIASTA dimension),
+    # NOT to the surrounding land powiat - so powiat-level per-capita queries
+    # exclude such stores via `NOT EXISTS (SELECT 1 FROM v_city_powiat_miasta c
+    # WHERE c.id = l.miasto_id)` and divide by dim_powiat.population directly.
+    con.execute("DROP VIEW IF EXISTS v_city_powiat_miasta")
     con.execute("""
-        CREATE VIEW v_powiat_pop_eff AS
-        SELECT dp.id AS powiat_id,
-               dp.population + COALESCE(cr.addpop, 0) AS population
-        FROM dim_powiat dp
-        LEFT JOIN (
-            SELECT dc.powiat_id AS pid, SUM(dc.population) AS addpop
-            FROM dim_city dc
-            JOIN administrative_division ad
-              ON ad.id = dc.id AND ad.level = 4 AND SUBSTR(ad.gus_id, 8, 2) >= '61'
-            GROUP BY dc.powiat_id
-        ) cr ON cr.pid = dp.id
+        CREATE VIEW v_city_powiat_miasta AS
+        SELECT id FROM administrative_division
+        WHERE level = 4 AND SUBSTR(gus_id, 8, 2) >= '61'
     """)
 
+    # Effective-population view for VOIVODESHIP-level per-capita only. A
+    # voivodeship genuinely contains its cities, so their populations must be
+    # folded into the denominator (dim_voivodeship.population excludes them).
+    # NB: there is intentionally NO powiat-level equivalent - at the powiat
+    # level a city with powiat rights is a separate unit, so land-powiat
+    # density uses dim_powiat.population alone (see v_city_powiat_miasta).
     con.execute("DROP VIEW IF EXISTS v_voiv_pop_eff")
     con.execute("""
         CREATE VIEW v_voiv_pop_eff AS
