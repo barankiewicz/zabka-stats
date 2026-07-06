@@ -407,11 +407,17 @@ def powiat_coverage() -> PowiatCoverageResponse:
         GROUP BY miasto_id
     """).fetchall()
     dots = [[round(r[0], 4), round(r[1], 4)] for r in raw if r[0] is not None and r[1] is not None]
-    # 314 proper (land) powiats - cities with powiat rights are merged into their
-    # surrounding land powiat at level 2, so dim_powiat is the right denominator.
+    # covered/total describe LAND powiats only (a city with powiat rights is a
+    # separate unit counted in the MIASTA dimension, and stores there carry
+    # powiat_id NULL). The dots stay a union of both so the map has no holes
+    # over Warszawa/Kraków - so len(dots) can exceed `covered`.
     total_row = client.execute("SELECT COUNT(*) FROM dim_powiat").fetchone()
     total = total_row[0] if total_row else 314
-    covered = len(dots)
+    covered_row = client.execute("""
+        SELECT COUNT(DISTINCT powiat_id) FROM locations
+        WHERE deleted_at IS NULL AND powiat_id IS NOT NULL
+    """).fetchone()
+    covered = covered_row[0] if covered_row else 0
     return PowiatCoverageResponse(total=total, covered=covered, dots=dots)
 
 @get("/stats/city-coverage", sync_to_thread=True)
@@ -481,7 +487,7 @@ def coverage_funnel() -> list[CoverageFunnelItem]:
         WHERE deleted_at IS NULL AND powiat_id IS NOT NULL
     """).fetchone()
     pc_covered = pc_row[0] if pc_row else 0
-    # 314 proper (land) powiats; cities with powiat rights are merged in at level 2.
+    # 314 land powiats; cities with powiat rights live in the MIASTA level below.
     pc_total_row = client.execute("SELECT COUNT(*) FROM dim_powiat").fetchone()
     pc_total = pc_total_row[0] if pc_total_row else 314
 
