@@ -32,6 +32,69 @@ def test_etl_helpers():
     # Without the suffix, the result is unchanged
     assert _norm_powiat("Powiat grodziski") == "grodziski"
 
+
+def test_geo_dims_lowercase_voiv_lookup():
+    # Regression: GUS BDL returns voivodeship names LOWERCASE (via
+    # _TERYT_VOIV in economy.py), but administrative_division stores them
+    # UPPERCASE (seed + ETL convention). _lookup must lowercase the voiv it
+    # receives from locations before the dict lookup, otherwise the (voiv,
+    # key) tuple misses the GUS key and the field ends up NULL on prod. The
+    # previous "name-only fallback" masked this case mismatch and silently
+    # produced the cross-contamination we just fixed.
+    import duckdb
+    from backend.database import _run_all_ddl
+
+    con = duckdb.connect(":memory:")
+    _run_all_ddl(con)
+
+    # Seed two voivodeships and one duplicated powiat in each.
+    con.execute("""
+        INSERT INTO administrative_division (id, level, name, population, gus_id, voivodeship_id, powiat_id)
+        VALUES
+            (900001, 1, 'MAZOWIECKIE',  1000, NULL, NULL, NULL),
+            (900002, 1, 'WIELKOPOLSKIE', 2000, NULL, NULL, NULL),
+            (900011, 2, 'Powiat grodziski (maz.)',  100, NULL, 900001, NULL),
+            (900012, 2, 'Powiat grodziski (wlkp.)', 200, NULL, 900002, NULL)
+    """)
+
+    # Minimal facts as they come from locations: voivodeship in UPPERCASE.
+    rows = [
+        {"voivodeship_id": 900001, "voivodeship": "MAZOWIECKIE",
+         "powiat_id": 900011, "powiat": "Powiat grodziski (maz.)"},
+        {"voivodeship_id": 900002, "voivodeship": "WIELKOPOLSKIE",
+         "powiat_id": 900012, "powiat": "Powiat grodziski (wlkp.)"},
+    ]
+
+    # GUS dict: lowercase voiv + normalised powiat key (this is what
+    # fetch_gus_economics actually returns).
+    fake_gus = (
+        {("mazowieckie", "grodziski"):  100.0,    # salary
+         ("wielkopolskie", "grodziski"): 200.0},
+        {("mazowieckie", "grodziski"):  3.2,      # unempl
+         ("wielkopolskie", "grodziski"): 5.0},
+        {("mazowieckie", "grodziski"):  108342,   # popul
+         ("wielkopolskie", "grodziski"): 51358},
+    )
+
+    from backend.etl import pipeline as pipe
+    original = pipe.fetch_gus_economics
+    pipe.fetch_gus_economics = lambda: fake_gus
+    try:
+        dim_powiat, _ = pipe._build_geo_dims(rows, [], skip_gus=False)
+    finally:
+        pipe.fetch_gus_economics = original
+
+    by_id = {row[0]: row for row in dim_powiat}
+    # Each duplicated powiat must receive ITS OWN voiv's value, never the
+    # partner's. This is the assertion that would have failed under the old
+    # name-only fallback.
+    assert by_id[900011][3] == 108342, f"maz grodziski got {by_id[900011][3]}"
+    assert by_id[900012][3] == 51358,  f"wlkp grodziski got {by_id[900012][3]}"
+    assert by_id[900011][4] == 100.0
+    assert by_id[900012][4] == 200.0
+    assert by_id[900011][5] == 3.2
+    assert by_id[900012][5] == 5.0
+
     # Test _derive_open_sunday
     assert io._derive_open_sunday({"sun": "10:00:00 - 20:00:00"}) is True
     assert io._derive_open_sunday({}) is False

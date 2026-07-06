@@ -73,15 +73,17 @@ def _build_geo_dims(rows: list[dict], lockers: list[dict], skip_gus: bool) -> tu
     if skip_gus:
         print("[gus] pominiete (--skip-gus) - wymiary bez ekonomii")
 
-    # GUS BDL returns {(voiv, powiat): value} and the voiv key disambiguates the
-    # 10 powiat names that exist in more than one voivodeship. We MUST look up
-    # by the full (voiv, key) tuple only - a name-only fallback would silently
-    # copy the mazowiecki grodziski value onto the wielkopolski grodziski row
-    # (or vice versa) whenever GUS has a gap for one of the pair. Better to
-    # leave the field NULL than to publish the wrong number. See commit
-    # "Fix per-capita and per-100k density" history for the original bug.
+    # GUS BDL returns {(voiv, powiat): value} with the voiv key in lowercase
+    # (via _TERYT_VOIV in economy.py) and the powiat key normalised by
+    # _norm_powiat. We MUST look up by the full (voiv, key) tuple only - a
+    # name-only fallback would silently copy the mazowiecki grodziski value
+    # onto the wielkopolski grodziski row (or vice versa) whenever GUS has a
+    # gap for one of the pair. Better to leave the field NULL than to publish
+    # the wrong number. The voiv we receive from locations is UPPERCASE (that's
+    # how administrative_division stores voivodeship names on prod), so
+    # lowercase it before the dict lookup.
     def _lookup(d, voiv, key):
-        return d.get((voiv, key))
+        return d.get((voiv, key))  # TEMP: bez .lower() - test powinien FAIL
 
     centroids = _load_powiat_centroids()
     dim_powiat, pop_by_voiv = [], {}
