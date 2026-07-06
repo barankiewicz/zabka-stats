@@ -431,9 +431,15 @@ def test_per_capita_effective_population_views():
             (900004, 4, 'Testograd', 200000, '000000061000', 900001, 900002)
     """)
 
-    # v_city_powiat_miasta: exactly the level-4 rows with pow_code >= '61'.
+    # v_city_powiat_miasta: level-4 rows with pow_code >= '61'. The seed JSON
+    # contributes the 66 real cities with powiat rights, plus our synthetic one.
     city_ids = {r[0] for r in con.execute("SELECT id FROM v_city_powiat_miasta").fetchall()}
-    assert city_ids == {900004}
+    assert 900004 in city_ids
+    seeded = {r[0] for r in con.execute(
+        "SELECT id FROM administrative_division WHERE level = 4 AND SUBSTR(gus_id, 8, 2) >= '61' AND id < 900000"
+    ).fetchall()}
+    assert len(seeded) == 66
+    assert city_ids == seeded | {900004}
 
     # Voivodeship: land population + every hosted city's population.
     voiv = con.execute(

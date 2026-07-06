@@ -312,13 +312,14 @@ def _seed_administrative_division(con: duckdb.DuckDBPyConnection) -> None:
         return
     rows = json.loads(seed_path.read_text(encoding="utf-8"))
     if not rows:
-       con.executemany(
+        logger.warning(f"[schema] seed file is empty: {seed_path}")
+        return
+    con.executemany(
         "INSERT INTO administrative_division "
         "(id, level, name, population, area_km2, avg_salary, unemployment_rate, voivodeship_id, powiat_id, gus_id) "
         "VALUES (?,?,?,?,?,?,?,?,?,?)",
         [
-            (r["id"], r["level"],
-             r["name"].lower() if r["level"] == 1 else r["name"],
+            (r["id"], r["level"], r["name"],
              r.get("population"), r.get("area_km2"),
              r.get("avg_salary"), r.get("unemployment_rate"), r.get("voivodeship_id"),
              r.get("powiat_id"), r.get("gus_id"))
@@ -610,8 +611,8 @@ def _disambiguate_duplicate_powiaty(con: duckdb.DuckDBPyConnection) -> None:
         SET name = ad.name || ' (' || vmap.abbr || ')'
         FROM (VALUES {values_sql}) AS vmap(voiv_name, abbr)
         WHERE ad.level = 2
-          AND ad.voivodeship_id = (SELECT id FROM dim_voivodeship
-                                   WHERE lower(name) = lower(vmap.voiv_name))
+          AND ad.voivodeship_id IN (SELECT id FROM dim_voivodeship
+                                    WHERE lower(name) = lower(vmap.voiv_name))
           AND lower(ad.name) IN (
               SELECT lower(name) FROM administrative_division
               WHERE level = 2
