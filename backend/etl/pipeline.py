@@ -83,7 +83,7 @@ def _build_geo_dims(rows: list[dict], lockers: list[dict], skip_gus: bool) -> tu
     # how administrative_division stores voivodeship names on prod), so
     # lowercase it before the dict lookup.
     def _lookup(d, voiv, key):
-        return d.get((voiv, key))  # TEMP: bez .lower() - test powinien FAIL
+        return d.get((voiv.lower() if voiv else voiv, key))
 
     centroids = _load_powiat_centroids()
     dim_powiat, pop_by_voiv = [], {}
