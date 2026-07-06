@@ -14,7 +14,7 @@ function ensureMaplibre(){
     return m;
   });
 }
-import { fetchJSON, loadSiec, ensurePowGeo } from '../data.js';
+import { fetchJSON, loadSiec, ensurePowGeo, ensureGminaGeo } from '../data.js';
 import { renderBubble } from './bubble.js';
 import { renderKraniec, selectFact } from './kraniec.js';
 import { renderEdgeKPIs } from './edge.js';
@@ -1057,7 +1057,7 @@ function wirePowiatLevel(){
 
 /* ---------------- 1.2/1.3 bars (left) + voivodeship choropleth (right) ----- */
 
-const GRAN_WORD={voivodeship:'województwa',powiat:'powiaty',city:'miasta'};
+const GRAN_WORD={voivodeship:'województwa',powiat:'powiaty',city:'miasta',gmina:'gminy'};
 const PAGE=20;
 // Default dim is powiat (not voivodeship) per design spec
 let _gDim='powiat',_gMetric='count',_gSort='desc',_gRows=[],_gTotal=0,_gOffset=0;
@@ -1065,7 +1065,7 @@ let _gAvg=null,_gMedian=null,_gSum=0;
 // Full-dataset value range for bar coloring, independent of pagination/sort -
 // see the comment above drawGranularChart's color mapping for why.
 let _gVmin=0,_gVmax=1;
-const _FULL_RANGE_LIMIT={voivodeship:16};
+const _FULL_RANGE_LIMIT={voivodeship:16,gmina:3000};
 let _gSeq = 0;
 let _fillWojSeq = 0;
 
@@ -1093,8 +1093,8 @@ const _vKey=()=>_gMetric==='per1k'?'per_1k':_gMetric==='per_km2'?'per_km2':'cnt'
 const _isCount=()=>_gMetric==='count';
 
 // cross-filter passes a truthy non-string (legacy); ignore and re-render current view.
-// skipMap: pass true when only the dimension changed - the right choropleth is
-// voivodeship-only and doesn't care which dim the left chart shows.
+// skipMap: pass true to refresh only the left bar chart - the right map
+// follows the selected granulation (woj / physical powiats / gminy).
 export async function renderGranular(arg,{skipMap=false}={}){
   if(typeof arg==='string'&&GRAN_WORD[arg])_gDim=arg;
   _gOffset=0;
@@ -1299,7 +1299,8 @@ function _wFindRow(f){
   const p=f.properties||{};
   let name=(p.nazwa||p.name||'');
   name=name.replace(/^powiat\s+/i,'').toLowerCase();
-  return _wojById.get(String(p.id??p.ID))||_wojById.get(String(p.nazwa))
+  // p.kod = 7-digit TERYT in gminy.geojson; p.id = feature id in powiaty.geojson
+  return _wojById.get(String(p.kod??p.id??p.ID))||_wojById.get(String(p.nazwa))
     ||_wojByName.get(name)||_wojByName.get((p.nazwa||'').toLowerCase())||_wojByName.get((p.name||'').toLowerCase());
 }
 
@@ -1410,13 +1411,12 @@ function _updateMapMode(){
   }
 }
 
-// Scale bar (km) on the GRAN map, but only at the powiat level. Wojewodztwo
-// polygons are too coarse for a "200 km" ruler to add information; the
-// choropleth itself already tells you the unit. Powiaty are small enough that
-// a scale helps the eye anchor the visual.
+// Scale bar (km) on the GRAN map, but only below the voivodeship level.
+// Wojewodztwo polygons are too coarse for a "200 km" ruler to add
+// information; powiaty and gminy are small enough that a scale helps.
 function _updateWojScale(){
   if(!_wojMap)return;
-  const want = _wojLevelLive === 'powiat';
+  const want = _wojLevelLive !== 'voivodeship';
   const has = !!_wojScale;
   if(want && !has){
     _wojScale = new maplibregl.ScaleControl({ maxWidth: 100, unit: 'metric' });
@@ -1580,20 +1580,25 @@ async function _buildWojMap(el){
 
 async function _fillWoj(){
   const seq = ++_fillWojSeq;
-  // There is no per-city boundary GeoJSON (only /api/geo/voivodeships and
-  // /api/geo/powiats), so "Miasta" can't get its own choropleth - it falls
-  // back to the voivodeship view rather than aliasing to powiat (which used
-  // to make Powiaty/Miasta render as pixel-identical maps).
-  const level = _gDim === 'powiat' ? 'powiat' : 'voivodeship';
+  // Map level per granulation: voivodeships and gminas have their own
+  // boundary geojson; "Pow. ziemskie" AND "Miasta" both draw the PHYSICAL
+  // powiat division (314 land powiats + 66 cities with powiat rights,
+  // powiaty.geojson) where every polygon carries its own unit's data -
+  // hovering Warszawa vs powiat warszawski zachodni gives different numbers.
+  const level = _gDim === 'voivodeship' ? 'voivodeship'
+              : _gDim === 'gmina' ? 'gmina'
+              : 'powiat_all';
   _wojLevelLive = level;
   if (_wojSrcReady) _updateWojScale();
-  const limit = level === 'voivodeship' ? 16 : 400;
+  const limit = level === 'voivodeship' ? 16 : level === 'gmina' ? 3000 : 500;
 
   const res = await fetchDim(level, _gMetric, 'desc', limit, 0);
   if (seq !== _fillWojSeq) return;
   const rows = res.rows || [];
 
-  const geojson = level === 'voivodeship' ? M.woj_geo : await ensurePowGeo();
+  const geojson = level === 'voivodeship' ? M.woj_geo
+                : level === 'gmina' ? await ensureGminaGeo()
+                : await ensurePowGeo();
   if (seq !== _fillWojSeq) return;
 
   const push=()=>{ if(_wojMap&&_wojMap.getSource('gran-woj')) _setWojData(rows,geojson,_gMetric); };

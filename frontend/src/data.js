@@ -187,3 +187,11 @@ export async function ensurePowGeo() {
   M.powGeo = await fetchJSON('/api/geo/powiats');
   return M.powGeo;
 }
+
+export async function ensureGminaGeo() {
+  if (M.gminaGeo) {
+    return M.gminaGeo;
+  }
+  M.gminaGeo = await fetchJSON('/api/geo/gminas');
+  return M.gminaGeo;
+}

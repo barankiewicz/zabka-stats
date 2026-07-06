@@ -12,7 +12,7 @@ import { C, STATE, GRAN_FILL_STOPS, interpolateColorRamp } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
 import { fmt, getFont, destroyChart, startTabParticles, capName, whenVisible, wireCountUp, escapeHtml, showChartStatus } from '../utils.js';
 import { t, getLang } from '../i18n.js';
-import { fetchJSON, ensurePowGeo } from '../data.js';
+import { fetchJSON, ensurePowGeo, ensureGminaGeo } from '../data.js';
 
 // econ.js pulls in ECharts (~180 KB gz); its two scatter chapters sit at the
 // very bottom of this tab, well below the fold, so load it only once that
@@ -119,7 +119,8 @@ function _ipFindRow(f, byName, byId) {
   const p = f.properties || {};
   let name = (p.nazwa || p.name || '');
   name = name.replace(/^powiat\s+/i, '').toLowerCase();
-  return byId.get(String(p.id ?? p.ID)) || byId.get(String(p.nazwa))
+  // p.kod = 7-digit TERYT in gminy.geojson; p.id = feature id in powiaty.geojson
+  return byId.get(String(p.kod ?? p.id ?? p.ID)) || byId.get(String(p.nazwa))
     || byName.get(name) || byName.get((p.nazwa || '').toLowerCase()) || byName.get((p.name || '').toLowerCase());
 }
 
@@ -150,7 +151,9 @@ function _setIpData(data, geojson) {
       const rr = typeof d.ratio === 'number' ? d.ratio.toFixed(2) : String(d.ratio);
       nf.properties._label = (getLang() === 'en' ? rr : rr.replace('.', ',')) + 'x';
 
-      const _rn = f.properties.nazwa || '';
+      // Prefer the data row's name - it carries disambiguation suffixes
+      // ("(maz.)", "(p. chełmski)", "(gm. wiejska)") the geojson lacks.
+      const _rn = d.name || f.properties.nazwa || '';
       let dispName = _rn;
       if (_dbLevel !== 'voivodeship') {
         dispName = dispName.replace(/^powiat\s+/i, '');
@@ -220,13 +223,13 @@ function _updateIpMapMode(){
   }
 }
 
-// Scale bar (km) on the InPost map, but only at the powiat level. Same
-// reasoning as the GRAN map: at the voivodeship level the polygons are too
-// coarse for a "200 km" ruler to add information; at powiat it actually
+// Scale bar (km) on the InPost map, but only below the voivodeship level.
+// Same reasoning as the GRAN map: voivodeship polygons are too coarse for a
+// "200 km" ruler to add information; powiaty/gminy are small enough that it
 // anchors the visual size of each blob.
 function _updateIpScale(){
   if(!_ipMap)return;
-  const want = _ipLevelLive === 'powiat';
+  const want = _ipLevelLive !== 'voivodeship';
   const has = !!_ipScale;
   if(want && !has){
     _ipScale = new maplibregl.ScaleControl({ maxWidth: 100, unit: 'metric' });
@@ -341,25 +344,29 @@ let _dbSeq = 0;
 
 async function _fillInpost(){
   const seq = ++_fillInpostSeq;
-  // There is no per-city boundary GeoJSON (only /api/geo/voivodeships and
-  // /api/geo/powiats), so "Miasto" can't get its own choropleth - it falls
-  // back to the voivodeship view rather than joining city-level rows onto
-  // powiat polygons (which used to just leave the map looking empty/dark,
-  // since almost no city name matches a powiat name).
-  const level = (_dbLevel === 'powiat') ? 'powiat' : 'voivodeship';
+  // Map level per granulation: "Pow. ziemskie" AND "Miasta" both draw the
+  // PHYSICAL powiat division (314 land powiats + 66 cities with powiat
+  // rights, powiaty.geojson) where every polygon shows its own unit's
+  // numbers; "Gminy" gets its own gmina choropleth. Rows are joined to
+  // polygons by geo_id (feature id / TERYT), so duplicate names are safe.
+  const level = _dbLevel === 'voivodeship' ? 'voivodeship'
+              : _dbLevel === 'gmina' ? 'gmina'
+              : 'powiat_all';
   _ipLevelLive = level;
   if (_ipSrcReady) _updateIpScale();
   let data;
   if (level === 'voivodeship') {
     data = M.inpost_vs_zabka || [];
   } else {
-    const res = await fetchDumbbellLevel('powiat', 400);
+    const res = await fetchDumbbellLevel(level, level === 'gmina' ? 3000 : 500);
     if (seq !== _fillInpostSeq) return;
     data = res ? res.rows : [];
   }
   if (!data.length) return;
 
-  const geojson = level === 'voivodeship' ? M.woj_geo : await ensurePowGeo();
+  const geojson = level === 'voivodeship' ? M.woj_geo
+                : level === 'gmina' ? await ensureGminaGeo()
+                : await ensurePowGeo();
   if (seq !== _fillInpostSeq) return;
 
   const push=()=>{ if(_ipMap&&_ipMap.getSource('ip-woj')) _setIpData(data,geojson); };
