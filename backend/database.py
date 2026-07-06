@@ -567,7 +567,60 @@ def ensure_extra_tables(con: duckdb.DuckDBPyConnection) -> None:
     _migrate_parcel_lockers_pk(con)
     _ensure_teryt_tables(con)
     _ensure_teryt_views(con)
+    _disambiguate_duplicate_powiaty(con)
     _ensure_teryt_indexes(con)
+
+
+# Voivodeship (canonical uppercase, matches GUS) -> display suffix appended to
+# powiat names that collide across voivodeships (e.g. "Powiat grodziski (maz.)"
+# vs "(wlkp.)"). Only covers voivodeships that participate in a name collision.
+VOIV_ABBR = {
+    "MAŁOPOLSKIE":  "małop.",
+    "ŚLĄSKIE":      "śl.",
+    "PODLASKIE":    "podl.",
+    "MAZOWIECKIE":  "maz.",
+    "WIELKOPOLSKIE": "wlkp.",
+    "OPOLSKIE":     "op.",
+    "LUBUSKIE":     "lub.",
+    "PODKARPACKIE": "podk.",
+    "POMORSKIE":    "pom.",
+    "LUBELSKIE":    "lubel.",
+    "ŁÓDZKIE":      "łódz.",
+    "DOLNOŚLĄSKIE": "doln.",
+}
+
+
+def _disambiguate_duplicate_powiaty(con: duckdb.DuckDBPyConnection) -> None:
+    """Append "(skrot)" to powiat names duplicated across voivodeships.
+
+    10 GUS powiat names exist in more than one voivodeship (bielski, brzeski,
+    grodziski, krośnieński, nowodworski, opolski, ostrowski, tomaszowski,
+    średzki, świdnicki). Without a suffix the GRAN bar and economics choropleth
+    show two indistinguishable rows. The suffix is computed from the voivodeship
+    via VOIV_ABBR. Idempotent: rows already containing a parenthesised suffix
+    are skipped, so re-runs are no-ops. Voivodeship lookup is case-insensitive
+    because the seed lowercases names while ETL (prod) stores them UPPERCASE.
+    """
+    if not VOIV_ABBR:
+        return
+    # Build a VALUES list from VOIV_ABBR (keys in canonical uppercase).
+    values_sql = ", ".join(f"('{k}', '{v}')" for k, v in VOIV_ABBR.items())
+    con.execute(f"""
+        UPDATE administrative_division AS ad
+        SET name = ad.name || ' (' || vmap.abbr || ')'
+        FROM (VALUES {values_sql}) AS vmap(voiv_name, abbr)
+        WHERE ad.level = 2
+          AND ad.voivodeship_id = (SELECT id FROM dim_voivodeship
+                                   WHERE lower(name) = lower(vmap.voiv_name))
+          AND lower(ad.name) IN (
+              SELECT lower(name) FROM administrative_division
+              WHERE level = 2
+              GROUP BY lower(name)
+              HAVING COUNT(DISTINCT voivodeship_id) > 1
+          )
+          AND ad.name NOT LIKE '%(%'
+    """)
+    logger.info("[disambig] duplicate powiat names suffixed (idempotent)")
 
 
 # Kolumny dodane przez pipeline wzbogacenia (zabytki, wysokosc, parki, ekonomia, sasiedztwo).

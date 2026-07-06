@@ -366,6 +366,64 @@ def test_per_capita_effective_population_views():
     assert voiv[0] == 100000 + 200000
 
 
+def test_disambiguate_duplicate_powiaty():
+    # Two powiaty named identically in different voivodeships get a "(skrot)"
+    # suffix appended. The suffix comes from VOIV_ABBR via the voivodeship.
+    # Re-running is a no-op (idempotent). Voivodeship-name match is case-
+    # insensitive (seed lowercases, ETL may UPPERCASE).
+    from backend.api.geo_router import _pow_geo_key
+    from backend.database import VOIV_ABBR, _disambiguate_duplicate_powiaty
+
+    # _pow_geo_key: strips 'powiat ' and a trailing '(...)' suffix
+    assert _pow_geo_key("Powiat grodziski (maz.)") == "grodziski"
+    assert _pow_geo_key("powiat grodziski") == "grodziski"
+    assert _pow_geo_key("Powiat bielski (śl.)") == "bielski"
+    # name without suffix / prefix passthrough
+    assert _pow_geo_key("grodziski") == "grodziski"
+
+    con = duckdb.connect(":memory:")
+    _run_all_ddl(con)
+
+    # Insert the two voivodeships we need (self-contained - don't rely on the
+    # GUS seed JSON being loaded into this in-memory DB).
+    con.execute("""
+        INSERT INTO administrative_division (id, level, name, population, gus_id, voivodeship_id, powiat_id)
+        VALUES
+            (900001, 1, 'MAZOWIECKIE', 1000, NULL, NULL, NULL),
+            (900002, 1, 'WIELKOPOLSKIE', 2000, NULL, NULL, NULL)
+    """)
+
+    # Two "Powiat testowy" in two voivodeships + one non-duplicate control.
+    con.execute("""
+        INSERT INTO administrative_division (id, level, name, population, gus_id, voivodeship_id, powiat_id)
+        VALUES
+            (900011, 2, 'Powiat testowy', 1000, NULL, 900001, NULL),
+            (900012, 2, 'Powiat testowy', 2000, NULL, 900002, NULL),
+            (900013, 2, 'Powiat unikatowy', 3000, NULL, 900001, NULL)
+    """)
+
+    # Sanity: VOIV_ABBR has both voivodeships.
+    assert "MAZOWIECKIE" in VOIV_ABBR and "WIELKOPOLSKIE" in VOIV_ABBR
+
+    _disambiguate_duplicate_powiaty(con)
+
+    names = {r[0] for r in con.execute(
+        "SELECT name FROM administrative_division WHERE level=2 AND id IN (900011,900012,900013)"
+    ).fetchall()}
+    assert "Powiat testowy (maz.)" in names
+    assert "Powiat testowy (wlkp.)" in names
+    # The non-duplicate is untouched (no suffix added).
+    assert "Powiat unikatowy" in names
+    assert "Powiat unikatowy ()" not in names  # would mean it got a bogus empty suffix
+
+    # Idempotent: a second run must not double-suffix.
+    _disambiguate_duplicate_powiaty(con)
+    names2 = {r[0] for r in con.execute(
+        "SELECT name FROM administrative_division WHERE level=2 AND id IN (900011,900012,900013)"
+    ).fetchall()}
+    assert names2 == names, f"second run changed names: {names2 - names} / {names - names2}"
+
+
 def test_with_retries():
     # Succeeds on first attempt
     fn = MagicMock(return_value="success")

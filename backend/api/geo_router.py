@@ -1,5 +1,6 @@
 import json
 import math
+import re
 from pathlib import Path
 
 from litestar import Response, Router, get
@@ -89,6 +90,22 @@ def _ring_area_km2(ring):
 
 def _strip_pow(name):
     return name[7:] if name and name.lower().startswith("powiat ") else name
+
+
+_DISAMBIG_SUFFIX_RE = re.compile(r"\s*\([^)]+\)\s*$")
+
+
+def _pow_geo_key(name: str) -> str:
+    """Strip both the 'powiat ' prefix AND a trailing ' (skrot)' disambiguator.
+
+    Used ONLY as the lookup key into the powiaty.geojson index. The geojson's
+    'nazwa' property never carries the suffix (it's just 'powiat grodziski'),
+    so the disambiguated dim_powiat name ('powiat grodziski (maz.)') must be
+    reduced to the same plain key for the match to work. The DISPLAY name in
+    API responses keeps the suffix - this function is not used for display.
+    """
+    s = _strip_pow(name)
+    return _DISAMBIG_SUFFIX_RE.sub("", s)
 
 def _voiv_area():
     global _VOIV_AREA
@@ -309,7 +326,7 @@ def _build_pow_econ_geo():
     bound_unemp = round(_p90_abs([d["resid_unemp"] for d in fit]), 3)
 
     # lookup by (voiv_norm, stripped lowercase name) for the direct match
-    by_key = {(_norm_voiv(d["voiv"]), _strip_pow(d["name"]).lower()): d for d in lands}
+    by_key = {(_norm_voiv(d["voiv"]), _pow_geo_key(d["name"]).lower()): d for d in lands}
 
     woj_idx = build_polygon_index(json.loads(woj_path.read_bytes()))
     gj = json.loads(pow_path.read_bytes())
@@ -581,9 +598,10 @@ def by_dimension(
         rows = []
         for name, cnt, pop, lat, lon, voiv in raw:
             if dim == "powiat":
-                disp = _strip_pow(name)
+                disp = _strip_pow(name)  # display keeps the (skrot) suffix
+                geo_key = _pow_geo_key(name).lower()  # match key strips it
                 voiv_norm = _norm_voiv(voiv)
-                g = geo.get((voiv_norm, disp.lower()), {})
+                g = geo.get((voiv_norm, geo_key), {})
                 area, gid = g.get("area"), g.get("id")
             else:
                 disp, area, gid = name, varea.get(name) if varea else None, name

@@ -83,6 +83,28 @@ def test_by_dimension_powiat_excludes_city_with_powiat_rights(client):
     # City stores (~1145 in Warszawa) must not be counted under the land powiat.
     assert wz["cnt"] < 200, f"city stores leaked into land powiat: {wz['cnt']}"
 
+def test_by_dimension_powiat_disambiguates_duplicate_names(client):
+    # 10 GUS powiat names exist in >1 voivodeship. The by-dimension powiat
+    # endpoint must return them with a "(skrot)" suffix so the GRAN bar /
+    # economics choropleth can tell them apart. Regression for the ambiguity
+    # that made two indistinguishable "Powiat grodziski" rows in the ranking.
+    response = client.get("/api/stats/by-dimension?dim=powiat&metric=count&sort=desc&limit=400")
+    assert response.status_code == 200
+    names = [r["name"] for r in response.json()["rows"]]
+    # Spot-check the disambiguated pairs: both members must be present,
+    # suffixed, and distinct.
+    for base, suffixes in [
+        ("grodziski",    ["(maz.)", "(wlkp.)"]),
+        ("bielski",      ["(śl.)", "(podl.)"]),
+        ("brzeski",      ["(małop.)", "(op.)"]),
+        ("nowodworski",  ["(maz.)", "(pom.)"]),
+    ]:
+        for sfx in suffixes:
+            assert f"{base} {sfx}" in names, f"missing '{base} {sfx}' in powiat names"
+        # The bare (unsuffixed) base must NOT appear - otherwise the
+        # disambiguation didn't run.
+        assert base not in names, f"bare '{base}' should have been suffixed"
+
 def test_gmina_leaders(client):
     response = client.get("/api/stats/gmina-leaders")
     assert response.status_code == 200
