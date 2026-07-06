@@ -138,6 +138,10 @@ class GugikGeoResolver:
     def clean_powiat_name(name: str) -> str:
         if not name:
             return ""
+        # Suffix "(maz.)/(wlkp.)/..." rozroznia w bazie powiaty o tej samej
+        # nazwie w roznych wojewodztwach; GUGiK go nie zna, a klucz slownika
+        # i tak zawiera voivodeship_id, wiec zdejmujemy go przed porownaniem.
+        name = re.sub(r"\s*\([^)]*\)", "", name)
         return (name.lower()
                 .replace("powiat m. st.", "")
                 .replace("powiat m.", "")
@@ -319,24 +323,29 @@ class GugikGeoResolver:
         self._save_cache()
 
     def _apply_spatial_fallback(self, facts: list) -> None:
+        # Punkt jest rozwiazany, gdy ma wojewodztwo i gmine. powiat_id NIE
+        # bierze udzialu w tym tescie: dla miast na prawach powiatu None jest
+        # wartoscia poprawna (miasto nie lezy w zadnym powiecie ziemskim).
+        # Gdyby None znaczylo "nierozwiazany", kazda Żabka z Warszawy bylaby
+        # doklejana do najblizszego powiatu ziemskiego (warszawski zachodni).
         ref_pts = []
         for r in facts:
-            if r.get("voivodeship_id") is not None and r.get("powiat_id") is not None and r.get("gmina_id") is not None:
+            if r.get("voivodeship_id") is not None and r.get("gmina_id") is not None:
                 ref_pts.append((
-                    r["latitude"], 
-                    r["longitude"], 
-                    r["voivodeship_id"], 
-                    r["powiat_id"], 
+                    r["latitude"],
+                    r["longitude"],
+                    r["voivodeship_id"],
+                    r["powiat_id"],
                     r["gmina_id"],
-                    r["voivodeship"], 
+                    r["voivodeship"],
                     r["powiat"]
                 ))
-                
+
         if ref_pts:
             ref_coords = np.array([[x[0], x[1]] for x in ref_pts])
             fallback_count = 0
             for r in facts:
-                if r.get("voivodeship_id") is None or r.get("powiat_id") is None or r.get("gmina_id") is None:
+                if r.get("voivodeship_id") is None or r.get("gmina_id") is None:
                     dists = (ref_coords[:, 0] - r["latitude"])**2 + (ref_coords[:, 1] - r["longitude"])**2
                     idx = int(np.argmin(dists))
                     best_ref = ref_pts[idx]

@@ -40,6 +40,10 @@ def test_helpers():
     assert GugikGeoResolver.clean_powiat_name("Powiat m. st. Warszawa") == "warszawa"
     assert GugikGeoResolver.clean_powiat_name("Powiat m. Kraków") == "kraków"
     assert GugikGeoResolver.clean_powiat_name(None) == ""
+    # The cross-voivodeship disambiguation suffix lives only in our DB names;
+    # GUGiK returns the bare name, so the suffix must not break the match.
+    assert GugikGeoResolver.clean_powiat_name("Powiat grodziski (maz.)") == "grodziski"
+    assert GugikGeoResolver.clean_powiat_name("Powiat średzki (wlkp.)") == "średzki"
     
     assert GugikGeoResolver.normalize_city_name("Gorzów Wlkp.") == "Gorzów Wielkopolski"
     assert GugikGeoResolver.normalize_city_name("Stargard Szczeciński") == "Stargard"
@@ -219,6 +223,67 @@ def test_resolve_facts_known_miss_no_op_when_already_correct(mock_exists, mock_o
     assert facts[0]["miasto_id"] == 9
     assert facts[0]["voivodeship_id"] == 5
     assert facts[0]["powiat_id"] == 6
+
+
+def test_city_powiat_store_keeps_null_powiat_id():
+    # A city with powiat rights (Warszawa) is NOT part of any land powiat: its
+    # level-3/4 rows carry powiat_id NULL, and a store resolved onto it must
+    # keep powiat_id None. Crucially, the spatial fallback must NOT treat that
+    # None as "unresolved" and re-park the store on the nearest land powiat
+    # (that is exactly how Warsaw's stores used to leak into powiat
+    # warszawski zachodni's per-1000-residents metric).
+    con = duckdb.connect(":memory:")
+    con.execute("""
+        CREATE TABLE administrative_division (
+            id INTEGER PRIMARY KEY, level INTEGER, name VARCHAR,
+            voivodeship_id INTEGER, powiat_id INTEGER, gus_id VARCHAR,
+            area_km2 DOUBLE, centroid_lon DOUBLE, centroid_lat DOUBLE
+        )
+    """)
+    con.execute("INSERT INTO administrative_division VALUES (1, 1, 'mazowieckie', NULL, NULL, '071400000000', 35559.0, 21.0, 52.0)")
+    # Land powiat next door and one of its gminas
+    con.execute("INSERT INTO administrative_division VALUES (2, 2, 'Powiat warszawski zachodni', 1, NULL, '071413032000', 534.0, 20.8, 52.25)")
+    con.execute("INSERT INTO administrative_division VALUES (3, 3, 'Łomianki', 1, 2, '071413032033', 38.0, 20.89, 52.33)")
+    # Warszawa as a city with powiat rights: level 3/4, powiat_id NULL,
+    # gus_id is its level-5 unit (endswith '000', pow code 65).
+    con.execute("INSERT INTO administrative_division VALUES (4, 3, 'Warszawa', 1, NULL, '071412865000', 517.0, 21.01, 52.23)")
+    con.execute("INSERT INTO administrative_division VALUES (5, 4, 'Warszawa', 1, NULL, '071412865000', 517.0, 21.01, 52.23)")
+
+    resolver = GugikGeoResolver(con, "./dummy_cache.json")
+    resolver.gugik_cache = {
+        "warszawa": [{
+            "voivodeship": "mazowieckie", "county": "Warszawa",
+            "commune": "Warszawa", "teryt": "1465011",
+            "x": "21.01", "y": "52.23",
+        }],
+        "łomianki": [{
+            "voivodeship": "mazowieckie", "county": "warszawski zachodni",
+            "commune": "Łomianki", "teryt": "1432033",
+            "x": "20.89", "y": "52.33",
+        }],
+        "nieznane": [],  # forces the spatial fallback
+    }
+
+    facts = [
+        {"city": "Warszawa", "latitude": 52.23, "longitude": 21.01},
+        {"city": "Łomianki", "latitude": 52.33, "longitude": 20.89},
+        # Unresolved point in central Warsaw - nearest neighbour is the
+        # Warsaw store, so the fallback must copy powiat_id=None from it.
+        {"city": "Nieznane", "latitude": 52.231, "longitude": 21.011},
+    ]
+    resolver.resolve_facts(facts)
+
+    assert facts[0]["gmina_id"] == 4
+    assert facts[0]["miasto_id"] == 5
+    assert facts[0]["powiat_id"] is None
+
+    assert facts[1]["gmina_id"] == 3
+    assert facts[1]["powiat_id"] == 2
+    assert facts[1]["powiat"] == "Powiat warszawski zachodni"
+
+    assert facts[2]["gmina_id"] == 4
+    assert facts[2]["miasto_id"] == 5
+    assert facts[2]["powiat_id"] is None
 
 
 def test_norm_key_matches_across_hyphen_and_diacritics():
