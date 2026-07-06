@@ -217,6 +217,20 @@ def validate(voivodeships: list, powiats: list, gminas: list, cities: list) -> l
     if city_powiat_count != 66:
         errors.append(f"oczekiwano 66 miast na prawach powiatu, jest {city_powiat_count}")
 
+    # Nazwy gmin i miast musza byc unikalne w obrebie poziomu - od tego zalezy
+    # dopasowanie wierszy do poligonow i czytelnosc slupkow.
+    for rows_, label in ((gminas, "gmin"), (cities, "miast")):
+        dupes = [n for n, c in Counter(r["name"] for r in rows_).items() if c > 1]
+        if dupes:
+            errors.append(f"zdublowane nazwy {label}: {dupes[:10]} ({len(dupes)} lacznie)")
+
+    # Miasta na prawach powiatu to jednostki poziomu 5 - GUS publikuje dla
+    # nich bezrobocie i place; brak wartosci oznacza regres w pobieraniu.
+    for r in gminas + cities:
+        if is_city_powiat(r["gus_id"]):
+            if r["avg_salary"] is None or r["unemployment_rate"] is None:
+                errors.append(f"miasto na prawach powiatu bez ekonomii: lvl{r['level']} {r['name']}")
+
     # Spojnosc populacji: wojewodztwo (bez miast na prawach powiatu) musi byc
     # suma swoich powiatow ziemskich - dokladnie ta liczba jest mianownikiem
     # gestosci powiatowej, a v_voiv_pop_eff dodaje miasta z powrotem.
@@ -368,7 +382,8 @@ def main():
     def make_unit(gid: str, level: int) -> dict:
         """Wiersz poziomu 3/4 dla jednostki BDL poziomu 6.
 
-        Miasto na prawach powiatu dostaje dane (populacja/powierzchnia)
+        Miasto na prawach powiatu dostaje dane (populacja/powierzchnia,
+        bezrobocie/place - to jednostka poziomu 5, wiec GUS je publikuje)
         z wlasnej jednostki poziomu 5 i powiat_id = None - NIE nalezy do
         zadnego powiatu ziemskiego, wiec jego Żabki nie moga byc liczone
         do sasiedniego powiatu (np. Warszawa vs powiat warszawski zachodni).
@@ -384,8 +399,8 @@ def main():
                 "name": name,
                 "population": int(pop_l5[city_l5_id]["val"]),
                 "area_km2": float(area_l5[city_l5_id]["val"]) if city_l5_id in area_l5 else None,
-                "unemployment_rate": None,
-                "avg_salary": None,
+                "unemployment_rate": float(unemp_l5[city_l5_id]["val"]) if city_l5_id in unemp_l5 else None,
+                "avg_salary": float(salary_l5[city_l5_id]["val"]) if city_l5_id in salary_l5 else None,
                 "voivodeship_id": voiv_id_map.get(city_l5_id[:4] + "00000000"),
                 "powiat_id": None,
                 "gus_id": city_l5_id
@@ -408,6 +423,33 @@ def main():
 
     for gid in gmina_candidates:
         gminas.append(make_unit(gid, 3))
+
+    # Rozroznienie zdublowanych nazw gmin (poziom 3), dwuetapowo:
+    # 1. Para miejska+wiejska o tej samej nazwie w TYM SAMYM powiecie
+    #    (obwarzanki: Bochnia i gmina Bochnia) - wiejska dostaje "(gm. wiejska)".
+    # 2. Nazwy powtorzone miedzy powiatami - kazda gmina lezaca w powiecie
+    #    ziemskim dostaje "(p. <powiat>)". Miasto na prawach powiatu w grupie
+    #    duplikatow zostaje bez suffixu (nie lezy w zadnym powiecie, a jego
+    #    nazwa jest "pierwotna" - np. Chełm vs Chełm (p. chełmski)).
+    by_name_powiat = {}
+    for g in gminas:
+        by_name_powiat.setdefault((g["name"], g["powiat_id"]), []).append(g)
+    for (name, pid), grp in by_name_powiat.items():
+        if pid is not None and len(grp) > 1:
+            for g in grp:
+                if g["gus_id"][-1] == "2":
+                    g["name"] += " (gm. wiejska)"
+
+    # Suffix powiatu bez nawiasow z nazwy powiatu ("Powiat grodziski (maz.)"
+    # -> "p. grodziski maz."), zeby nie zagniezdzac nawiasow w nazwie gminy.
+    powiat_short = {
+        p["id"]: " ".join(re.sub(r"[()]", " ", p["name"]).split()).replace("Powiat ", "", 1)
+        for p in powiats
+    }
+    gmina_name_counts = Counter(g["name"] for g in gminas)
+    for g in gminas:
+        if gmina_name_counts[g["name"]] > 1 and g["powiat_id"] is not None:
+            g["name"] = f'{g["name"]} (p. {powiat_short[g["powiat_id"]]})'
 
     # --- LEVEL 4: Miasta (302 units - gminy miejskie, w tym 66 miast na
     # prawach powiatu). Wylacznie rodzaj TERYT 1.

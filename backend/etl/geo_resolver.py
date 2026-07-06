@@ -79,7 +79,10 @@ class GugikGeoResolver:
                     t6 = gus_id[2:4] + gus_id[7:9] + gus_id[9:11]
                 self.gmina_by_teryt6[t6] = g_id
                 
-            clean_gname = name.lower().strip()
+            # DB gmina names carry disambiguation suffixes ("(gm. wiejska)",
+            # "(p. chełmski)") that GUGiK commune names never have - strip
+            # them from the lookup key. The primary teryt6 path is unaffected.
+            clean_gname = re.sub(r"\s*\([^)]*\)", "", name).lower().strip()
             if pid:
                 self.gmina_by_name[(pid, clean_gname)] = g_id
             else:
