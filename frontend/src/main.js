@@ -448,6 +448,7 @@ const EXPORTABLES = [
   { id:'map-growth', kind:'maplibre', filename:'zabka-mapa-wzrostu' },
   { id:'canvas-calendar', kind:'canvas', filename:'zabka-kalendarz' },
   { id:'map-inpost', kind:'maplibre', filename:'zabka-inpost-mapa' },
+  { id:'inpost-dumbbell', kind:'svg', filename:'zabka-inpost-ranking' },
   { id:'chart-nbl', kind:'canvas', filename:'zabka-sasiedztwo' },
   { id:'spol-knnChart', kind:'canvas', filename:'zabka-knn' },
   { id:'chart-elevation', kind:'canvas', filename:'zabka-wysokosc' },

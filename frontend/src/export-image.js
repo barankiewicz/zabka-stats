@@ -14,13 +14,23 @@ const MUTED = 'rgba(147,164,135,.75)';
 // MapLibre canvases only hold valid pixels for the instant a 'render' event
 // fires (no preserveDrawingBuffer, on purpose - that flag costs memory/perf
 // for every frame just to support the rare export click). triggerRepaint()
-// forces one more frame; grabbing the canvas synchronously inside the
-// 'render' callback catches it before the buffer clears.
+// forces one more frame; copying the pixels to a plain 2D canvas synchronously
+// inside the 'render' callback catches them before the buffer clears - and,
+// unlike handing back the live canvas itself, survives whatever async work
+// (rasterizing another visual in the same panel, e.g.) happens before the
+// composed export actually gets drawn.
 export function getMapLibreCanvas(map){
   return new Promise((resolve, reject)=>{
     if(!map) return reject(new Error('map not ready'));
     map.triggerRepaint();
-    map.once('render', ()=>resolve(map.getCanvas()));
+    map.once('render', ()=>{
+      const src = map.getCanvas();
+      const copy = document.createElement('canvas');
+      copy.width = src.width;
+      copy.height = src.height;
+      copy.getContext('2d').drawImage(src, 0, 0);
+      resolve(copy);
+    });
   });
 }
 
@@ -34,14 +44,18 @@ export function getMapLibreCanvas(map){
 // that lived there needs to come along in the serialization. Dynamic
 // attributes set by D3 (fill, font-size, the bubble radius r) are
 // already on the elements and survive the round trip.
+// text-anchor is scoped to bubble's own classes rather than a blanket `text`
+// rule - other SVGs registered later (the InPost dumbbell chart) set
+// text-anchor via attribute per-element, and a blanket CSS rule would
+// override those attributes and wreck their alignment.
 const _SVG_EMBED_STYLES = `
-  text { text-anchor: middle; }
+  text { font-family: "IBM Plex Sans", sans-serif; }
   .bubble { stroke: none; }
   .bubble.rem { stroke: #a6e84a8c; stroke-width: 1.2; stroke-dasharray: 5 3; }
-  .b-main { font-family: "IBM Plex Sans", sans-serif; font-weight: 700; fill: #fff; }
-  .b-sub  { font-family: "JetBrains Mono", monospace; font-weight: 700; fill: #84c341; }
+  .b-main { font-family: "IBM Plex Sans", sans-serif; font-weight: 700; fill: #fff; text-anchor: middle; }
+  .b-sub  { font-family: "JetBrains Mono", monospace; font-weight: 700; fill: #84c341; text-anchor: middle; }
   .b-sub.bright { fill: #a6e84a; }
-  .b-sub2 { font-family: "JetBrains Mono", monospace; fill: #a6e84a; }
+  .b-sub2 { font-family: "JetBrains Mono", monospace; fill: #a6e84a; text-anchor: middle; }
 `;
 
 export async function svgToCanvas(svgEl, { scale = 2 } = {}){
@@ -154,6 +168,83 @@ export async function composePanelCanvas(panelEl, visuals, {scale=2}={}){
     if(p.w <= 0 || p.h <= 0) return;
     ctx.drawImage(canvas, p.x, p.y, p.w, p.h);
   });
+
+  // Stat call-outs that sit next to (or, for the growth map's year readout,
+  // directly on top of) a chart's canvas - the kNN "maks." line, the
+  // coverage donut's raw count/caption, the big year number over the growth
+  // map. Drawn after the visuals above so an overlay like the year readout
+  // doesn't get painted over by the map canvas underneath it.
+  [
+    { sel: '.statline', size: 13, weight: 600, family: '"JetBrains Mono", monospace', color: INK },
+    { sel: '.powiat-frac', size: 21, weight: 700, family: '"JetBrains Mono", monospace', color: INK },
+    { sel: '.powiat-cap', size: 13, weight: 500, family: '"IBM Plex Sans", sans-serif', color: MUTED },
+    { sel: '.growth-year', size: 35, weight: 800, family: '"Bricolage Grotesque", sans-serif', color: '#a6e84a' },
+  ].forEach(({sel, size, weight, family, color}) => {
+    drawText(panelEl.querySelector(sel), { font: `${weight} ${size*scale}px ${family}`, size: size*scale, color, maxLines: 1 });
+  });
+
+  // Ref-line / trend-color legends (GRAN + kNN + elevation's avg/median,
+  // the econ maps' below/on/above-trend swatches, InPost's dot legend) -
+  // each is a row of small items with a color swatch (a dashed line, a
+  // filled chip, or a dot) next to a label. Every item keeps its own
+  // on-screen rect, so a flex-wrapped legend lays out the way it actually
+  // looks without reimplementing that wrapping here.
+  const drawLegendItems = (items, font) => {
+    items.forEach(item => {
+      const text = item.textContent && item.textContent.trim();
+      if(!text) return;
+      const p = rel(item);
+      if(p.w<=0 || p.h<=0) return;
+      const swatch = item.querySelector('.lg-line, .econ-lg-swatch, .dot-legend-swatch');
+      const itemColor = getComputedStyle(item).color;
+      let swatchColor = itemColor;
+      if(swatch){
+        const cs = getComputedStyle(swatch);
+        if(cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && cs.backgroundColor !== 'transparent'){
+          swatchColor = cs.backgroundColor;
+        } else if(cs.borderTopColor){
+          swatchColor = cs.borderTopColor;
+        }
+      }
+      const sw = 12*scale, sh = 6*scale;
+      let textX = p.x;
+      if(swatch){
+        ctx.fillStyle = swatchColor;
+        ctx.fillRect(p.x, p.y + (p.h-sh)/2, sw, sh);
+        textX = p.x + sw + 6*scale;
+      }
+      ctx.fillStyle = itemColor;
+      ctx.font = font;
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, textX, p.y + p.h/2);
+    });
+  };
+  drawLegendItems(panelEl.querySelectorAll('.gran-ref-legend .lg-item'), `500 ${11.5*scale}px "JetBrains Mono", monospace`);
+  drawLegendItems(panelEl.querySelectorAll('.econ-map-legend .econ-lg-item'), `500 ${13.5*scale}px "IBM Plex Sans", sans-serif`);
+  drawLegendItems(panelEl.querySelectorAll('.dot-legend .dot-legend-item'), `500 ${12*scale}px "IBM Plex Sans", sans-serif`);
+  ctx.textBaseline = 'top';
+
+  // Per-region value labels on the GRAN/InPost choropleths are MapLibre
+  // Markers - real DOM nodes MapLibre repositions to track the map's pan/
+  // zoom, not pixels baked into the WebGL canvas above. Drawn last (on top
+  // of the map already drawn in visuals) with a dark stroke behind the fill
+  // for the same reason the CSS has a text-shadow: the map color underneath
+  // varies, so plain fill text can vanish over a light tile.
+  panelEl.querySelectorAll('.woj-val-label-marker').forEach(el => {
+    const text = el.textContent && el.textContent.trim();
+    if(!text) return;
+    const p = rel(el);
+    if(p.w<=0 || p.h<=0) return;
+    ctx.font = `600 ${11*scale}px "JetBrains Mono", monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 3*scale;
+    ctx.strokeStyle = 'rgba(0,0,0,.85)';
+    ctx.strokeText(text, p.x + p.w/2, p.y + p.h/2);
+    ctx.fillStyle = '#c8d4c0';
+    ctx.fillText(text, p.x + p.w/2, p.y + p.h/2);
+  });
+  ctx.textAlign = 'left';
 
   ctx.fillStyle = MUTED;
   ctx.font = `500 ${12*scale}px "JetBrains Mono", monospace`;
