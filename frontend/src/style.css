@@ -411,6 +411,22 @@ canvas{display:block}
 .map-legend-axis{display:flex;justify-content:space-between;margin-top:3px;color:#93a487;font-size:11px}
 .map-legend-axis--vert{flex-direction:column;justify-content:space-between;align-items:flex-end;margin-top:0;color:#93a487;font-size:11px;line-height:1.1}
 
+/* Mobile map overlays: on a phone-width map the corner overlays crowd the data
+   (the audit caught the color legend, the zoom-hint pill, and the export icons
+   all landing on southern voivodeships and their value labels on the InPost
+   map). On mobile we drop the persistent custom zoom-hint pill entirely - it sat
+   on Slaskie at the bottom-right and MapLibre already pops its own "use two
+   fingers" cooperative-gestures message exactly when a one-finger scroll is
+   blocked, so the guidance is not lost - and we tighten the color legend so it
+   takes up less of the small map. */
+@media(max-width:600px){
+  .map-zoom-hint{display:none}
+  .gran-legend{left:8px;bottom:8px;padding:5px 7px}
+  .gran-legend-bar{width:88px;height:7px}
+  .gran-legend-axis{font-size:9.5px}
+  .map-legend{left:8px;bottom:8px;padding:6px 7px}
+}
+
 
 /* CAVEAT */
 .caveat{font-size:12px;color:var(--muted);margin-top:8px;font-style:italic}
@@ -695,6 +711,21 @@ canvas{display:block}
   /* Touch has no hover, so the hover-only export/share panel-toolbar would
      otherwise be permanently invisible and undiscoverable - keep it shown. */
   .panel-toolbar{opacity:1;pointer-events:auto}
+
+  /* WCAG 2.2 target size: the primary controls are all well under the 44px
+     minimum on a finger (icon buttons 26px, the text toggles ~23-26px tall).
+     Bump the hit areas to >=44px on touch/coarse pointers only, so the tight
+     desktop styling is untouched. Buttons keep their visual look; it is the
+     padding / min box that grows. */
+  .panel-btn,.copy-link-btn{width:44px;height:44px}
+  .lang-btn,.gran-btn,.map-mode-toggle .mode-btn{min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+  .lang-btn{padding:5px 14px}
+  .gran-btn{padding:5px 14px}
+  .map-mode-toggle .mode-btn{padding:4px 12px}
+  /* Export/share icons sit inside the map's top-right corner; at 44px they are
+     bigger, so pull the toolbar tight to the corner to keep it off the map
+     data below it. */
+  .panel-toolbar{gap:6px}
 }
 
 /* MOBILE HEIGHTS: the big desktop-sized map/canvas panels are fixed-px tall

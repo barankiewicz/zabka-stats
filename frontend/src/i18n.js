@@ -233,11 +233,11 @@ export const translations = {
 
     // Econ maps
     econ_intro_title: "Where there are more Żabkas than statistics predict",
-    econ_intro_sub: "Two maps of powiats. The color shows the deviation from the trend line: how many more (green) or fewer (red) stores per 1,000 residents exist than predicted by a simple correlation with the selected indicator. White powiats sit exactly on the trend line. Green indicates a higher density than statistics would suggest.",
+    econ_intro_sub: "Two maps of powiats. The color shows the deviation from the trend line: how many more (orange) or fewer (purple) stores per 1,000 residents exist than predicted by a simple correlation with the selected indicator. Pale powiats sit exactly on the trend line. Orange indicates a higher density than statistics would suggest.",
     econ_unemp_title: "Residuals vs Unemployment",
-    econ_unemp_sub: "Usually, higher unemployment means a sparser network. Green shows powiats that still have more Żabkas than unemployment suggests.",
+    econ_unemp_sub: "Usually, higher unemployment means a sparser network. Orange shows powiats that still have more Żabkas than unemployment suggests.",
     econ_salary_title: "Residuals vs Wages",
-    econ_salary_sub: "Wealthier powiats have a denser network. Green = denser, red = sparser than wages alone would suggest.",
+    econ_salary_sub: "Wealthier powiats have a denser network. Orange = denser, purple = sparser than wages alone would suggest.",
     econ_error_load: "Failed to load data.",
     econ_error_retry: "Try again",
 
@@ -712,11 +712,11 @@ export const translations = {
 
     // Econ maps
     econ_intro_title: "Gdzie Żabek jest więcej, niż wynikałoby z ekonomii",
-    econ_intro_sub: "Dwie mapy powiatów. Kolor to nie surowe zagęszczenie, tylko odchylenie od trendu: o ile sklepów na 1000 mieszkańców jest więcej (zielony) albo mniej (czerwony), niż przewiduje prosta zależność od wskaźnika korelacji. Biały powiat leży dokładnie na linii trendu. Zieleń tam, gdzie sieć jest gęstsza, niż tłumaczyłaby to korelacja.",
+    econ_intro_sub: "Dwie mapy powiatów. Kolor to nie surowe zagęszczenie, tylko odchylenie od trendu: o ile sklepów na 1000 mieszkańców jest więcej (pomarańczowy) albo mniej (fioletowy), niż przewiduje prosta zależność od wskaźnika korelacji. Blady powiat leży dokładnie na linii trendu. Pomarańcz tam, gdzie sieć jest gęstsza, niż tłumaczyłaby to korelacja.",
     econ_unemp_title: "Reszty wobec bezrobocia",
-    econ_unemp_sub: "Zwykle im wyższe bezrobocie, tym rzadsza sieć. Zieleń pokazuje powiaty, które i tak mają więcej Żabek, niż sugeruje bezrobocie.",
+    econ_unemp_sub: "Zwykle im wyższe bezrobocie, tym rzadsza sieć. Pomarańcz pokazuje powiaty, które i tak mają więcej Żabek, niż sugeruje bezrobocie.",
     econ_salary_title: "Reszty wobec płacy",
-    econ_salary_sub: "Bogatsze powiaty mają gęstszą sieć. Zieleń = gęściej, czerwień = rzadziej, niż wynikałoby z samej płacy.",
+    econ_salary_sub: "Bogatsze powiaty mają gęstszą sieć. Pomarańcz = gęściej, fiolet = rzadziej, niż wynikałoby z samej płacy.",
     econ_error_load: "Nie udało się załadować danych.",
     econ_error_retry: "Spróbuj ponownie",
 

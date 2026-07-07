@@ -4,8 +4,10 @@
 // against a linear fit on an economic variable:
 //   left  map -> residual vs unemployment_rate
 //   right map -> residual vs avg_salary
-// Green = the powiat has more Żabki than its economy predicts, red = fewer,
-// pale = right on the trend line. Residuals + ramp bounds are precomputed by
+// Orange = the powiat has more Żabki than its economy predicts, purple = fewer,
+// pale = right on the trend line. This is a colorblind-safe diverging pair
+// (ColorBrewer PuOr); red/green was avoided because it is the classic
+// deuteranopia/protanopia trap. Residuals + ramp bounds are precomputed by
 // the /api/stats/powiat-economics-geo endpoint so we only fetch one joined
 // FeatureCollection and render each map from a different property.
 import { M, MAPS } from '../state.js';
@@ -37,17 +39,19 @@ const dec3 = v => {
   return (v >= 0 ? '+' : '−') + formatted.replace('.', sep);
 };
 
-// Diverging ramp from a symmetric bound: red-orange (below trend) -> pale
-// neutral (on trend) -> Żabka green (above trend). MapLibre clamps values
-// outside [-bound, bound] to the end stops, so resort outliers just saturate.
+// Diverging ramp from a symmetric bound: purple (below trend) -> pale neutral
+// (on trend) -> orange (above trend). Colorblind-safe (ColorBrewer PuOr) so the
+// two ends stay distinguishable under red-green color vision deficiency.
+// MapLibre clamps values outside [-bound, bound] to the end stops, so resort
+// outliers just saturate.
 function fillExpr(prop, bound) {
   const b = bound || 1;
   return ['interpolate', ['linear'], ['coalesce', ['get', prop], 0],
-    -b, '#c2410c',
-    -b * 0.45, '#e8693d',
+    -b, '#542788',
+    -b * 0.45, '#998ec3',
     0, '#e9ebd6',
-    b * 0.45, '#84c341',
-    b, '#a6e84a'];
+    b * 0.45, '#f1a340',
+    b, '#b35806'];
 }
 
 let _tip = null;
@@ -83,13 +87,13 @@ function tipHtml(p, propKey, econKey) {
     <b>${escapeHtml(p.name || p.nazwa)}</b><br/>
     ${t('econ_tip_per1k')} <b>${Number(p.per_1k).toFixed(3).replace('.', decSep)}</b><br/>
     ${econLine}<br/>
-    <span style="color:${denser ? '#a6e84a' : '#e8693d'}">${trendText}</span></span>`;
+    <span style="color:${denser ? '#f1a340' : '#998ec3'}">${trendText}</span></span>`;
 }
 
 function legendHtml() {
-  return `<span class="econ-lg-item"><span class="econ-lg-swatch" style="background:#e8693d"></span>${t('econ_legend_below')}</span>` +
+  return `<span class="econ-lg-item"><span class="econ-lg-swatch" style="background:#998ec3"></span>${t('econ_legend_below')}</span>` +
     `<span class="econ-lg-item"><span class="econ-lg-swatch" style="background:#e9ebd6"></span>${t('econ_legend_on')}</span>` +
-    `<span class="econ-lg-item"><span class="econ-lg-swatch" style="background:#84c341"></span>${t('econ_legend_above')}</span>`;
+    `<span class="econ-lg-item"><span class="econ-lg-swatch" style="background:#f1a340"></span>${t('econ_legend_above')}</span>`;
 }
 
 const _maps = {};

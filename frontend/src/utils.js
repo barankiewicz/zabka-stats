@@ -144,6 +144,14 @@ export function debounce(fn, wait=150){
 // 2026, which toLocaleString('en-US') would otherwise render as "2,026").
 // Call after setting .dataset.count so the target is ready when the observer
 // fires.
+//
+// Two guards against showing misleading intermediate values:
+//   - the tween is kept short (600ms) so a KPI like "297 z 302" doesn't linger
+//     on a wrong partial ("203 z 302") long enough to be read as a real figure;
+//   - year elements (data-nogroup, i.e. a bare 4-digit year) and anything
+//     explicitly flagged data-noanim skip the tween entirely - counting up to a
+//     calendar year is meaningless and renders nonsense on the way (1998 briefly
+//     reads as "1207").
 export function wireCountUp(root){
   if(!root)return;
   const nodes=root.querySelectorAll('[data-count]');
@@ -155,8 +163,9 @@ export function wireCountUp(root){
     const dec=parseInt(el.dataset.dec||'0',10),suf=el.dataset.suffix||'';
     const useGrouping=el.dataset.nogroup!=='1';
     const f=v=>v.toLocaleString(getLang()==='en'?'en-US':'pl-PL',{minimumFractionDigits:dec,maximumFractionDigits:dec,useGrouping})+suf;
-    if(prefersReduced){el.textContent=f(target);return;}
-    const dur=1300,t0=performance.now();
+    const skipAnim=prefersReduced||el.dataset.noanim==='1'||el.dataset.nogroup==='1';
+    if(skipAnim){el.textContent=f(target);return;}
+    const dur=600,t0=performance.now();
     (function step(t){let p=Math.min(1,(t-t0)/dur);p=1-Math.pow(1-p,3);el.textContent=f(target*p);if(p<1)requestAnimationFrame(step);})(t0);
   };
   if(typeof IntersectionObserver==='undefined'){nodes.forEach(countUp);return;}
