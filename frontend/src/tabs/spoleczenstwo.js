@@ -8,7 +8,7 @@ function ensureMaplibre(){
     return m;
   });
 }
-import { C, STATE, GRAN_FILL_STOPS, interpolateColorRamp } from '../config.js';
+import { C, STATE, GRAN_FILL_STOPS, GRAN_RAMP_STOPS, interpolateColorRamp } from '../config.js';
 import { M, CHARTS, MAPS } from '../state.js';
 import { fmt, getFont, destroyChart, startTabParticles, capName, whenVisible, wireCountUp, escapeHtml, showChartStatus } from '../utils.js';
 import { t, getLang } from '../i18n.js';
@@ -95,6 +95,7 @@ let _ipTip=null;
 let _ipLabelMarkers=[];
 let _ipLevelLive='voivodeship';  // level actually drawn on the map (see _fillInpost)
 let _ipScale=null;              // ScaleControl instance, only when level === 'powiat'
+let _ipVmin=0,_ipVmax=1;
 
 // Same ramp as GRAN (siec.js) - config.js's GRAN_FILL_STOPS - so a color
 // means the same thing on both maps. t=1 = highest ratio in view = lightest.
@@ -113,6 +114,35 @@ function _refreshIpLabels(features){
     el.textContent=lab;
     _ipLabelMarkers.push(new maplibregl.Marker({element:el,anchor:'center'}).setLngLat(c).addTo(_ipMap));
   });
+}
+
+// Color legend overlay (min→max ratio) for the InPost choropleth, sitting
+// above the km scale bar at bottom-left - same widget as GRAN's (siec.js),
+// same ramp (GRAN_RAMP_STOPS), reused class names since the styling is
+// generic rather than GRAN-specific.
+let _ipLegendEl = null;
+function _ensureIpLegend(){
+  if(_ipLegendEl || !_ipMap) return;
+  const c = document.getElementById('map-inpost');
+  if(!c) return;
+  _ipLegendEl = document.createElement('div');
+  _ipLegendEl.className = 'gran-legend';
+  const grad = GRAN_RAMP_STOPS.join(',');
+  _ipLegendEl.innerHTML =
+    `<div class="gran-legend-bar" style="background:linear-gradient(to right,${grad})"></div>` +
+    `<div class="gran-legend-axis"><span class="lo">–</span><span class="hi">–</span></div>`;
+  c.appendChild(_ipLegendEl);
+}
+function _ipFmtRatio(v){
+  const s = v.toFixed(2);
+  return (getLang() === 'en' ? s : s.replace('.', ',')) + 'x';
+}
+function _updateIpLegend(){
+  if(!_ipLegendEl) return;
+  const lo = _ipLegendEl.querySelector('.lo');
+  const hi = _ipLegendEl.querySelector('.hi');
+  if(lo) lo.textContent = _ipFmtRatio(_ipVmin);
+  if(hi) hi.textContent = _ipFmtRatio(_ipVmax);
 }
 
 function _ipFindRow(f, byName, byId) {
@@ -139,6 +169,7 @@ function _setIpData(data, geojson) {
 
   const vals = data.map(d => +d.ratio || 0);
   const vmin = Math.min(...vals), vmax = Math.max(...vals, vmin + 0.01);
+  _ipVmin = vmin; _ipVmax = vmax;
 
   const features = (geojson.features || []).map((f, i) => {
     const d = _ipFindRow(f, byName, byId);
@@ -181,6 +212,7 @@ function _setIpData(data, geojson) {
     _ipMap.getSource('ip-woj').setData(fc);
   }
   _refreshIpLabels(features);
+  _updateIpLegend();
 }
 
 async function renderInpostMap(){
@@ -323,6 +355,7 @@ async function _buildInpostMap(el){
       
       fitPoland(_ipMap,4);
       _updateIpScale();
+      _ensureIpLegend();
       _ipSrcReady=true;
     });
   } catch (e) {

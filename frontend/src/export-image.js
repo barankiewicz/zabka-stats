@@ -161,6 +161,11 @@ export async function composePanelCanvas(panelEl, visuals, {scale=2}={}){
   drawText(panelEl.querySelector('.caveat'), {
     font: `500 ${12*scale}px "IBM Plex Sans", sans-serif`, size: 12*scale, color: MUTED, maxLines: 3,
   });
+  // The growth chart's survivorship-bias note - same disclaimer role as
+  // .caveat above, just its own class (red-tinted callout box) instead.
+  drawText(panelEl.querySelector('.survival-note'), {
+    font: `500 ${12.5*scale}px "IBM Plex Sans", sans-serif`, size: 12.5*scale, color: '#e8693d', maxLines: 3,
+  });
 
   visuals.forEach(({canvas, el}) => {
     if(!canvas || !el) return;
@@ -245,6 +250,63 @@ export async function composePanelCanvas(panelEl, visuals, {scale=2}={}){
     ctx.fillText(text, p.x + p.w/2, p.y + p.h/2);
   });
   ctx.textAlign = 'left';
+
+  // Color-scale legend (GRAN + InPost choropleths) - a plain absolutely
+  // positioned box appended straight into the map container (not a MapLibre
+  // control tracking geo coordinates, so its rect is stable), holding a
+  // CSS-gradient bar plus min/max labels. The gradient is read back from the
+  // live element's computed style rather than duplicated here, so this stays
+  // correct if the ramp ever changes.
+  panelEl.querySelectorAll('.gran-legend').forEach(legendEl => {
+    const box = rel(legendEl);
+    if(box.w<=0 || box.h<=0) return;
+    const r = 6*scale;
+    ctx.fillStyle = 'rgba(10,18,10,.82)';
+    ctx.beginPath();
+    ctx.roundRect(box.x, box.y, box.w, box.h, r);
+    ctx.fill();
+
+    const bar = legendEl.querySelector('.gran-legend-bar');
+    if(bar){
+      const bp = rel(bar);
+      const colors = (getComputedStyle(bar).backgroundImage.match(/rgba?\([^)]+\)|#[0-9a-fA-F]{3,8}/g)) || [];
+      if(colors.length >= 2 && bp.w > 0 && bp.h > 0){
+        const grad = ctx.createLinearGradient(bp.x, bp.y, bp.x + bp.w, bp.y);
+        colors.forEach((c, i) => grad.addColorStop(i/(colors.length-1), c));
+        ctx.fillStyle = grad;
+        ctx.fillRect(bp.x, bp.y, bp.w, bp.h);
+      }
+    }
+    const lo = legendEl.querySelector('.lo'), hi = legendEl.querySelector('.hi');
+    ctx.fillStyle = '#93a487';
+    ctx.font = `500 ${10.5*scale}px "JetBrains Mono", monospace`;
+    ctx.textBaseline = 'top';
+    if(lo && lo.textContent.trim()){ const p = rel(lo); ctx.textAlign = 'left'; ctx.fillText(lo.textContent.trim(), p.x, p.y); }
+    if(hi && hi.textContent.trim()){ const p = rel(hi); ctx.textAlign = 'right'; ctx.fillText(hi.textContent.trim(), p.x + p.w, p.y); }
+    ctx.textAlign = 'left';
+  });
+
+  // MapLibre's own distance-scale control (the "50 km" ruler) - a native
+  // plugin DOM element, not canvas pixels, so it needs the same "read its
+  // own rect and redraw" treatment as everything else above.
+  panelEl.querySelectorAll('.maplibregl-ctrl-scale').forEach(el => {
+    const text = el.textContent && el.textContent.trim();
+    const p = rel(el);
+    if(!text || p.w<=0 || p.h<=0) return;
+    ctx.strokeStyle = '#c8d4c0';
+    ctx.lineWidth = 1.5*scale;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, p.y+p.h);
+    ctx.lineTo(p.x+p.w, p.y+p.h); ctx.lineTo(p.x+p.w, p.y);
+    ctx.stroke();
+    ctx.fillStyle = '#c8d4c0';
+    ctx.font = `500 ${10*scale}px "IBM Plex Sans", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(text, p.x + p.w/2, p.y + p.h - 1*scale);
+  });
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
 
   ctx.fillStyle = MUTED;
   ctx.font = `500 ${12*scale}px "JetBrains Mono", monospace`;
