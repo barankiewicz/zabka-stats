@@ -393,15 +393,18 @@ def test_upload_snapshot_too_large(client, monkeypatch):
 
 def test_upload_snapshot_success(client, monkeypatch, tmp_path):
     monkeypatch.setattr("backend.main.API_TOKEN", "test-token")
-    
+
     # Mock the target input directory to a temp path
     mock_input_dir = tmp_path / "data" / "input"
     mock_input_dir.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr("backend.main.pathlib.Path", lambda *args: tmp_path)
-    
-    # Mock daily_etl.run to do nothing
-    import backend.daily_etl
-    monkeypatch.setattr(backend.daily_etl, "run", lambda *args, **kwargs: None)
+
+    # Capture the ETL trigger instead of spawning it. The endpoint MUST fire the
+    # ETL as a separate process (subprocess.run), never in-process: an in-process
+    # run would call init_db(keep_open=False) and permanently disable this
+    # worker's read-only DuckDB client. We record the argv and assert on it.
+    calls = []
+    monkeypatch.setattr("backend.main.subprocess.run", lambda *a, **k: calls.append((a, k)))
 
     valid_json = b'{"meta": {"source_date": "2026-07-05"}, "stores": []}'
     files = {"file": ("snapshot.json", valid_json, "application/json")}
@@ -409,3 +412,61 @@ def test_upload_snapshot_success(client, monkeypatch, tmp_path):
     assert resp.status_code in (200, 201)
     assert resp.json()["status"] == "success"
     assert resp.json()["source_date"] == "2026-07-05"
+
+    # The ETL ran out-of-process as `python -m backend.daily_etl --fallback <file>`.
+    assert len(calls) == 1
+    argv = calls[0][0][0]
+    assert argv[1:4] == ["-m", "backend.daily_etl", "--fallback"]
+
+    # Regression guard for the #1 production bug: after a snapshot upload the
+    # serving worker's DuckDB client must still be alive (not disabled by an
+    # in-process init_db(keep_open=False)). A normal query must still return 200.
+    assert client.get("/api/stats/summary").status_code == 200
+
+
+# --- Query-parameter validation & clamping -----------------------------------
+
+def test_month_param_rejects_garbage(client):
+    # An unvalidated month string would become a Redis cache key and force a
+    # strftime() full scan. It must be rejected with a 400 instead.
+    for bad in ("2026-6", "not-a-month", "2026-13-01", "'; DROP TABLE locations--"):
+        resp = client.get("/api/locations", params={"month": bad})
+        assert resp.status_code == 400, f"expected 400 for month={bad!r}"
+
+
+def test_month_param_accepts_valid(client):
+    resp = client.get("/api/locations", params={"month": "2026-06"})
+    assert resp.status_code == 200
+
+
+def test_locations_limit_is_clamped(client):
+    # A huge limit must not translate into an unbounded LIMIT on the query.
+    resp = client.get("/api/locations", params={"limit": 100000000})
+    assert resp.status_code == 200
+    assert resp.json()["limit"] == 1000  # clamped to the max
+
+
+def test_locations_offset_floored(client):
+    resp = client.get("/api/locations", params={"limit": 1, "offset": -5})
+    assert resp.status_code == 200
+    assert resp.json()["offset"] == 0
+
+
+def test_changes_monthly_rejects_bad_year(client):
+    resp = client.get("/api/changes/monthly", params={"year": 999999})
+    assert resp.status_code == 400
+
+
+def test_geo_voivodeships_etag_and_304(client):
+    # First request should carry an ETag; a conditional re-request with that ETag
+    # must short-circuit to 304 Not Modified (no body re-download).
+    resp = client.get("/api/geo/voivodeships")
+    if resp.status_code != 200:
+        pytest.skip("boundary asset not present in this checkout")
+    etag = resp.headers.get("etag")
+    assert etag, "geo endpoint must expose an ETag"
+    assert "max-age" in resp.headers.get("cache-control", "")
+
+    resp2 = client.get("/api/geo/voivodeships", headers={"If-None-Match": etag})
+    assert resp2.status_code == 304
+

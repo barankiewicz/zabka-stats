@@ -4,7 +4,8 @@
 #
 # Changes vs the original single-worker unit:
 #   - uvicorn called directly (not via python -m backend.main) so --workers works
-#   - 4 workers (adjust to 2*nproc if you scale the VPS)
+#   - 1 worker on purpose (the app is not multi-worker-safe yet; see the note on
+#     ExecStart below) - do NOT raise this without fixing per-process caches/locks
 #   - access log off in production (reduces disk I/O under load)
 #   - LimitNOFILE raised to match /etc/security/limits.conf
 
@@ -27,13 +28,16 @@ Environment=ZABKA_DB=/home/zabka/zabka-stats/data/zabka.duckdb
 Environment=REDIS_SOCKET=/run/redis/redis-server.sock
 
 # Run uvicorn directly so --workers is honoured.
-# 4 workers for a 2-4 vCPU VPS. Each worker is a separate process,
-# each opens its own read-only DuckDB connection (safe because the ETL
-# stops this service before writing to the database).
+# ONE worker on purpose. The app is not multi-worker-safe yet: each worker keeps
+# its own in-process caches and per-process stampede locks (so N workers = N cold
+# caches and N-way cache stampedes), and the /api/snapshot -> ETL path opens a
+# read-write DuckDB connection that would collide with other workers' read-only
+# connections. Until those are made cross-process safe, stay at 1. A single
+# worker is plenty for this traffic behind nginx's microcache + Redis.
 ExecStart=/home/zabka/zabka-stats/venv/bin/uvicorn backend.main:app \
     --host 127.0.0.1 \
     --port 8000 \
-    --workers 4 \
+    --workers 1 \
     --no-access-log
 
 Restart=on-failure

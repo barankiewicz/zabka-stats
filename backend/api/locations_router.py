@@ -6,6 +6,7 @@ from litestar.exceptions import HTTPException
 from litestar.params import FromPath, FromQuery
 from litestar.serialization import encode_json
 
+from backend.api.params import clamp_limit, clamp_offset, validate_month
 from backend.cache import cached, get_cached_blob, set_cached_blob
 from backend.database import build_where_clause, client
 
@@ -29,6 +30,9 @@ def get_locations(
         limit: Pagination limit
         offset: Pagination offset
     """
+    month = validate_month(month)
+    limit = clamp_limit(limit)
+    offset = clamp_offset(offset)
     where_clauses = []
     params = []
 
@@ -101,6 +105,7 @@ def get_locations_for_map_geojson(
     otherwise pay on every request. Output bytes are unchanged (same fields, same
     encoder as the rest of the API).
     """
+    month = validate_month(month)
     cache_key = f"locations_map:{month or '_current'}"
     cached_blob = get_cached_blob(cache_key)
     if cached_blob is not None:

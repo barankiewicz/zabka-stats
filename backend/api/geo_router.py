@@ -1,9 +1,11 @@
+import hashlib
 import json
 import math
 import re
 from pathlib import Path
 
 from litestar import Response, Router, get
+from litestar.connection import Request
 from litestar.exceptions import HTTPException
 from litestar.params import FromQuery
 
@@ -34,6 +36,7 @@ _VOIV_AREA = None
 _POW_GEO = None
 _GMINA_AGG = None
 _GEO_BYTES: dict = {}   # filename -> raw bytes (boundary geojson, read once)
+_GEO_ETAG: dict = {}    # filename -> strong ETag for those bytes (computed once)
 
 
 def _geo_bytes(filename: str):
@@ -45,6 +48,34 @@ def _geo_bytes(filename: str):
         path = _GEO_DIR / filename
         _GEO_BYTES[filename] = path.read_bytes() if path.exists() else None
     return _GEO_BYTES[filename]
+
+
+def _geojson_response(filename: str, request: Request, not_found: str) -> Response:
+    """Serve a static boundary geojson with an ETag + Cache-Control so repeat
+    visits revalidate cheaply (304) instead of re-downloading hundreds of KB.
+
+    These files are large (gminy.geojson is ~500 KB gzipped) and effectively
+    immutable between boundary refreshes, but the raw Response path can't use the
+    Redis cache, and nginx only microcaches /api/ for 2s. A content-hash ETag
+    lets the browser skip the transfer entirely on repeat visits; max-age caps
+    how long a client waits before revalidating after a (rare) boundary change.
+    """
+    data = _geo_bytes(filename)
+    if data is None:
+        raise HTTPException(status_code=404, detail=not_found)
+
+    etag = _GEO_ETAG.get(filename)
+    if etag is None:
+        etag = '"' + hashlib.md5(data).hexdigest() + '"'  # noqa: S324 (cache validator, not security)
+        _GEO_ETAG[filename] = etag
+
+    headers = {"ETag": etag, "Cache-Control": "public, max-age=3600"}
+
+    if_none_match = request.headers.get("if-none-match")
+    if if_none_match and etag in [tag.strip() for tag in if_none_match.split(",")]:
+        return Response(content=b"", status_code=304, headers=headers)
+
+    return Response(content=data, media_type="application/json", headers=headers)
 
 
 # --- Startup Event ---
@@ -208,25 +239,22 @@ def _gmina_agg():
 # --- Endpoints ---
 
 @get("/geo/voivodeships", sync_to_thread=True)
-def geo_voivodeships() -> Response:
-    data = _geo_bytes("wojewodztwa.geojson")
-    if data is None:
-        raise HTTPException(status_code=404, detail="Voivodeships boundary file not found")
-    return Response(content=data, media_type="application/json")
+def geo_voivodeships(request: Request) -> Response:
+    return _geojson_response(
+        "wojewodztwa.geojson", request, "Voivodeships boundary file not found"
+    )
 
 @get("/geo/powiats", sync_to_thread=True)
-def geo_powiats() -> Response:
-    data = _geo_bytes("powiaty.geojson")
-    if data is None:
-        raise HTTPException(status_code=404, detail="Powiats boundary file not found")
-    return Response(content=data, media_type="application/json")
+def geo_powiats(request: Request) -> Response:
+    return _geojson_response(
+        "powiaty.geojson", request, "Powiats boundary file not found"
+    )
 
 @get("/geo/gminas", sync_to_thread=True)
-def geo_gminas() -> Response:
-    data = _geo_bytes("gminy.geojson")
-    if data is None:
-        raise HTTPException(status_code=404, detail="Gminas boundary file not found")
-    return Response(content=data, media_type="application/json")
+def geo_gminas(request: Request) -> Response:
+    return _geojson_response(
+        "gminy.geojson", request, "Gminas boundary file not found"
+    )
 
 # --- Powiat economics choropleth (residual maps) ---
 # Two side-by-side choropleths in the "Żabka a Polska" tab both use powiat

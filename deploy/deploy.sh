@@ -88,7 +88,25 @@ say "Shipping frontend/dist to $SSH_HOST"
 # --exclude '*.map': keep sourcemaps local only - no point shipping ~5 MB and
 # exposing unminified source on the server (Vite uses 'hidden' so browsers never
 # fetch them anyway).
-( cd frontend && tar czf - --exclude='*.map' dist ) | ssh "$SSH_HOST" "cd '$REMOTE_DIR/frontend' && rm -rf dist && tar xzf -"
+#
+# Atomic swap: extract into a timestamped releases/ dir, then flip the 'dist'
+# symlink with a single mv -Tf (rename(2), atomic). The old 'rm -rf dist && tar
+# xzf -' left a window where the running backend served 404s for every asset,
+# and a mid-extract failure left a broken dist with no rollback. Now a failed
+# extract never touches the live 'dist', and old releases are pruned (keep 3).
+( cd frontend && tar czf - --exclude='*.map' dist ) | ssh "$SSH_HOST" "
+  set -e
+  cd '$REMOTE_DIR/frontend'
+  REL=\"releases/\$(date +%s)\"
+  mkdir -p \"\$REL\"
+  tar xzf - -C \"\$REL\" --strip-components=1   # extract dist/* into \$REL
+  # First run only: 'dist' is still a real directory, not a symlink. You can't
+  # mv a symlink over a non-empty dir, so drop it once to bootstrap the scheme.
+  if [ -e dist ] && [ ! -L dist ]; then rm -rf dist; fi
+  ln -sfn \"\$REL\" dist.tmp
+  mv -Tf dist.tmp dist                          # atomic symlink replace (rename(2))
+  ls -1dt releases/*/ | tail -n +4 | xargs -r rm -rf   # keep the last 3 releases
+"
 
 # --- 6b. sync large geo data files (gitignored, must be kept in sync manually) --
 # These files are too big / too static to live in git, so we compare checksums

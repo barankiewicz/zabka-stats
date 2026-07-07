@@ -34,13 +34,15 @@ else
     echo "ETL failed." >> "$LOG_FILE"
 fi
 
-# 5. Nightly DuckDB backup
+# 5. Nightly DuckDB backup - ONLY on a successful run.
+# A failed/partial ETL can leave the DB in a bad state; backing it up anyway
+# would push good backups out of the rolling 7-day window and leave only corrupt
+# ones. So we gate the whole backup on ETL_STATUS=success.
 DB_FILE="data/zabka.duckdb"
 BACKUP_DIR="data/backups"
-mkdir -p "$BACKUP_DIR"
-BACKUP_FILE="$BACKUP_DIR/zabka_$(date +%F_%H-%M-%S).duckdb.gz"
-
-if [ -f "$DB_FILE" ]; then
+if [ "$ETL_STATUS" = "success" ] && [ -f "$DB_FILE" ]; then
+    mkdir -p "$BACKUP_DIR"
+    BACKUP_FILE="$BACKUP_DIR/zabka_$(date +%F_%H-%M-%S).duckdb.gz"
     echo "Creating DuckDB backup..." >> "$LOG_FILE"
     gzip -c "$DB_FILE" > "$BACKUP_FILE"
     echo "Backup saved to $BACKUP_FILE." >> "$LOG_FILE"
@@ -52,6 +54,8 @@ if [ -f "$DB_FILE" ]; then
         echo "Copying backup off-box to $BACKUP_OFFBOX_TARGET..." >> "$LOG_FILE"
         scp -i /home/zabka/.ssh/id_backup "$BACKUP_FILE" "$BACKUP_OFFBOX_TARGET" >> "$LOG_FILE" 2>&1 || echo "Warning: Off-box copy failed" >> "$LOG_FILE"
     fi
+elif [ "$ETL_STATUS" != "success" ]; then
+    echo "Skipping backup: ETL_STATUS=$ETL_STATUS (won't overwrite good backups with a bad run)." >> "$LOG_FILE"
 else
     echo "Warning: DuckDB file not found, skipping backup." >> "$LOG_FILE"
 fi

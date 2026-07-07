@@ -11,6 +11,7 @@ from litestar.serialization import encode_json
 
 from backend.api.demographics import get_voiv_population
 from backend.api.geo_router import _norm_voiv, _pow_geo, _pow_geo_key, _teryt7
+from backend.api.params import clamp_limit, validate_month
 from backend.cache import cached, clear_cache, get_cached_blob, set_cached_blob
 from backend.database import client
 from backend.schemas.api_models import (
@@ -684,7 +685,8 @@ def sunday_closed_stores(voivodeship: FromQuery[str]) -> list[SundayClosedStoreI
 @get("/stats/top-streets", sync_to_thread=True)
 @cached(ttl=1800)
 def get_top_streets(limit: FromQuery[int] = 20, month: FromQuery[str | None] = None) -> TopStreetsResponse:
-    limit = max(1, min(limit, 500))
+    month = validate_month(month)
+    limit = clamp_limit(limit, 500)
     params = []
     if month:
         where = "street IS NOT NULL AND strftime(created_at, '%Y-%m') <= ? AND (deleted_at IS NULL OR strftime(deleted_at, '%Y-%m') >= ?)"

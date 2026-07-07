@@ -253,13 +253,18 @@ async def upload_snapshot(request: Request) -> Response:
         # Offload blocking file write to thread
         await anyio.to_thread.run_sync(_save_json_to_file, data, temp_path)
 
-        # Import run here to avoid circular imports
-        from backend.daily_etl import run as run_etl
-
-        # Trigger ETL in the background
+        # Trigger the ETL as a SEPARATE PROCESS, not in-process.
+        # Running it in-process (via BackgroundTask(run_etl, ...)) would call
+        # init_db(keep_open=False) inside the ETL, which permanently disables
+        # THIS worker's read-only DuckDB proxy - every subsequent query on this
+        # worker then 500s until the service restarts. A subprocess opens its own
+        # read-write connection, does its work, and exits, leaving the serving
+        # workers' read-only clients untouched.
+        import sys
         task = BackgroundTask(
-            run_etl,
-            fallback=str(temp_path)
+            subprocess.run,
+            [sys.executable, "-m", "backend.daily_etl", "--fallback", str(temp_path)],
+            check=False,
         )
 
         return Response(

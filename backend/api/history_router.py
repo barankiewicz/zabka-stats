@@ -5,6 +5,7 @@ from litestar import Router, get
 from litestar.exceptions import HTTPException
 from litestar.params import FromPath, FromQuery
 
+from backend.api.params import validate_month, validate_year
 from backend.cache import cached
 from backend.database import build_where_clause, client
 
@@ -59,6 +60,7 @@ def get_monthly_changes(
     voivodeship: FromQuery[str | None] = None,
 ) -> dict:
     """Get monthly change statistics (created and deleted events only)."""
+    year = validate_year(year)
     where_clauses = []
     params = []
     if year:
@@ -121,6 +123,7 @@ def get_voivodeship_changes(
     month: FromQuery[str | None] = None,
 ) -> dict:
     """Get change statistics aggregated by voivodeship."""
+    month = validate_month(month)
     where = ""
     params = []
     if month:
