@@ -1266,9 +1266,9 @@ function drawGranularChart(){
 
 /* ---- Right-side: locked voivodeship choropleth (MapLibre, no tiles) ---- */
 
-// GRAN ramp (dark forest green -> Zabka brand green #84c341, t=1 = highest
-// value in view) now lives in config.js - granRamp/GRAN_FILL_STOPS - as the
-// single source of truth shared with the InPost choropleth in
+// GRAN ramp (deep blue -> deep Zabka green -> brand green #84c341, t=1 =
+// highest value in view) now lives in config.js - granRamp/GRAN_FILL_STOPS -
+// as the single source of truth shared with the InPost choropleth in
 // spoleczenstwo.js, so "lighter = more" always means the same colors.
 const _WOJ_FILL_STOPS=GRAN_FILL_STOPS;
 

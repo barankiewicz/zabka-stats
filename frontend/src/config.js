@@ -8,7 +8,7 @@ export const MACRO = {
 };
 
 export const C = {
-  green:'#84c341',greenBright:'#a6e84a',amber:'#f2a359',red:'#e8693d',teal:'#4dd0b1',
+  green:'#84c341',greenDeep:'#30b855',greenBright:'#a6e84a',amber:'#f2a359',red:'#e8693d',teal:'#4dd0b1',
   bg:'#0a120a',surface:'#0f1b0e',s2:'#0c160b',muted:'#93a487',axis:'rgba(140,200,80,.14)',ink:'#eef3e6',
   North:'#4dd0b1',West:'#a6e84a',Center:'#84c341',South:'#f2a359'
 };
@@ -32,13 +32,20 @@ export function fpRamp(t){
   return interpolateColorRamp(FP_STOPS, t);
 }
 
-// GRAN ramp: dark forest green (least) up to the Zabka brand green #84c341
-// (most) - capped there rather than running up to fpRamp's brighter lime.
+// GRAN ramp: deep blue (least) through teal into deep Zabka green #30b855 and
+// on to the brand green cap #84c341 (most). Replaced an all-green single-hue
+// ramp: its low end only hit 1.59:1 contrast against the dark map surface
+// (nearly invisible) and its worst-case adjacent color pair fell to ΔE 13.7
+// under simulated deuteranopia, barely above the colorblind-safe floor - both
+// measured with dataviz's validate_palette.js. This blue-to-green ramp clears
+// 2.76:1 at the low end and keeps every pair above ΔE 22 under deutan/protan
+// simulation, while still capping at the Zabka green so "more/higher" reads
+// the same brand-forward way it always has.
 // Single source of truth for every "more/higher = lighter" choropleth+bar
 // pairing: the GRAN map/bar chart (siec.js) and the InPost ratio choropleth
 // (spoleczenstwo.js) both read off this exact ramp, so a color always means
 // the same thing across both. t=1 is always the highest value in view.
-export const GRAN_RAMP_STOPS=['#233d1a','#3b5f24','#54802e','#6ca237','#84c341'];
+export const GRAN_RAMP_STOPS=['#145aa7','#207f8d','#299b7f',C.greenDeep,C.green];
 export function granRamp(t){
   return interpolateColorRamp(GRAN_RAMP_STOPS, t);
 }
