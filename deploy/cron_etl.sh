@@ -63,9 +63,27 @@ fi
 # 6. Restart backend
 sudo systemctl start zabka-backend.service
 
+# 6b. Wait for it to actually accept connections before warming the cache -
+# `systemctl start` returns as soon as the process is forked, not once uvicorn
+# has finished init_db()/on_startup and bound the port, so a fixed-length
+# warm-up here used to race the backend and fail every single request.
+echo "Waiting for backend to come up..." >> "$LOG_FILE"
+BACKEND_UP=""
+for _ in $(seq 1 30); do
+    if curl -sf http://127.0.0.1:8000/health > /dev/null 2>&1; then
+        BACKEND_UP="1"
+        break
+    fi
+    sleep 1
+done
+
 # 7. Warm the Redis cache
-echo "Warming cache..." >> "$LOG_FILE"
-python -m backend.warm_cache >> "$LOG_FILE" 2>&1 || echo "Warning: Cache warming failed" >> "$LOG_FILE"
+if [ -n "$BACKEND_UP" ]; then
+    echo "Backend is up, warming cache..." >> "$LOG_FILE"
+    python -m backend.warm_cache >> "$LOG_FILE" 2>&1 || echo "Warning: Cache warming failed" >> "$LOG_FILE"
+else
+    echo "Warning: backend did not respond to /health within 30s, skipping cache warm" >> "$LOG_FILE"
+fi
 
 # 8. Email status via Resend API
 if [ -n "$RESEND_API_KEY" ] && [ -n "$MAIL_TO" ]; then
